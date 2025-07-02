@@ -9,3 +9,7 @@ if __name__ == "__main__":
         train_user_voice()
     else:
         verify_speaker()
+
+
+
+# todo: add voice enhancement to train_speaker.py
