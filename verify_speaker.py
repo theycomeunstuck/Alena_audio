@@ -19,7 +19,6 @@ def verify_speaker():
 
     ref_emb = normalize(np.load(REFERENCE_FILE).reshape(1, -1))
 
-    # noise_prof = record_noise_profile()
 
     vad = webrtcvad.Vad(VAD_AGGR_MODE) # vad
     frame_size = int(FRAME_MS * SAMPLE_RATE / 1000) * 2
@@ -57,7 +56,6 @@ def verify_speaker():
 
                 # очистка и накопление
                 audio = np.frombuffer(bytes(voiced), dtype=np.int16).astype(np.float32)/32768.0
-                # clean = reduce_and_normalize(audio, noise_prof)
                 spk_buf = np.concatenate([spk_buf, audio])[-win_samples:]
 
                 # верификация
@@ -71,7 +69,7 @@ def verify_speaker():
                     print(f"[VERIFY] similarity = {sim:.3f}")
                     print(f"[ASR] {text}")
 
-                    if sim > 0.75 and "стоп" in text:
+                    if sim > 0.75 and "стоп" in text: # todo: переделать под sb, очень высоко оценивает чужие голоса
                         print(">>> Команда СТОП получена. Завершаю.")
                         break
                     elif sim > 0.75:
