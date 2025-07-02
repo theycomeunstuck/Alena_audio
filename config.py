@@ -3,6 +3,7 @@ import warnings
 import whisper
 from torch.cuda import is_available
 from speechbrain.inference.separation import SepformerSeparation as separator
+from speechbrain.inference.speaker import SpeakerRecognition
 
 # ——— ПАРАМЕТРЫ —————————————————————————————————————————————————————
 SAMPLE_RATE         = 16000
@@ -27,10 +28,23 @@ if device == "cuda":
 
 # Загрузка модели ASR
 asr_model = whisper.load_model(WHISPER_MODEL, device=device)
+
 noise_Model = separator.from_hparams(
     source="speechbrain/sepformer-dns4-16k-enhancement",
     savedir="pretrained_models/sepformer-dns4-16k-enhancement",
     run_opts={"device":device}).eval()
+
+speech_separation_model = separator.from_hparams(
+    source="speechbrain/sepformer-wsj02mix",
+    savedir='pretrained_models/sepformer-wsj02mix',
+    run_opts={"device":device}).eval()
+
+speech_verification_model = SpeakerRecognition.from_hparams(
+    source="speechbrain/spkrec-ecapa-voxceleb",
+    savedir="pretrained_models/spkrec-ecapa-voxceleb",
+    run_opts={"device":device}).eval()
+
+
 
 
 # Отключаем предупреждения Whisper и PyTorch
