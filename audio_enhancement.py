@@ -30,34 +30,41 @@ def noise_suppresion_SB(audio: np.ndarray) -> np.ndarray:
         print(f"[ERROR] Ошибка вызвана в файле {__file__} \n\n{e}")
         raise Exception
 
-def speech_separation_SB(audio, speaker=0) -> torch.Tensor:
-    '''Разделение аудио по speaker-id. Хорошо работает до 3 голосов включительно'''
 
-    # speech_separation_model
-    try:
-        if isinstance(audio, torch.Tensor):
-            audio_np = audio.detach().cpu().numpy()
-        elif isinstance(audio, np.ndarray):
-            audio_np = audio
-        else:
-            raise TypeError(f"{__file__} Unsupported audio type: {type(audio)}")
-
-        audio_np = audio_np.astype(np.float32)
-        Wav = torch.from_numpy(audio_np).unsqueeze(0).to(device)  # (1, N)
-        with torch.no_grad():
-            est_sources = speech_separation_model.separate_batch(Wav)
-
-        enhanced = est_sources[:, :].detach().cpu().squeeze() #n
-        return enhanced # torch.Size([samples, speakerCount])
-
-    except Exception as e:
-        print(f"[ERROR] Ошибка вызвана в файле {__file__} \n\n{e}")
-        raise
 
 def speech_verification_SB(audio: np.array) -> np.ndarray:
     pass
     # score, prediction = speech_verification_model.verify_files("/content/example1.wav", "/content/example2.flac")
 
 
-
-
+'''
+    Временно отказано от speech separation. probably i should change the model (not speechbrain)
+    cause of quality and underwater stones (recognize always (2,3) speakers and solution via 
+    cosinus formulation -> bruh, so why should i use this separation?
+'''
+# def speech_separation_SB(audio, speaker=0) -> torch.Tensor:
+#     '''Разделение аудио по speaker-id. Хорошо работает до 3 голосов включительно'''
+#
+#     # speech_separation_model
+#     try:
+#         if isinstance(audio, torch.Tensor):
+#             audio_np = audio.detach().cpu().numpy()
+#         elif isinstance(audio, np.ndarray):
+#             audio_np = audio
+#         else:
+#             raise TypeError(f"{__file__} Unsupported audio type: {type(audio)}")
+#
+#         if audio_np.ndim > 1:
+#             audio_np = audio_np.reshape(-1)
+#
+#         audio_np = audio_np.astype(np.float32)  # Добавляем батч
+#         Wav = torch.from_numpy(audio_np).unsqueeze(0).to(device)  # (1, N)
+#         with torch.no_grad():
+#             est_sources = speech_separation_model.separate_batch(Wav)
+#
+#         enhanced = est_sources[:, :].detach().cpu().squeeze()  # n
+#         return enhanced  # torch.Size([samples, speakerCount])
+#
+#     except Exception as e:
+#         print(f"[ERROR] Ошибка вызвана в файле {__file__} \n\n{e}")
+#         raise

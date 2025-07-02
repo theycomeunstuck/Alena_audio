@@ -13,7 +13,7 @@ FRAME_MS            = 30       # размер VAD-фрейма в мс
 SPK_WINDOW_S        = 3        # размер окна для верификации, сек
 STEP_S              = 1       # шаг сдвига окна, сек.  должно быть целым числом
 MIN_VOICE_RATIO     = 0.5         # минимальная доля реальные речи в окне для ASR. # Параметры гейтинга ASR:
-MAX_ASR_FAILURES    = 4          # необязательный: макс. подряд «фоновых» окон до сброса. # Параметры гейтинга ASR:
+MAX_ASR_FAILURES    = 5          # необязательный: макс. подряд «фоновых» окон до сброса. # Параметры гейтинга ASR:
 TARGET_DBFS         = -18.0       # dBFS для RMS-нормализации
 REFERENCE_FILE      = "reference.npy"
 REFERENCE_FILE_WAV  = "reference.wav"
@@ -34,10 +34,15 @@ noise_Model = separator.from_hparams(
     savedir="pretrained_models/sepformer-dns4-16k-enhancement",
     run_opts={"device":device}).eval()
 
-speech_separation_model = separator.from_hparams(
-    source="speechbrain/sepformer-wsj02mix",
-    savedir='pretrained_models/sepformer-wsj02mix',
-    run_opts={"device":device}).eval()
+# speech_separation_model = separator.from_hparams(
+#     source="speechbrain/sepformer-wsj02mix",
+#     savedir='pretrained_models/sepformer-wsj02mix',
+#     run_opts={"device":device}).eval()
+
+# speech_separation_model = separator.from_hparams(
+#     source="speechbrain/sepformer-libri3mix",
+#     savedir='pretrained_models/sepformer-libri3mix',
+#     run_opts={"device":device}).eval()
 
 speech_verification_model = SpeakerRecognition.from_hparams(
     source="speechbrain/spkrec-ecapa-voxceleb",

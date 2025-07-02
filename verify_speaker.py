@@ -57,43 +57,26 @@ def verify_speaker():
                 asr_fail = 0
 
                 # очистка и накопление
-                # audio = np.frombuffer(bytes(voiced), dtype=np.int16).astype(np.float32)/32768.0
-                audio = np.concatenate(voiced)
+                audio = np.concatenate(voiced) #float32
                 spk_buf = np.concatenate([spk_buf, audio])[-win_samples:]
 
                 # верификация
                 if len(spk_buf) >= win_samples:
-                    #todo: сейчас опция 1
-                    # todo: Проверить как будет работать, если: 1) очистка, speaker; 2) speaker; очистка    ?
-                    import soundfile as sf
-                    sf.write(f"debug_wav/fully_naked_{counter}.wav", spk_buf, SAMPLE_RATE)
-                    counter += 1
 
-                    # TODO: ДО СЮДА С АУДИО ВСЁ НОРМ
-                    #  КОПАЙ НА ШУМЫ, ВИДИМО
-
-                    # TODO: 2 SPEAKER RECOGNIZED ALWAYS
                     clean_audio = noise_suppresion_SB(spk_buf)
-                    speech_separation = speech_separation_SB(clean_audio)
-                    n_spk = speech_separation.size(1)
-                    print(f"{__file__}: Распознано {n_spk} speaker`ов")
-                    for speaker in range(n_spk): #speaker 1 - speakers
-                        source = speech_separation[:, speaker] # Речь {speaker} пользователя
-                        # clean_audio = noise_suppresion_SB(speech_separation[source])
+                    emb = normalize(encoder.embed_utterance(clean_audio).reshape(1, -1))
+                    sim = cosine_similarity(ref_emb, emb)[0,0]
 
-                        emb = normalize(encoder.embed_utterance(source).reshape(1, -1))
-                        sim = cosine_similarity(ref_emb, emb)[0,0]
+                    result = asr_model.transcribe(clean_audio, language="ru")
+                    text = result["text"].strip().lower()
+                    print(f"[VERIFY]: similarity = {sim:.3f}")
+                    print(f"[ASR]: {text}")
 
-                        result = asr_model.transcribe(source, language="ru")
-                        text = result["text"].strip().lower()
-                        print(f"[VERIFY]. Speaker {speaker + 1}: similarity = {sim:.3f}")
-                        print(f"[ASR] Speaker {speaker + 1}: {text}")
-
-                        if sim > 0.75 and "стоп" in text: # todo: переделать под sb, очень высоко оценивает чужие голоса
-                            print(">>> Команда СТОП получена. Завершаю.")
-                            break
-                        elif sim > 0.75:
-                            print(">>> Speaker VERIFIED!")
+                    if sim > 0.75 and "стоп" in text: # todo: переделать под sb, очень высоко оценивает чужие голоса
+                        print(">>> Команда СТОП получена. Завершаю.")
+                        break
+                    elif sim > 0.75:
+                        print(">>> Speaker VERIFIED!")
         except KeyboardInterrupt:
             print("\n[VERIFY] Остановлено пользователем")
     return False
