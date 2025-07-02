@@ -34,16 +34,6 @@ noise_Model = separator.from_hparams(
     savedir="pretrained_models/sepformer-dns4-16k-enhancement",
     run_opts={"device":device}).eval()
 
-# speech_separation_model = separator.from_hparams(
-#     source="speechbrain/sepformer-wsj02mix",
-#     savedir='pretrained_models/sepformer-wsj02mix',
-#     run_opts={"device":device}).eval()
-
-# speech_separation_model = separator.from_hparams(
-#     source="speechbrain/sepformer-libri3mix",
-#     savedir='pretrained_models/sepformer-libri3mix',
-#     run_opts={"device":device}).eval()
-
 speech_verification_model = SpeakerRecognition.from_hparams(
     source="speechbrain/spkrec-ecapa-voxceleb",
     savedir="pretrained_models/spkrec-ecapa-voxceleb",
