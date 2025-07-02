@@ -6,8 +6,10 @@ import sounddevice as sd
 from sklearn.preprocessing import normalize
 from sklearn.metrics.pairwise import cosine_similarity
 
-from audio_enhancement import noise_suppresion_SB
-from config import (REFERENCE_FILE, SAMPLE_RATE, FRAME_MS, VAD_AGGR_MODE, SPK_WINDOW_S, STEP_S, MIN_VOICE_RATIO, MAX_ASR_FAILURES, device)
+from audio_enhancement import noise_suppresion_SB, speech_separation_SB, speech_verification_SB
+from config import (REFERENCE_FILE, SAMPLE_RATE, FRAME_MS,
+                    VAD_AGGR_MODE, SPK_WINDOW_S, STEP_S,
+                    MIN_VOICE_RATIO, MAX_ASR_FAILURES, device)
 from audio_utils import record_noise_profile, normalize_rms, reduce_and_normalize
 from resemblyzer import VoiceEncoder
 from config import asr_model
@@ -60,20 +62,30 @@ def verify_speaker():
 
                 # верификация
                 if len(spk_buf) >= win_samples:
-                    clean_audio = noise_suppresion_SB(spk_buf)
-                    emb = normalize(encoder.embed_utterance(clean_audio).reshape(1, -1))
-                    sim = cosine_similarity(ref_emb, emb)[0,0]
 
-                    result = asr_model.transcribe(clean_audio, language="ru")
-                    text = result["text"].strip().lower()
-                    print(f"[VERIFY] similarity = {sim:.3f}")
-                    print(f"[ASR] {text}")
+                    # todo: Проверить как будет работать, если: 1) очистка, speaker; 2) speaker; очистка    ?
+                    clean_audio = noise_suppresion_SB(spk_buf) # Сейчас реализован 1 вариант
 
-                    if sim > 0.75 and "стоп" in text: # todo: переделать под sb, очень высоко оценивает чужие голоса
-                        print(">>> Команда СТОП получена. Завершаю.")
-                        break
-                    elif sim > 0.75:
-                        print(">>> Speaker VERIFIED!")
+                    speech_separation = speech_separation_SB(clean_audio)
+                    n_spk = speech_separation.size(1)
+                    print(f"{__file__}: Распознано {n_spk} speaker`ов")
+                    for speaker in range(n_spk): #speaker 1 - speakers
+                        source = speech_separation[:, speaker] # Речь {speaker} пользователя
+                        # clean_audio = noise_suppresion_SB(speech_separation[source])
+
+                        emb = normalize(encoder.embed_utterance(source).reshape(1, -1))
+                        sim = cosine_similarity(ref_emb, emb)[0,0]
+
+                        result = asr_model.transcribe(source, language="ru")
+                        text = result["text"].strip().lower()
+                        print(f"[VERIFY]. Speaker {speaker + 1}: similarity = {sim:.3f}")
+                        print(f"[ASR] Speaker {speaker + 1}: {text}")
+
+                        if sim > 0.75 and "стоп" in text: # todo: переделать под sb, очень высоко оценивает чужие голоса
+                            print(">>> Команда СТОП получена. Завершаю.")
+                            break
+                        elif sim > 0.75:
+                            print(">>> Speaker VERIFIED!")
         except KeyboardInterrupt:
             print("\n[VERIFY] Остановлено пользователем")
     return False
