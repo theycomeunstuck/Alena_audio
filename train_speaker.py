@@ -8,7 +8,7 @@ from resemblyzer import VoiceEncoder
 from sklearn.preprocessing import normalize
 
 
-def train_user_voice():
+def train_user_voice(): #todo: добавить audio enhancement ! SB
     print("[TRAIN] Запись эталона 15с...")
     audio = record_audio(15)
 

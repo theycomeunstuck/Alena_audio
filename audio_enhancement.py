@@ -1,15 +1,12 @@
 # audio_enhancement.py
 import torch, torchaudio
 import numpy as np
-import soundfile as sf
-# from speechbrain.inference.VAD import VAD
 from config import device, noise_Model
 from audio_utils import normalize_rms
 
 
 
 
-count = 0
 
 def noise_suppresion_SB(audio: np.ndarray) -> np.ndarray:
     """
@@ -32,10 +29,7 @@ def noise_suppresion_SB(audio: np.ndarray) -> np.ndarray:
 
         # 4) Подгоняем RMS-уровень
         enhanced = normalize_rms(enhanced, target_dBFS=-25)
-        global count
-        sf.write(f'wav/enhanced_torch{count}.wav', enhanced, 16000)
-        # torchaudio.save(f'wav/enhanced_torch{count}.wav', enhanced, 16000, encoding='PCM_S', bits_per_sample=16)
-        count += 1
+
         return enhanced
     except Exception as e:
         print(f"[ERROR] Ошибка вызвана в файле {__file__} \n\n{e}")

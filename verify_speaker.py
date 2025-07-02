@@ -5,6 +5,8 @@ import webrtcvad
 import sounddevice as sd
 from sklearn.preprocessing import normalize
 from sklearn.metrics.pairwise import cosine_similarity
+
+from audio_enhancement import noise_suppresion_SB
 from config import (REFERENCE_FILE, SAMPLE_RATE, FRAME_MS, VAD_AGGR_MODE, SPK_WINDOW_S, STEP_S, MIN_VOICE_RATIO, MAX_ASR_FAILURES, device)
 from audio_utils import record_noise_profile, normalize_rms, reduce_and_normalize
 from resemblyzer import VoiceEncoder
@@ -17,7 +19,7 @@ def verify_speaker():
 
     ref_emb = normalize(np.load(REFERENCE_FILE).reshape(1, -1))
 
-    noise_prof = record_noise_profile()
+    # noise_prof = record_noise_profile()
 
     vad = webrtcvad.Vad(VAD_AGGR_MODE) # vad
     frame_size = int(FRAME_MS * SAMPLE_RATE / 1000) * 2
@@ -55,15 +57,16 @@ def verify_speaker():
 
                 # очистка и накопление
                 audio = np.frombuffer(bytes(voiced), dtype=np.int16).astype(np.float32)/32768.0
-                clean = reduce_and_normalize(audio, noise_prof)
-                spk_buf = np.concatenate([spk_buf, clean])[-win_samples:]
+                # clean = reduce_and_normalize(audio, noise_prof)
+                spk_buf = np.concatenate([spk_buf, audio])[-win_samples:]
 
                 # верификация
                 if len(spk_buf) >= win_samples:
-                    emb = normalize(encoder.embed_utterance(spk_buf).reshape(1, -1))
+                    clean_audio = noise_suppresion_SB(spk_buf)
+                    emb = normalize(encoder.embed_utterance(clean_audio).reshape(1, -1))
                     sim = cosine_similarity(ref_emb, emb)[0,0]
 
-                    result = asr_model.transcribe(spk_buf, language="ru")
+                    result = asr_model.transcribe(clean_audio, language="ru")
                     text = result["text"].strip().lower()
                     print(f"[VERIFY] similarity = {sim:.3f}")
                     print(f"[ASR] {text}")
