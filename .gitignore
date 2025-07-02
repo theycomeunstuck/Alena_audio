@@ -1,0 +1,5 @@
+/.venv/
+/_____.py
+/pretrained_models/
+/wav/
+/misha_20sec.wav
