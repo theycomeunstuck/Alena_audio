@@ -39,7 +39,6 @@ def noise_suppresion_SB(audio: np.ndarray) -> np.ndarray:
         resampler_toTARGET = torchaudio.transforms.Resample(orig_freq=8000, new_freq=SAMPLE_RATE).to(device)
 
         # Применяем ресэмплинг
-
         Wav_8k = torch.from_numpy(audio).unsqueeze(0).to(device)  # Переводим в тензор (batch=1)
         Wav_8k = resampler_to8k(Wav_8k)
         with torch.no_grad(): # do not math grad and save memory

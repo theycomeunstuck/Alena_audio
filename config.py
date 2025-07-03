@@ -53,7 +53,7 @@ the solution with whamr rn is quite bad cause low sim and asr is much worse than
 mask_threshold Действительно роляет, но качество всё равно очень плачевное.
 Плюс whamr работает с 8к частотой, что, видимо, уже слишком сильно портит звук.
 Обычный wham себя тоже показал с недостойной стороны
-
+ 
 '''
 
 # print(noise_Model)
