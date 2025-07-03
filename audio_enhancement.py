@@ -35,10 +35,16 @@ def noise_suppresion_SB(audio: np.ndarray) -> np.ndarray:
     возвращает: улучшенный сигнал того же формата.
     """
     try:
-        Wav = torch.from_numpy(audio).unsqueeze(0).to(device)  # Переводим в тензор (batch=1)
+        resampler_to8k = torchaudio.transforms.Resample(orig_freq=SAMPLE_RATE, new_freq=8000).to(device)
+        resampler_toTARGET = torchaudio.transforms.Resample(orig_freq=8000, new_freq=SAMPLE_RATE).to(device)
+
+        # Применяем ресэмплинг
+
+        Wav_8k = torch.from_numpy(audio).unsqueeze(0).to(device)  # Переводим в тензор (batch=1)
+        Wav_8k = resampler_to8k(Wav_8k)
         with torch.no_grad(): # do not math grad and save memory
             # Разделяем на источники: [speech, noise]
-            est_sources = noise_Model.separate_batch(Wav)  # (#batch, source, samples) на устройстве device
+            est_sources = noise_Model.separate_batch(Wav_8k)  # (#batch, source, samples) на устройстве device
 
         enhanced = est_sources[:, :].detach().cpu().squeeze()
         # 4) Подгоняем RMS-уровень
@@ -68,7 +74,7 @@ def speech_verification_SB(audio: np.array, audio_ref: np.ndarray) -> np.ndarray
 
         score = score_t[0].item()
         pred = bool(pred_t[0].item())
-        print(score, pred)
+
         return score, pred
 
     except Exception as e:

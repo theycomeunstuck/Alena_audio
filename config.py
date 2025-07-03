@@ -30,10 +30,10 @@ if device == "cuda":
 # Загрузка модели ASR
 asr_model = whisper.load_model(WHISPER_MODEL, device=device)
 
-noise_Model = separator.from_hparams(
-    source="speechbrain/sepformer-dns4-16k-enhancement",
-    savedir="pretrained_models/sepformer-dns4-16k-enhancement",
-    run_opts={"device":device}).eval()
+# noise_Model = separator.from_hparams(
+#     source="speechbrain/sepformer-dns4-16k-enhancement",
+#     savedir="pretrained_models/sepformer-dns4-16k-enhancement",
+#     run_opts={"device":device}).eval()
 
 speech_verification_model = SpeakerRecognition.from_hparams(
     source="speechbrain/spkrec-ecapa-voxceleb",
@@ -41,6 +41,22 @@ speech_verification_model = SpeakerRecognition.from_hparams(
     run_opts={"device":device}).eval()
 
 
+
+
+noise_Model = separator.from_hparams(
+    source="speechbrain/sepformer-whamr-enhancement",
+    savedir="pretrained_models/sepformer-whamr-enhancement",
+    run_opts={"device":device, "mask_threshold": 0.8}).eval()
+'''
+
+the solution with whamr rn is quite bad cause low sim and asr is much worse than origin file
+mask_threshold Действительно роляет, но качество всё равно очень плачевное.
+Плюс whamr работает с 8к частотой, что, видимо, уже слишком сильно портит звук.
+Обычный wham себя тоже показал с недостойной стороны
+
+'''
+
+# print(noise_Model)
 
 
 # Отключаем предупреждения Whisper и PyTorch
