@@ -4,7 +4,7 @@ import sounddevice as sd
 import noisereduce as nr
 import soundfile as sf
 import torch
-from config import SAMPLE_RATE, NOISE_DURATION, TARGET_DBFS
+from config import SAMPLE_RATE, TARGET_DBFS
 # from audio_enhancement import noise_suppresion_SB
 
 # TODO: add funcs from audio_enhancement.py to audio_utils.py
@@ -38,18 +38,4 @@ def normalize_rms(y, target_dBFS: float = TARGET_DBFS):
     else:
         raise TypeError(f"Unsupported type {type(y)} for normalize_rms")
 
-def record_noise_profile() -> np.ndarray:
-    print(f"[1] Запись {NOISE_DURATION}s фонового шума…")
-    buf = sd.rec(int(NOISE_DURATION * SAMPLE_RATE), samplerate=SAMPLE_RATE,
-                 channels=1, dtype=np.int16)
-    sd.wait()
-    noise = (buf.flatten().astype(np.float32) / 32768.0)
-    return noise
 
-def reduce_and_normalize(y: np.ndarray, noise_prof: np.ndarray) -> np.ndarray:
-    clean = nr.reduce_noise(
-        y=y, y_noise=noise_prof, sr=SAMPLE_RATE,
-        stationary=False, prop_decrease=0.85,
-        n_fft=512, win_length=512, hop_length=256
-    )
-    return normalize_rms(clean)

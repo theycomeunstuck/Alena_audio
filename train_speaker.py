@@ -2,39 +2,42 @@
 import os
 import numpy as np
 import soundfile as sf
-from config import REFERENCE_FILE, REFERENCE_FILE_WAV, NOISE_DURATION, SPK_WINDOW_S, STEP_S, SAMPLE_RATE, device
-from audio_utils import record_audio, normalize_rms, reduce_and_normalize
+import torch
+from audio_enhancement import noise_suppresion_SB, to_tensor
+from config import REFERENCE_FILE, REFERENCE_FILE_WAV, TRAIN_USER_VOICE_S, SPK_WINDOW_S, STEP_S, SAMPLE_RATE, device, speech_verification_model
+from audio_utils import record_audio, normalize_rms
 from resemblyzer import VoiceEncoder
 from sklearn.preprocessing import normalize
 
 
 def train_user_voice(): #todo: добавить audio enhancement ! SB
-    print("[TRAIN] Запись эталона 15с...")
-    audio = record_audio(15)
+    try:
+        # сохраняет эмбеддинг
+        print(f"[TRAIN] Запись эталона {TRAIN_USER_VOICE_S}с...")
+        audio = record_audio(TRAIN_USER_VOICE_S).astype(np.float32)
+        clean = noise_suppresion_SB(audio) #np.ndarray
 
-    # профиль шума и очистка
-    noise_prof = audio[:NOISE_DURATION * SAMPLE_RATE]
-    clean = reduce_and_normalize(audio, noise_prof)
+        # сохранение WAV
+        sf.write(REFERENCE_FILE_WAV, clean, SAMPLE_RATE)
+        print(f"[TRAIN] Чистая запись сохранена как '{REFERENCE_FILE_WAV}'")
 
-    # сохранение WAV
-    sf.write(REFERENCE_FILE_WAV, clean, SAMPLE_RATE)
-    print(f"[TRAIN] Чистая запись сохранена как '{REFERENCE_FILE_WAV}'")
+        # разбивка на сегменты и извлечение эмбеддингов
 
-    # разбивка на сегменты и извлечение эмбеддингов
-    win = SPK_WINDOW_S * SAMPLE_RATE
-    step = STEP_S * SAMPLE_RATE
-    encoder = VoiceEncoder(device=device)
-    embeds = []
-    for start in range(0, len(clean) - win + 1, step):
-        seg = clean[start:start + win]
-        embeds.append(encoder.embed_utterance(seg))
+        wav_t = to_tensor(clean)
 
-    if not embeds:
-        raise RuntimeError("Не удалось получить сегментов для энролмента")
+        with torch.no_grad():
+            emb = speech_verification_model.encode_batch(wav_t)  # [1, D]
+            emb = emb.squeeze(0)  # [D]
 
-    avg_emb = normalize(np.mean(np.vstack(embeds), axis=0).reshape(1, -1))[0]
-    np.save(REFERENCE_FILE, avg_emb)
-    print(f"[TRAIN] Эталонный вектор сохранён в '{REFERENCE_FILE}'")
+        # 6. L2-нормализация
+        emb = emb / emb.norm(p=2)
+        print(emb.shape)
+        np.save(REFERENCE_FILE, emb)
+        print(f"[TRAIN] Эталонный вектор сохранён в '{REFERENCE_FILE}'")
+        # todo: Возвращение в код и продолжение работы, когда мы добавили какого-то пользователя в бд
+
+    except Exception:
+        print(f"Ошибка в файле {__file__}")
+        raise
 
 
-# TODO: [asr] спокойная музыка, аплодисменты. Может быть это игнорить или пропадёт, если добавить speechbrain?

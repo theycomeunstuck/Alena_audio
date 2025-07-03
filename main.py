@@ -12,4 +12,7 @@ if __name__ == "__main__":
 
 
 
-# todo: add voice enhancement to train_speaker.py
+# todo: add voice enhancement (Echo) to train_speaker.py
+
+# TODO: [asr] спокойная музыка, аплодисменты.
+#  Может быть это игнорить или пропадёт, если добавить speechbrain?
