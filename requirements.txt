@@ -12,3 +12,4 @@ torch==2.7.1
 torchaudio==2.5.1
 torchaudio==2.7.1
 webrtcvad==2.0.10
+
