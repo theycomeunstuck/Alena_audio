@@ -1,5 +1,7 @@
 /.venv/
 /_____.py
 /pretrained_models/
+/bark_large/
+/bark_small/
 /wav/
 /misha_20sec.wav

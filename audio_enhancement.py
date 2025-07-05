@@ -2,12 +2,12 @@
 import torch, torchaudio
 import torch.nn.functional as F
 import numpy as np
-from config import (device, noise_Model, speech_verification_model,
-                    SAMPLE_RATE, TARGET_DBFS, )
+from config import (device, SAMPLE_RATE, TARGET_DBFS,
+                    noise_Model, speech_verification_model, speech_separation_model,
+                    diarization_pipeline
+                    )
 from audio_utils import normalize_rms
 
-
-#todo: SB реализовать через класс, чтобы можно было отлавливать ошибки и не было трижды повторения. тут код одинаковый
 
 MIN_WAV_SAMPLES = int(0.9 * SAMPLE_RATE) # заглушка. надо, чтобы стриминг эмбеддинги были достаточной длины
 
@@ -17,7 +17,7 @@ MIN_WAV_SAMPLES = int(0.9 * SAMPLE_RATE) # заглушка. надо, чтоб�
 
 def handle_exceptions(func):
     """
-    Декоратор для обработки исключений в методах класса Enhancement.
+    Декоратор для обработки исключений в методах классов
     """
     def wrapper(self, *args, **kwargs):
         try:
@@ -44,6 +44,16 @@ def to_tensor(x, pad_to_min=False) -> torch.Tensor:
             pad = MIN_WAV_SAMPLES - t.shape[1]
             t = F.pad(t, (0, pad))
     return t.to(device, dtype=torch.float32)
+
+def to_numpy(audio) -> np.ndarray:
+    # Подготовка numpy-массива из тензора
+    if isinstance(audio, torch.Tensor):
+        audio_np = audio.detach().cpu().numpy()
+    elif isinstance(audio, np.ndarray):
+        audio_np = audio
+    else:
+        raise TypeError(f"{__file__} Unsupported audio type: {type(audio)}")
+    return audio_np
 
 class Audio_Enhancement:
     """
@@ -89,6 +99,8 @@ class Audio_Enhancement:
             target_dim = min(audio_emb.shape[1], self.audio_ref.shape[1], 192)
             audio_emb = audio_emb[:, :target_dim]
             ref_emb = self.audio_ref[:, :target_dim]
+        else:
+            ref_emb = self.audio_ref
 
         emb1 = F.normalize(audio_emb, p=2, dim=1)  # [1, 192]
         emb2 = F.normalize(ref_emb, p=2, dim=1)
@@ -96,5 +108,29 @@ class Audio_Enhancement:
 
         return score_t[0].item()
 
+    @handle_exceptions
+    def speech_separation(self, speaker: int = 0) -> torch.Tensor:
+        """
+        Разделяет аудио по speaker-id. Хорошо работает до 3 голосов включительно
+        с моделью sepformer-libri3mix, самостоятельно не тестировал.
+        На данный момент используется связка (pyannotate/diarization + speechbrain/sepformer-wsj02mix) на два голоса
+        Возвращает выбранный речевой источник как 1D-tensor на CPU.
+        """
 
+        if torch.is_tensor(self.audio):
+            # Если 1D, приводим к (1, N), иначе предполагаем, что размер уже (1, N)
+            Wav = self.audio if self.audio.dim() == 2 else self.audio.unsqueeze(0)
+            Wav = Wav.to(device)
+        elif isinstance(self.audio, np.ndarray):
+            audio_np = self.audio.astype(np.float32)
+            Wav = torch.from_numpy(audio_np).unsqueeze(0).to(device)
+        else:
+            raise TypeError(f"{__file__} Unsupported audio type: {type(self.audio)}")
+
+        with torch.no_grad():
+            est_sources = speech_separation_model.separate_batch(Wav)
+
+        # Выбор источника по индексу speaker
+        enhanced = est_sources[:, speaker].detach().cpu().squeeze()
+        return enhanced
 

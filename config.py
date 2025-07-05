@@ -4,6 +4,7 @@ import whisper
 from torch.cuda import is_available
 from speechbrain.inference.separation import SepformerSeparation as separator
 from speechbrain.inference.speaker import SpeakerRecognition
+from pyannote.audio import Pipeline
 
 # ——— ПАРАМЕТРЫ —————————————————————————————————————————————————————
 SAMPLE_RATE         = 16000
@@ -39,6 +40,19 @@ speech_verification_model = SpeakerRecognition.from_hparams(
     source="speechbrain/spkrec-ecapa-voxceleb",
     savedir="pretrained_models/spkrec-ecapa-voxceleb",
     run_opts={"device":device}).eval()
+
+
+speech_separation_model = separator.from_hparams(
+    source="speechbrain/sepformer-wsj02mix",
+    savedir='pretrained_models/sepformer-wsj02mix',
+    run_opts={"device":device}).eval()
+
+
+HG_token = "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"
+diarization_pipeline = Pipeline.from_pretrained(
+    "pyannote/speaker-diarization-3.1",
+    use_auth_token=HG_token)
+
 
 
 
