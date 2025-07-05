@@ -6,13 +6,14 @@ import sounddevice as sd
 from sklearn.preprocessing import normalize
 from sklearn.metrics.pairwise import cosine_similarity
 
-from audio_enhancement import noise_suppresion_SB, speech_verification_SB
-from config import (REFERENCE_FILE, SAMPLE_RATE, FRAME_MS,
+from audio_enhancement import Audio_Enhancement, to_tensor
+from config import (REFERENCE_FILE, SAMPLE_RATE, FRAME_MS, sim_threshold,
                     VAD_AGGR_MODE, SPK_WINDOW_S, STEP_S,
                     MIN_VOICE_RATIO, MAX_ASR_FAILURES, device)
 from audio_utils import  normalize_rms
 from resemblyzer import VoiceEncoder
 from config import asr_model
+
 
 def verify_speaker():
     if not os.path.exists(REFERENCE_FILE):
@@ -28,9 +29,10 @@ def verify_speaker():
     spk_buf = np.zeros(0, dtype=np.float32)
     win_samples = SPK_WINDOW_S * SAMPLE_RATE
     step_samples = STEP_S * SAMPLE_RATE
-    encoder = VoiceEncoder(device=device)
     asr_fail = 0
-
+    counter = 0
+    enhancer = Audio_Enhancement(np.zeros(1), None)
+    verifier = None
     print("[VERIFY] Стриминг, Ctrl+C чтобы выйти")
     with sd.InputStream(samplerate=SAMPLE_RATE, blocksize=step_samples,
                            dtype=np.float32, channels=1) as stream:
@@ -43,7 +45,7 @@ def verify_speaker():
                 int16_frame = (data * 32767).astype(np.int16)
                 for i in range(0, len(int16_frame), frame_size):
                     frame_i16  = int16_frame[i:i+frame_size]
-                    if len(frame_i16 )<frame_size: break
+                    if len(frame_i16)<frame_size: break
                     total += 1
                     if vad.is_speech(frame_i16 , SAMPLE_RATE):
                         voiced.append(data[i:i+frame_size].squeeze()) # original fl32
@@ -59,23 +61,33 @@ def verify_speaker():
                 # очистка и накопление
                 audio = np.concatenate(voiced) #float32
                 spk_buf = np.concatenate([spk_buf, audio])[-win_samples:]
-
+                enhancer.audio = to_tensor(spk_buf, pad_to_min=True)
                 # верификация
                 if len(spk_buf) >= win_samples:
-                    # emb = normalize(encoder.embed_utterance(clean_audio).reshape(1, -1))
-                    # sim = cosine_similarity(ref_emb, emb)[0,0]
-                    clean_audio = noise_suppresion_SB(spk_buf) # возвращает np.ndarray
-                    sim, pred = speech_verification_SB(clean_audio, ref_emb)
+                    clean_audio = enhancer.noise_suppression().cpu().numpy().squeeze()
+
+                    # Инициализация или обновление verifier
+                    if verifier is None:
+                        verifier = Audio_Enhancement(clean_audio, ref_emb)
+                    else:
+                        verifier.audio = to_tensor(clean_audio, pad_to_min=True)
+                        verifier.audio_ref = to_tensor(ref_emb, pad_to_min=True)
+
+                    sim = verifier.speech_verification()
+
+                    # import soundfile as sf
+                    # sf.write(f"debug_wav/clean_audio{counter}.wav", clean_audio, SAMPLE_RATE)
+                    # counter += 1
 
                     result = asr_model.transcribe(clean_audio, language="ru")
                     text = result["text"].strip().lower()
                     print(f"[VERIFY]: similarity = {sim:.3f}")
                     print(f"[ASR]: {text}")
 
-                    if sim > 0.75 and "стоп" in text: # todo: переделать под sb, очень высоко оценивает чужие голоса
+                    if sim > sim_threshold and "стоп" in text:
                         print(">>> Команда СТОП получена. Завершаю.")
                         break
-                    elif sim > 0.75:
+                    elif sim > sim_threshold:
                         print(">>> Speaker VERIFIED!")
         except KeyboardInterrupt:
             print("\n[VERIFY] Остановлено пользователем")
