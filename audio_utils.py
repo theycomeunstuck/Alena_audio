@@ -1,13 +1,11 @@
 # audio_utils.py
 import numpy as np
 import sounddevice as sd
-import noisereduce as nr
 import soundfile as sf
 import torch
 from config import SAMPLE_RATE, TARGET_DBFS
-# from audio_enhancement import noise_suppresion_SB
 
-# TODO: add funcs from audio_enhancement.py to audio_utils.py
+
 
 def record_audio(duration: float) -> np.ndarray:
     audio_int16 = sd.rec(int(duration * SAMPLE_RATE), samplerate=SAMPLE_RATE,

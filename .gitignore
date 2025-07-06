@@ -3,3 +3,12 @@
 /pretrained_models/
 /wav/
 /misha_20sec.wav
+/___.py
+/AI-teach.rar
+/debug_wav/
+.idea/
+__pycache__/
+/.
+/bark_small/
+/bark_large/
+reference.npy
