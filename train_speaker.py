@@ -1,20 +1,18 @@
 # train_speaker.py
-import os
 import numpy as np
 import soundfile as sf
 import torch
 from audio_enhancement import Audio_Enhancement, to_tensor
 from config import REFERENCE_FILE, REFERENCE_FILE_WAV, TRAIN_USER_VOICE_S, SPK_WINDOW_S, STEP_S, SAMPLE_RATE, device, speech_verification_model
-from audio_utils import record_audio, normalize_rms
-from resemblyzer import VoiceEncoder
-from sklearn.preprocessing import normalize
+from audio_utils import record_audio
+
 
 
 def train_user_voice():
     try:
         print(f"[TRAIN] Запись эталона {TRAIN_USER_VOICE_S}с...")
         audio = record_audio(TRAIN_USER_VOICE_S).astype(np.float32)
-        clean = Audio_Enhancement(audio).noise_suppression() # np.ndarray
+        clean = Audio_Enhancement(audio).noise_suppression() # normalized np.ndarray
 
         sf.write(REFERENCE_FILE_WAV, clean, SAMPLE_RATE)
         print(f"[TRAIN] Чистая запись сохранена как '{REFERENCE_FILE_WAV}'")

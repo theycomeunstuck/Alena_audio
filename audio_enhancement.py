@@ -4,16 +4,12 @@ import torch.nn.functional as F
 import numpy as np
 from config import (device, SAMPLE_RATE, TARGET_DBFS,
                     noise_Model, speech_verification_model, speech_separation_model,
-                    diarization_pipeline
+
                     )
 from audio_utils import normalize_rms
 
 
 MIN_WAV_SAMPLES = int(0.9 * SAMPLE_RATE) # заглушка. надо, чтобы стриминг эмбеддинги были достаточной длины
-
-
-
-
 
 def handle_exceptions(func):
     """

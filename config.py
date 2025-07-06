@@ -20,11 +20,12 @@ sim_threshold = 0.65     # Пороговое значение совпаден�
 REFERENCE_FILE      = "reference.npy"
 REFERENCE_FILE_WAV  = "reference.wav"
 
-WHISPER_MODEL       = "small"      # tiny, base, small, medium, turbo, large
 device = "cuda" if is_available() else "cpu"
 
 if device == "cuda":
     WHISPER_MODEL = "turbo"  # tiny, base, small, medium, turbo, large
+else:
+    WHISPER_MODEL = "small"
 
 # ————————————————————————————————————————————————————————————————————
 

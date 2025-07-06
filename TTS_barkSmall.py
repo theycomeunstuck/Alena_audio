@@ -18,9 +18,9 @@ class BarkTTS:
 
         # Скачиваем модель
         self.local_dir = snapshot_download(
-            repo_id="suno/bark-small",
+            repo_id=repo_id,
             repo_type="model",
-            cache_dir="./bark_small"
+            cache_dir=cache_dir,
         )
 
         # Предзагружаем модели для ускорения работы
