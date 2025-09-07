@@ -3,7 +3,6 @@ from huggingface_hub import snapshot_download
 import sounddevice as sd
 from bark import SAMPLE_RATE, generate_audio, preload_models
 
-
 class BarkTTS:
     """
     Класс для синтеза речи с помощью модели bark-small от Suno.
@@ -42,15 +41,13 @@ class BarkTTS:
         """
         audio = self.synthesize(text)
         sd.play(audio, SAMPLE_RATE)
-        sd.wait()
 
 
 if __name__ == "__main__":
     # Пример использования
     tts = BarkTTS(cache_dir='./bark_small')
     example_text = """
-    Приветствую. Данный текст сгенерирован для учебного помощника "Алёна".
-    Рада первой встрече! С чего начнём? Быть может, Вы можете предложить выпить мне чая? [laughs]
+    Приветствую. Данный текст сгенерирован для модуля TTS Bark-small. 
     """
 
     tts.to_voice(example_text)

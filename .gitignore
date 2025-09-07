@@ -1,12 +1,12 @@
 /.venv/
 /_____.py
 /pretrained_models/
-/bark_large/
-/bark_small/
 /wav/
 /misha_20sec.wav
-.idea/
-AI-teach.rar
-___.py
-__pycache__/
-debug_wav
+/Fine-Tuning preparing/TranscribeEnglish.py
+/Fine-Tuning preparing/TranscribeRussian.py
+/Fine-Tuning preparing/MoveFilesAndMake_datasetCSV.py
+/___.py
+/_____.py
+/toCheckIfThisWORK.rar
+/debug_wav/

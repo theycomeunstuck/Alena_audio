@@ -13,13 +13,6 @@ if __name__ == "__main__":
 
 
 
-# todo: add voice enhancement (Echo) to train_speaker.py
-
-# TODO: [asr] спокойная музыка, аплодисменты.
-#  Может быть это игнорить или пропадёт, если добавить speechbrain?
-
-# TOOD [TASK]:
-# TOOD [TASK]: Оценка метрик. Я не помню что это значит. Просто анализ? то есть отчётная часть
 # TOOD [TASK]: Voice separation
-# TODO [TASK]: fully tts
+
 

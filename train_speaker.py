@@ -3,7 +3,7 @@ import numpy as np
 import soundfile as sf
 import torch
 from audio_enhancement import Audio_Enhancement, to_tensor
-from config import REFERENCE_FILE, REFERENCE_FILE_WAV, TRAIN_USER_VOICE_S, SPK_WINDOW_S, STEP_S, SAMPLE_RATE, device, speech_verification_model
+from config import REFERENCE_FILE, REFERENCE_FILE_WAV, TRAIN_USER_VOICE_S, SAMPLE_RATE, speech_verification_model
 from audio_utils import record_audio
 
 

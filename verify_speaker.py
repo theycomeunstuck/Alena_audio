@@ -4,12 +4,10 @@ import numpy as np
 import webrtcvad
 import sounddevice as sd
 from sklearn.preprocessing import normalize
-from sklearn.metrics.pairwise import cosine_similarity
 from audio_enhancement import Audio_Enhancement, to_tensor, handle_exceptions
 from config import (REFERENCE_FILE, SAMPLE_RATE, FRAME_MS, sim_threshold,
                     VAD_AGGR_MODE, SPK_WINDOW_S, STEP_S,
-                    MIN_VOICE_RATIO, MAX_ASR_FAILURES, device, diarization_pipeline)
-from config import asr_model
+                    MIN_VOICE_RATIO, MAX_ASR_FAILURES, asr_model)
 
 
 
@@ -27,9 +25,7 @@ class Speaker_Processing:
         if not os.path.exists(REFERENCE_FILE):
             print("Нет файла-референса. Сначала вызовите train_user_voice()")
             return False
-
         self.ref_emb = normalize(np.load(REFERENCE_FILE).reshape(1, -1)) # todo: переписать. Оно должно стоять не здесь, и не в init: потому что в будущем будет сортировка по пользователям.
-
 
         vad = webrtcvad.Vad(VAD_AGGR_MODE) # vad
         frame_size = int(FRAME_MS * SAMPLE_RATE / 1000) * 2
@@ -72,25 +68,12 @@ class Speaker_Processing:
                     self.enhancer.audio = to_tensor(spk_buf, pad_to_min=True)
                     # верификация
                     if len(spk_buf) >= win_samples:
-                        # clean_audio = self.enhancer.noise_suppression().cpu().numpy().squeeze()
-
                         clean_audio = spk_buf
-                        cnt_spk = len(set((diarization_pipeline({
-                            'waveform': to_tensor(clean_audio),
-                            'sample_rate': SAMPLE_RATE
-                        }).labels())))
-                        print(f'speaker counter: {cnt_spk}')
+                        self.audio_processing(clean_audio)
 
-                        if cnt_spk == 1: self.audio_processing(clean_audio)
-                        else:
-                            speech_separation = self.enhancer.speech_separation(clean_audio)
-                            for Speaker_id in range(cnt_spk):
-                                speaker_audio = speech_separation[:, Speaker_id]  # audio пользователя {speaker}
-                                self.audio_processing(speaker_audio, Speaker_id+1)
             except KeyboardInterrupt:
                 print("\n[VERIFY] Остановлено пользователем")
         return False
-
 
     def audio_processing(self, speaker_audio, speaker=0):
         # Инициализация или обновление verifier
@@ -98,7 +81,7 @@ class Speaker_Processing:
             self.verifier = Audio_Enhancement(speaker_audio, self.ref_emb)
         else:
             self.verifier.audio = to_tensor(speaker_audio, pad_to_min=True)
-            self.verifier.audio_ref = to_tensor(self.ref_emb, pad_to_min=True) # todo: может быть и не надо сувать в to_tensor. единожды. а. | Хочется, можно, нужно поставить в init, чтобы считало всего один раз
+            self.verifier.audio_ref = to_tensor(self.ref_emb, pad_to_min=True) # todo: в будущем вынести проверку референсов в отдельную функцию
 
         sim = self.verifier.speech_verification()
 
@@ -107,13 +90,14 @@ class Speaker_Processing:
         print(f"[VERIFY]: similarity = {sim:.3f}")
 
         _ = ""
-        if speaker != 0: _ = f"({speaker}) "
+        if speaker != 0: _ = f"({speaker}) " # Обработка логики, когда это n-ый speaker
         print(f"[ASR]: {_}{text}")
 
 
-        if sim > sim_threshold and "стоп" in text:
+        if sim >= sim_threshold and "стоп" in text:
             print(">>> Команда СТОП получена. Завершаю.")
-            return "break" # todo: как мне сделать break?..
+            raise KeyboardInterrupt
+            # return "break" # todo: как стоит делать break?
         elif sim > sim_threshold:
             print(">>> Speaker VERIFIED!")
 
