@@ -6,315 +6,184 @@
 <title>Audio Core API — Документация</title>
 <style>
   :root{
-    --bg:#0e1320;
-    --panel:#141a2a;
-    --ink:#e8eefc;
-    --muted:#9fb0d3;
-    --accent:#6ea8fe;
-    --ok:#3ddc97;
-    --warn:#ffce57;
-    --err:#ff6b6b;
-    --code:#0b1020;
-    --chip:#202945;
-    --border:#253053;
+    --bg:#0e1320; --panel:#141a2a; --ink:#e8eefc; --muted:#9fb0d3;
+    --accent:#6ea8fe; --ok:#3ddc97; --warn:#ffce57; --err:#ff6b6b;
+    --code:#0b1020; --chip:#202945; --border:#253053;
   }
-  *{box-sizing:border-box}
-  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font:16px/1.6 Inter,system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial,"Noto Sans","Apple Color Emoji","Segoe UI Emoji","Segoe UI Symbol"}
-  a{color:var(--accent);text-decoration:none}
-  a:hover{text-decoration:underline}
-  header{
-    position:sticky;top:0;z-index:10;background:linear-gradient(180deg,var(--bg),rgba(14,19,32,.92));
-    border-bottom:1px solid var(--border);backdrop-filter:blur(6px)
-  }
-  .container{max-width:1080px;margin:0 auto;padding:24px}
-  h1{font-size:28px;margin:0 0 8px 0}
-  h2{font-size:22px;margin:32px 0 8px 0}
-  h3{font-size:18px;margin:24px 0 6px 0}
-  p.lead{color:var(--muted);margin-top:0}
-  .grid{display:grid;gap:16px}
-  @media(min-width:900px){.grid.cols-2{grid-template-columns:1fr 1fr}}
-  .panel{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:18px}
-  .endp{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px}
-  .method{padding:2px 10px;border-radius:999px;font-weight:600}
-  .GET{background:#1a2b48;color:#9ad2ff;border:1px solid #2c4b7a}
-  .POST{background:#1f2a1a;color:#a7f3a1;border:1px solid #335a30}
-  .WS{background:#2a1f1f;color:#ffb2b2;border:1px solid #6b2f2f}
-  .path{font-family:ui-monospace,Menlo,Consolas,monospace;background:var(--chip);border:1px solid var(--border);padding:2px 8px;border-radius:8px}
-  .tag{font-size:12px;padding:2px 8px;border-radius:999px;background:var(--chip);border:1px solid var(--border);color:var(--muted)}
-  .status{font-family:ui-monospace,Menlo,Consolas;display:inline-block;padding:1px 8px;border-radius:999px;border:1px solid var(--border)}
-  .ok{color:var(--ok);background:#15261f}
-  .warn{color:var(--warn);background:#2a2510}
-  .err{color:var(--err);background:#2a1414}
-  table{width:100%;border-collapse:collapse;border:1px solid var(--border);border-radius:12px;overflow:hidden}
-  th,td{padding:10px 12px;border-bottom:1px solid var(--border);vertical-align:top}
-  th{background:#10172a;color:#cfe0ff;text-align:left}
-  tr:last-child td{border-bottom:none}
-  code,pre{font-family:ui-monospace,Menlo,Consolas,monospace}
-  pre{background:var(--code);border:1px solid var(--border);padding:14px;border-radius:12px;overflow:auto}
-  .chips{display:flex;flex-wrap:wrap;gap:8px}
-  .chip{background:var(--chip);border:1px solid var(--border);padding:2px 10px;border-radius:999px;color:var(--muted)}
-  .kbd{border:1px solid var(--border);padding:0 6px;border-radius:6px;background:var(--chip);font:12px/20px ui-monospace,Menlo}
-  .callout{border-left:4px solid var(--accent);padding:10px 12px;background:#0f1527;border:1px solid var(--border);border-radius:10px}
-  footer{color:var(--muted);border-top:1px solid var(--border);margin-top:32px}
-  .toc a{display:block;padding:6px 10px;border-radius:8px}
-  .toc a:hover{background:#131a2e}
+  *{box-sizing:border-box} html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font:15px/1.6 Inter,system-ui,"Segoe UI",Roboto,"Helvetica Neue",Arial}
+  a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
+  header{position:sticky;top:0;z-index:10;background:linear-gradient(180deg,var(--bg),rgba(14,19,32,.92));border-bottom:1px solid var(--border);backdrop-filter:blur(6px)}
+  .container{max-width:1100px;margin:0 auto;padding:18px}
+  h1{font-size:26px;margin:6px 0 0} h2{font-size:20px;margin:28px 0 10px} h3{font-size:16px;margin:18px 0 8px;color:var(--muted)}
+  .grid{display:grid;grid-template-columns:1.2fr 1fr;gap:16px} .panel{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:16px}
+  .endp{display:flex;align-items:center;gap:9px;margin-bottom:8px}
+  .method{font:600 12px/1 ui-monospace,SFMono-Regular,Menlo,Consolas;background:var(--chip);padding:4px 8px;border-radius:999px}
+  .GET{color:#b7e1ff}.POST{color:#cbf7cb}.WS{color:#ffe3a3}.tag{margin-left:auto;color:var(--muted)}
+  code,pre{font:13px/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas;background:var(--code);color:#d6e2ff;border:1px solid var(--border);border-radius:10px}
+  pre{padding:12px;overflow:auto} code.inline{padding:2px 6px;border-radius:6px}
+  table{width:100%;border-collapse:separate;border-spacing:0 6px}
+  th,td{padding:6px 8px;border-bottom:1px dashed var(--border);vertical-align:top} th{color:var(--muted);font-weight:600;width:180px}
+  .status{font:600 12px/1 ui-monospace;padding:4px 8px;border-radius:999px;border:1px solid var(--border)}
+  .ok{color:var(--ok)} .warn{color:var(--warn)} .err{color:var(--err)}
+  .chip{display:inline-block;margin:2px 6px 0 0;padding:4px 8px;border-radius:999px;background:var(--chip);color:#cfe0ff;font:600 11px/1 ui-monospace}
+  .note{color:var(--muted);margin:6px 0 14px 0}.grid{display:grid;grid-template-columns:1fr;gap:16px}
+
+
 </style>
 </head>
 <body>
-<header>
-  <div class="container">
-    <h1>Audio Core API</h1>
-    <p class="lead">REST + WebSocket API для шумоподавления, ASR (Whisper), верификации диктора и служебных операций.</p>
-    <div class="chips">
-      <span class="chip">Версия: <strong>1.0.0</strong></span>
-      <span class="chip">Базовый URL: <code>http://127.0.0.1:8000</code></span>
-      <span class="chip">Документация Swagger: <code>/docs</code></span>
-      <span class="chip">ReDoc: <code>/redoc</code></span>
-    </div>
+<header><div class="container">
+  <h1>Audio Core API</h1>
+  <div class="note">REST + WebSocket API: шумоподавление, ASR (Whisper), верификация спикера (SpeechBrain ECAPA). Веб-слой не меняет доменную логику, а только адаптирует её под HTTP/WS.</div>
+</div></header>
+
+<div class="container grid" style="margin-top:16px">
+  <div class="panel">
+    <h2>Быстрый старт</h2>
+    <pre>uvicorn app.main:app --reload</pre>
+    <div class="note">Swagger: <code class="inline">/docs</code>. Этот HTML можно отдать как статику (<code>docs/index.html</code>).</div>
+    <h3>Быстрый запуск (dev)</h3>
+    <pre>python scripts/dev_run.py</pre>
+<div class="note">
+      Dev-раннер следит только за <code class="inline">app/</code> и <code class="inline">core/</code>,
+      игнорируя <code class="inline">.venv/</code> и <code class="inline">pretrained_models/</code> — сервер не «дрожит» при изменениях кэшей моделей. 
+</div>
+<h3>Health</h3>
+<div class="endp"><span class="method GET GET">GET</span><span>/health</span><span class="tag">Health</span></div>
+<pre>200 → {"status":"ok"}</pre>
   </div>
-</header>
-
-<div class="container">
-  <div class="panel toc">
-    <strong>Навигация</strong>
-    <div class="grid cols-2">
-      <div>
-        <a href="#auth">Аутентификация</a>
-        <a href="#health">Health</a>
-        <a href="#files">Файлы (upload/download)</a>
-        <a href="#audio">Аудио: Enhance / Transcribe</a>
-      </div>
-      <div>
-        <a href="#speaker">Спикер: Verify / Train</a>
-        <a href="#ws">WebSocket: /ws/asr</a>
-        <a href="#formats">Форматы, ресэмплинг, моно</a>
-        <a href="#errors">Ошибки и коды ответов</a>
-      </div>
-    </div>
-  </div>
-
-  <section id="auth">
-    <h2>Аутентификация</h2>
-    <p>В базовой поставке аутентификация отсутствует (локальная разработка). Для продакшена добавьте JWT/ключи и rate limit на уровне реверс-прокси.</p>
-  </section>
-
-  <section id="health">
-    <h2>Health</h2>
-    <div class="panel">
-      <div class="endp">
-        <span class="method GET">GET</span>
-        <span class="path">/health</span>
-        <span class="tag">Service</span>
-      </div>
-      <p>Проверка доступности сервиса.</p>
-      <table>
-        <tr><th>Запрос</th><td>Параметры не требуются.</td></tr>
-        <tr><th>Ответ</th><td><span class="status ok">200 OK</span> → <code>{"status":"ok"}</code></td></tr>
-      </table>
-    </div>
-  </section>
-
-  <section id="files">
+  <div class="panel">
     <h2>Файлы</h2>
-    <div class="panel">
-      <div class="endp">
-        <span class="method POST">POST</span>
-        <span class="path">/files/upload</span>
-        <span class="tag">Files</span>
-      </div>
-      <p>Загрузка файла в хранилище API.</p>
-      <table>
-        <tr><th>Формат</th><td><code>multipart/form-data</code>, поле <code>file</code></td></tr>
-        <tr><th>Ответ</th><td><span class="status ok">200</span> → <code>{"filename":"example.wav"}</code></td></tr>
-      </table>
-      <h3>Примеры</h3>
-      <pre><code class="lang-bash">curl -F "file=@sample.wav" http://127.0.0.1:8000/files/upload</code></pre>
-</div>
 
-<div class="panel">
-  <div class="endp">
-      <span class="method GET">GET</span>
-      <span class="path">/files/download/{filename}</span>
-      <span class="tag">Files</span>
+<div class="endp"><span class="method POST POST">POST</span><span>/files/upload</span><span class="tag">Files</span></div>
+<table>
+  <tr><th>Формат</th><td>multipart/form-data: <code class="inline">file</code> (audio/wav|mp3|flac)</td></tr>
+  <tr><th>Ответ</th><td><span class="status ok">200</span> → <code>{"filename":"..."}</code></td></tr>
+</table>
+
+<div class="endp"><span class="method GET GET">GET</span><span>/files/download/{filename}</span><span class="tag">Files</span></div>
+<table>
+  <tr><th>Ответ</th><td><span class="status ok">200</span> → файл; <span class="status err">404</span> если нет</td></tr>
+</table>
   </div>
-  <p>Скачивание файла из хранилища.</p>
-  <table class="kv">
-    <tr><th>Параметры пути</th><td><code>filename</code> — имя файла (как вернул <code>/files/upload</code>)</td></tr>
-    <tr><th>Ответ</th><td><span class="status ok">200</span> → бинарный поток WAV/любого загруженного; <span class="status err">404</span> если нет файла</td></tr>
-  </table>
-  <pre><code class="lang-bash">curl -o out.wav http://127.0.0.1:8000/files/download/sample_enhanced.wav</code></pre>
-</div>
-  </section>
 
-  <section id="audio">
+  <div class="panel">
     <h2>Аудио</h2>
 
-<div class="panel">
-  <div class="endp">
-    <span class="method POST">POST</span>
-    <span class="path">/audio/enhance</span>
-    <span class="tag">Audio</span>
+<div class="endp"><span class="method POST POST">POST</span><span>/audio/enhance</span><span class="tag">Audio</span></div>
+
+<table>
+  <tr><th>Формат</th><td>multipart/form-data: <code class="inline">file</code> (WAV/MP3/FLAC → внутри конвертируется в mono 16k)</td></tr>
+  <tr><th>Ответ</th><td><span class="status ok">200</span> → <code>{"output_filename":"..._enhanced.wav"}</code></td></tr>
+</table>
+<div class="note">Файл сохраняется по пути app/storage/{FileName}_enhanced.<strong>wav</strong> (и конвертирует в .wav)</div>
+
+
+
+
+
+
+<div class="endp"><span class="method POST POST">POST</span><span>/audio/transcribe</span><span class="tag">Audio</span></div>
+<table>
+  <tr><th>Параметры</th><td><code class="inline">language</code>=ru|en|...</td></tr>
+  <tr><th>Формат</th><td>multipart/form-data: <code class="inline">file</code></td></tr>
+  <tr><th>Ответ</th><td><span class="status ok">200</span> → <code>{"text":"...","raw":{...}}</code></td></tr>
+</table>
   </div>
-  <p>Шумоподавление/улучшение аудио. Возвращает имя результирующего файла (скачать через <code>/files/download</code>).</p>
-  <table>
-    <tr><th>Формат</th><td><code>multipart/form-data</code>, поле <code>file</code> (WAV/другое — конвертируется)</td></tr>
-    <tr><th>Ответ</th><td><span class="status ok">200</span> → <code>{"output_filename":"&lt;name&gt;_enhanced.wav"}</code></td></tr>
-  </table>
-  <pre><code class="lang-bash">curl -F "file=@noisy.wav" http://127.0.0.1:8000/audio/enhance</code></pre>
+
+  <div class="panel">
+    <h2>Speaker</h2>
+
+<div class="endp"><span class="method POST POST">POST</span><span>/speaker/verify</span><span class="tag">Speaker</span></div>
+<table>
+  <tr><th>Формат</th><td>
+    multipart/form-data: <code class="inline">probe</code> (audio/wav) + <code class="inline">reference</code> (audio/wav, опционально).
+  </td></tr>
+  <tr><th>Fallback</th><td>Если <code>reference</code> не передан, сервер (через core) может использовать локальный <code>reference.wav</code> (если настроен).</td></tr>
+  <tr><th>Ответ</th><td><span class="status ok">200</span> → <code>{"score":0.83,"decision":true}</code>; <span class="status err">400</span> если эталон недоступен.</td></tr>
+</table>
+
+<h3>Примеры</h3>
+<pre>curl -F "probe=@probe.wav;type=audio/wav" -F "reference=@ref.wav;type=audio/wav" http://127.0.0.1:8000/speaker/verify</pre>
+<pre>curl -F "probe=@probe.wav;type=audio/wav" http://127.0.0.1:8000/speaker/verify  # если настроен локальный reference.wav</pre>
+  </div>
+
+  <div class="panel">
+    <h2>WebSocket: потоковый ASR</h2>
+
+<div class="endp"><span class="method WS WS">WS</span><span>/ws/asr</span><span class="tag">WebSocket</span></div>
+<div class="note">
+      Долгоживущий сокет для распознавания речи в реальном времени.
 </div>
+<table>
+  <tr><th>Параметры (optional)</th><td><code class="inline">language</code>, <code class="inline">sample_rate</code>, 
+<code class="inline">windows_sec</code>, <code class="inline">emit_sec</code>, <code class="inline">inactivity_sec</code></td></tr>
+  <tr><th>Handshake</th><td>Сервер шлёт: <code>{"type":"ready","sample_rate":16000,"language":"ru"}</code></td></tr>
+  <tr><th>Binary</th><td>Посылаем чанки <strong>PCM16 mono (little-endian)</strong>. Буфер обрезается до окна <em>ASR_WINDOW_SEC</em>.</td></tr>
+  <tr><th>Text</th><td><code>{"event":"flush"}</code> → вернуть partial; <code>{"event":"stop"}</code> → final + закрыть соединение.</td></tr>
+  <tr><th>Ответ</th><td><code>{"type":"partial","text":"..."}</code> / <code>{"type":"final","text":"..."}</code> / <code>{"type":"error","detail":"..."}</code></td></tr>
+</table>
 
-<div class="panel" style="margin-top:12px">
-  <div class="endp">
-    <span class="method POST">POST</span>
-    <span class="path">/audio/transcribe?language=ru</span>
-    <span class="tag">ASR</span>
+<h3>Query параметры</h3>
+<table>
+  <tr><th>Параметр</th><th>Описание</th><th>Пример</th></tr>
+  <tr><td>language</td><td>Язык модели</td><td>ru</td></tr>
+  <tr><td>sample_rate</td><td>Частота входящего PCM16</td><td>16000</td></tr>
+  <tr><td>channels</td><td>Каналы (1=моно, 2=стерео)</td><td>1</td></tr>
+  <tr><td>window_sec</td><td>Длительность окна для анализа, сек</td><td>8.0</td></tr>
+  <tr><td>emit_sec</td><td>Частота опроса клиента к серверу, сек</td><td>2.0</td></tr>
+  <tr><td>inactivity_sec</td><td>Завершение при тишине более, сек</td><td>2.5</td></tr>
+</table>
+
+<h3>Ответы сервера</h3>
+    <pre>{
+      "type": "ready", "sample_rate": 16000, "language": "ru"
+    }
+    {
+      "type": "partial", "text": "промежуточный текст", "utt_id": "123"
+    }
+    {
+      "type": "final", "text": "окончательный текст", "utt_id": "124"
+    }
+    {
+      "type": "ok", "detail": "reset", "utt_id": "125"
+    }
+    {
+      "type": "error", "detail": "описание ошибки"
+}</pre>
+
+
   </div>
-  <p>ASR (Whisper): возвращает распознанный текст. Вход автоматически приводится к <strong>моно + SAMPLE_RATE + float32</strong>.</p>
-  <table>
-    <tr><th>Формат</th><td><code>multipart/form-data</code>, поле <code>file</code></td></tr>
-    <tr><th>Параметры</th><td><code>language</code> — код языка (по умолчанию из конфигурации)</td></tr>
-    <tr><th>Ответ</th><td><span class="status ok">200</span> → <code>{"text":"...","raw":{...}}</code></td></tr>
-  </table>
-  <div class="grid cols-2">
-    <div>
-      <h3>curl</h3>
-      <pre><code class="lang-bash">curl -F "file=@speech.wav" "http://127.0.0.1:8000/audio/transcribe?language=ru"</code></pre>
+
+
+
+
+  <div class="panel">
+    <h2>Примечания</h2>
+    <ul>
+      <li>Все аудио конвертируются в <strong>mono 16 kHz float32</strong> перед обработкой.</li>
+      <li><code>score</code> — косинусная близость эмбеддингов; <code>decision</code> — пороговая интерпретация (по умолчанию 0.5, можно вынести в конфиг).</li>
+      <li>WebSocket может отдавать пустой текст на коротких/беззвучных фрагментах — это нормально.</li>
+    </ul>
+
+<h2>WS не виден в Swagger</h2>
+    <div class="note">
+      OpenAPI/Swagger описывает только HTTP-маршруты. WebSocket-эндпоинты FastAPI в <code class="inline">/docs</code> не отображаются — это ожидаемое поведение.
+      Для WS используйте раздел «WebSocket: потоковый ASR» на этой странице.
     </div>
-    <div>
-      <h3>Python (httpx)</h3>
-      <pre><code class="lang-py">import httpx, pathlib
-f = {"file": ("speech.wav", pathlib.Path("speech.wav").read_bytes(), "audio/wav")}
-r = httpx.post("http://127.0.0.1:8000/audio/transcribe?language=ru", files=f)
-print(r.json()["text"])</code></pre>
-        </div>
-      </div>
-    </div>
-  </section>
 
-  <section id="speaker">
-    <h2>Спикер</h2>
-    <div class="panel">
-      <div class="endp">
-            <span class="method POST">POST</span>
-            <span class="path">/speaker/verify</span>
-            <span class="tag">Speaker</span>
-      </div>
-          <p>Сравнение <code>probe</code> и <code>reference</code> (оба файла — опционально <code>reference</code>). Возвращает score/decision.</p>
-          <table>
-            <tr><th>Формат</th><td><code>multipart/form-data</code>: <code>probe</code> (обяз.), <code>reference</code> (опц.)</td></tr>
-            <tr><th>Ответ</th><td><span class="status ok">200</span> → <code>{"score":0.83,"decision":true}</code></td></tr>
-          </table>
-    </div>
-    <div class="panel" style="margin-top:12px">
-      <div class="endp">
-            <span class="method POST">POST</span>
-            <span class="path">/speaker/train/microphone</span>
-            <span class="tag">Speaker</span>
-      </div>
-      <p>Запись эталона с микрофона (на сервере) и сохранение. Используй только в доверенной среде.</p>
-          <table>
-            <tr><th>Запрос</th><td>Параметры не требуются</td></tr>
-            <tr><th>Ответ</th><td><span class="status ok">200</span> → <code>{"status":"ok","message":"..."}</code></td></tr>
-          </table>
-    </div>
-  </section>
-
-  <section id="ws">
-<h2>WebSocket: потоковый ASR</h2>
-<div class="panel">
-  <div class="endp">
-    <span class="method WS">WS</span>
-    <span class="path">/ws/asr?language=ru&amp;sample_rate=16000</span>
-    <span class="tag">ASR</span>
-  </div>
-  <p>Принимает бинарные фреймы аудио <strong>PCM16 mono LE</strong>, периодически отдаёт промежуточные и финальный текст.</p>
-
-  <table>
-    <tr><th>Параметры</th><td><code>language</code> — язык; <code>sample_rate</code> — частота (обычно из <code>core/config.py</code>)</td></tr>
-    <tr><th>Вход (бинарь)</th><td>Сырые байты PCM16 mono LE (напрямую из микрофона). Можно вставлять текстовые управляющие события.</td></tr>
-    <tr><th>Управление (JSON)</th><td><code>{"event":"start"}</code> (опц.), <code>{"event":"flush"}</code> (принудительный partial), <code>{"event":"stop"}</code> (финал + закрытие)</td></tr>
-    <tr><th>Ответы</th><td>
-      <div class="chips">
-        <span class="chip"><code>{"type":"ready","sample_rate":16000,"language":"ru"}</code></span>
-        <span class="chip"><code>{"type":"partial","text":"..."}</code></span>
-        <span class="chip"><code>{"type":"final","text":"..."}</code></span>
-        <span class="chip"><code>{"type":"error","detail":"..."}</code></span>
-      </div>
-    </td></tr>
-  </table>
-
-  <div class="grid cols-2" style="margin-top:10px">
-    <div>
-      <h3>Python (websockets + sounddevice)</h3>
-<pre>
-<code class="lang-py">import asyncio, json, numpy as np, sounddevice as sd, websockets
-SR=16000
-async def run():
-    async with websockets.connect(f"ws://127.0.0.1:8000/ws/asr?language=ru&sample_rate={SR}") as ws:
-        print(await ws.recv())  # ready
-        def cb(indata, frames, t, status):
-            pcm16=(indata[:,0]*32767).astype("&lt;i2").tobytes()
-            asyncio.run_coroutine_threadsafe(ws.send(pcm16), asyncio.get_event_loop())
-        with sd.InputStream(samplerate=SR,channels=1,dtype="float32",callback=cb):
-            await ws.send(json.dumps({"event":"flush"}))
-            print(await ws.recv())
-            await asyncio.sleep(3)
-            await ws.send(json.dumps({"event":"stop"}))
-            print(await ws.recv())
-asyncio.run(run())</code></pre>
-        </div> 
-<div>
-          <h3>Браузер (идея)</h3>
-          <p>Используйте Web Audio API + AudioWorklet (или ScriptProcessor) для получения PCM16 mono и отправки в WS. Если у вас <em>MediaRecorder</em> (opus), потребуется декодирование/перекодирование.</p>
-        </div>
-      </div>
-
-  <div class="callout" style="margin-top:12px">
-    <strong>Важные параметры стрима</strong><br/>
-    <code>ASR_WINDOW_SEC</code> — длина «скользящего окна» аудио (сек).<br/>
-    <code>ASR_EMIT_SEC</code> — периодичность выдачи partial (сек).<br/>
-    Оба параметра задаются в <code>core/config.py</code>.
-  </div>
+<h2>Примечания по недоделанной работе</h2>
+    <div class="note">
+    <li> speaker/verify/ <strong>всегда</strong>  отдаёт одинаковый результат: <code>0.005, false</code></li>
+    <li> Намёков на модуль TTS пока что нет (даже не начинал браться)</li>
+    <li> Модуль train_voice (регистрация пользователя) пока что не реализована в api.</li>
+    <li> Нет перебора по поиску голосов, то есть верификация сейчас работает только на одного пользователя </li>
+    <li> В ws train microphone не обрабатывается гонка пакетов </li>
+    
 </div>
-  </section>
+  </div>
 
-  <section id="formats">
-    <h2>Форматы, ресэмплинг, моно</h2>
-    <div class="panel">
-      <ul>
-        <li>Файлы читаются и приводятся к формату <strong>моно + SAMPLE_RATE + float32</strong> утилитой <code>load_and_resample()</code> (torchaudio) перед подачей в Whisper.</li>
-        <li>Для WebSocket поток — <strong>PCM16 mono LE</strong> по сети; сервер самостоятельно приводит к float32.</li>
-        <li>Рекомендовано использовать <strong>16 kHz</strong>, чтобы избежать лишних преобразований.</li>
-      </ul>
-    </div>
-  </section>
 
-  <section id="errors">
-    <h2>Ошибки и коды ответов</h2>
-    <div class="panel">
-      <table>
-        <tr><th>Код</th><th>Когда</th><th>Пример</th></tr>
-        <tr><td><span class="status ok">200</span></td><td>Успех</td><td>Любой валидный запрос</td></tr>
-        <tr><td><span class="status warn">400</span></td><td>Плохой запрос / неподдерживаемый формат</td><td><code>{"detail":"invalid sample rate"}</code></td></tr>
-        <tr><td><span class="status err">404</span></td><td>Файл не найден</td><td><code>{"detail":"File not found"}</code></td></tr>
-        <tr><td><span class="status err">422</span></td><td>Не прошла валидация входных данных</td><td><code>{"detail":[...]}</code></td></tr>
-        <tr><td><span class="status err">500</span></td><td>Внутренняя ошибка сервера</td><td><code>{"detail":"..."}</code></td></tr>
-      </table>
-      <p class="muted">Подсказка: используйте <span class="kbd">/docs</span> для ручной прогона запросов и проверки схем.</p>
-    </div>
-  </section>
 
-  <footer class="container">
-    <p>© Audio Core API. Этот документ относится к архитектуре: <code>core/</code> — доменная логика, <code>app/services/</code> — адаптеры, <code>app/api/</code> — транспорт (REST/WS).</p>
-  </footer>
-</div>
 </body>
 </html>
-
-
-# Установка: 
-### gpu version: 
-```bash
-pip install torch==2.1.2 torchvision==0.16.2 torchaudio==2.1.2 --index-url https://download.pytorch.org/whl/cu121
-pip install requirements_gpu.txt
-```
