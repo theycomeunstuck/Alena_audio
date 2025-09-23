@@ -3,12 +3,13 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Audio Core API — Документация</title>
+
 </head>
 <body>
 <header><div class="container">
   <h1>Audio Core API</h1>
   <div class="note">REST + WebSocket API: шумоподавление, ASR (Whisper), верификация спикера (SpeechBrain ECAPA). Веб-слой не меняет доменную логику, а только адаптирует её под HTTP/WS.</div>
+  <div class="note"><li>Следует читать документацию docs/index.html или docs/index.md; а также <strong>swagger</strong></li></div>
 </div></header>
 
 <div class="container grid" style="margin-top:16px">
