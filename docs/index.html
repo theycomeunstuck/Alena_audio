@@ -4,6 +4,32 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Audio Core API — Документация</title>
+<style>
+  :root{
+    --bg:#0e1320; --panel:#141a2a; --ink:#e8eefc; --muted:#9fb0d3;
+    --accent:#6ea8fe; --ok:#3ddc97; --warn:#ffce57; --err:#ff6b6b;
+    --code:#0b1020; --chip:#202945; --border:#253053;
+  }
+  *{box-sizing:border-box} html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font:15px/1.6 Inter,system-ui,"Segoe UI",Roboto,"Helvetica Neue",Arial}
+  a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
+  header{position:sticky;top:0;z-index:10;background:linear-gradient(180deg,var(--bg),rgba(14,19,32,.92));border-bottom:1px solid var(--border);backdrop-filter:blur(6px)}
+  .container{max-width:1100px;margin:0 auto;padding:18px}
+  h1{font-size:26px;margin:6px 0 0} h2{font-size:20px;margin:28px 0 10px} h3{font-size:16px;margin:18px 0 8px;color:var(--muted)}
+  .grid{display:grid;grid-template-columns:1.2fr 1fr;gap:16px} .panel{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:16px}
+  .endp{display:flex;align-items:center;gap:9px;margin-bottom:8px}
+  .method{font:600 12px/1 ui-monospace,SFMono-Regular,Menlo,Consolas;background:var(--chip);padding:4px 8px;border-radius:999px}
+  .GET{color:#b7e1ff}.POST{color:#cbf7cb}.WS{color:#ffe3a3}.tag{margin-left:auto;color:var(--muted)}
+  code,pre{font:13px/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas;background:var(--code);color:#d6e2ff;border:1px solid var(--border);border-radius:10px}
+  pre{padding:12px;overflow:auto} code.inline{padding:2px 6px;border-radius:6px}
+  table{width:100%;border-collapse:separate;border-spacing:0 6px}
+  th,td{padding:6px 8px;border-bottom:1px dashed var(--border);vertical-align:top} th{color:var(--muted);font-weight:600;width:180px}
+  .status{font:600 12px/1 ui-monospace;padding:4px 8px;border-radius:999px;border:1px solid var(--border)}
+  .ok{color:var(--ok)} .warn{color:var(--warn)} .err{color:var(--err)}
+  .chip{display:inline-block;margin:2px 6px 0 0;padding:4px 8px;border-radius:999px;background:var(--chip);color:#cfe0ff;font:600 11px/1 ui-monospace}
+  .note{color:var(--muted);margin:6px 0 14px 0}.grid{display:grid;grid-template-columns:1fr;gap:16px}
+
+
+</style>
 </head>
 <body>
 <header><div class="container">
