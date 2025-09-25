@@ -53,7 +53,7 @@ class SpeakerService:
         # .../app/services/speaker_service.py -> project root (на 2 уровня вверх от app/)
         return Path(__file__).resolve().parents[2]
 
-    def _default_ref_candidates(self) -> list[Path]:
+    def _default_ref_candidates(self) -> list[Path]: #todo: заменить всю функцию на перебор пользователей
         root = self._project_root()
         return [
             self.storage_dir / "misha_20sec.wav",
