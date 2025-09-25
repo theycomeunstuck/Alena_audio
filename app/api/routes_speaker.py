@@ -1,4 +1,4 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException
+from fastapi import APIRouter, UploadFile, File, HTTPException, Query
 from pathlib import Path
 from app.settings import STORAGE_DIR
 from app.services.speaker_service import SpeakerService
@@ -27,7 +27,17 @@ async def verify(
     return result
 
 @router.post("/train/microphone", response_model=TrainMicResponse)
-def train_microphone():
-    # это использование микрофона на машине, где крутится API
-    res = svc.train_from_microphone()
-    return res
+def train_microphone(
+    user_id: str = Query("default", description="Идентификатор пользователя"),
+    duration: float = Query(None, description="Длительность записи, сек (по умолчанию из конфигурации)"),
+):
+    """Записывает образец голоса с локального микрофона (вроде как того, что на машине, держащем API)
+    и сохраняет эмбеддинг."""
+    try:
+        res = svc.train_from_microphone(user_id=user_id, duration=duration or None)
+        return {"status": "ok", "message": f"Сохранено: {res['path']}"}
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except Exception as e:
+        raise HTTPException(500, f"internal error: {e.__class__.__name__}")
+

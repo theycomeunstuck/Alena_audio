@@ -58,12 +58,28 @@ class StreamingASRSession:
         self._append_audio(x)
 
     # ------ инференс ------
-    def _transcribe_partial(self) -> Tuple[str, dict]:
+
+    def _transcribe_partial(self):
+        # Пустой буфер — возвращаем пустой результат без вызова модели
         if self.buffer.size == 0:
             return "", {"segments": [], "language": self.language, "text": ""}
-        res = asr_model.transcribe(self.buffer, language=self.language)
-        text = res.get("text", "").strip()
-        return text, res
+
+        # self.buffer — np.ndarray 1D float32; не вызывать как функцию!
+        audio = self.buffer.astype(np.float32, copy=False)
+        res = asr_model.transcribe(audio, language=self.language)
+        txt = (res.get("text") or "").strip()
+        return txt, res
+
+    def _transcribe_final(self):
+        # Финальный транскрипт должен быть корректным даже для пустого буфера
+        if self.buffer.size == 0:
+            txt, res = "", {"segments": [], "language": self.language, "text": ""}
+            return txt, res
+
+        audio = self.buffer.astype(np.float32, copy=False)
+        res = asr_model.transcribe(audio, language=self.language)
+        txt = (res.get("text") or "").strip()
+        return txt, res
 
     def maybe_emit(self) -> Optional[Tuple[str, dict]]:
         now = time.time()

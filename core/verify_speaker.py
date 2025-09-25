@@ -97,10 +97,6 @@ class Speaker_Processing:
         if sim >= sim_threshold and "стоп" in text:
             print(">>> Команда СТОП получена. Завершаю.")
             raise KeyboardInterrupt
-            # return "break" # todo: как стоит делать break?
+            # return "break" #
         elif sim > sim_threshold:
             print(">>> Speaker VERIFIED!")
-
-        # import soundfile as sf
-        # sf.write(f"debug_wav/clean_audio{counter}.wav", clean_audio, SAMPLE_RATE)
-        # counter += 1

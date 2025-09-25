@@ -26,7 +26,7 @@ def record_audio(duration: float) -> np.ndarray:
     raw_int16 = sd.rec(int(duration * SAMPLE_RATE), samplerate=SAMPLE_RATE,
                        channels=1, dtype=np.int16)
     sd.wait()
-    audio = raw_int16.flatten().astype(np.float32) / 32768.0
-    return audio
+
+    return raw_int16.flatten().astype(np.float32) / 32768.0
 
 

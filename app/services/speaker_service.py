@@ -1,3 +1,4 @@
+#app/services/speaker_service.py
 from typing import Any, Dict, Optional, Tuple
 import numpy as np
 import torch
@@ -6,17 +7,23 @@ import os
 from pathlib import Path
 from speechbrain.inference.speaker import EncoderClassifier
 from app.services.audio_utils import load_and_resample
+from core.audio_capture import record_audio
 from core.audio_enhancement import Audio_Enhancement
+from core.config import TRAIN_USER_VOICE_S, EMBEDDINGS_DIR, SAMPLE_RATE
 
 _ENCODER: Optional[EncoderClassifier] = None
 
+# todo: убрать весь пайплайн файла в core
 
 # Поднимем один раз энкодер для референс-проверки
 def _get_encoder() -> EncoderClassifier:
     global _ENCODER
     if _ENCODER is None:
-        _ENCODER = EncoderClassifier.from_hparams(source="speechbrain/spkrec-ecapa-voxceleb")
-        _ENCODER.eval()
+        _ENCODER = EncoderClassifier.from_hparams(
+            source="speechbrain/spkrec-ecapa-voxceleb",
+            savedir=str(
+                (Path(__file__).resolve().parents[2] / "pretrained_models" / "SpeechBrain" / "spkrec-ecapa-voxceleb")),
+        ).eval()
     return _ENCODER
 
 def _to_tensor_1d(x: np.ndarray) -> torch.Tensor:
@@ -42,66 +49,69 @@ class SpeakerService:
         self.storage_dir = storage_dir
         self.storage_dir.mkdir(parents=True, exist_ok=True)
 
+    def _project_root(self) -> Path:
+        # .../app/services/speaker_service.py -> project root (на 2 уровня вверх от app/)
+        return Path(__file__).resolve().parents[2]
 
+    def _default_ref_candidates(self) -> list[Path]:
+        root = self._project_root()
+        return [
+            self.storage_dir / "misha_20sec.wav",
+            self.storage_dir / "ref_misha_20sec.wav",
+            root / "core" / "misha_20sec.wav",
+            root / "tests" / "samples" / "misha_20sec.wav",
+        ]
+
+    def _find_default_ref(self) -> Optional[Path]:
+        for p in self._default_ref_candidates():
+            if p.is_file():
+                return p
+        return None
 
     def verify_files(self, probe_wav: Path, reference_wav: Optional[Path] = None) -> Dict[str, Any]:
-        # 1) грузим оба файла в 1D float32 @16k
+        # 1) грузим оба файла в 1D float32 @ 16k
         probe = load_and_resample(str(probe_wav))
         ref = load_and_resample(str(reference_wav)) if reference_wav else None
 
-        # safety-лог (в консоль uvicorn) #todo: убрать принт app/api/speaker_service.py
-        print(f"[verify_files] probe len={len(probe)} ref len={len(ref) if ref is not None else 'None'} "
-              f"rms_probe={float(np.sqrt(np.mean(probe**2))):.6f} "
-              f"rms_ref={(float(np.sqrt(np.mean(ref**2))) if ref is not None else 'None')}")
-
-        # 2) старый путь (твой Audio_Enhancement) — СЧИТАЕМ, но не верим слепо
         try:
-            enhancer = Audio_Enhancement(probe, ref)
-            sim = enhancer.speech_verification()
-        except Exception as e:
-            sim = f"speech_verification_exception:{e.__class__.__name__}:{e}"
-
-        # распакуем старый sim в (score, decision)
-        ae_score: Optional[float] = None
-        ae_decision: Optional[bool] = None
-        if isinstance(sim, (list, tuple)) and len(sim) == 2:
-            ae_score, ae_decision = float(sim[0]), bool(sim[1])
-        elif isinstance(sim, (float, int)):
-            ae_score = float(sim)
-            ae_decision = bool(ae_score >= 0.5)
-        else:
-            # что угодно (str/None/torch.Tensor/np.ndarray) — покажем как raw
-            pass
-
-        # 3) Эталонный путь: честно считаем эмбеддинги speechbrain и косинус
-        try:
+            # если reference не передан — ищем надёжный дефолт
             if ref is None:
-                raise ValueError("audio_ref не задан для верификации")
+                default_ref_path = self._find_default_ref()
+                if default_ref_path is None:
+                    searched = self._default_ref_candidates()
+                    hint = "\n".join(f"- {p}" for p in searched)
+                    raise ValueError(
+                        "reference не задан и не найден дефолтный образец. "
+                        "Положите файл по одному из путей:\n" + hint
+                    )
+                ref = load_and_resample(str(default_ref_path))
 
             emb_p = _embed_sb(probe)
             emb_r = _embed_sb(ref)
             sb_score = float(F.cosine_similarity(emb_p.unsqueeze(0), emb_r.unsqueeze(0)).item())
             sb_decision = bool(sb_score >= 0.65)  # пример порога
         except Exception as e:
-            # Если тут ошибка — критично: вернём 400/500 в роуте
-            raise
+            raise Exception(f"app/service/speaker_service:: verify_files()\n{e}")
 
-        # 4) Вернём И то, и другое в debug-режиме
-        debug = os.getenv("DEBUG_SPEAKER", "0") == "1"
         result = {
             "score": sb_score,
             "decision": sb_decision,
         }
-        if debug:
-            # все подробности для отладки
-            result["raw"] = {
-                "ae_sim_type": type(sim).__name__,
-                "ae_score": ae_score,
-                "ae_decision": ae_decision,
-                "sb_score": sb_score,
-                "probe_len": int(len(probe)),
-                "ref_len": int(len(ref) if ref is not None else 0),
-                "rms_probe": float(np.sqrt(np.mean(probe**2))),
-                "rms_ref": float(np.sqrt(np.mean(ref**2))) if ref is not None else None,
-            }
         return result
+
+    def train_from_microphone(self, user_id: str = "default", duration: float = TRAIN_USER_VOICE_S) -> Dict[str, Any]:
+        """
+        Записывает голос с локального микрофона API-хоста, извлекает эмбеддинг и
+        сохраняет в EMBEDDINGS_DIR/<user_id>.npy
+        """
+        audio = record_audio(duration=duration)  # 1D float32 @ SAMPLE_RATE
+        if audio.ndim != 1 or audio.size < int(0.5 * SAMPLE_RATE):
+            raise ValueError("Слишком короткая запись — повторите попытку")
+
+        emb = _embed_sb(audio).detach().cpu().numpy().astype(np.float32)
+
+        EMBEDDINGS_DIR.mkdir(parents=True, exist_ok=True)
+        out_path = EMBEDDINGS_DIR / f"{user_id}.npy"
+        np.save(out_path, emb)
+        return {"status": "ok", "path": str(out_path)}
+

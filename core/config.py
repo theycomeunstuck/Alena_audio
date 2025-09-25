@@ -58,7 +58,6 @@ ASR_WINDOW_SEC = 8.0         # сколько секунд держим в бу�
 ASR_EMIT_SEC = 2.0           # как часто выдаём partial
 
 
-
 REFERENCE_FILE      = "reference.npy"
 REFERENCE_FILE_WAV  = "reference.wav"
 
@@ -79,6 +78,11 @@ noise_Model = separator.from_hparams(
     savedir=MODELS_DIR / "SpeechBrain" / "sepformer-dns4-16k-enhancement",
     run_opts={"device":device}).eval()
 
+
+'''
+в API pipeline сейчас используется только энкодер от spkrec-ecapa-voxceleb. 
+Расположение app/services/speaker_service.py (def _get_encoder)
+'''
 speech_verification_model = SpeakerRecognition.from_hparams(
     source="speechbrain/spkrec-ecapa-voxceleb",
     savedir=MODELS_DIR / "SpeechBrain" / "spkrec-ecapa-voxceleb",

@@ -4,7 +4,7 @@ import soundfile as sf
 import torch
 from core.audio_enhancement import Audio_Enhancement, to_tensor
 from core.config import REFERENCE_FILE, REFERENCE_FILE_WAV, TRAIN_USER_VOICE_S, SAMPLE_RATE, speech_verification_model
-from core.audio_utils import record_audio
+from core.audio_capture import record_audio
 
 
 

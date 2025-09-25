@@ -83,12 +83,12 @@ class Audio_Enhancement:
         """
 
         if self.audio_ref is None: #todo: исправить в будущем. тут должен быть поиск по голосам
-            # print("core/audio_enhancement :: 86. audio_ref не задан для верификации. \nСтоит придумать решение для поиска похожего голоса. Сейчас используется файл одного пользователя (misha_20sec.wav)")
-            # audio_ref = load_and_resample("misha_20sec.wav")
-            # self.audio_ref = to_tensor(audio_ref, pad_to_min=True)
-
-            raise ValueError("audio_ref не задан для верификации. "
-                             "Передайте reference файл или настройте поиск по базе.")
+            print("core/audio_enhancement :: 86. audio_ref не задан для верификации. \nСтоит придумать решение для поиска похожего голоса. Сейчас используется файл одного пользователя (misha_20sec.wav)\n")
+            audio_ref = load_and_resample("misha_20sec.wav").squeeze(0)
+            self.audio_ref = to_tensor(audio_ref, pad_to_min=True)
+            #
+            # raise ValueError("audio_ref не задан для верификации. "
+            #                  "Передайте reference файл или настройте поиск по базе.")
 
 
 
