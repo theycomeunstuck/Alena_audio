@@ -1,7 +1,7 @@
 #app/services/speaker_service.py
 from typing import Any, Dict, Optional, Tuple
 import numpy as np
-import torch
+import torch, torchaudio
 import torch.nn.functional as F
 import os
 from pathlib import Path
@@ -108,10 +108,24 @@ class SpeakerService:
         if audio.ndim != 1 or audio.size < int(0.5 * SAMPLE_RATE):
             raise ValueError("Слишком короткая запись — повторите попытку")
 
-        emb = _embed_sb(audio).detach().cpu().numpy().astype(np.float32)
 
         EMBEDDINGS_DIR.mkdir(parents=True, exist_ok=True)
-        out_path = EMBEDDINGS_DIR / f"{user_id}.npy"
-        np.save(out_path, emb)
-        return {"status": "ok", "path": str(out_path)}
+
+        out_wav_path = EMBEDDINGS_DIR / f"{user_id}.wav"
+        try:
+            # wav = torch.from_numpy(audio).reshape(1, -1)  # [C=1, N]
+            torchaudio.save(str(out_wav_path), src=torch.from_numpy(audio).unsqueeze(0),  # [1,T]
+                            sample_rate=SAMPLE_RATE, format="wav",
+                            encoding="PCM_S", bits_per_sample=16)  # стандартный 16-бит PCM
+
+        except Exception as e:
+            print(e)
+            raise e
+
+        emb = _embed_sb(audio).detach().cpu().numpy().astype(np.float32)
+
+        out_npy_path = EMBEDDINGS_DIR / f"{user_id}.npy"
+
+        np.save(out_npy_path, emb)
+        return {"status": "ok", "path": str(out_npy_path)}
 
