@@ -174,11 +174,12 @@
 
 <h2>Примечания по недоделанной работе</h2>
     <div class="note">
-    <li> Модуль train_voice (регистрация пользователя) пока что не реализована в api.</li>
+    <li> </li>
     <li> Намёков на модуль TTS пока что нет (даже не начинал браться)</li>
+    <li> Вебсокетные функции могут работать некорректно (не всё проходит интеграционные тесты)</li>
     <li> Нет перебора по поиску голосов, то есть верификация сейчас работает только на одного пользователя </li>
     <li> В ws train microphone не обрабатывается гонка пакетов </li>
-    <li> verify/speaker реализован не в core, а <strong>целиком</strong> в <code>app/services/speaker_service.py</code> (нагромождено)</li>
+    <li> verify/speaker и verify/train/microphone реализован не в core, а <strong>целиком</strong> в <code>app/services/speaker_service.py</code> (нагромождено)</li>
     
 </div>
   </div>
