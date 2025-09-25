@@ -69,7 +69,7 @@ async def ws_asr(
                     await ws.send_json({"type": "final", "text": text})
                     sess.reset()  # готов к следующей фразе (сокет остаётся)
         except asyncio.CancelledError:
-            pass
+            return
         except Exception as e:
             with suppress(Exception):
                 await ws.send_json({"type": "error", "detail": f"bg_loop: {e.__class__.__name__}"})
@@ -93,7 +93,7 @@ async def ws_asr(
                 try:
                     payload = json.loads(text)
                 except json.JSONDecodeError:
-                    await ws.send_json({"type": "error", "detail": "text frames must be JSON"})
+                    await ws.send_json({"type": "error", "detail": "Invalid JSON: text frames must be JSON"})
                     continue
 
                 event = payload.get("event")
@@ -107,13 +107,31 @@ async def ws_asr(
                     await ws.send_json(out)
 
                 elif event == "stop":
-                    # финализируем текущую фразу, но сокет НЕ закрываем
-                    txt, _raw = sess.finalize()
+                    # 1) жёстко останавливаем фонового эмиттера, чтобы не прилетел 'partial' поверх final
+                    try:
+                        bg_task.cancel()
+                        try:
+                            await bg_task
+                        except asyncio.CancelledError: pass
+                    except NameError: pass
+                        # если по какой-то причине bg_task не создан — просто идём дальше
+
+
+                    # 2) финализируем и отправляем 'final' (даже если текст пуст)
+                    try:
+                        txt, _raw = sess._transcribe_final()
+                    except Exception:
+                        txt = ""
                     out = {"type": "final", "text": txt}
                     if utt_id is not None:
                         out["utt_id"] = utt_id
                     await ws.send_json(out)
-                    sess.reset()  # очистить буфер — готово к следующей фразе
+
+                    # 3) очистка буфера после отправки final
+                    try:
+                        sess.reset()
+                    except Exception:
+                        pass
 
                 elif event == "reset":
                     sess.reset()
