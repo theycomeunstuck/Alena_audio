@@ -127,5 +127,5 @@ class SpeakerService:
         out_npy_path = EMBEDDINGS_DIR / f"{user_id}.npy"
 
         np.save(out_npy_path, emb)
-        return {"status": "ok", "path": str(out_npy_path)}
+        return {"status": "ok", "wavPath": str(out_wav_path), "npyPath": str(out_npy_path)}
 

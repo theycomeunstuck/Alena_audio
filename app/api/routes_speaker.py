@@ -35,7 +35,7 @@ def train_microphone(
     и сохраняет эмбеддинг."""
     try:
         res = svc.train_from_microphone(user_id=user_id, duration=duration or None)
-        return {"status": "ok", "message": f"Сохранено: {res['path']}"}
+        return {"status": "ok", "message": f"Сохранено wav, npy: {res['wavPath']}"}
     except ValueError as e:
         raise HTTPException(400, str(e))
     except Exception as e:

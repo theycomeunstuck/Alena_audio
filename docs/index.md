@@ -60,11 +60,16 @@
   <tr><th>Формат</th><td>multipart/form-data: <code class="inline">file</code> (audio/wav|mp3|flac)</td></tr>
   <tr><th>Ответ</th><td><span class="status ok">200</span> → <code>{"filename":"..."}</code></td></tr>
 </table>
+<h3>Пример</h3>
+<pre>& curl.exe -X POST `-F "file=@tests\samples\ru_sample.wav;type=audio/wav" ` "http://127.0.0.1:8000/files/upload"</pre>
 
 <div class="endp"><span class="method GET GET">GET</span><span>/files/download/{filename}</span><span class="tag">Files</span></div>
 <table>
   <tr><th>Ответ</th><td><span class="status ok">200</span> → файл; <span class="status err">404</span> если нет</td></tr>
 </table>
+<h3>Пример</h3>
+<pre>& curl.exe -X GET `-o "UploadMethod_ru_sample.wav" `"http://127.0.0.1:8000/files/download/ru_sample.wav"</pre>
+
   </div>
 
   <div class="panel">
@@ -77,11 +82,8 @@
   <tr><th>Ответ</th><td><span class="status ok">200</span> → <code>{"output_filename":"..._enhanced.wav"}</code></td></tr>
 </table>
 <div class="note">Файл сохраняется по пути app/storage/{FileName}_enhanced.<strong>wav</strong> (и конвертирует в .wav)</div>
-
-
-
-
-
+<h3>Пример</h3>
+<pre>& curl.exe -X POST `-F "file=@tests/samples/ru_sample.wav;type=audio/wav"` "http://127.0.0.1:8000/audio/enhance"</pre>
 
 <div class="endp"><span class="method POST POST">POST</span><span>/audio/transcribe</span><span class="tag">Audio</span></div>
 <table>
@@ -89,6 +91,8 @@
   <tr><th>Формат</th><td>multipart/form-data: <code class="inline">file</code></td></tr>
   <tr><th>Ответ</th><td><span class="status ok">200</span> → <code>{"text":"...","raw":{...}}</code></td></tr>
 </table>
+<h3>Пример</h3>
+<pre>& curl.exe -X POST `-F "file=@tests/samples/ru_sample.wav;type=audio/wav"` "http://127.0.0.1:8000/audio/transcribe"</pre>
   </div>
 
   <div class="panel">
@@ -104,10 +108,36 @@
 </table>
 
 <h3>Примеры</h3>
-<pre>curl -F "probe=@probe.wav;type=audio/wav" -F "reference=@ref.wav;type=audio/wav" http://127.0.0.1:8000/speaker/verify</pre>
-<pre>curl -F "probe=@probe.wav;type=audio/wav" http://127.0.0.1:8000/speaker/verify  # если настроен локальный reference.wav</pre>
-  </div>
+<pre>& curl.exe -X POST `-F "probe=@tests/samples/ru_sample.wav;type=audio/wav"` -F "reference=@core/misha_20sec.wav;type=audio/wav"` "http://127.0.0.1:8000/speaker/verify"
+</pre>
+<tr>Пример без локального референса (как это должно выглядеть в будущем, по идее):</tr>
+<pre>
+& curl.exe -X POST `-F "probe=@tests/samples/ru_sample.wav;type=audio/wav"` "http://127.0.0.1:8000/speaker/verify"
+</pre>
+<div class="endp"><span class="method POST POST">POST</span><span>/speaker/train/microphone</span><span class="tag">Speaker</span></div>
+<table>
+  <tr><th>Назначение</th><td>Записать образец голоса с микрофона сервера и сохранить эталон пользователя (эмбеддинг .npy + WAV).</td></tr>
+  <tr><th>Формат</th><td>HTTP POST без тела; параметры передаются в query string.</td></tr>
+  <tr><th>Параметры</th><td>
+    <code class="inline">user_id</code> (string, опц., по умолчанию <code>default</code>) — идентификатор пользователя;<br/>
+    <code class="inline">duration</code> (number, сек, опц.) — длительность записи. Если не указана — берётся из конфигурации сервера.
+  </td></tr>
+  <tr><th>Требования</th><td>Доступ к микрофону на хосте, где запущен сервер (право записи, доступ к аудиоустройству).</td></tr>
+  <tr><th>Ответ</th><td>
+    <span class="status ok">200</span> → <code>{"status":"ok","wav_path":".../embeddings/&lt;user_id&gt;.wav","embedding_path":".../embeddings/&lt;user_id&gt;.npy"}</code><br/>
+    (пути могут отличаться в зависимости от настроек <code>EMBEDDINGS_DIR</code>).
+  </td></tr>
+  <tr><th>Ошибки</th><td>
+    <span class="status err">400</span> — слишком короткая запись / нет доступа к устройству;<br/>
+    <span class="status err">500</span> — внутренняя ошибка записи WAV или извлечения эмбеддинга.
+  </td></tr>
+</table>
 
+<h3>Примеры</h3>
+<pre>& curl.exe -X POST "http://127.0.0.1:8000/speaker/train/microphone?user_id=TEST_alice&duration=5"</pre>
+
+
+</div>
   <div class="panel">
     <h2>WebSocket: потоковый ASR</h2>
 
@@ -152,8 +182,8 @@
       "type": "error", "detail": "описание ошибки"
 }</pre>
 
-
-  </div>
+Пример использования можно найти в <code>client_examples/ws_asr_mic.py</code>
+</div>
 
 
 
@@ -174,11 +204,10 @@
 
 <h2>Примечания по недоделанной работе</h2>
     <div class="note">
-    <li> </li>
     <li> Намёков на модуль TTS пока что нет (даже не начинал браться)</li>
-    <li> Вебсокетные функции могут работать некорректно (не всё проходит интеграционные тесты)</li>
+    <li> Вебсокетные функции могут работать некорректно (не всё проходит интеграционные тесты; может последние написаны криво)</li>
     <li> Нет перебора по поиску голосов, то есть верификация сейчас работает только на одного пользователя </li>
-    <li> В ws train microphone не обрабатывается гонка пакетов </li>
+    <li> В ws train microphone не обрабатывается гонка пакетов (может я не прав и это всё задержки моего ноута без gpu)</li>
     <li> verify/speaker и verify/train/microphone реализован не в core, а <strong>целиком</strong> в <code>app/services/speaker_service.py</code> (нагромождено)</li>
     
 </div>
