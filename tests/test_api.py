@@ -1,7 +1,7 @@
 # tests/test_api.py
 import io
 import numpy as np
-import soundfile as sf
+import torchaudio
 import pytest
 from fastapi.testclient import TestClient
 
@@ -16,7 +16,8 @@ def generate_wav(sr=SAMPLE_RATE, duration=1.0, freq=440.0):
     t = np.linspace(0, duration, int(sr*duration), endpoint=False)
     x = 0.5 * np.sin(2 * np.pi * freq * t).astype(np.float32)
     buf = io.BytesIO()
-    sf.write(buf, x, sr, format="WAV")
+
+    torchaudio.save(buf, x, sample_rate=sr, encoding="PCM_F")  # float WAV
     buf.seek(0)
     return buf
 
