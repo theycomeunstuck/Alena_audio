@@ -1,4 +1,5 @@
 # config.py
+from __future__  import annotations
 import warnings, os
 from pathlib import Path
 if True:
@@ -10,9 +11,12 @@ if True:
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
 
     # единая папка для эмбеддингов пользователей
-    EMBEDDINGS_DIR = MODELS_DIR / "embeddings"
+    EMBEDDINGS_DIR = PROJECT_ROOT / "storage" / "embeddings"
     EMBEDDINGS_DIR.mkdir(parents=True, exist_ok=True)
 
+    # единая папка для клонированных голосов
+    VOICES_DIR = PROJECT_ROOT / "storage" / "voices"
+    VOICES_DIR.mkdir(parents=True, exist_ok=True)
 
     # Опционально: стандартизируем кэши HF/torch (чтобы всё летело сюда же)
     os.environ.setdefault("HF_HOME", str(MODELS_DIR / "hf"))
@@ -33,26 +37,27 @@ if True:
 
 
 
-
+from pydantic import BaseModel, Field, field_validator
+import os
 import whisper
 from torch.cuda import is_available
 from speechbrain.inference.separation import SepformerSeparation as separator
 from speechbrain.inference.speaker import SpeakerRecognition
 
 
-# ——— ПАРАМЕТРЫ —————————————————————————————————————————————————————
+# ПАРАМЕТРЫ
 SAMPLE_RATE         = 16000
 VAD_AGGR_MODE       = 1         # от 0 (мягко) до 3 (агрессивно) (voice activity detection)
 FRAME_MS            = 30        # размер VAD-фрейма в мс
 SPK_WINDOW_S        = 3         # размер окна для верификации, сек
-STEP_S              = 1         # шаг сдвига окна, сек.  должно быть целым числом
+STEP_S              = 1         # шаг сдвига окна, сек.  должно быть целым числом; в API недействительно, вроде
 MIN_VOICE_RATIO     = 0.5       # минимальная доля реальные речи в окне для ASR. # Параметры гейтинга ASR:
 MAX_ASR_FAILURES    = 5         # необязательный: макс. подряд «фоновых» окон до сброса. # Параметры гейтинга ASR:
 TARGET_DBFS         = -18.0     # dBFS для RMS-нормализации
 TRAIN_USER_VOICE_S  = 15        # Длительность записи эталона
 sim_threshold = 0.6     # Пороговое значение совпадения (уверенность) пользователя по косинусному расстоянию
 
-# ====== ASR (Whisper) ======
+# ASR (Whisper)
 ASR_LANGUAGE = "ru"          # язык по умолчанию
 ASR_WINDOW_SEC = 8.0         # сколько секунд держим в буфере (StreamingASRSession)
 ASR_EMIT_SEC = 2.0           # как часто выдаём partial
@@ -89,4 +94,10 @@ speech_verification_model = SpeakerRecognition.from_hparams(
     run_opts={"device":device}).eval()
 
 
+try:
+    from app import settings
+    SAMPLE_RATE = getattr(settings, "ASR_SAMPLE_RATE", 16000)
+except Exception:
+    SAMPLE_RATE = 16000
 
+# (Если нужен TTS_SAMPLE_RATE — он в app/settings: settings.TTS_SAMPLE_RATE = 24000)

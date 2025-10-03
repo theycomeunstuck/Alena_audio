@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Literal, Tuple, Union
 
 class EnhanceResponse(BaseModel):
     output_filename: str
@@ -27,3 +27,11 @@ class TranscribeResponse(BaseModel):
         default=None,
         description="Присутствует только при verbose=true",
     )
+
+class TtsIn(BaseModel):
+    text: str = Field(..., description="Текст для синтеза", min_length=1)
+    voice_id: Optional[str] = Field(None, description="Идентификатор голоса; если не задан, используется базовый (_default)")
+    format: Literal["wav","mp3","ogg"] = Field("wav", description="Формат выходного аудио")
+
+class CloneOut(BaseModel):
+    voice_id: str
