@@ -3,15 +3,7 @@ import numpy as np
 import sounddevice as sd
 import soundfile as sf
 import torch
-from config import SAMPLE_RATE, TARGET_DBFS
-
-
-
-def record_audio(duration: float) -> np.ndarray:
-    audio_int16 = sd.rec(int(duration * SAMPLE_RATE), samplerate=SAMPLE_RATE,
-                         channels=1, dtype=np.int16)
-    sd.wait()
-    return audio_int16.flatten().astype(np.float32) / 32768.0
+from core.config import SAMPLE_RATE, TARGET_DBFS
 
 
 def normalize_rms(y, target_dBFS: float = TARGET_DBFS):
