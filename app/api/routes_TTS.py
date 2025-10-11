@@ -15,11 +15,11 @@ router = APIRouter(tags=["TTS"])
 # Инициализация зависимостей
 store = VoiceStore(settings.VOICES_DIR)
 engine = TtsEngine()
-# убедимся, что есть базовый голос
-try:
-    store.ensure_default("_default")
-except FileNotFoundError as e: # Даём понятную ошибку при первом старте без "storage/voices/_default/reference.wav"
-    raise FileNotFoundError(f"{e}")
+# # убедимся, что есть базовый голос
+# try:
+#     store.ensure_default("_default")
+# except FileNotFoundError as e: # Даём понятную ошибку при первом старте без "storage/voices/_default/reference.wav"
+#     raise FileNotFoundError(f"{e}")
 
 @router.post("/voice/clone", summary="Клонировать голос из аудиофайла", response_model=dict)
 async def clone_voice(file: UploadFile = File(...)):

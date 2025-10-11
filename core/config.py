@@ -64,7 +64,7 @@ ASR_EMIT_SEC = 2.0           # как часто выдаём partial
 ASR_COMPUTE_TYPE = "bfloat16"
 
 # TTS (F5-TTS); другие параметры в app/settings.py
-CKPT_PATH =  r"E:\PycharmProjects\AI-Teach\Speech\libs\F5-TTS\ckpts\f5-tts_ru_en\pretrained_model_1250000.safetensors" #path to TTSmodel.pt (.spt)
+TTS_CKPT_PATH =  r"E:\PycharmProjects\AI-Teach\Speech\libs\F5-TTS\ckpts\f5-tts_ru_en\pretrained_model_1250000.safetensors" #path to TTSmodel.pt (.spt)
 
 
 

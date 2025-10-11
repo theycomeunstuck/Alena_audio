@@ -1,7 +1,7 @@
 # tests/test_api.py
 import io
 import numpy as np
-import torchaudio
+import torch, torchaudio
 import pytest
 from fastapi.testclient import TestClient
 
@@ -19,7 +19,7 @@ def generate_wav(sr=SAMPLE_RATE, duration=1.0, freq=440.0):
 
     # Convert to 2D tensor [1, N] for torchaudio.save
     x_tensor = torch.from_numpy(x).unsqueeze(0)  # [N] -> [1, N]
-    torchaudio.save(buf, x_tensor, sample_rate=sr, encoding="PCM_F")  # float WAV
+    torchaudio.save(buf, x_tensor, sample_rate=sr, encoding="PCM_F", format='wav')  # float WAV
     buf.seek(0)
     return buf
 
