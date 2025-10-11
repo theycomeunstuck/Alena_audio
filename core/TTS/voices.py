@@ -44,10 +44,7 @@ class VoiceStore:
         meta = VoiceMeta(voice_id=voice_id, sr=sample_rate, orig_file=up_path.name)
         (vdir / "meta.json").write_text(meta.model_dump_json(indent=2), encoding="utf-8")
 
-        try:
-            shutil.copyfile(up_path, vdir / up_path.name)
-        except Exception:
-            pass
+
 
         return meta
 
