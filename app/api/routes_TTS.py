@@ -9,6 +9,7 @@ import io, pathlib, tempfile
 from app import settings
 from app.models.audio_models import TtsIn, CloneOut
 from core.TTS import VoiceStore, TtsEngine
+from core.ASR.transcriber import AsrTranscriber
 
 router = APIRouter(tags=["TTS"])
 

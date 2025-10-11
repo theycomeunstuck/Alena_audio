@@ -67,13 +67,24 @@ class TtsEngine:
             "--vocoder_name", self.vocoder,
             "--nfe", str(self.nfe),
             "--ckpt_file", self.ckpt,
+            "--language", "ru",                # Explicitly set language to Russian
+            "--sample_rate", str(self.sample_rate),  # Ensure correct sample rate
+            "--device", self.device,           # Explicitly set device
+            "--batch_size", "1",               # Process one at a time for stability
         ]
         if self.vocoder_ckpt:
             cmd += ["--vocoder_ckpt", self.vocoder_ckpt]
-        # CLI сам выберет устройство; при желании можно через переменные среды.
+        
+        # Set environment variables for better stability
+        import os
+        env = os.environ.copy()
+        env.update({
+            "CUDA_VISIBLE_DEVICES": "0" if self.device.startswith("cuda") else "",
+            "PYTORCH_CUDA_ALLOC_CONF": "max_split_size_mb:512",
+        })
 
         proc = await asyncio.create_subprocess_exec(
-            *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+            *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, env=env
         )
         stdout, stderr = await proc.communicate()
         if proc.returncode != 0:

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from typing import Optional, Dict, Any, List, Literal, Tuple, Union
 
 class EnhanceResponse(BaseModel):
@@ -29,9 +29,16 @@ class TranscribeResponse(BaseModel):
     )
 
 class TtsIn(BaseModel):
-    text: str = Field(..., description="Текст для синтеза", min_length=1)
+    text: str = Field(..., description="Текст для синтеза")
     voice_id: Optional[str] = Field(None, description="Идентификатор голоса; если не задан, используется базовый (_default)")
     format: Literal["wav","mp3","ogg"] = Field("wav", description="Формат выходного аудио")
+    
+    @field_validator('text')
+    @classmethod
+    def validate_text(cls, v):
+        if not v or not v.strip():
+            raise ValueError("Текст не может быть пустым")
+        return v.strip()
 
 class CloneOut(BaseModel):
     voice_id: str

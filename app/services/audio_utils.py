@@ -10,8 +10,13 @@ from core.config import SAMPLE_RATE
 
 def _to_mono(wav: torch.Tensor) -> torch.Tensor:
     """[C,N] -> [1,N] усреднением по каналам, если нужно."""
-    if wav.dim() != 2:
-        raise ValueError(f"Ожидается тензор [C,N], shape={tuple(wav.shape)}")
+    # Handle 1D tensors by adding a channel dimension
+    if wav.dim() == 1:
+        wav = wav.unsqueeze(0)  # [N] -> [1,N]
+    elif wav.dim() != 2:
+        raise ValueError(f"Ожидается тензор [C,N] или [N], получен {wav.dim()}D, shape={tuple(wav.shape)}")
+    
+    # Convert to mono if stereo
     return wav if wav.size(0) == 1 else wav.mean(dim=0, keepdim=True)
 
 def _resample(wav: torch.Tensor, src_sr: int, dst_sr: int) -> torch.Tensor:
