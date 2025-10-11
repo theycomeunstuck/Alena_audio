@@ -1,6 +1,7 @@
 # app/settings.py
 import os
 from pathlib import Path
+from core.config import CKPT_PATH
 
 # ---- Определяем корень проекта ----
 def _find_project_root(start: Path) -> Path:
@@ -27,7 +28,8 @@ VOICES_DIR = Path(os.getenv("VOICES_DIR", STORAGE_DIR / "voices")).resolve()
 VOICES_DIR.mkdir(parents=True, exist_ok=True)
 
 # Остальные TTS-параметры
-F5TTS_CKPT_PATH = os.getenv("F5TTS_CKPT_PATH", "")
+F5TTS_CKPT_PATH = os.getenv("F5TTS_CKPT_PATH",
+                            CKPT_PATH) #path to model.pt (.spt)
 F5TTS_VOCODER_NAME = os.getenv("F5TTS_VOCODER_NAME", "vocos")
 F5TTS_VOCODER_CKPT = os.getenv("F5TTS_VOCODER_CKPT", "")
 DEVICE = os.getenv("DEVICE", "auto")
