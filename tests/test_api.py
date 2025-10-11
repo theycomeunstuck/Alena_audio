@@ -17,7 +17,9 @@ def generate_wav(sr=SAMPLE_RATE, duration=1.0, freq=440.0):
     x = 0.5 * np.sin(2 * np.pi * freq * t).astype(np.float32)
     buf = io.BytesIO()
 
-    torchaudio.save(buf, x, sample_rate=sr, encoding="PCM_F")  # float WAV
+    # Convert to 2D tensor [1, N] for torchaudio.save
+    x_tensor = torch.from_numpy(x).unsqueeze(0)  # [N] -> [1, N]
+    torchaudio.save(buf, x_tensor, sample_rate=sr, encoding="PCM_F")  # float WAV
     buf.seek(0)
     return buf
 
