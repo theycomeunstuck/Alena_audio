@@ -28,11 +28,15 @@ VOICES_DIR = Path(os.getenv("VOICES_DIR", STORAGE_DIR / "voices")).resolve()
 VOICES_DIR.mkdir(parents=True, exist_ok=True)
 
 # Остальные TTS-параметры
-F5TTS_CKPT_PATH = os.getenv("F5TTS_CKPT_PATH",
-                            TTS_CKPT_PATH) #path to model.pt (.spt)
+# Set environment variable if not already set
+if not os.getenv("F5TTS_CKPT_PATH"):
+    os.environ["F5TTS_CKPT_PATH"] = TTS_CKPT_PATH
+    print(f"🔧 Set F5TTS_CKPT_PATH environment variable to: {TTS_CKPT_PATH}")
+
+F5TTS_CKPT_PATH = os.getenv("F5TTS_CKPT_PATH", TTS_CKPT_PATH) #path to model.pt (.spt)
 F5TTS_VOCODER_NAME = os.getenv("F5TTS_VOCODER_NAME", "vocos")
 F5TTS_VOCODER_CKPT = os.getenv("F5TTS_VOCODER_CKPT", "")
-DEVICE = os.getenv("DEVICE", "auto")
+DEVICE = os.getenv("DEVICE", "cuda")
 TTS_SAMPLE_RATE = int(os.getenv("TTS_SAMPLE_RATE", "24000"))
 TTS_MAX_SECONDS = int(os.getenv("TTS_MAX_SECONDS", "25"))
 TTS_NFE_STEPS   = int(os.getenv("TTS_NFE_STEPS", "16"))
