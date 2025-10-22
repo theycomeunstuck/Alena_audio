@@ -5,7 +5,7 @@ BASE = "http://127.0.0.1:8000"
 
 # 1) Клонирование
 with open("speaker.mp3", "rb") as f:
-    r = requests.post(f"{BASE}/voice/clone", files={"file": ("speaker.mp3", f, "audio/mpeg")})
+    r = requests.post(f"{BASE}/tts/clone", files={"file": ("speaker.mp3", f, "audio/mpeg")})
 print("voice_id:", r.json()["voice_id"])
 
 # 2) TTS c голосом по умолчанию (WAV)

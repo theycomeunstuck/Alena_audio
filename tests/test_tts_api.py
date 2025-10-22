@@ -71,7 +71,7 @@ def test_clone_and_tts_default(tmp_path):
         wf.writeframes(b"\x00\x00" * int(24000 * 0.1))
     wav_buf.seek(0)
 
-    r = client.post("/voice/clone", files={"file": ("a.wav", wav_buf, "audio/wav")})
+    r = client.post("/tts/clone", files={"file": ("a.wav", wav_buf, "audio/wav")})
     assert r.status_code == 200, r.text
     assert "voice_id" in r.json()
     voice_id = r.json()["voice_id"]

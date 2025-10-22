@@ -60,7 +60,7 @@ def test_tts_deep_real_model(tmp_path, monkeypatch):
         wf.setnchannels(1); wf.setsampwidth(2); wf.setframerate(24000)
         wf.writeframes(b"\x00\x00" * int(24000 * 0.2))
     buf.seek(0)
-    r = client.post("/voice/clone", files={"file": ("speaker.wav", buf, "audio/wav")})
+    r = client.post("/tts/clone", files={"file": ("speaker.wav", buf, "audio/wav")})
     assert r.status_code == 200, r.text
     voice_id = r.json().get("voice_id")
     assert voice_id and len(voice_id) > 10

@@ -137,28 +137,40 @@
 <pre>& curl.exe -X POST "http://127.0.0.1:8000/speaker/train/microphone?user_id=TEST_alice&duration=5"</pre>
 
 
-<div class="panel">
+  <div class="panel">
     <h2>TTS</h2>
 
-<div class="endp"><span class="method POST POST">POST</span><span>/voice/clone</span><span class="tag">TTS</span></div>
-
+<div class="endp"><span class="method POST POST">POST</span><span>/tts/clone</span><span class="tag">TTS</span></div>
 <table>
-  <tr><th>Формат</th><td>multipart/form-data: <code class="inline">file</code> (WAV/MP3/FLAC → внутри конвертируется в mono 16k)</td></tr>
-  <tr><th>Ответ</th><td><span class="status ok">200</span> → <code>{"output_filename":"..._enhanced.wav"}</code></td></tr>
+  <tr><th>Назначение</th><td>Клонировать голос из аудиофайла для последующего использования в синтезе речи.</td></tr>
+  <tr><th>Формат</th><td>multipart/form-data: <code class="inline">file</code> (WAV/MP3/FLAC/M4A/OGG)</td></tr>
+  <tr><th>Ответ</th><td><span class="status ok">200</span> → <code>{"voice_id":"..."}</code>; <span class="status err">400</span> если неверный формат файла.</td></tr>
 </table>
-<div class="note">Reference-wav для клонирования голоса, который в будущем можно будет использовать при синтезе речи (/tts). </div>
+<div class="note">Создаёт новый голос на основе загруженного аудиофайла. Возвращает <code>voice_id</code> для использования в синтезе.</div>
+
 <h3>Пример</h3>
-<pre>& curl.exe -X POST `-F "file=@tests/samples/ru_sample.wav;type=audio/wav"` "http://127.0.0.1:8000/audio/enhance"</pre>
+<pre>& curl.exe -X POST `-F "file=@sample_voice.wav;type=audio/wav"` "http://127.0.0.1:8000/tts/clone"</pre>
 
 <div class="endp"><span class="method POST POST">POST</span><span>/tts</span><span class="tag">TTS</span></div>
 <table>
-  <tr><th>Параметры</th><td><code class="inline">language</code>=ru|en|...</td></tr>
-  <tr><th>Формат</th><td>multipart/form-data: <code class="inline">file</code></td></tr>
-  <tr><th>Ответ</th><td><span class="status ok">200</span> → <code>{"text":"...","raw":{...}}</code></td></tr>
+  <tr><th>Формат</th><td>JSON: <code>{"text":"текст для синтеза","voice_id":"...","format":"wav|mp3|ogg"}</code></td></tr>
+  <tr><th>Параметры</th><td>
+    <code class="inline">text</code> (string, обязательный) — текст для синтеза;<br/>
+    <code class="inline">voice_id</code> (string, опциональный) — ID голоса (по умолчанию <code>_default</code>);<br/>
+    <code class="inline">format</code> (string, опциональный) — формат аудио: <code>wav</code>, <code>mp3</code>, <code>ogg</code> (по умолчанию <code>wav</code>).
+  </td></tr>
+  <tr><th>Ответ</th><td>
+    <span class="status ok">200</span> → аудиофайл (Content-Type: audio/wav, audio/mpeg, audio/ogg);<br/>
+    <span class="status err">400</span> — пустой текст / неверный формат;<br/>
+    <span class="status err">404</span> — голос не найден;<br/>
+    <span class="status err">503</span> — превышен лимит генерации (25с).
+  </td></tr>
 </table>
-<h3>Пример</h3>
-<pre>& curl.exe -X POST `-F "file=@tests/samples/ru_sample.wav;type=audio/wav"` "http://127.0.0.1:8000/audio/transcribe"</pre>
-  </div>
+
+<h3>Примеры</h3>
+<pre>& curl.exe -X POST `-H "Content-Type: application/json"` `-d "{\"text\":\"Привет, это тест синтеза речи\",\"voice_id\":\"my_voice\",\"format\":\"wav\"}"` "http://127.0.0.1:8000/tts"</pre>
+<pre>& curl.exe -X POST `-H "Content-Type: application/json"` `-d "{\"text\":\"Hello world\"}"` "http://127.0.0.1:8000/tts"</pre>
+
 
 
 
