@@ -113,7 +113,6 @@ class SpeakerService:
 
         out_wav_path = EMBEDDINGS_DIR / f"{user_id}.wav"
         try:
-            # wav = torch.from_numpy(audio).reshape(1, -1)  # [C=1, N]
             torchaudio.save(str(out_wav_path), src=torch.from_numpy(audio).unsqueeze(0),  # [1,T]
                             sample_rate=SAMPLE_RATE, format="wav",
                             encoding="PCM_S", bits_per_sample=16)  # стандартный 16-бит PCM
