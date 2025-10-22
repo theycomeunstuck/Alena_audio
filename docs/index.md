@@ -34,7 +34,7 @@
 <body>
 <header><div class="container">
   <h1>Audio Core API</h1>
-  <div class="note">REST + WebSocket API: шумоподавление, ASR (Whisper), верификация спикера (SpeechBrain ECAPA).</div>
+  <div class="note">REST + WebSocket API: шумоподавление, ASR (Whisper), верификация спикера (SpeechBrain ECAPA), синтез речи (TTS). Веб-слой не меняет доменную логику, а только адаптирует её под HTTP/WS.</div>
 </div></header>
 
 <div class="container grid" style="margin-top:16px">
@@ -136,15 +136,16 @@
 <h3>Примеры</h3>
 <pre>& curl.exe -X POST "http://127.0.0.1:8000/speaker/train/microphone?user_id=TEST_alice&duration=5"</pre>
 
+</div>
 
-  <div class="panel">
-    <h2>TTS</h2>
+<div class="panel">
+<h2>TTS</h2>
 
 <div class="endp"><span class="method POST POST">POST</span><span>/tts/clone</span><span class="tag">TTS</span></div>
 <table>
-  <tr><th>Назначение</th><td>Клонировать голос из аудиофайла для последующего использования в синтезе речи.</td></tr>
-  <tr><th>Формат</th><td>multipart/form-data: <code class="inline">file</code> (WAV/MP3/FLAC/M4A/OGG)</td></tr>
-  <tr><th>Ответ</th><td><span class="status ok">200</span> → <code>{"voice_id":"..."}</code>; <span class="status err">400</span> если неверный формат файла.</td></tr>
+<tr><th>Назначение</th><td>Клонировать голос из аудиофайла для последующего использования в синтезе речи.</td></tr>
+<tr><th>Формат</th><td>multipart/form-data: <code class="inline">file</code> (WAV/MP3/FLAC/M4A/OGG)</td></tr>
+<tr><th>Ответ</th><td><span class="status ok">200</span> → <code>{"voice_id":"..."}</code>; <span class="status err">400</span> если неверный формат файла.</td></tr>
 </table>
 <div class="note">Создаёт новый голос на основе загруженного аудиофайла. Возвращает <code>voice_id</code> для использования в синтезе.</div>
 
@@ -153,26 +154,23 @@
 
 <div class="endp"><span class="method POST POST">POST</span><span>/tts</span><span class="tag">TTS</span></div>
 <table>
-  <tr><th>Формат</th><td>JSON: <code>{"text":"текст для синтеза","voice_id":"...","format":"wav|mp3|ogg"}</code></td></tr>
-  <tr><th>Параметры</th><td>
-    <code class="inline">text</code> (string, обязательный) — текст для синтеза;<br/>
-    <code class="inline">voice_id</code> (string, опциональный) — ID голоса (по умолчанию <code>_default</code>);<br/>
-    <code class="inline">format</code> (string, опциональный) — формат аудио: <code>wav</code>, <code>mp3</code>, <code>ogg</code> (по умолчанию <code>wav</code>).
-  </td></tr>
-  <tr><th>Ответ</th><td>
-    <span class="status ok">200</span> → аудиофайл (Content-Type: audio/wav, audio/mpeg, audio/ogg);<br/>
-    <span class="status err">400</span> — пустой текст / неверный формат;<br/>
-    <span class="status err">404</span> — голос не найден;<br/>
-    <span class="status err">503</span> — превышен лимит генерации (25с).
-  </td></tr>
+<tr><th>Формат</th><td>JSON: <code>{"text":"текст для синтеза","voice_id":"...","format":"wav|mp3|ogg"}</code></td></tr>
+<tr><th>Параметры</th><td>
+  <code class="inline">text</code> (string, обязательный) — текст для синтеза;<br/>
+  <code class="inline">voice_id</code> (string, опциональный) — ID голоса (по умолчанию <code>_default</code>);<br/>
+  <code class="inline">format</code> (string, опциональный) — формат аудио: <code>wav</code>, <code>mp3</code>, <code>ogg</code> (по умолчанию <code>wav</code>).
+</td></tr>
+<tr><th>Ответ</th><td>
+  <span class="status ok">200</span> → аудиофайл (Content-Type: audio/wav, audio/mpeg, audio/ogg);<br/>
+  <span class="status err">400</span> — пустой текст / неверный формат;<br/>
+  <span class="status err">404</span> — голос не найден;<br/>
+  <span class="status err">503</span> — превышен лимит генерации (25с).
+</td></tr>
 </table>
 
 <h3>Примеры</h3>
 <pre>& curl.exe -X POST `-H "Content-Type: application/json"` `-d "{\"text\":\"Привет, это тест синтеза речи\",\"voice_id\":\"my_voice\",\"format\":\"wav\"}"` "http://127.0.0.1:8000/tts"</pre>
 <pre>& curl.exe -X POST `-H "Content-Type: application/json"` `-d "{\"text\":\"Hello world\"}"` "http://127.0.0.1:8000/tts"</pre>
-
-
-
 
 </div>
   <div class="panel">
@@ -183,7 +181,7 @@
       Долгоживущий сокет для распознавания речи в реальном времени.
 </div>
 <table>
-  <tr><th>Параметры (optional)</th><td><code class="inline">language</code>, <code class="inline">sample_rate</code>, 
+  <tr><th>Параметры (optional)</th><td><code class="inline">language</code>, <code class="inline">sample_rate</code>,
 <code class="inline">windows_sec</code>, <code class="inline">emit_sec</code>, <code class="inline">inactivity_sec</code></td></tr>
   <tr><th>Handshake</th><td>Сервер шлёт: <code>{"type":"ready","sample_rate":16000,"language":"ru"}</code></td></tr>
   <tr><th>Binary</th><td>Посылаем чанки <strong>PCM16 mono (little-endian)</strong>. Буфер обрезается до окна <em>ASR_WINDOW_SEC</em>.</td></tr>
@@ -241,7 +239,6 @@
 
 <h2>Примечания по недоделанной работе</h2>
     <div class="note">
-    <li> Намёков на модуль TTS пока что нет (даже не начинал браться)</li>
     <li> Вебсокетные функции могут работать некорректно (не всё проходит интеграционные тесты; может последние написаны криво)</li>
     <li> Нет перебора по поиску голосов, то есть верификация сейчас работает только на одного пользователя </li>
     <li> В ws train microphone не обрабатывается гонка пакетов (может я не прав и это всё задержки моего ноута без gpu)</li>
