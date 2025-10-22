@@ -9,7 +9,7 @@ from speechbrain.inference.speaker import EncoderClassifier
 from app.services.audio_utils import load_and_resample
 from core.audio_capture import record_audio
 from core.audio_enhancement import Audio_Enhancement
-from core.config import TRAIN_USER_VOICE_S, EMBEDDINGS_DIR, SAMPLE_RATE
+from core.config import TRAIN_USER_VOICE_S, EMBEDDINGS_DIR, SAMPLE_RATE, sim_threshold
 
 _ENCODER: Optional[EncoderClassifier] = None
 
@@ -89,7 +89,7 @@ class SpeakerService:
             emb_p = _embed_sb(probe)
             emb_r = _embed_sb(ref)
             sb_score = float(F.cosine_similarity(emb_p.unsqueeze(0), emb_r.unsqueeze(0)).item())
-            sb_decision = bool(sb_score >= 0.65)  # пример порога
+            sb_decision = bool(sb_score >= sim_threshold)  # пример порога
         except Exception as e:
             raise Exception(f"app/service/speaker_service:: verify_files()\n{e}")
 
