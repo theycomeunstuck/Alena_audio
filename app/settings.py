@@ -1,7 +1,7 @@
 # app/settings.py
 import os
 from pathlib import Path
-from core.config import TTS_CKPT_PATH
+from core.config import TTS_CKPT_PATH, VOCAB_FILE
 
 # ---- Определяем корень проекта ----
 def _find_project_root(start: Path) -> Path:
@@ -32,6 +32,11 @@ VOICES_DIR.mkdir(parents=True, exist_ok=True)
 if not os.getenv("F5TTS_CKPT_PATH"):
     os.environ["F5TTS_CKPT_PATH"] = TTS_CKPT_PATH
     print(f"🔧 Set F5TTS_CKPT_PATH environment variable to: {TTS_CKPT_PATH}")
+if not os.getenv("VOCAB_FILE_PATH"):
+    os.environ["VOCAB_FILE_PATH"] = VOCAB_FILE
+
+VOCAB_FILE_PATH = os.getenv("VOCAB_FILE_PATH", VOCAB_FILE)
+
 
 F5TTS_CKPT_PATH = os.getenv("F5TTS_CKPT_PATH", TTS_CKPT_PATH) #path to model.pt (.spt)
 F5TTS_VOCODER_NAME = os.getenv("F5TTS_VOCODER_NAME", "vocos")

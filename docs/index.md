@@ -34,7 +34,7 @@
 <body>
 <header><div class="container">
   <h1>Audio Core API</h1>
-  <div class="note">REST + WebSocket API: шумоподавление, ASR (Whisper), верификация спикера (SpeechBrain ECAPA). Веб-слой не меняет доменную логику, а только адаптирует её под HTTP/WS.</div>
+  <div class="note">REST + WebSocket API: шумоподавление, ASR (Whisper), верификация спикера (SpeechBrain ECAPA).</div>
 </div></header>
 
 <div class="container grid" style="margin-top:16px">
@@ -135,6 +135,31 @@
 
 <h3>Примеры</h3>
 <pre>& curl.exe -X POST "http://127.0.0.1:8000/speaker/train/microphone?user_id=TEST_alice&duration=5"</pre>
+
+
+<div class="panel">
+    <h2>TTS</h2>
+
+<div class="endp"><span class="method POST POST">POST</span><span>/voice/clone</span><span class="tag">TTS</span></div>
+
+<table>
+  <tr><th>Формат</th><td>multipart/form-data: <code class="inline">file</code> (WAV/MP3/FLAC → внутри конвертируется в mono 16k)</td></tr>
+  <tr><th>Ответ</th><td><span class="status ok">200</span> → <code>{"output_filename":"..._enhanced.wav"}</code></td></tr>
+</table>
+<div class="note">Reference-wav для клонирования голоса, который в будущем можно будет использовать при синтезе речи (/tts). </div>
+<h3>Пример</h3>
+<pre>& curl.exe -X POST `-F "file=@tests/samples/ru_sample.wav;type=audio/wav"` "http://127.0.0.1:8000/audio/enhance"</pre>
+
+<div class="endp"><span class="method POST POST">POST</span><span>/tts</span><span class="tag">TTS</span></div>
+<table>
+  <tr><th>Параметры</th><td><code class="inline">language</code>=ru|en|...</td></tr>
+  <tr><th>Формат</th><td>multipart/form-data: <code class="inline">file</code></td></tr>
+  <tr><th>Ответ</th><td><span class="status ok">200</span> → <code>{"text":"...","raw":{...}}</code></td></tr>
+</table>
+<h3>Пример</h3>
+<pre>& curl.exe -X POST `-F "file=@tests/samples/ru_sample.wav;type=audio/wav"` "http://127.0.0.1:8000/audio/transcribe"</pre>
+  </div>
+
 
 
 </div>

@@ -2,13 +2,15 @@
 from __future__ import annotations
 from pathlib import Path
 from pydantic import BaseModel
-import uuid, shutil
+import uuid, shutil, json
 from pydub import AudioSegment  # нужен ffmpeg
+from core.ASR.transcriber import AsrTranscriber
 
 class VoiceMeta(BaseModel):
     voice_id: str
     sr: int
     orig_file: str
+    ref_text: str = ""  # транскрипция референс-аудио
 
 class VoiceStore:
     def __init__(self, root: Path | str):
@@ -41,6 +43,9 @@ class VoiceStore:
         ref_path = vdir / "reference.wav"
         audio.export(ref_path, format="wav")
 
+
+        # transcibe
+        # meta = VoiceMeta(voice_id=voice_id, sr=sample_rate, orig_file=up_path.name, ref_text=)
         meta = VoiceMeta(voice_id=voice_id, sr=sample_rate, orig_file=up_path.name)
         (vdir / "meta.json").write_text(meta.model_dump_json(indent=2), encoding="utf-8")
 

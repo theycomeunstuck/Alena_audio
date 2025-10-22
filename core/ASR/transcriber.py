@@ -5,26 +5,27 @@ from typing import Optional
 import whisper
 from core.config import WHISPER_MODEL, device, ASR_LANGUAGE
 
+
 class AsrTranscriber:
     def __init__(
-        self,
-        model_name: str = WHISPER_MODEL,
-        device: str = device,
-        language: Optional[str] = ASR_LANGUAGE or None,
-        max_chars=None,
+            self,
+            model_name: str = WHISPER_MODEL,
+            device: str = device,
+            language: Optional[str] = ASR_LANGUAGE or None,
+            max_chars=None,
     ):
         self.model = whisper.load_model(model_name, device=device)
         self.language = language
         self.max_chars = max_chars
 
-    def transcribe(self, audio_path: Path) -> str:
+    def transcribe(self, audio_path: Path) -> str:  # todo: посмотреть сломается ли код если эту кроказябру убрать
         # Standard OpenAI Whisper transcription
         result = self.model.transcribe(
             str(audio_path),
             language=self.language,  # None => autodetect
         )
         text = result.get("text", "").strip()
-        
+
         # лёгкая нормализация
         text = text.replace("  ", " ")
         if self.max_chars and len(text) > self.max_chars:
