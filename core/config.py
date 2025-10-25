@@ -92,7 +92,7 @@ noise_Model = separator.from_hparams(
 
 '''
 в API pipeline сейчас используется только энкодер от spkrec-ecapa-voxceleb. 
-Расположение app/services/speaker_service.py (def _get_encoder)
+Расположение app/services/embeddings_utils.py (def _get_encoder)
 '''
 speech_verification_model = SpeakerRecognition.from_hparams(
     source="speechbrain/spkrec-ecapa-voxceleb",

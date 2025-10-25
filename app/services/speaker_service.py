@@ -7,42 +7,13 @@ import os
 from pathlib import Path
 from speechbrain.inference.speaker import EncoderClassifier
 from app.services.audio_utils import load_and_resample
+from app.services.embeddings_utils import embed_speechbrain, get_encoder
 from core.audio_capture import record_audio
 from core.audio_enhancement import Audio_Enhancement
 from core.config import TRAIN_USER_VOICE_S, EMBEDDINGS_DIR, SAMPLE_RATE, sim_threshold
 
 _ENCODER: Optional[EncoderClassifier] = None
 
-# todo: убрать весь пайплайн файла в core
-
-# Поднимем один раз энкодер для референс-проверки
-def _get_encoder() -> EncoderClassifier:
-    global _ENCODER
-    if _ENCODER is None:
-        _ENCODER = EncoderClassifier.from_hparams(
-            source="speechbrain/spkrec-ecapa-voxceleb",
-            savedir=str(
-                (Path(__file__).resolve().parents[2] / "pretrained_models" / "SpeechBrain" / "spkrec-ecapa-voxceleb")),
-        ).eval()
-    return _ENCODER
-
-def _to_tensor_1d(x: np.ndarray) -> torch.Tensor:
-    if not isinstance(x, np.ndarray):
-        raise ValueError("ожидался np.ndarray")
-    if x.ndim != 1:
-        raise ValueError(f"ожидался 1D массив, получено shape={x.shape}")
-    if np.allclose(x, 0.0, atol=1e-7):
-        raise ValueError("пустой/нулевой сигнал")
-    return torch.from_numpy(x.astype(np.float32, copy=False)).unsqueeze(0)  # [1,T]
-
-def _embed_sb(x: np.ndarray) -> torch.Tensor:
-    enc = _get_encoder()
-    wav = _to_tensor_1d(x)  # [1,T]
-    with torch.no_grad():
-        emb = enc.encode_batch(wav)  # [1,1,D] или [1,D]
-        emb = emb.squeeze()  # [D]
-        emb = F.normalize(emb, p=2, dim=-1)
-    return emb
 
 class SpeakerService:
     def __init__(self, storage_dir: Path):
@@ -86,8 +57,8 @@ class SpeakerService:
                     )
                 ref = load_and_resample(str(default_ref_path))
 
-            emb_p = _embed_sb(probe)
-            emb_r = _embed_sb(ref)
+            emb_p = embed_speechbrain(probe)
+            emb_r = embed_speechbrain(ref)
             sb_score = float(F.cosine_similarity(emb_p.unsqueeze(0), emb_r.unsqueeze(0)).item())
             sb_decision = bool(sb_score >= sim_threshold)  # пример порога
         except Exception as e:
@@ -121,7 +92,7 @@ class SpeakerService:
             print(e)
             raise e
 
-        emb = _embed_sb(audio).detach().cpu().numpy().astype(np.float32)
+        emb = embed_speechbrain(audio).detach().cpu().numpy().astype(np.float32)
 
         out_npy_path = EMBEDDINGS_DIR / f"{user_id}.npy"
 
