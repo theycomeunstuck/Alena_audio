@@ -1,34 +1,91 @@
+#app/api/routes_speaker.py
 from fastapi import APIRouter, UploadFile, File, HTTPException, Query
 from pathlib import Path
+from typing import Optional
 from app.settings import STORAGE_DIR
 from app.services.speaker_service import SpeakerService
-from app.models.speaker_models import VerifyResponse, TrainMicResponse
+from app.services.multi_speaker_matcher import get_global_matcher
+from app.services.audio_utils import load_and_resample
+from app.models.speaker_models import VerifyResponse, TrainMicResponse, MultiVerifyResponse, MultiVerifyMatch, RegistryVerifyResponse
+from core.config import sim_threshold as _sim_threshold
 
 router = APIRouter(prefix="/speaker", tags=["Speaker"])
 svc = SpeakerService(STORAGE_DIR)
 
-@router.post("/verify", response_model=VerifyResponse)
+@router.post("/verify", response_model=VerifyResponse, summary="Сравнение образца с эталоном")
 async def verify(
     probe: UploadFile = File(...),
     reference: UploadFile | None = File(None),
 ):
     probe_path = STORAGE_DIR / f"probe_{probe.filename}"
     probe_path.write_bytes(await probe.read())
-    #todo: [!] добавить поддержку npy | вероятно это не имеет смысл - поддержка npy в api.
-    # ref_path = STORAGE_DIR / f"ru_sample.wav" #todo: Пока что реализовано verify_speaker только для одного пользователя. и только для wav...
-    ref_path = None #todo: Пока что реализовано verify_speaker только для одного пользователя. и только для wav...
+    ref_path: Optional[Path] = None
     if reference is not None: # Если получили второй аргумент по API
         ref_path = STORAGE_DIR / f"ref_{reference.filename}"
         ref_path.write_bytes(await reference.read())
+
     try:
-        result = svc.verify_files(probe_path, ref_path)
+        result = svc.verify_files(probe_path, ref_path) # ожидается {'score': float, 'decision': bool}
+        if not isinstance(result, dict) or "score" not in result or "decision" not in result:
+            raise ValueError("invalid response from speaker service (app/api/routes_speaker.py)")
+        return result
+    except HTTPException:
+        raise
     except ValueError as e:
-        raise HTTPException(400, str(e))
-    return result
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"internal error: {e.__class__.__name__}: {e}")
+
+@router.post("/verify_registry", response_model=RegistryVerifyResponse, summary="Проверка образца по всему реестру зарегистрированных голосов")
+async def verify_registry(
+    probe: UploadFile = File(...),
+    sim_threshold: float = Query(_sim_threshold, ge=0.0, le=1.0, description="Порог бинарного решения в [0..1]"),
+    top_k: int = Query(5, ge=1, le=50, description="Диагностически вернуть Top-K совпадений. По умолчанию 5"),
+):
+    """
+    Перебирает **все** зарегистрированные в реестре голоса (VOICES_DIR + EMBEDDINGS_DIR), предзагруженные в RAM,
+    и возвращает бинарное решение и лучший матч. Для диагностики можно запросить `top_k`.
+    """
+    try:
+        buf = await probe.read()
+        matcher = get_global_matcher()
+        # Для бинарного решения достаточно best из top-1, но для прозрачности собираем top_k
+        audio = load_and_resample(buf)
+        result = matcher.match_probe_array(audio, top_k=top_k)
+        best = result[0] if result else None
+        decision = bool(best and best["score"] >= float(sim_threshold))
+        best_model = MultiVerifyMatch(**best) if decision and best is not None else None
+        return {"decision": decision, "best": best_model, "threshold": float(sim_threshold), "matches": result}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"internal error: {e.__class__.__name__}: {e}")
+
+@router.post("/verify/topk", response_model=MultiVerifyResponse, summary="Top-K совпадений по всему реестру")
+async def verify_topk(
+    probe: UploadFile = File(...),
+    top_k: int = Query(5, ge=1, le=50, description="Сколько лучших совпадений вернуть"),
+):
+    try:
+        buf = await probe.read()
+        audio = load_and_resample(buf)
+        matcher = get_global_matcher()
+        matches = matcher.match_probe_array(audio, top_k=top_k)
+        return MultiVerifyResponse(count=len(matches), matches=[MultiVerifyMatch(**m) for m in matches])
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"internal error: {e.__class__.__name__}: {e}")
+
+@router.post("/registry/reload", summary="Перечитать реестр голосов с диска и обновить RAM")
+def registry_reload() -> dict:
+    try:
+        matcher = get_global_matcher()
+        n = matcher.reload()
+        return {"status": "ok", "count": int(n)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"internal error: {e.__class__.__name__}: {e}")
+
 
 @router.post("/train/microphone", response_model=TrainMicResponse)
 def train_microphone(
-    user_id: str = Query("default", description="Идентификатор пользователя"),
+    user_id: str = Query("_default", description="Идентификатор пользователя. Если не задан, то генерируется случайный (uuid4)"),
     duration: float = Query(None, description="Длительность записи, сек (по умолчанию из конфигурации)"),
 ):
     """Записывает образец голоса с локального микрофона (вроде как того, что на машине, держащем API)

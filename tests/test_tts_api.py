@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 # эти переменные должны быть выставлены до импорта app.main
 # чтобы routes_TTS успел корректно инициализировать store/engine.
 def _prepare_env_and_default(tmp_path: Path, sample_rate: int = 24000) -> Path:
-    voices_dir = tmp_path / "voices"
+    voices_dir = tmp_path / "voices_TTS"
     voices_dir.mkdir(parents=True, exist_ok=True)
 
     # Перенаправим роутер на временное хранилище

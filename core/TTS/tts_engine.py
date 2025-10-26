@@ -54,7 +54,7 @@ class TtsEngine:
             "f5-tts_infer-cli",
             "--model", "F5TTS_v1_Base",
             "--ref_audio", str(ref_audio),
-            "--ref_text", "",  # пусто -> автотранскриб референса
+            "--ref_text", "",  # пусто -> автотранскриб референса # todo: Один раз transcribe, then подтягивать from voice_metadata.json (not exist yet)
             "--gen_text", text,
             "--output_dir", str(out_dir),
             "--vocoder_name", self.vocoder,

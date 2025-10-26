@@ -3,7 +3,7 @@ from typing import Any, Dict, Optional, Tuple
 import numpy as np
 import torch, torchaudio
 import torch.nn.functional as F
-import os
+import os, uuid
 from pathlib import Path
 from speechbrain.inference.speaker import EncoderClassifier
 from app.services.audio_utils import load_and_resample
@@ -70,11 +70,14 @@ class SpeakerService:
         }
         return result
 
-    def train_from_microphone(self, user_id: str = "default", duration: float = TRAIN_USER_VOICE_S) -> Dict[str, Any]:
+    def train_from_microphone(self, user_id: str = "_default", duration: float = TRAIN_USER_VOICE_S) -> Dict[str, Any]:
         """
         Записывает голос с локального микрофона API-хоста, извлекает эмбеддинг и
         сохраняет в EMBEDDINGS_DIR/<user_id>.npy
         """
+        if user_id == "_default":
+            user_id = str(uuid.uuid4().hex)
+
         audio = record_audio(duration=duration)  # 1D float32 @ SAMPLE_RATE
         if audio.ndim != 1 or audio.size < int(0.5 * SAMPLE_RATE):
             raise ValueError("Слишком короткая запись — повторите попытку")
@@ -82,20 +85,20 @@ class SpeakerService:
 
         EMBEDDINGS_DIR.mkdir(parents=True, exist_ok=True)
 
-        out_wav_path = EMBEDDINGS_DIR / f"{user_id}.wav"
+        out_wav_path = EMBEDDINGS_DIR / f"{user_id}.wav"  #todo: возможно стоит убрать в вавки в будущем - не уверен, что они нужны или что мы будем клонить регнутых пользователей
         try:
             torchaudio.save(str(out_wav_path), src=torch.from_numpy(audio).unsqueeze(0),  # [1,T]
                             sample_rate=SAMPLE_RATE, format="wav",
                             encoding="PCM_S", bits_per_sample=16)  # стандартный 16-бит PCM
 
         except Exception as e:
-            print(e)
-            raise e
+            print(e); raise
 
         emb = embed_speechbrain(audio).detach().cpu().numpy().astype(np.float32)
 
         out_npy_path = EMBEDDINGS_DIR / f"{user_id}.npy"
-
         np.save(out_npy_path, emb)
+
+
         return {"status": "ok", "wavPath": str(out_wav_path), "npyPath": str(out_npy_path)}
 

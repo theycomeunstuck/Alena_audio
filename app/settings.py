@@ -24,7 +24,7 @@ EMBEDDINGS_DIR = Path(os.getenv("EMBEDDINGS_DIR", STORAGE_DIR / "embeddings")).r
 EMBEDDINGS_DIR.mkdir(parents=True, exist_ok=True)
 
 # Папка клонов голосов
-VOICES_DIR = Path(os.getenv("VOICES_DIR", STORAGE_DIR / "voices")).resolve()
+VOICES_DIR = Path(os.getenv("VOICES_DIR", STORAGE_DIR / "voices_TTS")).resolve()
 VOICES_DIR.mkdir(parents=True, exist_ok=True)
 
 # Остальные TTS-параметры

@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from app.api import routes_health, routes_files, routes_audio, routes_speaker, routes_ws, routes_TTS
+from app.api import routes_health, routes_files, routes_audio, routes_speaker, routes_ws, routes_TTS, routes_verify_ws
 
 app = FastAPI(
     title="Audio Core API",
@@ -13,5 +13,5 @@ app.include_router(routes_audio.router)
 app.include_router(routes_speaker.router)
 app.include_router(routes_ws.router)
 app.include_router(routes_TTS.router)
-
+app.include_router(routes_verify_ws.router)
 

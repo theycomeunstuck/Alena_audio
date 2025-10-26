@@ -1,10 +1,13 @@
-# core/tts/voices.py
+# core/TTS/voices.py
 from __future__ import annotations
 from pathlib import Path
 from pydantic import BaseModel
-import uuid, shutil, json
-from pydub import AudioSegment  # нужен ffmpeg
+import uuid, shutil, json, hashlib
+from typing import Optional
+from pydub import AudioSegment  # требует ffmpeg
+
 from core.ASR.transcriber import AsrTranscriber
+from core.config import VOICES_DIR
 
 class VoiceMeta(BaseModel):
     voice_id: str
@@ -17,44 +20,105 @@ class VoiceStore:
         self.root = Path(root)
         self.root.mkdir(parents=True, exist_ok=True)
 
+
     def _voice_dir(self, voice_id: str) -> Path:
         return self.root / voice_id
 
+    def meta_path(self, voice_id: str) -> Path:
+        return self._voice_dir(voice_id) / "meta.json"
+
+    def _cache_path(self) -> Path:
+        return self.root / "whisper_transcriptions.json"
+
+    def _load_cache(self) -> dict:
+        p = self._cache_path()
+        if p.exists():
+            try:
+                return json.loads(p.read_text(encoding="utf-8"))
+            except Exception:
+                return {}
+        return {}
+
+    def _save_cache(self, cache: dict) -> None:
+        p = self._cache_path()
+        p.write_text(json.dumps(cache, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+
+    def list_ids(self) -> list[str]:
+        if not self.root.exists():
+            return []
+        return sorted([p.name for p in self.root.iterdir() if p.is_dir()])
+
     def exists(self, voice_id: str) -> bool:
-        return (self._voice_dir(voice_id) / "reference.wav").exists()
+        return self._voice_dir(voice_id).exists()
 
-    def ensure_default(self, default_id: str = "_default"):
-        d = self._voice_dir(default_id); d.mkdir(parents=True, exist_ok=True)
-        ref = d / "reference.wav"
+    def read_meta(self, voice_id: str) -> VoiceMeta:
+        p = self.meta_path(voice_id)
+        if not p.exists():
+            # build minimal meta
+            return VoiceMeta(voice_id=voice_id, sr=0, orig_file="", ref_text="")
+        return VoiceMeta.model_validate_json(p.read_text(encoding="utf-8"))
+
+    def write_meta(self, meta: VoiceMeta) -> None:
+        self.meta_path(meta.voice_id).write_text(meta.model_dump_json(indent=2), encoding="utf-8")
+
+    def ensure_reference_wav(self, voice_id: str) -> Path:
+        vdir = self._voice_dir(voice_id)
+        ref = vdir / "reference.wav"
         if not ref.exists():
-            raise FileNotFoundError(
-                f"Нет базового голоса: {ref}. Положите сюда reference.wav "
-                f"(используется, если voice_id не передан)."
-            )
+            raise FileNotFoundError(f"reference.wav не найден для '{voice_id}'. \nref: {ref} \nvdir: {vdir}'")
+        return ref # вовзращает путь к ref.wav
 
-    def clone_from_upload(self, up_path: Path, sample_rate: int = 24000) -> VoiceMeta:
-        voice_id = str(uuid.uuid4())
+    def _sha1(self, path: Path) -> str:
+        h = hashlib.sha1()
+        with path.open("rb") as f:
+            for chunk in iter(lambda: f.read(1 << 16), b""):
+                h.update(chunk)
+        return h.hexdigest()
+
+    def _transcribe_with_local_cache(self, wav_path: Path, language: Optional[str] = None) -> str:
+        """
+        Локальный кэш транскрипций в VOICES_DIR/whisper_transcriptions.json.
+        Использует openai/whisper (через AsrTranscriber).
+        """
+        cache = self._load_cache()
+        sha1 = self._sha1(wav_path)
+        by_sha = cache.setdefault("by_sha1", {})
+        if sha1 in by_sha:
+            return by_sha[sha1]
+
+        transcriber = AsrTranscriber(language=language)
+        text = transcriber.transcribe(wav_path)
+        text = (text or "").strip()
+        by_sha[sha1] = text
+        cache.setdefault("by_path", {})[str(wav_path)] = text
+        self._save_cache(cache)
+        return text
+
+    def clone_from_upload(self, up_path: Path, sample_rate: int = 24000, language: Optional[str] = "ru") -> VoiceMeta:
+        """
+        Создаёт новый voice_id из загруженного WAV/MP3/OGG и заполняет meta.json.
+        Дублирование транскрипций избегается за счёт локального кэша в VOICES_DIR.
+        """
+        up_path = Path(up_path)
+        voice_id = str(uuid.uuid4().hex)
         vdir = self._voice_dir(voice_id)
         vdir.mkdir(parents=True, exist_ok=True)
 
+        # сконвертировать в reference.wav с нужным sample_rate
         audio = AudioSegment.from_file(up_path)
-        audio = audio.set_frame_rate(sample_rate).set_channels(1).set_sample_width(2)
-
+        audio = audio.set_channels(1).set_frame_rate(sample_rate)
         ref_path = vdir / "reference.wav"
         audio.export(ref_path, format="wav")
 
-
-        # transcibe
-        # meta = VoiceMeta(voice_id=voice_id, sr=sample_rate, orig_file=up_path.name, ref_text=)
-        meta = VoiceMeta(voice_id=voice_id, sr=sample_rate, orig_file=up_path.name)
-        (vdir / "meta.json").write_text(meta.model_dump_json(indent=2), encoding="utf-8")
-
-
-
+        # meta
+        ref_text = self._transcribe_with_local_cache(ref_path, language=language)
+        meta = VoiceMeta(voice_id=voice_id, sr=int(sample_rate), orig_file=str(up_path.name), ref_text=ref_text)
+        self.write_meta(meta)
         return meta
 
-    def reference_wav(self, voice_id: str) -> Path:
-        p = self._voice_dir(voice_id) / "reference.wav"
-        if not p.exists():
-            raise FileNotFoundError(f"Голос {voice_id} не найден")
-        return p
+
+# convenience factory для маршрутизатора
+def get_default_store() -> VoiceStore:
+    return VoiceStore(VOICES_DIR)

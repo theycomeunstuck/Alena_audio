@@ -37,7 +37,7 @@ def test_tts_deep_real_model(tmp_path, monkeypatch):
         pytest.skip("FFmpeg не найден — пропускаем deepTTS.")
 
     # --- перенаправляем VOICES_DIR в tmp ---
-    voices_dir = tmp_path / "voices"
+    voices_dir = tmp_path / "voices_TTS"
     voices_dir.mkdir(parents=True, exist_ok=True)
     monkeypatch.setenv("VOICES_DIR", str(voices_dir))
     # лучше на CPU для предсказуемости: (или оставьте 'auto')

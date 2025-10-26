@@ -18,7 +18,7 @@ class AsrTranscriber:
         self.language = language
         self.max_chars = max_chars
 
-    def transcribe(self, audio_path: Path) -> str:  # todo: посмотреть сломается ли код если эту кроказябру убрать
+    def transcribe(self, audio_path: Path) -> str:  # todo: посмотреть сломается ли код если эту func убрать
         # Standard OpenAI Whisper transcription
         result = self.model.transcribe(
             str(audio_path),

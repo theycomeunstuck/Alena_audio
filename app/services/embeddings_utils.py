@@ -35,7 +35,7 @@ def to_tensor_1d(x: np.ndarray) -> torch.Tensor:
 
 
 def embed_speechbrain(x: np.ndarray) -> torch.Tensor:
-    """Создаёт L2-нормализованный эмбеддинг для аудиосигнала"""
+    """Создаёт L2-нормализованный эмбеддинг для аудиосигнала - нормализует по громкости"""
     enc = get_encoder()
     wav = to_tensor_1d(x)
     with torch.no_grad():

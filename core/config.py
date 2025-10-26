@@ -10,12 +10,12 @@ if True:
     MODELS_DIR = PROJECT_ROOT / "pretrained_models"
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
 
-    # единая папка для эмбеддингов пользователей
+    # единая папка для эмбеддингов пользователей (зарегистрованные пользователи, которых будем верифицировать по голосу)
     EMBEDDINGS_DIR = PROJECT_ROOT / "storage" / "embeddings"
     EMBEDDINGS_DIR.mkdir(parents=True, exist_ok=True)
 
     # единая папка для клонированных голосов
-    VOICES_DIR = PROJECT_ROOT / "storage" / "voices"
+    VOICES_DIR = PROJECT_ROOT / "storage" / "voices_TTS"
     VOICES_DIR.mkdir(parents=True, exist_ok=True)
 
     # Опционально: стандартизируем кэши HF/torch (чтобы всё летело сюда же)
@@ -55,7 +55,7 @@ MIN_VOICE_RATIO     = 0.5       # минимальная доля реальны
 MAX_ASR_FAILURES    = 5         # необязательный: макс. подряд «фоновых» окон до сброса. # Параметры гейтинга ASR:
 TARGET_DBFS         = -18.0     # dBFS для RMS-нормализации
 TRAIN_USER_VOICE_S  = 15        # Длительность записи эталона
-sim_threshold = 0.6     # Пороговое значение совпадения (уверенность) пользователя по косинусному расстоянию
+sim_threshold = 0.65     # Пороговое значение совпадения (уверенность) пользователя по косинусному расстоянию
 
 # ASR (Whisper)
 ASR_LANGUAGE = "ru"          # язык по умолчанию

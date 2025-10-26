@@ -18,7 +18,7 @@ store = VoiceStore(settings.VOICES_DIR)
 engine = TtsEngine()
 # убедимся, что есть базовый голос
 try: #todo: убедиться, что путь storage/_default/reference.wav НИГДЕ не используется. нормальный путь лежит в storage/voices
-    store.ensure_default("_default")
+    store.ensure_reference_wav("_default")
 except FileNotFoundError as e: # Даём понятную ошибку при первом старте без "storage/voices/_default/reference.wav"
     raise FileNotFoundError(f"{e}")
 
@@ -57,7 +57,7 @@ async def tts(req: TtsIn):
     if not store.exists(vid):
         raise HTTPException(status_code=404, detail=f"Голос '{vid}' не найден")
 
-    ref = store.reference_wav(vid)
+    ref = store.ensure_reference_wav(vid)
     audio = await engine.synth(req.text.strip(), ref, req.format)
 
     mt = {"wav":"audio/wav","mp3":"audio/mpeg","ogg":"audio/ogg"}[req.format]
