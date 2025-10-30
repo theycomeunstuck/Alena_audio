@@ -7,7 +7,9 @@ class VerifyResponse(BaseModel):
 
 class TrainMicResponse(BaseModel):
     status: str
-    message: str
+    ref_path: str = Field(..., description="Путь к референс-файлу .wav")
+    npy_path: str = Field(..., description="Путь к эмбеддинг-файлу .npy")
+
 
 class MultiVerifyMatch(BaseModel):
     user_id: str = Field(..., description="ID пользователя/голоса")

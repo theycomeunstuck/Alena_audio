@@ -10,6 +10,7 @@ from app.services.audio_utils import load_and_resample
 from app.services.embeddings_utils import embed_speechbrain, get_encoder
 from core.audio_capture import record_audio
 from core.audio_enhancement import Audio_Enhancement
+from core.audio_utils import normalize_rms
 from core.config import TRAIN_USER_VOICE_S, EMBEDDINGS_DIR, SAMPLE_RATE, sim_threshold
 
 _ENCODER: Optional[EncoderClassifier] = None
@@ -79,25 +80,27 @@ class SpeakerService:
             user_id = str(uuid.uuid4().hex)
 
         audio = record_audio(duration=duration)  # 1D float32 @ SAMPLE_RATE
-        if audio.ndim != 1 or audio.size < int(0.5 * SAMPLE_RATE):
+        if audio.ndim != 1 or audio.size < int(3 * SAMPLE_RATE):
             raise ValueError("Слишком короткая запись — повторите попытку")
 
-
         EMBEDDINGS_DIR.mkdir(parents=True, exist_ok=True)
+        out_wav_path = EMBEDDINGS_DIR / f"{user_id}.wav"
+        out_npy_path = EMBEDDINGS_DIR / f"{user_id}.npy"
 
-        out_wav_path = EMBEDDINGS_DIR / f"{user_id}.wav"  #todo: возможно стоит убрать в вавки в будущем - не уверен, что они нужны или что мы будем клонить регнутых пользователей
+        audio = normalize_rms(audio)
+
         try:
             torchaudio.save(str(out_wav_path), src=torch.from_numpy(audio).unsqueeze(0),  # [1,T]
                             sample_rate=SAMPLE_RATE, format="wav",
                             encoding="PCM_S", bits_per_sample=16)  # стандартный 16-бит PCM
-
         except Exception as e:
             print(e); raise
 
-        emb = embed_speechbrain(audio).detach().cpu().numpy().astype(np.float32)
+        emb = embed_speechbrain(audio)
+        emb = torch.nn.functional.normalize(emb, p=2, dim=-1, eps=1e-12).float()
 
-        out_npy_path = EMBEDDINGS_DIR / f"{user_id}.npy"
-        np.save(out_npy_path, emb)
+
+        np.save(out_npy_path, emb.detach().cpu().numpy().astype(np.float32))
 
 
         return {"status": "ok", "wavPath": str(out_wav_path), "npyPath": str(out_npy_path)}

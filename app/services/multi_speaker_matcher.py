@@ -9,127 +9,90 @@ import torch
 
 from app.services.audio_utils import load_and_resample
 from app.services.embeddings_utils import embed_speechbrain
-from core.config import VOICES_DIR, EMBEDDINGS_DIR, SAMPLE_RATE, sim_threshold as DEFAULT_SIM_THRESHOLD
+from core.config import EMBEDDINGS_DIR, SAMPLE_RATE, sim_threshold as DEFAULT_SIM_THRESHOLD, TARGET_DBFS
+from core.audio_utils import normalize_rms
 
 
 def _cos_to01(x: torch.Tensor) -> torch.Tensor:
-    """
-    Преобразует косинусное сходство из диапазона [-1..1] в [0..1].
-    """
+    """Косинус [-1..1] → [0..1]."""
     return (torch.clamp(x, -1.0, 1.0) + 1.0) * 0.5
 
-
+# [30.10.25] todo: нужно бы обезопасить device, чтобы было на одном устройстве.
+# then i need to check websocket multiply user same time. gpt says its cant
 class MultiSpeakerMatcher:
     """
-    Держит в RAM набор референс-аудио пользователей + их эмбеддинги.
-    Ищет best-match и top-k по входному аудиофрагменту.
-    Источники данных:
-      - VOICES_DIR/<user_id>/reference.wav  (исторический формат; совместимость с тестами)
-      - EMBEDDINGS_DIR/<user_id>.wav        (новый формат реестра)
-      - EMBEDDINGS_DIR/<user_id>.npy        (эмбеддинг; опционально, ускоряет загрузку)
+    Реестр спикеров хранится только в EMBEDDINGS_DIR как <user_id>.npy.
+    Каждый .npy — L2-нормированный эмбеддинг (1D float, любая длина D).
+    Объект держит в RAM:
+      - self._user_ids: порядок пользователей
+      - self._emb_paths: пути к соответствующим .npy
+      - self._embs: матрицу эмбеддингов [N, D]
     """
-    def __init__(self, voices_dir: Path | str = VOICES_DIR, embeddings_dir: Path | str = EMBEDDINGS_DIR, sample_rate: int = SAMPLE_RATE):
-        self.voices_dir = Path(voices_dir)
+
+    def __init__(self, embeddings_dir: Path | str = EMBEDDINGS_DIR, sample_rate: int = SAMPLE_RATE):
         self.embeddings_dir = Path(embeddings_dir)
         self.sample_rate = int(sample_rate)
 
         self._user_ids: List[str] = []
-        self._paths: List[Path] = []
-        self._wav_arrays: List[np.ndarray] = []  # исходные mono float32 [-1..1]
-        self._embs: torch.Tensor = torch.zeros((0, 256), dtype=torch.float32)  # (N, D)
+        self._emb_paths: List[Path] = []
+        self._embs: torch.Tensor = torch.empty((0, 0), dtype=torch.float32)  # [N, D], D задастся при reload()
         self._lock = threading.RLock()
 
 
-    def _collect_voice_candidates(self) -> List[Tuple[str, Path]]:
-        """
-        Возвращает список (user_id, path_to_reference_wav) из VOICES_DIR и EMBEDDINGS_DIR.
-        """
+    def _list_embedding_files(self) -> List[Tuple[str, Path]]:
+        """Сканирует embeddings_dir и возвращает [(uid, path_to_npy)]."""
         pairs: List[Tuple[str, Path]] = []
-
-        # 1) VOICES_DIR/<uid>/reference.wav
-        if self.voices_dir.exists():
-            for sub in sorted(self.voices_dir.iterdir()):
-                if not sub.is_dir():
-                    continue
-                uid = sub.name
-                ref = sub / "reference.wav"
-                if ref.exists():
-                    pairs.append((uid, ref))
-
-        # 2) EMBEDDINGS_DIR/<uid>.wav
         if self.embeddings_dir.exists():
-            for wav in sorted(self.embeddings_dir.glob("*.wav")):
-                uid = wav.stem
-                pairs.append((uid, wav))
-
+            for npy in sorted(self.embeddings_dir.glob("*.npy")):
+                uid = npy.stem
+                pairs.append((uid, npy))
         return pairs
 
-    def _try_load_embedding_npy(self, uid: str) -> Optional[torch.Tensor]:
+    @staticmethod
+    def _load_embedding_npy(npy_path: Path) -> torch.Tensor:
         """
-        Если есть EMBEDDINGS_DIR/<uid>.npy — грузим оттуда нормализованный эмбеддинг.
+        Грузит <uid>.npy, приводит к 1D float32 и L2-нормализует.
+        Бросает исключение, если файл битый.
         """
-        npy = self.embeddings_dir / f"{uid}.npy"
-        if npy.exists():
-            try:
-                arr = np.load(npy)
-                t = torch.from_numpy(arr).float()
-                if t.ndim != 1:
-                    t = t.view(-1)
-                # предполагаем, что он уже L2-нормализован; но на всякий случай нормализуем ещё раз
-                t = torch.nn.functional.normalize(t, p=2, dim=-1)
-                return t
-            except Exception:
-                return None
-        return None
+        arr = np.load(npy_path)
+        t = torch.from_numpy(arr).float()
+        if t.ndim != 1:
+            t = t.view(-1)
+        t = torch.nn.functional.normalize(t, p=2, dim=-1)
+        return t
 
 
     def reload(self) -> int:
         """
-        Перечитать все пользователи из диска и поместить их аудио + эмбеддинги в RAM.
+        Перечитать все *.npy из embeddings_dir и собрать RAM-индекс.
         Возвращает количество пользователей.
         """
+        candidates = self._list_embedding_files()
+
+        new_user_ids: List[str] = []
+        new_paths: List[Path] = []
+        new_embs: List[torch.Tensor] = []
+
+        for uid, npy_path in candidates:
+            try:
+                emb = self._load_embedding_npy(npy_path)  # [D]
+            except Exception as e:
+                print(f"[MultiSpeakerMatcher] skip {uid}: can't load {npy_path.name} ({e})")
+                continue
+
+            new_user_ids.append(uid)
+            new_paths.append(npy_path)
+            new_embs.append(emb.view(1, -1).contiguous())  # [1, D]
+
+        new_embs_tensor = torch.cat(new_embs, dim=0) if new_embs else torch.empty((0, 0), dtype=torch.float32)
+
+        # быстрый swap под коротким локом
         with self._lock:
-            user_ids: List[str] = []
-            paths: List[Path] = []
-            wavs: List[np.ndarray] = []
-            embs: List[torch.Tensor] = []
+            self._user_ids = new_user_ids
+            self._emb_paths = new_paths
+            self._embs = new_embs_tensor
 
-            candidates = self._collect_voice_candidates()
-            for uid, ref in candidates:
-                try:
-                    # Загружаем аудио (моно, float32 @ SAMPLE_RATE)
-                    wav = load_and_resample(ref)
-
-
-                    if wav.size < int(0.3 * self.sample_rate): # если отрезок больше чем 0.3 сек
-                        # короткие/битые пропускаем
-                        print(f"[MultiSpeakerMatcher] skip {uid}: too short")
-                        continue
-
-                    # Попробуем взять готовый эмбеддинг из .npy, иначе посчитаем
-                    emb = self._try_load_embedding_npy(uid)
-                    if emb is None:
-                        emb = embed_speechbrain(wav)  # torch.Tensor [D]
-
-                except Exception as e:
-                    # защищаем пайплайн от битых файлов
-                    print(f"[MultiSpeakerMatcher] skip {uid}: {e}")
-                    continue
-
-                user_ids.append(uid)
-                paths.append(ref)
-                wavs.append(wav.astype(np.float32, copy=False))  # держим в RAM
-                embs.append(emb.view(1, -1))  # [1,D]
-
-            # Консолидируем
-            if embs:
-                self._embs = torch.cat(embs, dim=0).contiguous()  # [N,D]
-            else:
-                self._embs = torch.zeros((0, 256), dtype=torch.float32)
-            self._user_ids = user_ids
-            self._paths = paths
-            self._wav_arrays = wavs
-            return len(self._user_ids)
+        return len(self._user_ids)
 
     def registry_size(self) -> int:
         with self._lock:
@@ -137,34 +100,43 @@ class MultiSpeakerMatcher:
 
     def match_probe_array(self, audio: np.ndarray, top_k: int = 5) -> List[Dict[str, Any]]:
         """
-        Возвращает top-k совпадений по сходству в [0..1].
+        Считает эмбеддинг пробы и возвращает top-k совпадений по сходству в [0..1],
+        вместе с путями к .npy (ref_path).
         """
         with self._lock:
             if self._embs.shape[0] == 0:
                 return []
-            # эмбеддинг пробы
-            probe_emb = embed_speechbrain(np.asarray(audio, dtype=np.float32))
-            # косинусное сходство со всеми референсами
-            sims = torch.matmul(self._embs, probe_emb.view(-1, 1)).squeeze(1)  # [N]
-            scores = _cos_to01(sims)  # [N]
-            k = min(int(top_k), scores.numel())
-            topk_val, topk_idx = torch.topk(scores, k)
-            matches: List[Dict[str, Any]] = []
-            for v, idx in zip(topk_val.tolist(), topk_idx.tolist()):
-                matches.append({
-                    "user_id": self._user_ids[idx],
-                    "score": float(v),
-                    "ref_path": str(self._paths[idx]),
-                })
-            return matches
+            embs = self._embs
+            user_ids = list(self._user_ids)
+            emb_paths = list(self._emb_paths)
 
-    def match_probe_file(self, path: Path, top_k: int = 5) -> List[Dict[str, Any]]:
-        audio = load_and_resample(path, self.sample_rate)
+        # вне лока — тяжёлое вычисление эмбеддинга
+        a = np.asarray(audio, dtype=np.float32)
+        if a.ndim == 2:
+            a = a.mean(axis=1)  # привести к моно на всякий
+        a = normalize_rms(a)
+
+        with torch.no_grad():
+            probe_emb = embed_speechbrain(a)                       # [D]
+            probe_emb = torch.nn.functional.normalize(probe_emb, p=2, dim=-1, eps=1e-12).float()
+
+            sims = torch.matmul(embs, probe_emb.view(-1, 1)).squeeze(1)  # [N]
+            scores = _cos_to01(sims)
+            k = max(1, min(int(top_k), scores.numel()))
+            topk_val, topk_idx = torch.topk(scores, k)
+
+        return [
+            {"user_id": user_ids[i], "score": float(v), "ref_path": str(emb_paths[i])} # [DEBUG] todo: ref_path передаётся для отладки. позже он не нужен
+            for v, i in zip(topk_val.tolist(), topk_idx.tolist())
+        ]
+
+    def match_probe_file(self, path: Path | str, top_k: int = 5) -> List[Dict[str, Any]]:
+        audio = load_and_resample(Path(path))
         return self.match_probe_array(audio, top_k=top_k)
 
     def binary_decision(self, audio: np.ndarray, threshold: float = DEFAULT_SIM_THRESHOLD) -> Tuple[bool, Optional[Dict[str, Any]]]:
         """
-        Бинарное решение и лучший матч.
+        Бинарное решение и лучший матч (по top-1).
         """
         matches = self.match_probe_array(audio, top_k=1)
         if not matches:
@@ -180,13 +152,12 @@ _SINGLETON_LOCK = threading.RLock()
 def get_global_matcher() -> MultiSpeakerMatcher:
     """
     Возвращает глобальный матчинг-объект.
-    Если он ещё не создан — создаём и сразу делаем .reload(), чтобы в RAM
-    появились все эмбеддинги пользователей.
+    При первом вызове создаёт его и делает .reload() (реестр из *.npy).
     """
     global _GLOBAL_MATCHER
     with _SINGLETON_LOCK:
         if _GLOBAL_MATCHER is None:
-            print("⚙️ Initializing global MultiSpeakerMatcher()")
-            _GLOBAL_MATCHER = MultiSpeakerMatcher(VOICES_DIR, EMBEDDINGS_DIR)
+            print("⚙️ Initializing global MultiSpeakerMatcher() [npy-only]")
+            _GLOBAL_MATCHER = MultiSpeakerMatcher(EMBEDDINGS_DIR)
             _GLOBAL_MATCHER.reload()
         return _GLOBAL_MATCHER

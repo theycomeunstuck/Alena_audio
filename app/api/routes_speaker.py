@@ -2,6 +2,8 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, Query
 from pathlib import Path
 from typing import Optional
+
+import core.config
 from app.settings import STORAGE_DIR
 from app.services.speaker_service import SpeakerService
 from app.services.multi_speaker_matcher import get_global_matcher
@@ -11,8 +13,9 @@ from core.config import sim_threshold as _sim_threshold
 
 router = APIRouter(prefix="/speaker", tags=["Speaker"])
 svc = SpeakerService(STORAGE_DIR)
+matcher = get_global_matcher()
 
-@router.post("/verify", response_model=VerifyResponse, summary="Сравнение образца с эталоном")
+@router.post("/verify", response_model=VerifyResponse, summary="Сравнение образца с эталоном") #todo: rename and refuse using this url. need to be /verify_solo (around this like)
 async def verify(
     probe: UploadFile = File(...),
     reference: UploadFile | None = File(None),
@@ -48,7 +51,6 @@ async def verify_registry(
     """
     try:
         buf = await probe.read()
-        matcher = get_global_matcher()
         # Для бинарного решения достаточно best из top-1, но для прозрачности собираем top_k
         audio = load_and_resample(buf)
         result = matcher.match_probe_array(audio, top_k=top_k)
@@ -67,7 +69,6 @@ async def verify_topk(
     try:
         buf = await probe.read()
         audio = load_and_resample(buf)
-        matcher = get_global_matcher()
         matches = matcher.match_probe_array(audio, top_k=top_k)
         return MultiVerifyResponse(count=len(matches), matches=[MultiVerifyMatch(**m) for m in matches])
     except Exception as e:
@@ -76,7 +77,6 @@ async def verify_topk(
 @router.post("/registry/reload", summary="Перечитать реестр голосов с диска и обновить RAM")
 def registry_reload() -> dict:
     try:
-        matcher = get_global_matcher()
         n = matcher.reload()
         return {"status": "ok", "count": int(n)}
     except Exception as e:
@@ -86,13 +86,14 @@ def registry_reload() -> dict:
 @router.post("/train/microphone", response_model=TrainMicResponse)
 def train_microphone(
     user_id: str = Query("_default", description="Идентификатор пользователя. Если не задан, то генерируется случайный (uuid4)"),
-    duration: float = Query(None, description="Длительность записи, сек (по умолчанию из конфигурации)"),
+    duration: float = Query(core.config.TRAIN_USER_VOICE_S, description=f"Длительность записи, сек (по умолчанию из конфигурации: {core.config.TRAIN_USER_VOICE_S})"),
 ):
     """Записывает образец голоса с локального микрофона (вроде как того, что на машине, держащем API)
-    и сохраняет эмбеддинг."""
+    сохраняет эмбеддинг, обновляет бд."""
     try:
-        res = svc.train_from_microphone(user_id=user_id, duration=duration or None)
-        return {"status": "ok", "message": f"Сохранено wav, npy: {res['wavPath']}"}
+        res = svc.train_from_microphone(user_id=user_id, duration=duration)
+        matcher.reload() #обновляем бд
+        return res
     except ValueError as e:
         raise HTTPException(400, str(e))
     except Exception as e:
