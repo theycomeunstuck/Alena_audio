@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 from app.main import app
 from core.config import SAMPLE_RATE
 
+#todo: обновить test_api.py до актуальной версии
 #pytest -v tests/
 client = TestClient(app)
 
