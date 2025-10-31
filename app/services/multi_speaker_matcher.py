@@ -9,7 +9,8 @@ import torch
 
 from app.services.audio_utils import load_and_resample
 from app.services.embeddings_utils import embed_speechbrain
-from core.config import EMBEDDINGS_DIR, SAMPLE_RATE, sim_threshold as DEFAULT_SIM_THRESHOLD, TARGET_DBFS
+from core.audio_enhancement import Audio_Enhancement
+from core.config import EMBEDDINGS_DIR, SAMPLE_RATE, device as CFG_DEVICE, sim_threshold as DEFAULT_SIM_THRESHOLD
 from core.audio_utils import normalize_rms
 
 
@@ -17,8 +18,6 @@ def _cos_to01(x: torch.Tensor) -> torch.Tensor:
     """Косинус [-1..1] → [0..1]."""
     return (torch.clamp(x, -1.0, 1.0) + 1.0) * 0.5
 
-# [30.10.25] todo: нужно бы обезопасить device, чтобы было на одном устройстве.
-# then i need to check websocket multiply user same time. gpt says its cant
 class MultiSpeakerMatcher:
     """
     Реестр спикеров хранится только в EMBEDDINGS_DIR как <user_id>.npy.
@@ -32,6 +31,7 @@ class MultiSpeakerMatcher:
     def __init__(self, embeddings_dir: Path | str = EMBEDDINGS_DIR, sample_rate: int = SAMPLE_RATE):
         self.embeddings_dir = Path(embeddings_dir)
         self.sample_rate = int(sample_rate)
+        self.device = torch.device(CFG_DEVICE)
 
         self._user_ids: List[str] = []
         self._emb_paths: List[Path] = []
@@ -90,7 +90,7 @@ class MultiSpeakerMatcher:
         with self._lock:
             self._user_ids = new_user_ids
             self._emb_paths = new_paths
-            self._embs = new_embs_tensor
+            self._embs = new_embs_tensor.to(self.device, non_blocking=True)
 
         return len(self._user_ids)
 
@@ -114,12 +114,13 @@ class MultiSpeakerMatcher:
         a = np.asarray(audio, dtype=np.float32)
         if a.ndim == 2:
             a = a.mean(axis=1)  # привести к моно на всякий
-        a = normalize_rms(a)
+        a = Audio_Enhancement(a).noise_suppression()
 
-        with torch.no_grad():
+        with torch.inference_mode():
             probe_emb = embed_speechbrain(a)                       # [D]
             probe_emb = torch.nn.functional.normalize(probe_emb, p=2, dim=-1, eps=1e-12).float()
 
+            # embs = embs.to(self.device, non_blocking=True)  # если вдруг не там # [DEBUG] todo: убрать после тестов мультивериф
             sims = torch.matmul(embs, probe_emb.view(-1, 1)).squeeze(1)  # [N]
             scores = _cos_to01(sims)
             k = max(1, min(int(top_k), scores.numel()))

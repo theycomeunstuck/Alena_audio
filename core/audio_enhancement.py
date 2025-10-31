@@ -1,4 +1,4 @@
-# audio_enhancement.py
+# core/audio_enhancement.py
 import torch, torchaudio
 import torch.nn.functional as F
 import numpy as np
@@ -69,11 +69,14 @@ class Audio_Enhancement:
         Применяет SepFormer для подавления шума и нормализует RMS.
         Возвращает: улучшенный аудиосигнал на CPU, 1D-тензор.
         """
-        with torch.no_grad(): # do not math grad and save memory
+        with torch.inference_mode():
             est_sources = noise_Model.separate_batch(self.audio) # Разделяем на источники: [speech, noise]
         enhanced = est_sources[:, :].detach().cpu().squeeze()
         enhanced = normalize_rms(enhanced, target_dBFS=TARGET_DBFS)
         return enhanced
+
+
+
 
     @handle_exceptions
     def speech_verification(self) -> np.ndarray:
@@ -82,13 +85,9 @@ class Audio_Enhancement:
         Возвращает (score: float, prediction: bool).
         """
 
-        if self.audio_ref is None: #todo: исправить в будущем. тут должен быть поиск по голосам
-            print("core/audio_enhancement :: 86. audio_ref не задан для верификации. \nСтоит придумать решение для поиска похожего голоса. Сейчас используется файл одного пользователя (misha_20sec.wav)\n")
-            audio_ref = load_and_resample("misha_20sec.wav").squeeze(0)
-            self.audio_ref = to_tensor(audio_ref, pad_to_min=True)
-            #
-            # raise ValueError("audio_ref не задан для верификации. "
-            #                  "Передайте reference файл или настройте поиск по базе.")
+        if self.audio_ref is None:
+            raise ValueError("audio_ref не задан для верификации. "
+                             "Передайте reference файл или настройте поиск по базе.")
 
 
 

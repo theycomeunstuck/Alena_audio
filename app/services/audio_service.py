@@ -16,7 +16,7 @@ class AudioService:
         self.storage_dir = storage_dir
         self.storage_dir.mkdir(parents=True, exist_ok=True)
 
-    # === Препроцессинг аудио (шумоподавление + нормализация) ===
+    # Препроцессинг аудио (шумоподавление + нормализация)
     def enhance_file(self, input_wav: Path) -> Path:
         # 1) приводим к 1D float32 mono @ 16k
         audio = load_and_resample(str(input_wav))  # -> 1D np.float32
@@ -25,7 +25,7 @@ class AudioService:
         enh = Audio_Enhancement(audio)
         enhanced = np.asarray(enh.noise_suppression(), dtype=np.float32).squeeze()
 
-        # 3) сохраняем корректно: 2D Tensor [C,N], PCM16 WAV
+        # 3) сохраняем 2D Tensor [C,N], PCM16 WAV
         wav = torch.from_numpy(enhanced).reshape(1, -1)
         out_path = self.storage_dir / f"{input_wav.stem}_enhanced.wav"
         torchaudio.save(
@@ -38,7 +38,7 @@ class AudioService:
         )
         return out_path
 
-    # === ASR по файлу ===
+
 
     def transcribe_file(self, input_wav: Path, language: str = "ru") -> Dict[str, Any]:
         audio = load_and_resample(str(input_wav), target_sr=SAMPLE_RATE)

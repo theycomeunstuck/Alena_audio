@@ -1,7 +1,5 @@
-# audio_utils.py
+# core/audio_utils.py
 import numpy as np
-import sounddevice as sd
-import soundfile as sf
 import torch
 from core.config import SAMPLE_RATE, TARGET_DBFS
 
@@ -27,5 +25,8 @@ def normalize_rms(y, target_dBFS: float = TARGET_DBFS):
 
     else:
         raise TypeError(f"Unsupported type {type(y)} for normalize_rms")
+
+
+
 
 

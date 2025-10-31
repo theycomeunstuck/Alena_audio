@@ -6,8 +6,8 @@ class VerifyResponse(BaseModel):
     decision: bool
 
 class TrainMicResponse(BaseModel):
-    status: str
-    ref_path: str = Field(..., description="Путь к референс-файлу .wav")
+    user_id: str = Field(..., description="uuid4 Пользователя")
+    wav_path: str = Field(..., description="Путь к референс-файлу .wav")
     npy_path: str = Field(..., description="Путь к эмбеддинг-файлу .npy")
 
 

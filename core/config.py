@@ -14,6 +14,10 @@ if True:
     EMBEDDINGS_DIR = PROJECT_ROOT / "storage" / "embeddings"
     EMBEDDINGS_DIR.mkdir(parents=True, exist_ok=True)
 
+    # папка для .wav пользователей (зарегистрованные пользователи, которых будем верифицировать по голосу)
+    EMBEDDINGS_WAV_DIR = PROJECT_ROOT / "storage" / "embeddings_wav"
+    EMBEDDINGS_WAV_DIR.mkdir(parents=True, exist_ok=True)
+
     # единая папка для клонированных голосов
     VOICES_DIR = PROJECT_ROOT / "storage" / "voices_TTS"
     VOICES_DIR.mkdir(parents=True, exist_ok=True)
@@ -69,7 +73,7 @@ VOCAB_FILE = r"E:\PycharmProjects\AudioAPI\F5-TTS\data\ru_en_char\vocab.txt"
 
 
 
-REFERENCE_FILE      = "reference.npy"
+REFERENCE_FILE      = "_Old/reference.npy"
 REFERENCE_FILE_WAV  = "reference.wav"
 
 device = "cuda" if is_available() else "cpu"

@@ -11,7 +11,7 @@ from app.services.embeddings_utils import embed_speechbrain, get_encoder
 from core.audio_capture import record_audio
 from core.audio_enhancement import Audio_Enhancement
 from core.audio_utils import normalize_rms
-from core.config import TRAIN_USER_VOICE_S, EMBEDDINGS_DIR, SAMPLE_RATE, sim_threshold
+from core.config import TRAIN_USER_VOICE_S, EMBEDDINGS_DIR, SAMPLE_RATE, sim_threshold, EMBEDDINGS_WAV_DIR
 
 _ENCODER: Optional[EncoderClassifier] = None
 
@@ -84,10 +84,11 @@ class SpeakerService:
             raise ValueError("Слишком короткая запись — повторите попытку")
 
         EMBEDDINGS_DIR.mkdir(parents=True, exist_ok=True)
-        out_wav_path = EMBEDDINGS_DIR / f"{user_id}.wav"
+        EMBEDDINGS_WAV_DIR.mkdir(parents=True, exist_ok=True)
         out_npy_path = EMBEDDINGS_DIR / f"{user_id}.npy"
+        out_wav_path = EMBEDDINGS_WAV_DIR / f"{user_id}.wav"
 
-        audio = normalize_rms(audio)
+        audio = Audio_Enhancement(audio).noise_suppression() #noise suppresion + rms_normalize; cpu
 
         try:
             torchaudio.save(str(out_wav_path), src=torch.from_numpy(audio).unsqueeze(0),  # [1,T]
@@ -96,12 +97,12 @@ class SpeakerService:
         except Exception as e:
             print(e); raise
 
-        emb = embed_speechbrain(audio)
+        emb = embed_speechbrain(audio) # to(device)
         emb = torch.nn.functional.normalize(emb, p=2, dim=-1, eps=1e-12).float()
 
 
         np.save(out_npy_path, emb.detach().cpu().numpy().astype(np.float32))
 
 
-        return {"status": "ok", "wavPath": str(out_wav_path), "npyPath": str(out_npy_path)}
+        return {"user_id": user_id, "wav_path": str(out_wav_path), "npy_path": str(out_npy_path)}
 

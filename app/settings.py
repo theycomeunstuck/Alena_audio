@@ -1,7 +1,7 @@
 # app/settings.py
 import os
 from pathlib import Path
-from core.config import TTS_CKPT_PATH, VOCAB_FILE
+from core.config import TTS_CKPT_PATH, VOCAB_FILE, device
 
 # ---- Определяем корень проекта ----
 def _find_project_root(start: Path) -> Path:
@@ -41,7 +41,7 @@ VOCAB_FILE_PATH = os.getenv("VOCAB_FILE_PATH", VOCAB_FILE)
 F5TTS_CKPT_PATH = os.getenv("F5TTS_CKPT_PATH", TTS_CKPT_PATH) #path to model.pt (.spt)
 F5TTS_VOCODER_NAME = os.getenv("F5TTS_VOCODER_NAME", "vocos")
 F5TTS_VOCODER_CKPT = os.getenv("F5TTS_VOCODER_CKPT", "")
-DEVICE = os.getenv("DEVICE", "cuda")
+DEVICE = os.getenv("DEVICE", device)
 TTS_SAMPLE_RATE = int(os.getenv("TTS_SAMPLE_RATE", "24000"))
 TTS_MAX_SECONDS = int(os.getenv("TTS_MAX_SECONDS", "25"))
 TTS_NFE_STEPS   = int(os.getenv("TTS_NFE_STEPS", "16"))
