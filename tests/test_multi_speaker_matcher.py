@@ -5,6 +5,7 @@ from pathlib import Path
 
 import app.services.multi_speaker_matcher as msm
 
+_device = "cuda" if torch.cuda.is_available() else "cpu"
 
 def _write_npy(dirpath: Path, name: str, vec):
     arr = np.asarray(vec, dtype=np.float32)
@@ -19,7 +20,7 @@ def tmp_registry(tmp_path, monkeypatch):
     _write_npy(tmp_path, "c", [0.0, 0.0, 3.0])
 
     # device берём из конфига -> принудительно на CPU
-    monkeypatch.setattr(msm, "CFG_DEVICE", "cpu", raising=False)
+    monkeypatch.setattr(msm, "CFG_DEVICE", _device, raising=False)
 
     # шумодав — no-op
     class DummyEnh:
@@ -36,7 +37,7 @@ def test_reload_loads_all_and_places_index_on_device(tmp_registry, monkeypatch):
     assert n == 3
     # Индекс на нужном устройстве
     assert isinstance(m._embs, torch.Tensor)
-    assert m._embs.device.type == "cpu"  # единый device из конфига
+    assert m._embs.device.type == _device # единый device из конфига
     # Порядок пользователей соответствует сортировке файлов
     assert set(m._user_ids) == {"a", "b", "c"}
     # Размерность [N, D]

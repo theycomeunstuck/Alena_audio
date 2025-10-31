@@ -41,7 +41,6 @@ def test_tts_deep_real_model(tmp_path, monkeypatch):
     voices_dir = tmp_path / "voices_TTS"
     voices_dir.mkdir(parents=True, exist_ok=True)
     monkeypatch.setenv("VOICES_DIR", str(voices_dir))
-    # лучше на CPU для предсказуемости: (или оставьте 'auto')
     _device = "cuda" if is_available() else "cpu"
     monkeypatch.setenv("DEVICE", os.environ.get("DEVICE", _device))
 
