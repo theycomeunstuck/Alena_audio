@@ -3,7 +3,7 @@ import torch
 import torch.nn.functional as F
 import numpy as np
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 from speechbrain.inference.speaker import EncoderClassifier
 from core.config import device
 
@@ -18,22 +18,50 @@ def get_encoder() -> EncoderClassifier:
         _ENCODER = EncoderClassifier.from_hparams(
             source="speechbrain/spkrec-ecapa-voxceleb",
             savedir=str(
-                (Path(__file__).resolve().parents[2] / "pretrained_models" / "SpeechBrain" / "spkrec-ecapa-voxceleb"),
-            run_opts={"device": device}
+                (Path(__file__).resolve().parents[2] / "pretrained_models" / "SpeechBrain" / "spkrec-ecapa-voxceleb")
             ),
-        ).eval()
+        ).to(device).eval()
     return _ENCODER
 
 
-def to_tensor_1d(x: np.ndarray) -> torch.Tensor:
-    if not isinstance(x, np.ndarray):
-        raise ValueError("ожидался np.ndarray")
+def to_tensor_1d(x: Union[np.ndarray, torch.Tensor]) -> torch.Tensor:
+    # 1) Превращаем во float32 numpy 1D
+    if isinstance(x, torch.Tensor):
+        x = x.detach().to('cpu').numpy()
+    elif not isinstance(x, np.ndarray):
+        try:
+            x = np.asarray(x)
+        except Exception:
+            raise ValueError(f"ожидался np.ndarray-подобный объект, получено {type(x)}")
+
+    # 2) Если целочисленный сигнал — нормируем в [-1, 1]
+    if np.issubdtype(x.dtype, np.integer):
+        max_abs = np.float32(np.iinfo(x.dtype).max)
+        x = x.astype(np.float32) / max_abs
+    else:
+        x = x.astype(np.float32, copy=False)
+
+    # 3) Приводим к 1D: (N,1)->(N,), (2,N)->моно средним
+    if x.ndim == 2:
+        if 1 in x.shape:
+            x = x.reshape(-1)
+        else:
+            # считаем последнюю ось каналами
+            if x.shape[0] in (1, 2) and x.shape[1] > 2:
+                x = x.mean(axis=0)
+            else:
+                x = x.mean(axis=-1)
     if x.ndim != 1:
         raise ValueError(f"ожидался 1D массив, получено shape={x.shape}")
+
+    # 4) Валидации
+    if not np.isfinite(x).all():
+        raise ValueError("сигнал содержит NaN/Inf")
     if np.allclose(x, 0.0, atol=1e-7):
         raise ValueError("пустой/нулевой сигнал")
-    return torch.from_numpy(x.astype(np.float32, copy=False)).unsqueeze(0).to(device)
 
+    # 5) В тензор [1, T] на нужное устройство
+    return torch.from_numpy(x).unsqueeze(0).to(device)
 
 def embed_speechbrain(x: np.ndarray) -> torch.Tensor:
     """Создаёт L2-нормализованный эмбеддинг для аудиосигнала - нормализует по громкости"""
