@@ -5,6 +5,7 @@ import shutil
 import wave
 import importlib
 from pathlib import Path
+from torch.cuda import is_available
 
 import pytest
 from fastapi.testclient import TestClient
@@ -41,7 +42,8 @@ def test_tts_deep_real_model(tmp_path, monkeypatch):
     voices_dir.mkdir(parents=True, exist_ok=True)
     monkeypatch.setenv("VOICES_DIR", str(voices_dir))
     # лучше на CPU для предсказуемости: (или оставьте 'auto')
-    monkeypatch.setenv("DEVICE", os.environ.get("DEVICE", "cpu"))
+    _device = "cuda" if is_available() else "cpu"
+    monkeypatch.setenv("DEVICE", os.environ.get("DEVICE", _device))
 
     # --- создаём базовый _default/reference.wav ---
     default_dir = voices_dir / "_default"
