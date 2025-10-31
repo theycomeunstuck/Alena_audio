@@ -124,7 +124,7 @@
   </td></tr>
   <tr><th>Требования</th><td>Доступ к микрофону на хосте, где запущен сервер (право записи, доступ к аудиоустройству).</td></tr>
   <tr><th>Ответ</th><td>
-    <span class="status ok">200</span> → <code>{"status":"ok","wav_path":".../embeddings/&lt;user_id&gt;.wav","embedding_path":".../embeddings/&lt;user_id&gt;.npy"}</code><br/>
+    <span class="status ok">200</span> → <code>{"user_id": &lt;user_id&gt;,"wav_path":".../embeddings/&lt;user_id&gt;.wav","embedding_path":".../embeddings/&lt;user_id&gt;.npy"}</code><br/>
     (пути могут отличаться в зависимости от настроек <code>EMBEDDINGS_DIR</code>).
   </td></tr>
   <tr><th>Ошибки</th><td>
