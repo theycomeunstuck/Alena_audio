@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<body>
+<button id="start">Start Verify</button>
+<pre id="out"></pre>
+<script>
+const out = document.getElementById('out');
+
+document.getElementById('start').onclick = async () => {
+  const ws = new WebSocket("ws://127.0.0.1:8000/ws/speaker/verify?sample_rate=16000&channels=1&sim_threshold=0.65");
+  ws.binaryType = 'arraybuffer';
+  ws.onmessage = e => out.textContent += e.data + "\n";
+
+  const stream = await navigator.mediaDevices.getUserMedia({
+    audio: {
+      sampleRate: 48000,
+      channelCount: 1,
+      echoCancellation: false,
+      noiseSuppression: false,
+      autoGainControl: false
+    }
+  });
+  const ctx = new AudioContext({ sampleRate: 16000 });
+  await ctx.resume();
+
+  const src = ctx.createMediaStreamSource(stream);
+  const processor = ctx.createScriptProcessor(4096, 1, 1);
+  processor.onaudioprocess = e => {
+    const buf = e.inputBuffer.getChannelData(0);
+    const pcm = new Int16Array(buf.length);
+    for (let i = 0; i < buf.length; i++) {
+      let s = buf[i];
+      if (s > 1) s = 1;
+      if (s < -1) s = -1;
+      pcm[i] = s * 0x7fff;
+    }
+    ws.send(pcm.buffer);
+  };
+
+  src.connect(processor);
+  processor.connect(ctx.destination);
+};
+</script>
+</body>
+</html>
