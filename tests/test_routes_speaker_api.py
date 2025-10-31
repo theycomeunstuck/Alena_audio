@@ -42,5 +42,3 @@ def test_train_microphone_returns_paths(client, monkeypatch, tmp_path):
 # (роут train_from_microphone)
 
 
-
-#todo: сделать проверку GPU if available + test WebSocket
