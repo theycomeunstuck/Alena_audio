@@ -13,9 +13,7 @@ import websockets
 from app.services.audio_utils import ensure_float_mono_16k_from_pcm16, SAMPLE_RATE
 
 WS_URL = "ws://127.0.0.1:8000/ws/asr?language=ru&sample_rate=16000&channels=1&window_sec=8&emit_sec=2&inactivity_sec=3.0"
-print("нужно нажимать enter с задержкой. иначе байты не успевают долететь до сервера и теряются") #todo: described into the this print. packets race
-#todo: было бы здорово проверить этот файл на сервере, где есть видеокарта. у меня жёсткие задержки.
-#todo: реализовать "промежуточные" пакеты не получилось; склейки слов нет.
+#todo: реализовать "промежуточные" пакеты не получилось; то есть склейки слов нет.
 
 # Для Windows + Python 3.10/11 иногда нужно SelectorPolicy (если где-то используются add_reader)
 if sys.platform.startswith("win"):
