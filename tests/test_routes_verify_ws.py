@@ -3,7 +3,6 @@ import time
 import numpy as np
 import pytest
 
-import app.api.routes_verify_ws as ws_route  # для monkeypatch целей
 import app.services.streaming_verify as sv
 
 
