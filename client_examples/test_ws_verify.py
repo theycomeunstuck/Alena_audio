@@ -1,3 +1,4 @@
+#client_examples/test_ws_verify
 import asyncio, websockets, json, numpy as np, struct
 from core.config import SAMPLE_RATE, sim_threshold
 URI=f"ws://localhost:8000/ws/speaker/verify?sample_rate={SAMPLE_RATE}&channels=1&top_k=2&sim_threshold={sim_threshold}&emit_interval_ms=500"
