@@ -14,19 +14,20 @@
   a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
   header{position:sticky;top:0;z-index:10;background:linear-gradient(180deg,var(--bg),rgba(14,19,32,.92));border-bottom:1px solid var(--border);backdrop-filter:blur(6px)}
   .container{max-width:1100px;margin:0 auto;padding:18px}
-  h1{font-size:26px;margin:6px 0 0} h2{font-size:20px;margin:28px 0 10px} h3{font-size:16px;margin:18px 0 8px;color:var(--muted)}
+  h1{font-size:26px;margin:6px 0 0} h2{font-size:20px;margin:10px 0 10px} h3{font-size:16px;margin:18px 0 8px;color:var(--muted)}
   .grid{display:grid;grid-template-columns:1.2fr 1fr;gap:16px} .panel{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:16px}
-  .endp{display:flex;align-items:center;gap:9px;margin-bottom:8px}
-  .method{font:600 12px/1 ui-monospace,SFMono-Regular,Menlo,Consolas;background:var(--chip);padding:4px 8px;border-radius:999px}
+  .endp{display:flex;align-items:center;gap:9px;margin-bottom:8px;margin-top: 16px; font-size: 18px;}
+  .method{font:600 18px/1 ui-monospace,SFMono-Regular,Menlo,Consolas;background:var(--chip);padding:4px 8px;border-radius:999px}
   .GET{color:#b7e1ff}.POST{color:#cbf7cb}.WS{color:#ffe3a3}.tag{margin-left:auto;color:var(--muted)}
   code,pre{font:13px/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas;background:var(--code);color:#d6e2ff;border:1px solid var(--border);border-radius:10px}
-  pre{padding:12px;overflow:auto} code.inline{padding:2px 6px;border-radius:6px}
-  table{width:100%;border-collapse:separate;border-spacing:0 6px}
+  pre{padding:12px;overflow:auto; margin-bottom: 24px;} code.inline{padding:2px 6px;border-radius:6px}
+  table{width:100%;border-collapse:separate;border-spacing:0 6px;margin-bottom: 24px;}
   th,td{padding:6px 8px;border-bottom:1px dashed var(--border);vertical-align:top} th{color:var(--muted);font-weight:600;width:180px}
   .status{font:600 12px/1 ui-monospace;padding:4px 8px;border-radius:999px;border:1px solid var(--border)}
   .ok{color:var(--ok)} .warn{color:var(--warn)} .err{color:var(--err)}
   .chip{display:inline-block;margin:2px 6px 0 0;padding:4px 8px;border-radius:999px;background:var(--chip);color:#cfe0ff;font:600 11px/1 ui-monospace}
   .note{color:var(--muted);margin:6px 0 14px 0}.grid{display:grid;grid-template-columns:1fr;gap:16px}
+  .span{font-size: 16px}
 
 
 </style>
@@ -98,22 +99,29 @@
   <div class="panel">
     <h2>Speaker</h2>
 
-<div class="endp"><span class="method POST POST">POST</span><span>/speaker/verify</span><span class="tag">Speaker</span></div>
+
+
+<div class="endp"><span class="method POST POST">POST</span><span>/speaker/train/file</span><span class="tag">Speaker</span></div>
 <table>
-  <tr><th>Формат</th><td>
-    multipart/form-data: <code class="inline">probe</code> (audio/wav) + <code class="inline">reference</code> (audio/wav, опционально).
+  <tr><th>Назначение</th><td>Записать образец голоса с аудио файла и сохранить эталон пользователя (эмбеддинг .npy + WAV).</td></tr>
+<tr><th>Формат</th><td>multipart/form-data: <code class="inline">file</code> (WAV/MP3/FLAC/M4A/OGG)</td></tr>
+  <tr><th>Параметры</th><td>
+    <code class="inline">user_id</code> (string, опц.) — идентификатор пользователя, если не указан, то генерируется случайный<br/>
   </td></tr>
-  <tr><th>Fallback</th><td>Если <code>reference</code> не передан, сервер (через core) может использовать локальный <code>reference.wav</code> (если настроен).</td></tr>
-  <tr><th>Ответ</th><td><span class="status ok">200</span> → <code>{"score":0.83,"decision":true}</code>; <span class="status err">400</span> если эталон недоступен.</td></tr>
+  <tr><th>Ответ</th><td>
+    <span class="status ok">200</span> → <code>{"user_id":&lt;user_id&gt;, "wav_path":".../embeddings/&lt;user_id&gt;.wav", "npy_path":".../embeddings/&lt;user_id&gt;.npy"}</code><br/>
+  </td></tr>
+  <tr><th>Ошибки</th><td>
+    <span class="status err">400</span> — слишком короткая запись;<br/>
+    <span class="status err">500</span> — внутренняя ошибка записи WAV или извлечения эмбеддинга.
+  </td></tr>
 </table>
 
 <h3>Примеры</h3>
-<pre>& curl.exe -X POST `-F "probe=@tests/samples/ru_sample.wav;type=audio/wav"` -F "reference=@core/misha_20sec.wav;type=audio/wav"` "http://127.0.0.1:8000/speaker/verify"
-</pre>
-<tr>Пример без локального референса (как это должно выглядеть в будущем, по идее):</tr>
-<pre>
-& curl.exe -X POST `-F "probe=@tests/samples/ru_sample.wav;type=audio/wav"` "http://127.0.0.1:8000/speaker/verify"
-</pre>
+<pre>& curl.exe -X POST "http://127.0.0.1:8000/speaker/train/file?user_id=TEST_Alena" -F "probe=@speakerFile.wav" </pre>
+
+
+
 <div class="endp"><span class="method POST POST">POST</span><span>/speaker/train/microphone</span><span class="tag">Speaker</span></div>
 <table>
   <tr><th>Назначение</th><td>Записать образец голоса с микрофона сервера и сохранить эталон пользователя (эмбеддинг .npy + WAV).</td></tr>
@@ -124,8 +132,7 @@
   </td></tr>
   <tr><th>Требования</th><td>Доступ к микрофону на хосте, где запущен сервер (право записи, доступ к аудиоустройству).</td></tr>
   <tr><th>Ответ</th><td>
-    <span class="status ok">200</span> → <code>{"user_id": &lt;user_id&gt;,"wav_path":".../embeddings/&lt;user_id&gt;.wav","embedding_path":".../embeddings/&lt;user_id&gt;.npy"}</code><br/>
-    (пути могут отличаться в зависимости от настроек <code>EMBEDDINGS_DIR</code>).
+    <span class="status ok">200</span> → <code>{"user_id":&lt;user_id&gt;, "wav_path":".../embeddings/&lt;user_id&gt;.wav", "npy_path":".../embeddings/&lt;user_id&gt;.npy"}</code><br/>
   </td></tr>
   <tr><th>Ошибки</th><td>
     <span class="status err">400</span> — слишком короткая запись / нет доступа к устройству;<br/>
@@ -134,7 +141,63 @@
 </table>
 
 <h3>Примеры</h3>
-<pre>& curl.exe -X POST "http://127.0.0.1:8000/speaker/train/microphone?user_id=TEST_alice&duration=5"</pre>
+<pre>& curl.exe -X POST "http://127.0.0.1:8000/speaker/train/microphone?user_id=TEST_Alena&duration=5"</pre>
+
+
+<div class="endp"><span class="method POST POST">POST</span><span>/speaker/verify_registry</span><span class="tag">Speaker</span></div>
+<table>
+  <tr><th>Назначение</th><td>Проверка образца по всему реестру зарегистрированных голосов; возвращает бинарное решение и лучший матч; при необходимости — Top-K совпадений.</td></tr>
+  <tr><th>Формат</th><td>multipart/form-data: <code class="inline">probe</code> (WAV/MP3/FLAC/M4A/OGG)</td></tr>
+  <tr><th>Параметры</th><td>
+    <code class="inline">sim_threshold</code> (float, [0..1], по умолчанию из конфигурации),<br/>
+    <code class="inline">top_k</code> (int, по умолчанию 5).
+  </td></tr>
+  <tr><th>Ответ</th><td>
+    <span class="status ok">200</span> → <code>{"decision":true,"best":{"user_id":"Alena","score":0.83,"ref_path":"..."},"threshold":0.5,"matches":[...]}</code>;<br/>
+    <span class="status err">500</span> — внутренняя ошибка.
+  </td></tr>
+</table>
+
+<h3>Примеры</h3>
+<pre>& curl.exe "http://127.0.0.1:8000/speaker/verify_registry?sim_threshold=0.75&top_k=5" -F "probe=@speakerFile.wav"</pre>
+
+<div class="endp"><span class="method POST POST">POST</span><span>/speaker/verify/topk</span><span class="tag">Speaker</span></div>
+<table>
+  <tr><th>Назначение</th><td>Top-K совпадений по всему реестру (для диагностики, логирования).</td></tr>
+  <tr><th>Формат</th><td>multipart/form-data: <code class="inline">probe</code> (WAV/MP3/FLAC/M4A/OGG)</td></tr>
+  <tr><th>Параметры</th><td><code class="inline">top_k</code> (int, по умолчанию 5)</td></tr>
+  <tr><th>Ответ</th><td>
+    <span class="status ok">200</span> → <code>{"count":N,"matches":[{"user_id":"Alena","score":0.83,"ref_path":"..."}, ...]}</code>;<br/>
+    <span class="status err">500</span> — внутренняя ошибка.
+  </td></tr>
+</table>
+
+<div class="endp"><span class="method POST POST">POST</span><span>/speaker/registry/reload</span><span class="tag">Speaker</span></div>
+<table>
+  <tr><th>Назначение</th><td>Перечитать реестр голосов с диска и обновить RAM.</td></tr>
+  <tr><th>Ответ</th><td>
+    <span class="status ok">200</span> → <code>{"status":"ok","count":123}</code>;<br/>
+    <span class="status err">500</span> — внутренняя ошибка.
+  </td></tr>
+</table>
+
+
+<div class="endp"><span class="method POST POST">POST</span><span>/speaker/verify</span><span class="tag">Speaker</span></div>
+<div class="note">Раньше использовалась как основная функция верификации. Больше - нет. по-хорошему её надо убрать и multiSpeaker сделать speaker/verify/, 
+а эту функцию назвать как-нибудь speaker/verify/reference. Сравнивает два файла между собой и выдаёт вердикт </div>
+<table>
+  <tr><th>Формат</th><td>
+  multipart/form-data: <code class="inline">probe</code> + <code class="inline">reference</code> (WAV/MP3/FLAC/M4A/OGG; оба файла допустимы в поддерживаемых контейнерах)  </td></tr>
+  <tr><th>Fallback</th><td>Если <code>reference</code> не передан, сервер (через core) может использовать локальный <code>reference.wav</code> (если настроен).</td></tr>
+  <tr><th>Ответ</th><td><span class="status ok">200</span> → <code>{"score":0.83,"decision":true}</code>; <span class="status err">400</span> если эталон недоступен.</td></tr>
+</table>
+
+<h3>Примеры</h3>
+<pre>& curl.exe -X POST `-F "probe=@tests/samples/ru_sample.wav;type=audio/wav"` -F "reference=@core/misha_20sec.wav;type=audio/wav"` "http://127.0.0.1:8000/speaker/verify"
+</pre>
+
+
+
 
 </div>
 
@@ -182,7 +245,7 @@
 </div>
 <table>
   <tr><th>Параметры (optional)</th><td><code class="inline">language</code>, <code class="inline">sample_rate</code>,
-<code class="inline">windows_sec</code>, <code class="inline">emit_sec</code>, <code class="inline">inactivity_sec</code></td></tr>
+<code class="inline">window_sec</code>, <code class="inline">emit_sec</code>, <code class="inline">inactivity_sec</code></td></tr>
   <tr><th>Handshake</th><td>Сервер шлёт: <code>{"type":"ready","sample_rate":16000,"language":"ru"}</code></td></tr>
   <tr><th>Binary</th><td>Посылаем чанки <strong>PCM16 mono (little-endian)</strong>. Буфер обрезается до окна <em>ASR_WINDOW_SEC</em>.</td></tr>
   <tr><th>Text</th><td><code>{"event":"flush"}</code> → вернуть partial; <code>{"event":"stop"}</code> → final + закрыть соединение.</td></tr>
@@ -218,8 +281,68 @@
 }</pre>
 
 Пример использования можно найти в <code>client_examples/ws_asr_mic.py</code>
-</div>
 
+
+</div>
+  <div class="panel">
+    <h2>WebSocket: потокая верификация пользователя</h2>
+
+<div class="endp"><span class="method WS WS">WS</span><span>/ws/speaker/verify</span><span class="tag">WebSocket</span></div>
+<div class="note">
+  Потоковая верификация по <em>всему реестру голосов</em> (multi-speaker). Сервер сам сведёт стерео→моно и ресэмплит в 16 kHz; ведётся скользящее окно ~8 c. Минимум ~0.3 c речи до первых совпадений.
+</div>
+<table>
+  <tr><th>Параметры (optional)</th><td>
+    <code class="inline">sample_rate</code>, <code class="inline">channels</code>,
+    <code class="inline">top_k</code>, <code class="inline">inactivity_sec</code>,
+    <code class="inline">sim_threshold</code>, <code class="inline">emit_interval_ms</code>
+  </td></tr>
+  <tr><th>Handshake</th><td>
+    Сервер шлёт: <code>{"type":"ready","sample_rate":16000,"channels":1,"sim_threshold":0.5,"emit_interval_ms":500,"top_k":5}</code>
+    (во всех сообщениях также есть <code>session_id</code>, <code>version</code>, <code>ts_ms</code>).
+  </td></tr>
+  <tr><th>Binary</th><td>
+    Отправляйте сырые <strong>PCM16 little-endian</strong> чанки. Размер каждого чанка кратен <code class="inline">2*channels</code>; иначе сервер вернёт
+    <code>{"type":"error","code":"bad_frame_size","detail":{"got_bytes":...,"bytes_per_frame":...}}</code>.
+  </td></tr>
+  <tr><th>Text</th><td>
+    <code>{"event":"flush"}</code> → немедленный <em>partial</em>;
+    <code>{"event":"stop"}</code> → <em>final</em> и закрытие.
+  </td></tr>
+  <tr><th>Ответ</th><td>
+    <code>{"type":"partial","decision":bool,"threshold":0.5,"best":{user_id,score,ref_path}|null,"matches":[...]}</code> /
+    <code>{"type":"final",...,"reason":"client_stop|client_disconnect|inactivity"}</code> /
+    <code>{"type":"error","code":"ingest_failed|bad_frame_size|bad_json|unknown_event"}</code>
+  </td></tr>
+</table>
+
+<h3>Query параметры</h3>
+<table>
+  <tr><th>Параметр</th><th>Описание</th><th>Пример</th></tr>
+  <tr><td>sample_rate</td><td>Частота входящих PCM16 кадров (8–48 kHz; внутри ресэмпл до 16 kHz)</td><td>16000</td></tr>
+  <tr><td>channels</td><td>Каналы входящих PCM16 (1=моно, 2=стерео; внутри сведение в моно)</td><td>1</td></tr>
+  <tr><td>top_k</td><td>Сколько лучших совпадений вернуть для диагностики</td><td>5</td></tr>
+  <tr><td>inactivity_sec</td><td>Авто-STOP при тишине, сек</td><td>120.0</td></tr>
+  <tr><td>sim_threshold</td><td>Порог бинарного решения [0..1] (по умолчанию из конфигурации)</td><td>0.5</td></tr>
+  <tr><td>emit_interval_ms</td><td>Интервал авто-partial, мс</td><td>500</td></tr>
+</table>
+
+<h3>Ответы сервера</h3>
+<pre>{
+  "type":"ready","sample_rate":16000,"channels":1,"sim_threshold":0.5,"emit_interval_ms":500,"top_k":5,
+  "session_id":"...","version":1,"ts_ms":...}
+{
+  "type":"partial","decision":true,"threshold":0.5,
+  "best":{"user_id":"Alena","score":0.83,"ref_path":"..."},
+  "matches":[{"user_id":"Alena","score":0.83,"ref_path":"..."}, {"user_id":"bob","score":0.71,"ref_path":"..."}],
+  "session_id":"...","version":1,"ts_ms":...}
+{
+  "type":"final","decision":false,"threshold":0.5,"best":null,"matches":[...],
+  "reason":"inactivity","session_id":"...","version":1,"ts_ms":...}
+</pre>
+
+
+</div>
 
 
 
@@ -230,6 +353,9 @@
       <li><code>score</code> — косинусная близость эмбеддингов; <code>decision</code> — пороговая интерпретация (по умолчанию 0.5, можно вынести в конфиг).</li>
       <li>WebSocket может отдавать пустой текст на коротких/беззвучных фрагментах — это нормально.</li>
     </ul>
+
+
+
 
 <h2>WS не виден в Swagger</h2>
     <div class="note">
