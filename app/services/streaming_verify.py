@@ -23,9 +23,7 @@ class StreamingVerifySession:
         self._last_audio_t = time.time()
 
     def ingest_pcm16_chunk(self, pcm_chunk: bytes) -> None:
-        print("🔹 got chunk:", len(pcm_chunk), "bytes")  # 👈 добавить
         x16k = ensure_float_mono_16k_from_pcm16(pcm_chunk, src_sr=self._src_sr, channels=self._channels)
-        print("🔹 resampled:", x16k.shape if hasattr(x16k, 'shape') else 'None')  # 👈 добавить
         # x16k = ensure_float_mono_16k_from_pcm16(pcm_chunk, src_sr=self._src_sr, channels=self._channels)
         if x16k.size == 0:
             return

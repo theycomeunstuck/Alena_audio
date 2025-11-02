@@ -117,10 +117,11 @@ class MultiSpeakerMatcher:
         a = Audio_Enhancement(a).noise_suppression()
 
         with torch.inference_mode():
-            probe_emb = embed_speechbrain(a)                       # [D]
+            probe_emb = embed_speechbrain(a) # [D]
+            if probe_emb is None:
+                return []
             probe_emb = torch.nn.functional.normalize(probe_emb, p=2, dim=-1, eps=1e-12).float()
 
-            # embs = embs.to(self.device, non_blocking=True)  # если вдруг не там # [DEBUG] todo: убрать после тестов мультивериф
             sims = torch.matmul(embs, probe_emb.view(-1, 1)).squeeze(1)  # [N]
             scores = _cos_to01(sims)
             k = max(1, min(int(top_k), scores.numel()))

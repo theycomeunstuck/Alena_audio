@@ -41,7 +41,7 @@ def to_tensor_1d(x: Union[np.ndarray, torch.Tensor]) -> torch.Tensor:
     else:
         x = x.astype(np.float32, copy=False)
 
-    # 3) Приводим к 1D: (N,1)->(N,), (2,N)->моно средним
+    # Приводим к 1D: (N,1)->(N,), (2,N)->моно средним
     if x.ndim == 2:
         if 1 in x.shape:
             x = x.reshape(-1)
@@ -54,19 +54,21 @@ def to_tensor_1d(x: Union[np.ndarray, torch.Tensor]) -> torch.Tensor:
     if x.ndim != 1:
         raise ValueError(f"ожидался 1D массив, получено shape={x.shape}")
 
-    # 4) Валидации
-    if not np.isfinite(x).all():
-        raise ValueError("сигнал содержит NaN/Inf")
-    if np.allclose(x, 0.0, atol=1e-7):
-        raise ValueError("пустой/нулевой сигнал")
 
-    # 5) В тензор [1, T] на нужное устройство
-    return torch.from_numpy(x).unsqueeze(0).to(device)
+    if np.allclose(x, 0.0, atol=1e-7) or not np.isfinite(x).all(): # пустой или нулевой | сигнал содержит NaN/Inf
+        return None
+
+
+
+    return torch.from_numpy(x).unsqueeze(0).to(device)   # [1, T]
 
 def embed_speechbrain(x: np.ndarray) -> torch.Tensor:
     """Создаёт L2-нормализованный эмбеддинг для аудиосигнала - нормализует по громкости"""
     enc = get_encoder()
     wav = to_tensor_1d(x) # to.device(cuda|cpu)
+    if wav is None: # Если пришёл пустой сигнал
+        return None
+
     with torch.inference_mode():
         emb = enc.encode_batch(wav)
         emb = emb.squeeze()
