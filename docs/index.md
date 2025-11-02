@@ -206,14 +206,14 @@
 
 <div class="endp"><span class="method POST POST">POST</span><span>/tts/clone</span><span class="tag">TTS</span></div>
 <table>
-<tr><th>Назначение</th><td>Клонировать голос из аудиофайла для последующего использования в синтезе речи.</td></tr>
+<tr><th>Назначение</th><td>Клонировать голос из аудиофайла для последующего использования в синтезе речи (этим голосом будет озвучиваться).</td></tr>
 <tr><th>Формат</th><td>multipart/form-data: <code class="inline">file</code> (WAV/MP3/FLAC/M4A/OGG)</td></tr>
 <tr><th>Ответ</th><td><span class="status ok">200</span> → <code>{"voice_id":"..."}</code>; <span class="status err">400</span> если неверный формат файла.</td></tr>
 </table>
 <div class="note">Создаёт новый голос на основе загруженного аудиофайла. Возвращает <code>voice_id</code> для использования в синтезе.</div>
 
 <h3>Пример</h3>
-<pre>& curl.exe -X POST `-F "file=@sample_voice.wav;type=audio/wav"` "http://127.0.0.1:8000/tts/clone"</pre>
+<pre>& curl.exe -X POST `-F "file=@sample_voice.wav"` "http://127.0.0.1:8000/tts/clone"</pre>
 
 <div class="endp"><span class="method POST POST">POST</span><span>/tts</span><span class="tag">TTS</span></div>
 <table>
