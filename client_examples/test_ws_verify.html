@@ -1,0 +1,431 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <title>WS Tester — PCM16 + Mic Realtime</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    :root { --bg:#0f1115; --panel:#161a22; --fg:#e6e7ea; --muted:#9aa0aa; --acc:#4ea1ff; --warn:#ffb74d; --err:#ff6b6b; }
+    * { box-sizing: border-box; }
+    body { margin:0; font:14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,"Helvetica Neue",Arial; background:var(--bg); color:var(--fg); }
+    header { padding:16px 20px; border-bottom:1px solid #202633; background:linear-gradient(180deg,#151a22,#12161d); position:sticky; top:0; z-index:1; }
+    h1 { margin:0; font-size:16px; letter-spacing:.2px; }
+    main { padding:20px; display:grid; gap:16px; grid-template-columns: 1.2fr 1fr; }
+    .card { background:var(--panel); border:1px solid #202633; border-radius:12px; padding:14px; }
+    label { display:block; font-size:12px; color:var(--muted); margin-bottom:6px; }
+    input[type="text"], input[type="number"] {
+      width:100%; padding:10px 12px; border-radius:10px; border:1px solid #2a3140; background:#0e1218; color:var(--fg);
+      outline:none;
+    }
+    .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+    button { padding:10px 14px; border-radius:10px; border:1px solid #2a3140; background:#0e1218; color:var(--fg); cursor:pointer; }
+    button.primary { border-color:var(--acc); box-shadow:0 0 0 1px inset #2a3140; }
+    button.warn { border-color:var(--warn); }
+    button:disabled { opacity:.5; cursor:not-allowed; }
+    .log { height:460px; overflow:auto; font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background:#0b0e13; border-radius:10px; padding:10px; border:1px solid #1d2430; }
+    .line { white-space:pre-wrap; word-break:break-word; margin:0; }
+    .t { color:#7ec4ff; }
+    .rx { color:#b0f0c6; }
+    .tx { color:#ffd08a; }
+    .err { color:var(--err); }
+    .muted { color:var(--muted); }
+    .kv { display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
+    .small { font-size:12px; color:var(--muted); }
+    .inline { display:inline-flex; gap:8px; align-items:center; }
+  </style>
+</head>
+<body>
+  <header><h1>WS Tester — PCM16 (шум/микрофон real-time)</h1></header>
+  <main>
+    <section class="card">
+      <div>
+        <label for="url">WebSocket URL</label>
+        <input id="url" type="text"
+               value="ws://localhost:8000/ws/speaker/verify?sample_rate=16000&channels=1&top_k=2&sim_threshold=0.7&emit_interval_ms=500" />
+        <p class="small">`sample_rate` из URL используется для генерации шума и ресемплинга микрофона.</p>
+      </div>
+
+      <div class="row" style="margin-top:8px">
+        <button id="btnConnect" class="primary">Подключиться</button>
+        <button id="btnDisconnect">Отключиться</button>
+        <span class="muted" id="status">не подключено</span>
+      </div>
+
+      <hr style="border:none;border-top:1px solid #252c3a;margin:14px 0" />
+
+      <div class="kv">
+        <div>
+          <label for="chunkMs">Размер чанка (мс)</label>
+          <input id="chunkMs" type="number" min="10" step="10" value="500" />
+        </div>
+        <div>
+          <label for="amp">Амплитуда шума (0–1)</label>
+          <input id="amp" type="number" min="0" max="1" step="0.01" value="0.1" />
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:10px">
+        <button id="btnSend1s" class="primary">Отправить 1 сек шума</button>
+        <button id="btnStartStream">Старт стрима шума</button>
+        <button id="btnStopStream">Стоп стрима</button>
+        <button id="btnStopEvent" class="warn">Отправить {"event":"stop"}</button>
+      </div>
+
+      <hr style="border:none;border-top:1px solid #252c3a;margin:14px 0" />
+
+      <div class="row">
+        <div class="inline">
+          <button id="btnMicStart" class="primary">Микрофон: старт</button>
+          <button id="btnMicStop">Микрофон: стоп</button>
+        </div>
+        <label class="inline" style="margin-left:6px">
+          <input type="checkbox" id="monitor" />
+          Слушать себя
+        </label>
+        <span class="muted" id="micStatus">микрофон: выкл</span>
+      </div>
+
+      <div class="row" style="margin-top:10px">
+        <button id="btnClear">Очистить лог</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <label>Лог</label>
+      <div id="log" class="log" aria-live="polite"></div>
+    </section>
+  </main>
+
+  <script>
+    // ————— helpers —————
+    const $ = (id) => document.getElementById(id);
+    const logEl = $('log');
+
+    function ts() {
+      const d = new Date();
+      return d.toLocaleTimeString([], { hour12:false }) + '.' + String(d.getMilliseconds()).padStart(3,'0');
+    }
+    function log(msg, cls='line') {
+      const p = document.createElement('div');
+      p.className = 'line ' + cls;
+      p.textContent = `[${ts()}] ${msg}`;
+      logEl.appendChild(p);
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+    function parseSampleRate(urlStr) {
+      try {
+        const u = new URL(urlStr);
+        const sr = Number(u.searchParams.get('sample_rate'));
+        return Number.isFinite(sr) && sr > 0 ? sr : 16000;
+      } catch { return 16000; }
+    }
+    function floatToPCM16LE(float32) {
+      const out = new ArrayBuffer(float32.length * 2);
+      const view = new DataView(out);
+      let offset = 0;
+      for (let i = 0; i < float32.length; i++, offset += 2) {
+        let x = float32[i];
+        if (x > 1) x = 1;
+        else if (x < -1) x = -1;
+        const s = x < 0 ? x * 0x8000 : x * 0x7FFF;
+        view.setInt16(offset, s, true);
+      }
+      return out;
+    }
+    function makeNoiseFloat32(nSamples, amplitude=0.1) {
+      const a = new Float32Array(nSamples);
+      for (let i = 0; i < nSamples; i++) a[i] = (Math.random()*2 - 1) * amplitude;
+      return a;
+    }
+
+    // ————— WS client —————
+    let ws = null;
+    let streamTimer = null;
+
+    function setConnectedState(yes) {
+      $('btnConnect').disabled   = yes;
+      $('btnDisconnect').disabled= !yes;
+      $('btnSend1s').disabled    = !yes;
+      $('btnStartStream').disabled = !yes;
+      $('btnStopStream').disabled  = !yes;
+      $('btnStopEvent').disabled = !yes;
+      $('btnMicStart').disabled  = false;
+      $('status').textContent = yes ? 'подключено' : 'не подключено';
+    }
+    setConnectedState(false);
+
+    $('btnConnect').onclick = () => {
+      const url = $('url').value.trim();
+      try { ws = new WebSocket(url); } catch (e) { log(`Некорректный URL: ${e}`, 'err'); return; }
+      ws.binaryType = 'arraybuffer';
+      log(`Connecting to ${url} …`, 't');
+
+      ws.onopen = () => { setConnectedState(true); log('WS OPEN', 't'); };
+      ws.onclose = (ev) => {
+        setConnectedState(false);
+        if (streamTimer) { clearInterval(streamTimer); streamTimer = null; }
+        log(`WS CLOSE (code=${ev.code}, clean=${ev.wasClean})`, 't');
+      };
+      ws.onerror = (ev) => { log('WS ERROR (см. консоль)', 'err'); console.error(ev); };
+      ws.onmessage = async (ev) => {
+        try {
+          if (typeof ev.data === 'string') {
+            log(`RX text: ${ev.data}`, 'rx');
+          } else if (ev.data instanceof Blob) {
+            const ab = await ev.data.arrayBuffer();
+            log(`RX binary: ${ab.byteLength} bytes`, 'rx');
+          } else if (ev.data instanceof ArrayBuffer) {
+            log(`RX binary: ${ev.data.byteLength} bytes`, 'rx');
+          } else { log(`RX (unknown type)`, 'rx'); }
+        } catch (e) { log(`RX parse error: ${e}`, 'err'); }
+      };
+    };
+
+    $('btnDisconnect').onclick = () => {
+      if (!ws) return;
+      log('Closing WS…', 't');
+      ws.close(1000, 'client closing');
+      ws = null;
+    };
+
+    $('btnSend1s').onclick = () => {
+      if (!ws || ws.readyState !== 1) return log('WS не открыт', 'err');
+      const url = $('url').value.trim();
+      const sr = parseSampleRate(url);
+      const amp = Number($('amp').value) || 0.1;
+      const noise = makeNoiseFloat32(sr, amp);
+      const buf = floatToPCM16LE(noise);
+      ws.send(buf);
+      log(`TX 1s noise → ${sr} samples (${(buf.byteLength/1024).toFixed(1)} KiB)`, 'tx');
+    };
+
+    $('btnStartStream').onclick = () => {
+      if (!ws || ws.readyState !== 1) return log('WS не открыт', 'err');
+      if (streamTimer) return;
+      const url = $('url').value.trim();
+      const sr = parseSampleRate(url);
+      const amp = Number($('amp').value) || 0.1;
+      let chunkMs = Math.max(10, Number($('chunkMs').value) || 500);
+      const samplesPerChunk = Math.round(sr * (chunkMs/1000));
+      log(`Старт стрима шума: ${chunkMs} мс, ~${samplesPerChunk} сэмплов/чанк`, 't');
+
+      streamTimer = setInterval(() => {
+        if (!ws || ws.readyState !== 1) return;
+        const noise = makeNoiseFloat32(samplesPerChunk, amp);
+        const buf = floatToPCM16LE(noise);
+        ws.send(buf);
+        log(`TX chunk ${chunkMs}ms (${buf.byteLength} bytes)`, 'tx');
+      }, chunkMs);
+    };
+
+    $('btnStopStream').onclick = () => {
+      if (streamTimer) {
+        clearInterval(streamTimer);
+        streamTimer = null;
+        log('Стрим остановлен', 't');
+      }
+    };
+
+    $('btnStopEvent').onclick = () => {
+      if (!ws || ws.readyState !== 1) return log('WS не открыт', 'err');
+      const payload = { event: 'stop' };
+      ws.send(JSON.stringify(payload));
+      log(`TX JSON: ${JSON.stringify(payload)}`, 'tx');
+    };
+
+    $('btnClear').onclick = () => { logEl.innerHTML = ''; };
+
+    // ————— МИКРОФОН (реал-тайм с ресемплингом) —————
+    let mic = {
+      ctx: null, stream: null, srcNode: null, workletNode: null,
+      muteGain: null, monitorGain: null, workletURL: null
+    };
+
+    async function startMic() {
+      if (mic.ctx) return log('Микрофон уже запущен', 'muted');
+
+      // Целевой SR и размер чанка
+      const targetSR = parseSampleRate($('url').value.trim());
+      const chunkMs = Math.max(10, Number($('chunkMs').value) || 500);
+      const chunkLen = Math.max(1, Math.round(targetSR * (chunkMs/1000)));
+
+      try {
+        // Запрашиваем микрофон
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+            channelCount: 1
+          }
+        });
+
+        const ctx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive' });
+        const src = ctx.createMediaStreamSource(stream);
+
+        // Готовим AudioWorklet с ресемплером
+        const workletCode = `
+          class ResampleProcessor extends AudioWorkletProcessor {
+            constructor(options) {
+              super();
+              const o = options.processorOptions || {};
+              this.targetSR = o.targetSampleRate || 16000;
+              this.chunkLen = o.chunkLength || 800;
+              this.ratio = sampleRate / this.targetSR; // сколько входных на один выходной
+              this.src = [];
+              this.pos = 0;
+              this.pending = [];
+              this.port.onmessage = (ev) => {
+                const d = ev.data || {};
+                if (d.type === 'setChunkLen' && Number.isFinite(d.chunkLen)) {
+                  this.chunkLen = Math.max(1, d.chunkLen|0);
+                } else if (d.type === 'setTargetSR' && Number.isFinite(d.targetSR)) {
+                  this.targetSR = Math.max(8000, d.targetSR|0);
+                  this.ratio = sampleRate / this.targetSR;
+                }
+              };
+            }
+            process(inputs, outputs, parameters) {
+              const input = inputs[0];
+              if (!input || input.length === 0) return true;
+              const chs = input;
+              const n = chs[0].length;
+
+              // downmix to mono
+              for (let i = 0; i < n; i++) {
+                let sum = 0;
+                for (let c = 0; c < chs.length; c++) sum += chs[c][i] || 0;
+                this.src.push(sum / chs.length);
+              }
+
+              // resample (линейная интерполяция)
+              const out = [];
+              while (this.pos + 1 < this.src.length) {
+                const i0 = Math.floor(this.pos);
+                const frac = this.pos - i0;
+                const x0 = this.src[i0];
+                const x1 = this.src[i0 + 1];
+                out.push(x0 + (x1 - x0) * frac);
+                this.pos += this.ratio;
+              }
+              // убрать использованные входные
+              const drop = Math.floor(this.pos);
+              if (drop > 0) { this.src.splice(0, drop); this.pos -= drop; }
+
+              if (out.length) this.pending.push(...out);
+              while (this.pending.length >= this.chunkLen) {
+                const slice = this.pending.slice(0, this.chunkLen);
+                this.pending.splice(0, this.chunkLen);
+                const buf = new Float32Array(slice);
+                this.port.postMessage({ type:'chunk', samples: buf }, [buf.buffer]);
+              }
+              return true;
+            }
+          }
+          registerProcessor('resample-processor', ResampleProcessor);
+        `;
+        const blob = new Blob([workletCode], { type: 'text/javascript' });
+        const workletURL = URL.createObjectURL(blob);
+        await ctx.audioWorklet.addModule(workletURL);
+
+        const workletNode = new AudioWorkletNode(ctx, 'resample-processor', {
+          numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [1],
+          processorOptions: { targetSampleRate: targetSR, chunkLength: chunkLen }
+        });
+
+        // нулевой гейн, чтобы узел участвовал в графе, но не звучал
+        const muteGain = ctx.createGain(); muteGain.gain.value = 0;
+        // мониторинг "слушать себя" — отдельным гейном
+        const monitorGain = ctx.createGain(); monitorGain.gain.value = $('monitor').checked ? 1 : 0;
+
+        // wiring
+        src.connect(workletNode);
+        workletNode.connect(muteGain).connect(ctx.destination); // чтобы ворклет тянул аудио
+        src.connect(monitorGain).connect(ctx.destination);       // мониторинг напрямую (без ресэмплинга)
+
+        workletNode.port.onmessage = (ev) => {
+          const d = ev.data || {};
+          if (d.type === 'chunk' && d.samples instanceof Float32Array) {
+            const buf = floatToPCM16LE(d.samples);
+            if (ws && ws.readyState === 1) {
+              ws.send(buf);
+              log(`TX mic ${d.samples.length} @${targetSR}Hz → ${buf.byteLength} bytes`, 'tx');
+            } else {
+              // WS может ещё не быть открыт — просто информируем
+              log(`mic chunk ${d.samples.length} (WS не открыт, пропущено)`, 'muted');
+            }
+          }
+        };
+
+        mic = { ctx, stream, srcNode: src, workletNode, muteGain, monitorGain, workletURL };
+        $('micStatus').textContent = `микрофон: вкл (deviceSR=${ctx.sampleRate}, targetSR=${targetSR}, chunk=${chunkLen})`;
+        log(`Mic START: device sampleRate=${ctx.sampleRate}, target=${targetSR}, chunkLen=${chunkLen}`, 't');
+
+      } catch (e) {
+        log(`Mic error: ${e.message || e}`, 'err');
+      }
+    }
+
+    async function stopMic() {
+      if (!mic.ctx) return;
+      try {
+        mic.srcNode?.disconnect();
+        mic.workletNode?.disconnect();
+        mic.muteGain?.disconnect();
+        mic.monitorGain?.disconnect();
+        mic.stream?.getTracks().forEach(t => t.stop());
+        await mic.ctx.close();
+        if (mic.workletURL) URL.revokeObjectURL(mic.workletURL);
+      } catch (e) {
+        log(`Mic stop error: ${e.message || e}`, 'err');
+      } finally {
+        mic = { ctx:null, stream:null, srcNode:null, workletNode:null, muteGain:null, monitorGain:null, workletURL:null };
+        $('micStatus').textContent = 'микрофон: выкл';
+        log('Mic STOP', 't');
+      }
+    }
+
+    $('btnMicStart').onclick = () => startMic();
+    $('btnMicStop').onclick  = () => stopMic();
+
+    // Мониторинг (слушать себя)
+    $('monitor').onchange = () => {
+      if (mic.monitorGain) {
+        mic.monitorGain.gain.value = $('monitor').checked ? 1 : 0;
+        log(`Мониторинг: ${$('monitor').checked ? 'ON' : 'OFF'}`, 't');
+      }
+    };
+
+    // Живая смена размера чанка влияет и на микрофонный ворклет
+    $('chunkMs').addEventListener('change', () => {
+      const targetSR = parseSampleRate($('url').value.trim());
+      const chunkMs = Math.max(10, Number($('chunkMs').value) || 500);
+      const newLen = Math.max(1, Math.round(targetSR * (chunkMs/1000)));
+      if (mic.workletNode) {
+        mic.workletNode.port.postMessage({ type:'setChunkLen', chunkLen: newLen });
+        $('micStatus').textContent = `микрофон: вкл (deviceSR=${mic.ctx.sampleRate}, targetSR=${targetSR}, chunk=${newLen})`;
+        log(`Mic chunkLen → ${newLen}`, 't');
+      }
+    });
+
+    // Если вы меняете sample_rate в URL — обновим таргетный SR без перезапуска
+    $('url').addEventListener('change', () => {
+      const newSR = parseSampleRate($('url').value.trim());
+      if (mic.workletNode) {
+        mic.workletNode.port.postMessage({ type:'setTargetSR', targetSR: newSR });
+        const chunkMs = Math.max(10, Number($('chunkMs').value) || 500);
+        const newLen = Math.max(1, Math.round(newSR * (chunkMs/1000)));
+        mic.workletNode.port.postMessage({ type:'setChunkLen', chunkLen: newLen });
+        $('micStatus').textContent = `микрофон: вкл (deviceSR=${mic.ctx.sampleRate}, targetSR=${newSR}, chunk=${newLen})`;
+        log(`Mic targetSR → ${newSR}; chunkLen → ${newLen}`, 't');
+      }
+    });
+
+    // Подсказка
+    (function initHint(){
+      const sr = parseSampleRate($('url').value);
+      log(`Подсказка: sample_rate=${sr} (из URL).`, 'muted');
+    })();
+  </script>
+</body>
+</html>
