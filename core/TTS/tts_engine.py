@@ -31,7 +31,7 @@ class TtsEngine:
         # грубо: ~13 символов/сек
         return max(1.0, len(text) / 13.0)
 
-    async def synth(self, text: str, ref_audio: Path, out_format: Literal["wav", "mp3", "ogg"] = "wav") -> bytes:
+    async def synth(self, text: str, ref_audio: Path, ref_text: str, out_format: Literal["wav", "mp3", "ogg"] = "wav") -> bytes:
         if not text or not text.strip():
             raise HTTPException(status_code=400, detail="Поле 'text' пустое или отсутствует")
         if self._estimate_secs(text) > self.max_sec * 1.6:
@@ -39,13 +39,14 @@ class TtsEngine:
 
         try:
             return await asyncio.wait_for(
-                self._synth_cli(text.strip(), ref_audio, out_format),
-                timeout=self.max_sec
-            )
+                self._synth_cli(text.strip(), ref_audio, out_format, ref_text),
+                timeout=self.max_sec)
+
+
         except asyncio.TimeoutError:
             raise HTTPException(status_code=503, detail=f"Генерация превысила лимит {settings.TTS_MAX_SECONDS} с")
 
-    async def _synth_cli(self, text: str, ref_audio: Path, out_format: str) -> bytes:
+    async def _synth_cli(self, gen_text: str, ref_audio: Path, out_format: str, ref_text: str) -> bytes:
         tmpdir = Path(tempfile.mkdtemp(prefix="f5tts_"))
         out_dir = tmpdir / "out"
         out_dir.mkdir(parents=True, exist_ok=True)
@@ -54,23 +55,23 @@ class TtsEngine:
             "f5-tts_infer-cli",
             "--model", "F5TTS_v1_Base",
             "--ref_audio", str(ref_audio),
-            "--ref_text", "",  # пусто -> автотранскриб референса # todo: Один раз transcribe, then подтягивать from voice_metadata.json (not exist yet)
-            "--gen_text", text,
+            "--ref_text", ref_text or "",
+            "--gen_text", gen_text,
             "--output_dir", str(out_dir),
             "--vocoder_name", self.vocoder,
             "--nfe", str(self.nfe),
-            "--ckpt_file", self.ckpt,
+            # "--ckpt_file", self.ckpt,
             "--device", self.device,
-            "--vocab_file", self.vocab_file
+            # "--vocab_file", self.vocab_file"'
         ]
         if self.vocoder_ckpt:
             cmd += ["--vocoder_ckpt", self.vocoder_ckpt]
 
         env = os.environ.copy()
-        env.update({
-            "CUDA_VISIBLE_DEVICES": "0" if self.device.startswith("cuda") else "",
-            "PYTORCH_CUDA_ALLOC_CONF": "max_split_size_mb:512",
-        })
+        # env.update({
+        #     "CUDA_VISIBLE_DEVICES": "0" if self.device.startswith("cuda") else "", #todo: не уверен, что стоит оставлять эти 4 строки
+        #     "PYTORCH_CUDA_ALLOC_CONF": "max_split_size_mb:512",
+        # })
 
         # Логируем команду для отладки
         print(f"🔧 F5-TTS CLI command: {' '.join(cmd)}")

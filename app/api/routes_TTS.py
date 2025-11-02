@@ -1,5 +1,8 @@
 # app/api/routes_TTS.py
 from __future__ import annotations
+
+
+from f5_tts.infer.infer_cli import ref_audio
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
@@ -22,7 +25,7 @@ try: #todo: убедиться, что путь storage/_default/reference.wav �
 except FileNotFoundError as e: # Даём понятную ошибку при первом старте без "storage/voices/_default/reference.wav"
     raise FileNotFoundError(f"{e}")
 
-@router.post("/tts/clone", summary="Клонировать голос из аудиофайла", response_model=dict)
+@router.post("/tts/clone", summary="Добавить голос в БД для клонирования из аудиофайла", response_model=dict)
 async def clone_voice(file: UploadFile = File(...)):
     if not file.filename:
         raise HTTPException(status_code=400, detail="Не передан файл")
@@ -57,8 +60,10 @@ async def tts(req: TtsIn):
     if not store.exists(vid):
         raise HTTPException(status_code=404, detail=f"Голос '{vid}' не найден")
 
-    ref = store.ensure_reference_wav(vid)
-    audio = await engine.synth(req.text.strip(), ref, req.format)
+
+    ref_audio = store.ensure_reference_wav(vid)
+    meta = store.read_meta(vid)
+    audio = await engine.synth(text=req.text.strip(), ref_audio=ref_audio, out_format=req.format, ref_text=meta.ref_text)
 
     mt = {"wav":"audio/wav","mp3":"audio/mpeg","ogg":"audio/ogg"}[req.format]
     return StreamingResponse(io.BytesIO(audio), media_type=mt)

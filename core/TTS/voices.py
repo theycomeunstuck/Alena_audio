@@ -56,7 +56,6 @@ class VoiceStore:
     def read_meta(self, voice_id: str) -> VoiceMeta:
         p = self.meta_path(voice_id)
         if not p.exists():
-            # build minimal meta
             return VoiceMeta(voice_id=voice_id, sr=0, orig_file="", ref_text="")
         return VoiceMeta.model_validate_json(p.read_text(encoding="utf-8"))
 
@@ -96,7 +95,7 @@ class VoiceStore:
         self._save_cache(cache)
         return text
 
-    def clone_from_upload(self, up_path: Path, sample_rate: int = 24000, language: Optional[str] = "ru") -> VoiceMeta:
+    def clone_from_upload(self, up_path: Path, sample_rate: int = 24000) -> VoiceMeta:
         """
         Создаёт новый voice_id из загруженного WAV/MP3/OGG и заполняет meta.json.
         Дублирование транскрипций избегается за счёт локального кэша в VOICES_DIR.
@@ -113,7 +112,7 @@ class VoiceStore:
         audio.export(ref_path, format="wav")
 
         # meta
-        ref_text = self._transcribe_with_local_cache(ref_path, language=language)
+        ref_text = self._transcribe_with_local_cache(ref_path)
         meta = VoiceMeta(voice_id=voice_id, sr=int(sample_rate), orig_file=str(up_path.name), ref_text=ref_text)
         self.write_meta(meta)
         return meta
