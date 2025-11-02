@@ -12,7 +12,7 @@ from core.config import device
 _ENCODER: Optional[EncoderClassifier] = None
 
 def get_encoder() -> EncoderClassifier:
-    """Загружает (один раз) модель SpeechBrain encoder"""
+    """Загружает (один раз) модель SpeechBrain encoder. Singleton"""
     global _ENCODER
     if _ENCODER is None:
         _ENCODER = EncoderClassifier.from_hparams(

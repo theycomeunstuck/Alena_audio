@@ -71,6 +71,7 @@ class SpeakerService:
         }
         return result
 
+
     def train_from_microphone(self, user_id: str = "_default", duration: float = TRAIN_USER_VOICE_S) -> Dict[str, Any]:
         """
         Записывает голос с локального микрофона API-хоста, извлекает эмбеддинг и
@@ -88,10 +89,10 @@ class SpeakerService:
         out_npy_path = EMBEDDINGS_DIR / f"{user_id}.npy"
         out_wav_path = EMBEDDINGS_WAV_DIR / f"{user_id}.wav"
 
-        audio = Audio_Enhancement(audio).noise_suppression() #noise suppresion + rms_normalize; cpu
+        audio = Audio_Enhancement(audio).noise_suppression() # Tensor. Noise suppresion + rms_normalize; cpu
 
         try:
-            torchaudio.save(str(out_wav_path), src=torch.from_numpy(audio).unsqueeze(0),  # [1,T]
+            torchaudio.save(str(out_wav_path), src=audio.unsqueeze(0),  # [1,T]
                             sample_rate=SAMPLE_RATE, format="wav",
                             encoding="PCM_S", bits_per_sample=16)  # стандартный 16-бит PCM
         except Exception as e:
@@ -100,9 +101,46 @@ class SpeakerService:
         emb = embed_speechbrain(audio) # to(device)
         emb = torch.nn.functional.normalize(emb, p=2, dim=-1, eps=1e-12).float()
 
-
-        np.save(out_npy_path, emb.detach().cpu().numpy().astype(np.float32))
+        emb = emb.detach().cpu()  # если уже float32 — отлично
+        if emb.dtype != torch.float32:
+            emb = emb.to(torch.float32)  # привести один раз в torch
+        np.save(out_npy_path, emb.numpy())
 
 
         return {"user_id": user_id, "wav_path": str(out_wav_path), "npy_path": str(out_npy_path)}
 
+    def train_from_file(self, probe_wav: np.ndarray, user_id: str = "_default") -> Dict[str, Any]:
+
+        if user_id == "_default":
+            user_id = str(uuid.uuid4().hex)
+
+        audio = load_and_resample(probe_wav)
+
+        if audio.ndim != 1 or audio.size < int(3 * SAMPLE_RATE):
+            raise ValueError("Слишком короткая запись — повторите попытку")
+
+        EMBEDDINGS_DIR.mkdir(parents=True, exist_ok=True)
+        EMBEDDINGS_WAV_DIR.mkdir(parents=True, exist_ok=True)
+        out_npy_path = EMBEDDINGS_DIR / f"{user_id}.npy"
+        out_wav_path = EMBEDDINGS_WAV_DIR / f"{user_id}.wav"
+
+        audio = Audio_Enhancement(audio).noise_suppression() #noise suppresion + rms_normalize; cpu
+
+        try:
+            torchaudio.save(str(out_wav_path), src=audio.unsqueeze(0),  # [1,T]
+                            sample_rate=SAMPLE_RATE, format="wav",
+                            encoding="PCM_S", bits_per_sample=16)  # стандартный 16-бит PCM
+        except Exception as e:
+            raise e
+
+        emb = embed_speechbrain(audio) # to(device)
+        emb = torch.nn.functional.normalize(emb, p=2, dim=-1, eps=1e-12).float() # L2-norm
+
+        emb = emb.detach().cpu()
+        if emb.dtype != torch.float32:
+            emb = emb.to(torch.float32)
+        np.save(out_npy_path, emb.numpy())
+
+
+
+        return {"user_id": user_id, "wav_path": str(out_wav_path), "npy_path": str(out_npy_path)}

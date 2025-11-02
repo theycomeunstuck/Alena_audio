@@ -9,7 +9,7 @@ from app.services.speaker_service import SpeakerService
 from app.services.multi_speaker_matcher import get_global_matcher
 from app.services.audio_utils import load_and_resample
 from app.models.speaker_models import VerifyResponse, TrainMicResponse, MultiVerifyResponse, MultiVerifyMatch, RegistryVerifyResponse
-from core.config import sim_threshold as _sim_threshold
+from core.config import TRAIN_USER_VOICE_S, sim_threshold as _sim_threshold
 
 router = APIRouter(prefix="/speaker", tags=["Speaker"])
 svc = SpeakerService(STORAGE_DIR)
@@ -86,12 +86,30 @@ def registry_reload() -> dict:
 @router.post("/train/microphone", response_model=TrainMicResponse)
 def train_microphone(
     user_id: str = Query("_default", description="Идентификатор пользователя. Если не задан, то генерируется случайный (uuid4)"),
-    duration: float = Query(core.config.TRAIN_USER_VOICE_S, description=f"Длительность записи, сек (по умолчанию из конфигурации: {core.config.TRAIN_USER_VOICE_S})"),
+    duration: float = Query(TRAIN_USER_VOICE_S, description=f"Длительность записи, сек (по умолчанию из конфигурации: {TRAIN_USER_VOICE_S})"),
 ):
     """Записывает образец голоса с локального микрофона (вроде как того, что на машине, держащем API)
     сохраняет эмбеддинг, обновляет бд."""
     try:
         res = svc.train_from_microphone(user_id=user_id, duration=duration)
+        matcher.reload() #обновляем бд
+        return res
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except Exception as e:
+        raise HTTPException(500, f"internal error: {e.__class__.__name__}")
+
+@router.post("/train/file", response_model=TrainMicResponse)
+async def train_file(
+    probe: UploadFile = File(..., description="Файл, который будет переведён в эмбеддинг"),
+    user_id: str = Query("_default", description="Идентификатор пользователя. Если не задан, то генерируется случайный (uuid4)"),
+):
+    """Записывает образец голоса с локального микрофона (вроде как того, что на машине, держащем API)
+    сохраняет эмбеддинг, обновляет бд."""
+    try:
+        buf = await probe.read()
+        audio = load_and_resample(buf)
+        res = svc.train_from_file(probe_wav=audio, user_id=user_id)
         matcher.reload() #обновляем бд
         return res
     except ValueError as e:
