@@ -43,7 +43,7 @@ F5TTS_VOCODER_NAME = os.getenv("F5TTS_VOCODER_NAME", "vocos")
 F5TTS_VOCODER_CKPT = os.getenv("F5TTS_VOCODER_CKPT", "")
 DEVICE = os.getenv("DEVICE", device)
 TTS_SAMPLE_RATE = int(os.getenv("TTS_SAMPLE_RATE", "24000"))
-TTS_MAX_SECONDS = int(os.getenv("TTS_MAX_SECONDS", "25"))
+TTS_MAX_SECONDS = int(os.getenv("TTS_MAX_SECONDS", "95"))
 TTS_NFE_STEPS   = int(os.getenv("TTS_NFE_STEPS", "16"))
 
 

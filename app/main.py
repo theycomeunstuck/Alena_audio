@@ -1,11 +1,17 @@
 from fastapi import FastAPI
 from app.api import routes_health, routes_files, routes_audio, routes_speaker, routes_ws, routes_TTS, routes_ws
+import sys, asyncio
+
+
+if sys.platform.startswith("win"):
+    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
 app = FastAPI(
     title="Audio Core API",
     description="REST + WebSocket API: шумоподавление, ASR, верификация спикера, тренировка эталона, TTS.",
     version="1.0.0",
 )
+
 
 app.include_router(routes_health.router)
 app.include_router(routes_files.router)

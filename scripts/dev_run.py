@@ -1,12 +1,15 @@
 # scripts/dev_run.py
 from __future__ import annotations
-import argparse
-import uvicorn
-import sys
+import sys, asyncio, uvicorn, argparse
 from pathlib import Path
+
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
+
+if sys.platform.startswith("win"):
+    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+
 
 def main():
     parser = argparse.ArgumentParser("Dev runner for API")
@@ -14,6 +17,8 @@ def main():
     parser.add_argument("--port", type=int, default=8000)
     parser.add_argument("--no-reload", action="store_true", help="Disable autoreload")
     args = parser.parse_args()
+
+
 
     uvicorn.run(
         "app.main:app",

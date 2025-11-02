@@ -62,7 +62,7 @@ TRAIN_USER_VOICE_S  = 15        # Длительность записи этал
 sim_threshold = 0.65     # Пороговое значение совпадения (уверенность) пользователя по косинусному расстоянию
 
 # ASR (Whisper)
-ASR_LANGUAGE = "ru"          # язык по умолчанию
+ASR_LANGUAGE = None          # язык по умолчанию
 ASR_WINDOW_SEC = 8.0         # сколько секунд держим в буфере (StreamingASRSession)
 ASR_EMIT_SEC = 2.0           # как часто выдаём partial
 ASR_COMPUTE_TYPE = "bfloat16"

@@ -1,13 +1,12 @@
 # core/tts/tts_engine.py
 from __future__ import annotations
-import asyncio, tempfile
 from pathlib import Path
 from typing import Literal
 from fastapi import HTTPException
 from pydub import AudioSegment
 from pydub.utils import which
 from app import settings
-import os
+import os, sys, shutil, subprocess, asyncio, tempfile
 
 
 class TtsEngine:
@@ -35,7 +34,7 @@ class TtsEngine:
         if not text or not text.strip():
             raise HTTPException(status_code=400, detail="Поле 'text' пустое или отсутствует")
         if self._estimate_secs(text) > self.max_sec * 1.6:
-            raise HTTPException(status_code=400, detail="Слишком длинный текст для лимита 25с")
+            raise HTTPException(status_code=400, detail=f"Слишком длинный текст для лимита {self.max_sec} сек")
 
         try:
             return await asyncio.wait_for(
@@ -60,33 +59,60 @@ class TtsEngine:
             "--output_dir", str(out_dir),
             "--vocoder_name", self.vocoder,
             "--nfe", str(self.nfe),
-            # "--ckpt_file", self.ckpt,
             "--device", self.device,
-            # "--vocab_file", self.vocab_file"'
         ]
         if self.vocoder_ckpt:
             cmd += ["--vocoder_ckpt", self.vocoder_ckpt]
 
         env = os.environ.copy()
-        # env.update({
-        #     "CUDA_VISIBLE_DEVICES": "0" if self.device.startswith("cuda") else "", #todo: не уверен, что стоит оставлять эти 4 строки
-        #     "PYTORCH_CUDA_ALLOC_CONF": "max_split_size_mb:512",
-        # })
 
-        # Логируем команду для отладки
         print(f"🔧 F5-TTS CLI command: {' '.join(cmd)}")
 
-        proc = await asyncio.create_subprocess_exec(
-            *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, env=env
-        )
-        stdout, stderr = await proc.communicate()
+        # 1) Проверка доступности бинаря
+        if shutil.which(cmd[0]) is None:
+            raise HTTPException(status_code=500, detail=f"Не найден исполняемый файл '{cmd[0]}' в PATH")
 
-        if proc.returncode != 0:
-            error_msg = stderr.decode(errors='ignore')[:4000]
+        # 2) Выбор стратегии запуска
+        loop = asyncio.get_running_loop()
+        print(f"[TTS] platform={sys.platform}, loop={loop.__class__.__name__}")  # диагностика в лог
+
+        # Параметры для синхронного запуска
+        run_kwargs = dict(stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env, check=False)
+        # Чтобы не всплывало консольное окно на Windows
+        try:
+            run_kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW  # type: ignore[attr-defined]
+        except AttributeError:
+            pass
+
+        if sys.platform == "win32":
+            # ✅ На Windows всегда уходим в безопасный путь
+            completed = await asyncio.to_thread(subprocess.run, cmd, **run_kwargs)
+            stdout, stderr, returncode = completed.stdout, completed.stderr, completed.returncode
+
+
+        else:
+            # ✅ На *nix пробуем настоящий асинхронный subprocess
+            try:
+                proc = await asyncio.create_subprocess_exec(
+                    *cmd,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                    env=env
+                )
+                stdout, stderr = await proc.communicate()
+                returncode = proc.returncode
+            except NotImplementedError:
+                # Редкий случай: даже тут нет транспорта — откат к синхронному запуску
+                completed = await asyncio.to_thread(subprocess.run, cmd, **run_kwargs)
+                stdout, stderr, returncode = completed.stdout, completed.stderr, completed.returncode
+
+        if returncode != 0:
+            error_msg = (stderr or b"").decode(errors="ignore")[:4000]
             print(f"❌ F5-TTS CLI error: {error_msg}")
-            print(f"📝 F5-TTS CLI stdout: {stdout.decode(errors='ignore')[:1000]}")
+            print(f"📝 F5-TTS CLI stdout: {(stdout or b'').decode(errors='ignore')[:1000]}")
             raise HTTPException(status_code=500, detail=f"F5-TTS CLI error: {error_msg}")
 
+        # 3) Забираем результат
         wavs = list(out_dir.glob("*.wav"))
         if not wavs:
             raise HTTPException(status_code=500, detail="F5-TTS не вернул аудио")
@@ -103,4 +129,5 @@ class TtsEngine:
             audio.export(out_path, format="ogg")
         else:
             raise HTTPException(status_code=400, detail="Неверный формат аудио")
+
         return out_path.read_bytes()

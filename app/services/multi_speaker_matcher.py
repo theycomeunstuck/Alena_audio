@@ -159,7 +159,6 @@ def get_global_matcher() -> MultiSpeakerMatcher:
     global _GLOBAL_MATCHER
     with _SINGLETON_LOCK:
         if _GLOBAL_MATCHER is None:
-            print("⚙️ Initializing global MultiSpeakerMatcher() [npy-only]")
             _GLOBAL_MATCHER = MultiSpeakerMatcher(EMBEDDINGS_DIR)
             _GLOBAL_MATCHER.reload()
         return _GLOBAL_MATCHER
