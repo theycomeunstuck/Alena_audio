@@ -25,3 +25,8 @@ class RegistryVerifyResponse(BaseModel):
     decision: bool = Field(..., description="Есть ли совпадение с кем-то из реестра при заданном пороге")
     best: Optional[MultiVerifyMatch] = Field(None, description="Лучшее совпадение, если decision=true")
     matches: Optional[List[MultiVerifyMatch]] = Field(default=None, description="Диагностический Top-K список совпадений")
+
+class RegistryReloadResposne(BaseModel):
+        id_list: Optional[List] = Field(..., description="Список пользователей, которые  есть в базе данных")
+        count: int = Field(..., description="Количество пользователей в базе данных")
+

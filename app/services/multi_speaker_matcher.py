@@ -62,7 +62,7 @@ class MultiSpeakerMatcher:
         return t
 
 
-    def reload(self) -> int:
+    def reload(self, flag = False) -> int | tuple[list[str], int]:
         """
         Перечитать все *.npy из embeddings_dir и собрать RAM-индекс.
         Возвращает количество пользователей.
@@ -91,8 +91,10 @@ class MultiSpeakerMatcher:
             self._user_ids = new_user_ids
             self._emb_paths = new_paths
             self._embs = new_embs_tensor.to(self.device, non_blocking=True)
+        if not flag:
+            return [], len(self._user_ids)
 
-        return len(self._user_ids)
+        return self._user_ids, len(self._user_ids)
 
     def registry_size(self) -> int:
         with self._lock:
