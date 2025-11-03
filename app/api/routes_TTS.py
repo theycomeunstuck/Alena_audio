@@ -20,7 +20,7 @@ router = APIRouter(tags=["TTS"])
 store = VoiceStore(settings.VOICES_DIR)
 engine = TtsEngine()
 # убедимся, что есть базовый голос
-try: #todo: убедиться, что путь storage/_default/reference.wav НИГДЕ не используется. нормальный путь лежит в storage/voices
+try:
     store.ensure_reference_wav("_default")
 except FileNotFoundError as e: # Даём понятную ошибку при первом старте без "storage/voices/_default/reference.wav"
     raise FileNotFoundError(f"{e}")
