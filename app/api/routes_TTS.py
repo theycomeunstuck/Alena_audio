@@ -63,7 +63,7 @@ async def tts(req: TtsIn):
 
     ref_audio = store.ensure_reference_wav(vid)
     meta = store.read_meta(vid)
-    audio = await engine.synth(text=req.text.strip(), ref_audio=ref_audio, out_format=req.format, ref_text=meta.ref_text)
+    audio = await engine.synth(text=req.text.strip(), ref_audio=ref_audio, out_format=req.format, ref_text=meta.ref_text, vid=vid)
 
     mt = {"wav":"audio/wav","mp3":"audio/mpeg","ogg":"audio/ogg"}[req.format]
     return StreamingResponse(io.BytesIO(audio), media_type=mt)
