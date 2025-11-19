@@ -6,7 +6,7 @@ from fastapi import HTTPException
 from pydub import AudioSegment
 from pydub.utils import which
 from app import settings
-import os, sys, shutil, asyncio, tempfile, contextlib, io, soundfile as sf
+import asyncio, io, soundfile as sf
 from app.settings import STORAGE_DIR
 
 
@@ -22,6 +22,8 @@ class TtsEngine:
             vocab_file=settings.VOCAB_FILE_PATH,
             device=settings.DEVICE
         )
+
+        self.max_sec = settings.TTS_MAX_SECONDS
         if not which("ffmpeg"):
             raise RuntimeError("FFmpeg не найден в PATH. Установите ffmpeg и перезапустите.")
 
@@ -36,7 +38,8 @@ class TtsEngine:
         try:
             return await asyncio.wait_for(
                 self._synth_api(gen_text=text.strip(), ref_audio=ref_audio,
-                                out_format=out_format, ref_text=ref_text)) #vid=vid
+                                out_format=out_format, ref_text=ref_text, vid=vid),
+                timeout=self.max_sec)
 
 
         except asyncio.TimeoutError:
@@ -48,14 +51,10 @@ class TtsEngine:
             gen_text: str,
             ref_audio: Path,
             ref_text: str,
-            out_format: str
+            out_format: str,
+            vid: str
     ) -> bytes:
 
-        print(f"😀 ref_text: {ref_text},\n"
-              f"ref_audio: {ref_audio},\n"
-              f"gen_text: {gen_text},\n"
-              f"out_format: {out_format}")
-        # --- ИНФЕРЕНС ЧЕРЕЗ API (БЕЗ CLI) ---
         wav_np, sr, _spec = await asyncio.to_thread(self._F5TTS.infer,
             ref_audio,
             ref_text,
@@ -63,10 +62,23 @@ class TtsEngine:
             nfe_step=settings.TTS_NFE_STEPS
         )
 
+        out_dir = STORAGE_DIR / "out_TTS" / vid
+        out_dir.mkdir(parents=True, exist_ok=True)
 
-        # сохраняем в память
+        # путь к файлу
+        out_file = out_dir / f"{vid}.wav"
+
+        if out_file.exists():
+            try: out_file.unlink()
+            except Exception as e:
+                print("Cannot delete existing file:", e)
+        # сохраняем звук
+        sf.write(out_file, wav_np, sr, format="WAV")
+
+        # сохраяем в память
         wav_bytes = io.BytesIO()
-        sf.write(wav_bytes, wav_np, sr, format="WAV")
+        wav_bytes.seek(0)
+        sf.write(wav_bytes, wav_np, sr,  format="WAV")
         wav_bytes.seek(0)
 
         # если нужен WAV — возвращаем прямо его
