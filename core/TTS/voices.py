@@ -113,14 +113,12 @@ class VoiceStore:
 
         # сохраняем trimmed reference.wav
         ref_path = vdir / "reference.wav"
-        audio.export(ref_path, format="wav")
+        cleaned.export(ref_path, format="wav")
 
 
         # meta
         ref_text = self._transcribe_with_local_cache(ref_path)
         meta = VoiceMeta(voice_id=voice_id, sr=int(sample_rate), orig_file=str(up_path.name), ref_text=ref_text)
-
-
 
 
         self.write_meta(meta)
