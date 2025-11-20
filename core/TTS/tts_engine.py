@@ -8,12 +8,10 @@ from pydub.utils import which
 from app import settings
 import asyncio, io, soundfile as sf
 from app.settings import STORAGE_DIR
-
-
-from importlib.resources import files
+from silero_stress import load_accentor # silero-stressor. todo: Если договорюсь с @bceloss (tg), то RuAccent/
 from f5_tts.api import F5TTS
 
-
+accentor = load_accentor()
 
 class TtsEngine:
     def __init__(self):
@@ -55,9 +53,11 @@ class TtsEngine:
             vid: str
     ) -> bytes:
 
+        stressed_ref_text = accentor(ref_text)
+
         wav_np, sr, _spec = await asyncio.to_thread(self._F5TTS.infer,
             ref_audio,
-            ref_text,
+            stressed_ref_text,
             gen_text,
             nfe_step=settings.TTS_NFE_STEPS
         )
