@@ -32,6 +32,7 @@ class TtsIn(BaseModel):
     text: str = Field(None, description="Текст для синтеза")
     voice_id: Optional[str] = Field(None, description="Идентификатор голоса; если не задан, используется базовый (_default)")
     format: Literal["wav","mp3","ogg"] = Field("wav", description="Формат выходного аудио")
+    stress: bool = Field(True, description="Использовать модуль для автоматической расстановки ударений, например: я заб+ыл закр+ыть зам+ок от з+амка (silero-stress)")
 
 class CloneOut(BaseModel):
     voice_id: str

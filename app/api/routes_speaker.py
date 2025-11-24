@@ -8,7 +8,8 @@ from app.settings import STORAGE_DIR
 from app.services.speaker_service import SpeakerService
 from app.services.multi_speaker_matcher import get_global_matcher
 from app.services.audio_utils import load_and_resample
-from app.models.speaker_models import VerifyResponse, TrainMicResponse, MultiVerifyResponse, MultiVerifyMatch, RegistryVerifyResponse
+from app.models.speaker_models import VerifyResponse, TrainMicResponse, MultiVerifyResponse, MultiVerifyMatch, \
+    RegistryVerifyResponse, RegistryReloadResposne
 from core.config import TRAIN_USER_VOICE_S, sim_threshold as _sim_threshold
 
 router = APIRouter(prefix="/speaker", tags=["Speaker"])
@@ -74,11 +75,16 @@ async def verify_topk(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"internal error: {e.__class__.__name__}: {e}")
 
-@router.post("/registry/reload", summary="Перечитать реестр голосов с диска и обновить RAM")
-def registry_reload() -> dict:
+@router.post("/registry/reload", response_model=RegistryReloadResposne, summary="Перечитать реестр голосов с диска и обновить RAM")
+def registry_reload(
+    flag: bool = Query(False, description="Вернуть список пользователей? По умолчанию False")
+) -> dict:
     try:
-        n = matcher.reload()
-        return {"status": "ok", "count": int(n)}
+        id_list, count = matcher.reload(flag)
+        if flag:
+            return {"id_list": id_list, "count": int(count)}
+        return {"count": int(count)}
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"internal error: {e.__class__.__name__}: {e}")
 
