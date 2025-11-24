@@ -51,21 +51,14 @@ from speechbrain.inference.speaker import SpeakerRecognition
 
 # ПАРАМЕТРЫ
 SAMPLE_RATE         = 16000
-VAD_AGGR_MODE       = 1         # от 0 (мягко) до 3 (агрессивно) (voice activity detection)
-FRAME_MS            = 30        # размер VAD-фрейма в мс
-SPK_WINDOW_S        = 3         # размер окна для верификации, сек
-STEP_S              = 1         # шаг сдвига окна, сек.  должно быть целым числом; в API недействительно, вроде
-MIN_VOICE_RATIO     = 0.5       # минимальная доля реальные речи в окне для ASR. # Параметры гейтинга ASR:
-MAX_ASR_FAILURES    = 5         # необязательный: макс. подряд «фоновых» окон до сброса. # Параметры гейтинга ASR:
 TARGET_DBFS         = -18.0     # dBFS для RMS-нормализации
 TRAIN_USER_VOICE_S  = 15        # Длительность записи эталона
 sim_threshold = 0.65     # Пороговое значение совпадения (уверенность) пользователя по косинусному расстоянию
 
-# ASR (Whisper)
+# ASR (Whisper).
 ASR_LANGUAGE = None          # язык по умолчанию
 ASR_WINDOW_SEC = 8.0         # сколько секунд держим в буфере (StreamingASRSession)
 ASR_EMIT_SEC = 2.0           # как часто выдаём partial
-ASR_COMPUTE_TYPE = "bfloat16"
 
 # TTS (F5-TTS); другие параметры в app/settings.py
 TTS_CKPT_PATH =  r"E:\PycharmProjects\AudioAPI\F5-TTS\ckpts\restore points\sova RU only\pruned_model_156000.safetensors" #path to TTSmodel.pt (.safetensors)
