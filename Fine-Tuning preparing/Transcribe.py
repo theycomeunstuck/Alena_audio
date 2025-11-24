@@ -603,7 +603,7 @@ def main():
     accentizer = init_accentizer()
 
     if TSV_FLAG:
-        print("[INFO] Запуск в режиме TSV (prepareTSV): без Whisper, только ударения + подготовка датасета.")
+        print("[INFO] Запуск в режиме TSV (prepareTSV): без Whisper, только ударения + подготовка датасета (копирование из datasetFolder -> f5ttsProject/wavs).")
         run_tsv_pipeline(accentizer)
     else:
         print("[INFO] Запуск в режиме транскрипции Whisper.")
