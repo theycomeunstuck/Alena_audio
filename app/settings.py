@@ -46,6 +46,3 @@ TTS_SAMPLE_RATE = int(os.getenv("TTS_SAMPLE_RATE", "24000"))
 TTS_MAX_SECONDS = int(os.getenv("TTS_MAX_SECONDS", "95"))
 TTS_NFE_STEPS   = int(os.getenv("TTS_NFE_STEPS", "16"))
 
-
-#ASR
-ASR_COMPUTE_TYPE = 'bfloat16'
