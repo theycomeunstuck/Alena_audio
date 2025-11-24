@@ -29,14 +29,14 @@ class TtsEngine:
         # грубо: ~13 символов/сек
         return max(1.0, len(text) / 13.0)
 
-    async def synth(self, text: str, ref_audio: Path, ref_text: str, vid: str, out_format: Literal["wav", "mp3", "ogg"] = "wav") -> bytes:
+    async def synth(self, text: str, ref_audio: Path, ref_text: str, vid: str, stress: bool, out_format: Literal["wav", "mp3", "ogg"] = "wav") -> bytes:
         if not text or not text.strip():
             raise HTTPException(status_code=400, detail="Поле 'text' пустое или отсутствует")
 
         try:
             return await asyncio.wait_for(
                 self._synth_api(gen_text=text.strip(), ref_audio=ref_audio,
-                                out_format=out_format, ref_text=ref_text, vid=vid),
+                                out_format=out_format, ref_text=ref_text, vid=vid, stress=stress),
                 timeout=self.max_sec)
 
 
@@ -50,14 +50,16 @@ class TtsEngine:
             ref_audio: Path,
             ref_text: str,
             out_format: str,
-            vid: str
+            vid: str,
+            stress: bool,
     ) -> bytes:
 
-        stressed_ref_text = accentor(ref_text)
+        if stress: # Расставляем ударения
+            ref_text = accentor(ref_text)
 
         wav_np, sr, _spec = await asyncio.to_thread(self._F5TTS.infer,
             ref_audio,
-            stressed_ref_text,
+            ref_text,
             gen_text,
             nfe_step=settings.TTS_NFE_STEPS
         )
