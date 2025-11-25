@@ -55,13 +55,13 @@ TARGET_DBFS         = -18.0     # dBFS для RMS-нормализации
 TRAIN_USER_VOICE_S  = 15        # Длительность записи эталона
 sim_threshold = 0.65     # Пороговое значение совпадения (уверенность) пользователя по косинусному расстоянию
 
-# ASR (Whisper).
+# ASR (Whisper)
 ASR_LANGUAGE = None          # язык по умолчанию
 ASR_WINDOW_SEC = 8.0         # сколько секунд держим в буфере (StreamingASRSession)
 ASR_EMIT_SEC = 2.0           # как часто выдаём partial
 
 # TTS (F5-TTS); другие параметры в app/settings.py
-TTS_CKPT_PATH =  r"E:\PycharmProjects\AudioAPI\F5-TTS\ckpts\restore points\sova RU only\pruned_model_156000.safetensors" #path to TTSmodel.pt (.safetensors)
+TTS_CKPT_PATH =  r"E:\PycharmProjects\AudioAPI\F5-TTS\ckpts\ru_sova_cv\pruned_362500.safetensors" #path to TTSmodel.pt (.safetensors)
 VOCAB_FILE = r"E:\PycharmProjects\AudioAPI\F5-TTS\ckpts\ru_secondtry\vocab.txt"
 
 
