@@ -7,7 +7,7 @@
 <style>
   :root{
     --bg:#0e1320; --panel:#141a2a; --ink:#e8eefc; --muted:#9fb0d3;
-    --accent:#6ea8fe; --ok:#3ddc97; --warn:#ffce57; --err:#ff6b6b;
+    --accent:#6ea8fe;--ok:#3ddc97; --warn:#ffce57; --err:#ff6b6b;
     --code:#0b1020; --chip:#202945; --border:#253053;
   }
   *{box-sizing:border-box} html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font:15px/1.6 Inter,system-ui,"Segoe UI",Roboto,"Helvetica Neue",Arial}
@@ -35,7 +35,6 @@
 <body>
 <header><div class="container">
   <h1>Audio Core API</h1>
-  <div class="note">REST + WebSocket API: шумоподавление, ASR (Whisper), верификация спикера (SpeechBrain ECAPA), синтез речи (TTS). Веб-слой не меняет доменную логику, а только адаптирует её под HTTP/WS.</div>
 </div></header>
 
 <div class="container grid" style="margin-top:16px">
@@ -221,7 +220,8 @@
 <tr><th>Параметры</th><td>
   <code class="inline">text</code> (string, обязательный) — текст для синтеза;<br/>
   <code class="inline">voice_id</code> (string, опциональный) — ID голоса (по умолчанию <code>_default</code>);<br/>
-  <code class="inline">format</code> (string, опциональный) — формат аудио: <code>wav</code>, <code>mp3</code>, <code>ogg</code> (по умолчанию <code>wav</code>).
+  <code class="inline">format</code> (string, опциональный) — формат аудио: <code>wav</code>, <code>mp3</code>, <code>ogg</code> (по умолчанию <code>wav</code>).<br/>
+  <code class="inline">stress</code> (bool, опциональный) — автоматическая расстановка ударений в <code>text</code> (по умолчанию <code>True</code>). Пример: <code>В н+едрах т+ундры</code>.
 </td></tr>
 <tr><th>Ответ</th><td>
   <span class="status ok">200</span> → аудиофайл (Content-Type: audio/wav, audio/mpeg, audio/ogg);<br/>
