@@ -46,7 +46,7 @@
     <pre>python scripts/dev_run.py</pre>
 <div class="note">
       Dev-раннер следит только за <code class="inline">app/</code> и <code class="inline">core/</code>,
-      игнорируя <code class="inline">.venv/</code> и <code class="inline">pretrained_models/</code> — сервер не «дрожит» при изменениях кэшей моделей. 
+      игнорируя <code class="inline">.venv/</code> и <code class="inline">pretrained_models/</code> — сервер не «дрожит» при изменениях кэшей моделей.
 </div>
 <h3>Health</h3>
 <div class="endp"><span class="method GET GET">GET</span><span>/health</span><span class="tag">Health</span></div>
@@ -182,7 +182,7 @@
 
 
 <div class="endp"><span class="method POST POST">POST</span><span>/speaker/verify</span><span class="tag">Speaker</span></div>
-<div class="note">Раньше использовалась как основная функция верификации. Больше - нет. по-хорошему её надо убрать и multiSpeaker сделать speaker/verify/, 
+<div class="note">Раньше использовалась как основная функция верификации. Больше - нет. по-хорошему её надо убрать и multiSpeaker сделать speaker/verify/,
 а эту функцию назвать как-нибудь speaker/verify/reference. Сравнивает два файла между собой и выдаёт вердикт </div>
 <table>
   <tr><th>Формат</th><td>
@@ -366,10 +366,9 @@
 <h2>Примечания по недоделанной работе</h2>
     <div class="note">
     <li> Вебсокетные функции могут работать некорректно (не всё проходит интеграционные тесты; может последние написаны криво)</li>
-    <li> Нет перебора по поиску голосов, то есть верификация сейчас работает только на одного пользователя </li>
     <li> В ws train microphone не обрабатывается гонка пакетов (может я не прав и это всё задержки моего ноута без gpu)</li>
     <li> verify/speaker и verify/train/microphone реализован не в core, а <strong>целиком</strong> в <code>app/services/speaker_service.py</code> (нагромождено)</li>
-    
+    <li> VAD не реализован для вебсокетов - принимается цельное окно к обработке</li>
 </div>
   </div>
 
