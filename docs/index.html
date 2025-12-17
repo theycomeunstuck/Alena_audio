@@ -42,11 +42,21 @@
     <h2>Быстрый старт</h2>
     <pre>uvicorn app.main:app --reload</pre>
     <div class="note">Swagger: <code class="inline">/docs</code>. Этот HTML можно отдать как статику (<code>docs/index.html</code>).</div>
-    <h3>Быстрый запуск (dev)</h3>
-    <pre>python scripts/dev_run.py</pre>
+<h3>Быстрый запуск (dev)</h3>
+<pre>python scripts/dev_run.py</pre>
+
+<p><strong>Дополнительные флаги:</strong></p>
+<ul>
+  <li>
+    <code class="inline">--print-routes</code> —
+    выводит список доступных API-маршрутов (без WebSocket-эндпоинтов).
+  </li>
+</ul>
+
 <div class="note">
-      Dev-раннер следит только за <code class="inline">app/</code> и <code class="inline">core/</code>,
-      игнорируя <code class="inline">.venv/</code> и <code class="inline">pretrained_models/</code> — сервер не «дрожит» при изменениях кэшей моделей.
+  Dev-раннер следит только за <code class="inline">app/</code> и <code class="inline">core/</code>,
+  игнорируя <code class="inline">.venv/</code> и <code class="inline">pretrained_models/</code> —
+  сервер не «дрожит» при изменениях кэшей моделей.
 </div>
 <h3>Health</h3>
 <div class="endp"><span class="method GET GET">GET</span><span>/health</span><span class="tag">Health</span></div>
