@@ -11,11 +11,12 @@ from fastapi.routing import APIRoute
 
 
 def print_routes_():
-    print("\nAvailable API routes (w/o websockets):\n\n")
+    print("\nAvailable API routes (w/o websockets):")
 
     for route in app.routes:
         if isinstance(route, APIRoute):
             methods = ",".join(sorted(route.methods))
             print(f"{methods:10s} {route.path}")
+    print()
 
 
