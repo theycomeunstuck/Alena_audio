@@ -9,12 +9,13 @@ import pathlib, tempfile
 from app import settings
 from app.models.audio_models import TtsIn
 from core.TTS import VoiceStore, TtsEngine
+from core.TTS.tts_engine import get_tts_engine
 
 router = APIRouter(tags=["TTS"])
 
 # Инициализация зависимостей
 store = VoiceStore(settings.VOICES_DIR)
-engine = TtsEngine()
+engine = get_tts_engine()
 # убедимся, что есть базовый голос
 try:
     store.ensure_reference_wav("_default")
@@ -39,6 +40,7 @@ async def clone_voice(file: UploadFile = File(...)):
     return {"voice_id": meta.voice_id}
 
 
+
 @router.post(
     "/tts",
     responses={
@@ -54,9 +56,10 @@ async def tts(req: TtsIn):
     if not req.text or not req.text.strip():
         raise HTTPException(status_code=400, detail="Текст не может быть пустым")
 
-    vid = req.voice_id or "_default"
+    vid = req.voice_id or "_default" # todo: хочется сделать vid == random: выбор случайного голоса из бд
     if not store.exists(vid):
         raise HTTPException(status_code=404, detail=f"Голос '{vid}' не найден")
+
 
     ref_audio = store.ensure_reference_wav(vid)
     meta = store.read_meta(vid)

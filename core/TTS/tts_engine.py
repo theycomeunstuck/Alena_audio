@@ -11,6 +11,15 @@ from app.settings import STORAGE_DIR
 from silero_stress import load_accentor # silero-stressor. todo: Если договорюсь с @bceloss (tg), то RuAccent/
 from f5_tts.api import F5TTS
 
+
+# singleton
+_tts_engine: TtsEngine | None = None
+def get_tts_engine() -> TtsEngine:
+    global _tts_engine
+    if _tts_engine is None:
+        _tts_engine = TtsEngine()
+    return _tts_engine
+
 accentor = load_accentor()
 
 class TtsEngine:
