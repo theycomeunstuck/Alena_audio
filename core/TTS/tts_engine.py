@@ -11,7 +11,6 @@ from app.settings import STORAGE_DIR
 from silero_stress import load_accentor # silero-stressor. todo: Если договорюсь с @bceloss (tg), то RuAccent/
 from f5_tts.api import F5TTS
 
-
 # singleton
 _tts_engine: TtsEngine | None = None
 def get_tts_engine() -> TtsEngine:
@@ -20,7 +19,14 @@ def get_tts_engine() -> TtsEngine:
         _tts_engine = TtsEngine()
     return _tts_engine
 
-accentor = load_accentor()
+
+_accentor = None
+
+def get_accentor():
+    global _accentor
+    if _accentor is None:
+        _accentor = load_accentor()
+    return _accentor
 
 class TtsEngine:
     def __init__(self):
@@ -38,14 +44,14 @@ class TtsEngine:
         # грубо: ~13 символов/сек
         return max(1.0, len(text) / 13.0)
 
-    async def synth(self, text: str, ref_audio: Path, ref_text: str, vid: str, stress: bool, out_format: Literal["wav", "mp3", "ogg"] = "wav") -> bytes:
+    async def synth(self, text: str, ref_audio: Path, ref_text: str, vid: str, out_format: Literal["wav", "mp3", "ogg"] = "wav") -> bytes:
         if not text or not text.strip():
             raise HTTPException(status_code=400, detail="Поле 'text' пустое или отсутствует")
 
         try:
             return await asyncio.wait_for(
                 self._synth_api(gen_text=text.strip(), ref_audio=ref_audio,
-                                out_format=out_format, ref_text=ref_text, vid=vid, stress=stress),
+                                out_format=out_format, ref_text=ref_text, vid=vid),
                 timeout=self.max_sec)
 
 
@@ -59,16 +65,14 @@ class TtsEngine:
             ref_audio: Path,
             ref_text: str,
             out_format: str,
-            vid: str,
-            stress: bool,
+            vid: str
     ) -> bytes:
 
-        if stress: # Расставляем ударения
-            ref_text = accentor(ref_text)
+        stressed_ref_text = get_accentor()(ref_text)
 
         wav_np, sr, _spec = await asyncio.to_thread(self._F5TTS.infer,
             ref_audio,
-            ref_text,
+            stressed_ref_text,
             gen_text,
             nfe_step=settings.TTS_NFE_STEPS
         )

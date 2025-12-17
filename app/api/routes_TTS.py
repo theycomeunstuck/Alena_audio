@@ -1,21 +1,23 @@
 # app/api/routes_TTS.py
 from __future__ import annotations
 
-from fastapi import APIRouter, UploadFile, File, HTTPException
+from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
 from fastapi.responses import Response
-
-import pathlib, tempfile
+from pydantic import BaseModel, Field
+from typing import Optional, Literal
+import io, pathlib, tempfile
 
 from app import settings
-from app.models.audio_models import TtsIn
-from core.TTS import VoiceStore, TtsEngine
+from app.models.audio_models import TtsIn, CloneOut
+from core.TTS import VoiceStore
 from core.TTS.tts_engine import get_tts_engine
+
 
 router = APIRouter(tags=["TTS"])
 
 # Инициализация зависимостей
 store = VoiceStore(settings.VOICES_DIR)
-engine = get_tts_engine()
+
 # убедимся, что есть базовый голос
 try:
     store.ensure_reference_wav("_default")
@@ -40,7 +42,6 @@ async def clone_voice(file: UploadFile = File(...)):
     return {"voice_id": meta.voice_id}
 
 
-
 @router.post(
     "/tts",
     responses={
@@ -56,15 +57,14 @@ async def tts(req: TtsIn):
     if not req.text or not req.text.strip():
         raise HTTPException(status_code=400, detail="Текст не может быть пустым")
 
-    vid = req.voice_id or "_default" # todo: хочется сделать vid == random: выбор случайного голоса из бд
+    vid = req.voice_id or "_default"
     if not store.exists(vid):
         raise HTTPException(status_code=404, detail=f"Голос '{vid}' не найден")
 
-
     ref_audio = store.ensure_reference_wav(vid)
     meta = store.read_meta(vid)
-    audio = await engine.synth(text=req.text.strip(), ref_audio=ref_audio, out_format=req.format,
-                               ref_text=meta.ref_text, vid=vid, stress=req.stress)
+    audio = await get_tts_engine().synth(text=req.text.strip(), ref_audio=ref_audio, out_format=req.format,
+                               ref_text=meta.ref_text, vid=vid)
 
     mt = {"wav": "audio/wav", "mp3": "audio/mpeg", "ogg": "audio/ogg"}[req.format]
 
