@@ -1,15 +1,13 @@
 # app/api/routes_TTS.py
 from __future__ import annotations
 
-from f5_tts.infer.infer_cli import ref_audio
-from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
+from fastapi import APIRouter, UploadFile, File, HTTPException
 from fastapi.responses import Response
-from pydantic import BaseModel, Field
-from typing import Optional, Literal
-import io, pathlib, tempfile
+
+import pathlib, tempfile
 
 from app import settings
-from app.models.audio_models import TtsIn, CloneOut
+from app.models.audio_models import TtsIn
 from core.TTS import VoiceStore, TtsEngine
 
 router = APIRouter(tags=["TTS"])
