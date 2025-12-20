@@ -1,0 +1,834 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Real-time ASR + Speaker Verify (WS)</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 16px; line-height: 1.4; }
+    .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+    label { display: inline-flex; gap: 8px; align-items: center; }
+    input[type="text"], input[type="number"] { padding: 6px 8px; }
+    button { padding: 8px 12px; }
+    .ok { color: #0a7; }
+    .warn { color: #a70; }
+    .bad { color: #c00; }
+    pre { background: #f6f6f6; padding: 10px; overflow: auto; max-height: 220px; }
+    .box { border: 1px solid #ddd; border-radius: 8px; padding: 12px; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <h2>Real-time: ASR + Speaker Verify (WebSocket)</h2>
+
+  <div class="box">
+    <div class="row">
+      <label>
+        Base URL (http/https):
+        <input id="baseUrl" type="text" size="36" />
+      </label>
+
+      <label>
+        ASR language:
+        <input id="lang" type="text" value="ru" size="4" />
+      </label>
+
+      <label>
+        ASR emit_sec:
+        <input id="emitSec" type="number" min="0.1" step="0.1" value="2.0" />
+      </label>
+
+      <label>
+        ASR inactivity_sec (пусто = off):
+        <input id="inactAsr" type="text" value="" size="6" />
+      </label>
+
+      <label>
+        Verify emit_interval_ms:
+        <input id="emitVerifyMs" type="number" min="50" max="5000" step="50" value="500" />
+      </label>
+
+      <label>
+        Verify inactivity_sec:
+        <input id="inactVerify" type="number" min="1" step="1" value="120" />
+      </label>
+
+      <label>
+        Verify sim_threshold:
+        <input id="simTh" type="number" min="0" max="1" step="0.01" value="0.10" />
+      </label>
+
+      <label>
+        Verify top_k:
+        <input id="topK" type="number" min="1" max="50" step="1" value="5" />
+      </label>
+    </div>
+
+    <div class="row">
+      <button id="toggleBtn">Start</button>
+      <button id="resetBtn" disabled>Reset</button>
+      <span id="status" class="warn">Idle</span>
+    </div>
+
+    <div class="row">
+      <small>
+        Формат отправки: <b>PCM16 mono 16kHz</b>. Страница открывает 2 сокета:
+        <code>/ws/asr</code> :contentReference[oaicite:1]{index=1} и <code>/ws/speaker/verify</code> :contentReference[oaicite:2]{index=2}.
+      </small>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="box">
+      <h3>ASR</h3>
+      <div id="asrConn" class="warn">disconnected</div>
+      <pre id="asrOut"></pre>
+    </div>
+    <div class="box">
+      <h3>Speaker Verify</h3>
+      <div id="verConn" class="warn">disconnected</div>
+      <pre id="verOut"></pre>
+    </div>
+  </div>
+
+  <div class="box" style="margin-top:12px;">
+    <h3>Log</h3>
+    <pre id="log"></pre>
+  </div>
+
+<script>
+"use strict";
+
+/**
+ * Safety-first constraints:
+ * - No external libs
+ * - Explicit state machine
+ * - Validate every input and every outbound frame
+ * - Fail-safe on any error: stop audio, close sockets, show error
+ */
+
+const CONFIG = Object.freeze({
+  REQUIRED_SAMPLE_RATE: 16000,
+  REQUIRED_CHANNELS: 1,
+  PCM16_BYTES_PER_SAMPLE: 2,
+  // 20 ms @ 16kHz => 320 samples => 640 bytes
+  CHUNK_SAMPLES: 320
+});
+
+const State = Object.freeze({
+  IDLE: "IDLE",
+  STARTING: "STARTING",
+  RUNNING: "RUNNING",
+  STOPPING: "STOPPING",
+  FAILED: "FAILED"
+});
+
+function byId(id) {
+  const el = document.getElementById(id);
+  if (!el) {
+    throw new Error("Invariant failed: missing element #" + String(id));
+  }
+  return el;
+}
+
+const ui = Object.freeze({
+  baseUrl: byId("baseUrl"),
+  lang: byId("lang"),
+  emitSec: byId("emitSec"),
+  inactAsr: byId("inactAsr"),
+  emitVerifyMs: byId("emitVerifyMs"),
+  inactVerify: byId("inactVerify"),
+  simTh: byId("simTh"),
+  topK: byId("topK"),
+  toggleBtn: byId("toggleBtn"),
+  resetBtn: byId("resetBtn"),
+  status: byId("status"),
+  asrConn: byId("asrConn"),
+  verConn: byId("verConn"),
+  asrOut: byId("asrOut"),
+  verOut: byId("verOut"),
+  log: byId("log")
+});
+
+function nowIso() {
+  return (new Date()).toISOString();
+}
+
+function logLine(msg) {
+  ui.log.textContent += `[${nowIso()}] ${msg}\n`;
+  ui.log.scrollTop = ui.log.scrollHeight;
+}
+
+function setStatus(text, cssClass) {
+  ui.status.textContent = text;
+  ui.status.className = cssClass;
+}
+
+function setConn(el, text, ok) {
+  el.textContent = text;
+  el.className = ok ? "ok" : "warn";
+}
+
+function safeParseFloatStrict(s) {
+  // Reject empty/whitespace and non-finite values.
+  if (typeof s !== "string") return { ok: false, value: 0 };
+  const trimmed = s.trim();
+  if (trimmed.length === 0) return { ok: false, value: 0 };
+  const v = Number(trimmed);
+  if (!Number.isFinite(v)) return { ok: false, value: 0 };
+  return { ok: true, value: v };
+}
+
+function validateBaseUrl(raw) {
+  if (typeof raw !== "string") return { ok: false, err: "Base URL must be a string" };
+  const s = raw.trim();
+  if (s.length === 0) return { ok: false, err: "Base URL is empty" };
+  let u;
+  try {
+    u = new URL(s);
+  } catch {
+    return { ok: false, err: "Base URL is not a valid URL" };
+  }
+  if (u.protocol !== "http:" && u.protocol !== "https:") {
+    return { ok: false, err: "Base URL protocol must be http or https" };
+  }
+  // Normalize: no trailing slash
+  const normalized = u.origin;
+  return { ok: true, value: normalized };
+}
+
+function httpToWsOrigin(httpOrigin) {
+  // Deterministic mapping, no guesses.
+  // http -> ws, https -> wss
+  const u = new URL(httpOrigin);
+  if (u.protocol === "http:") return "ws://" + u.host;
+  if (u.protocol === "https:") return "wss://" + u.host;
+  throw new Error("Invariant failed: unexpected protocol in httpToWsOrigin");
+}
+
+function clampInt16(n) {
+  // n is Number, may be NaN
+  if (!Number.isFinite(n)) return 0;
+  if (n > 32767) return 32767;
+  if (n < -32768) return -32768;
+  return n | 0; // explicit int conversion (still deterministic)
+}
+
+function float32ToPcm16Bytes(float32Array) {
+  if (!(float32Array instanceof Float32Array)) {
+    throw new Error("float32ToPcm16Bytes expects Float32Array");
+  }
+  const out = new ArrayBuffer(float32Array.length * 2);
+  const view = new DataView(out);
+  for (let i = 0; i < float32Array.length; i += 1) {
+    let x = float32Array[i];
+    if (!Number.isFinite(x)) x = 0;
+    // clip [-1, 1]
+    if (x > 1) x = 1;
+    if (x < -1) x = -1;
+    // scale
+    const v = clampInt16(Math.round(x * 32767));
+    view.setInt16(i * 2, v, true /* little-endian */);
+  }
+  return out;
+}
+
+/**
+ * AudioWorklet processor:
+ * - receives input (whatever device rate), but AudioContext is configured to 16kHz,
+ *   so we expect 16k frames in process().
+ * - outputs mono float32 chunks to main thread.
+ */
+const WORKLET_PROCESSOR_CODE = `
+class MonoCaptureProcessor extends AudioWorkletProcessor {
+  process(inputs) {
+    const input = inputs[0];
+    if (!input || input.length === 0) return true;
+    const ch0 = input[0];
+    if (!ch0) return true;
+
+    // Copy to new Float32Array to avoid referencing internal buffers.
+    const copy = new Float32Array(ch0.length);
+    copy.set(ch0);
+
+    this.port.postMessage({ type: "audio", samples: copy }, [copy.buffer]);
+    return true;
+  }
+}
+registerProcessor("mono-capture-processor", MonoCaptureProcessor);
+`;
+
+class RealtimePageController {
+  constructor() {
+    this.state = State.IDLE;
+
+    /** @type {MediaStream|null} */
+    this.mediaStream = null;
+    /** @type {AudioContext|null} */
+    this.audioCtx = null;
+    /** @type {AudioWorkletNode|null} */
+    this.workletNode = null;
+    /** @type {WebSocket|null} */
+    this.wsAsr = null;
+    /** @type {WebSocket|null} */
+    this.wsVer = null;
+
+    /** @type {Uint8Array} */
+    this.pendingBytes = new Uint8Array(0);
+
+    this._onWorkletMessage = this._onWorkletMessage.bind(this);
+  }
+
+  _setState(next) {
+    this.state = next;
+    ui.toggleBtn.disabled = (next === State.STARTING || next === State.STOPPING);
+    ui.resetBtn.disabled = !(next === State.RUNNING);
+  }
+
+  _failSafe(reason) {
+    // Idempotent: can be called multiple times.
+    logLine("FAIL-SAFE: " + reason);
+    setStatus("FAILED: " + reason, "bad");
+    this._setState(State.FAILED);
+    // Ensure resources are torn down deterministically.
+    this.stop().catch(() => { /* already failing */ });
+  }
+
+  _requireState(expected) {
+    if (this.state !== expected) {
+      throw new Error(`Invariant failed: state must be ${expected}, got ${this.state}`);
+    }
+  }
+
+  _buildWsUrls() {
+    const baseValidated = validateBaseUrl(ui.baseUrl.value);
+    if (!baseValidated.ok) return { ok: false, err: baseValidated.err };
+
+    const wsOrigin = httpToWsOrigin(baseValidated.value);
+
+    const lang = String(ui.lang.value || "ru").trim();
+    if (lang.length === 0 || lang.length > 16) {
+      return { ok: false, err: "Invalid language code" };
+    }
+
+    const emitSec = Number(ui.emitSec.value);
+    if (!Number.isFinite(emitSec) || emitSec <= 0) {
+      return { ok: false, err: "ASR emit_sec must be > 0" };
+    }
+
+    let inactivityAsr = null;
+    const inactRaw = String(ui.inactAsr.value);
+    const parsed = safeParseFloatStrict(inactRaw);
+    if (parsed.ok) {
+      if (parsed.value <= 0) return { ok: false, err: "ASR inactivity_sec must be > 0 if set" };
+      inactivityAsr = parsed.value;
+    } else {
+      inactivityAsr = null; // off
+    }
+
+    const emitVerifyMs = Number(ui.emitVerifyMs.value);
+    if (!Number.isFinite(emitVerifyMs) || emitVerifyMs < 50 || emitVerifyMs > 5000) {
+      return { ok: false, err: "Verify emit_interval_ms must be in [50..5000]" };
+    }
+
+    const inactivityVerify = Number(ui.inactVerify.value);
+    if (!Number.isFinite(inactivityVerify) || inactivityVerify <= 0) {
+      return { ok: false, err: "Verify inactivity_sec must be > 0" };
+    }
+
+    const simTh = Number(ui.simTh.value);
+    if (!Number.isFinite(simTh) || simTh < 0 || simTh > 1) {
+      return { ok: false, err: "Verify sim_threshold must be in [0..1]" };
+    }
+
+    const topK = Number(ui.topK.value);
+    if (!Number.isFinite(topK) || topK < 1 || topK > 50) {
+      return { ok: false, err: "Verify top_k must be in [1..50]" };
+    }
+
+    const asrParams = new URLSearchParams();
+    asrParams.set("language", lang);
+    asrParams.set("sample_rate", String(CONFIG.REQUIRED_SAMPLE_RATE));
+    asrParams.set("channels", String(CONFIG.REQUIRED_CHANNELS));
+    asrParams.set("emit_sec", String(emitSec));
+    // inactivity_sec is optional for ASR route :contentReference[oaicite:3]{index=3}
+    if (inactivityAsr !== null) {
+      asrParams.set("inactivity_sec", String(inactivityAsr));
+    }
+
+    const verParams = new URLSearchParams();
+    verParams.set("sample_rate", String(CONFIG.REQUIRED_SAMPLE_RATE));
+    verParams.set("channels", String(CONFIG.REQUIRED_CHANNELS));
+    verParams.set("emit_interval_ms", String(emitVerifyMs));
+    verParams.set("inactivity_sec", String(inactivityVerify));
+    verParams.set("sim_threshold", String(simTh));
+    verParams.set("top_k", String(topK));
+
+    const asrUrl = `${wsOrigin}/ws/asr?${asrParams.toString()}`;
+    const verUrl = `${wsOrigin}/ws/speaker/verify?${verParams.toString()}`;
+
+    return { ok: true, asrUrl, verUrl };
+  }
+
+  async start() {
+    if (this.state !== State.IDLE && this.state !== State.FAILED) {
+      this._failSafe("start() called in invalid state: " + this.state);
+      return;
+    }
+
+    this._setState(State.STARTING);
+    setStatus("Starting…", "warn");
+    ui.asrOut.textContent = "";
+    ui.verOut.textContent = "";
+
+    const urls = this._buildWsUrls();
+    if (!urls.ok) {
+      this._failSafe(urls.err);
+      return;
+    }
+
+    try {
+      await this._openSockets(urls.asrUrl, urls.verUrl);
+      await this._startMic();
+      this._setState(State.RUNNING);
+      setStatus("RUNNING", "ok");
+      ui.toggleBtn.textContent = "Stop";
+      logLine("RUNNING");
+    } catch (e) {
+      const msg = (e && e.message) ? e.message : String(e);
+      this._failSafe("start failed: " + msg);
+    }
+  }
+
+  async stop() {
+    if (this.state === State.STOPPING || this.state === State.IDLE) {
+      // idempotent
+      return;
+    }
+    this._setState(State.STOPPING);
+    setStatus("Stopping…", "warn");
+
+    // Stop audio first (fail-safe: stop producing data).
+    await this._stopMic().catch(() => { /* ignore */ });
+
+    // Close sockets.
+    await this._closeWs(this.wsAsr, "ASR").catch(() => { /* ignore */ });
+    await this._closeWs(this.wsVer, "VERIFY").catch(() => { /* ignore */ });
+
+    this.wsAsr = null;
+    this.wsVer = null;
+    this.pendingBytes = new Uint8Array(0);
+
+    this._setState(State.IDLE);
+    setStatus("Idle", "warn");
+    ui.toggleBtn.textContent = "Start";
+    setConn(ui.asrConn, "disconnected", false);
+    setConn(ui.verConn, "disconnected", false);
+    logLine("IDLE");
+  }
+
+  async reset() {
+    // Reset is only meaningful in RUNNING.
+    if (this.state !== State.RUNNING) return;
+
+    logLine("RESET requested");
+    // ASR has explicit reset event :contentReference[oaicite:4]{index=4}
+    try {
+      if (this.wsAsr && this.wsAsr.readyState === WebSocket.OPEN) {
+        this.wsAsr.send(JSON.stringify({ event: "reset", utt_id: "client_reset_" + Date.now() }));
+      }
+    } catch (e) {
+      this._failSafe("ASR reset send failed");
+      return;
+    }
+
+    // Verify route has no reset; safest is to reconnect.
+    try {
+      await this._closeWs(this.wsVer, "VERIFY");
+      this.wsVer = null;
+      setConn(ui.verConn, "reconnecting…", false);
+
+      const urls = this._buildWsUrls();
+      if (!urls.ok) {
+        this._failSafe(urls.err);
+        return;
+      }
+      await this._openVerifyOnly(urls.verUrl);
+      logLine("VERIFY reconnected after reset");
+    } catch (e) {
+      const msg = (e && e.message) ? e.message : String(e);
+      this._failSafe("reset failed: " + msg);
+    }
+  }
+
+  async _openSockets(asrUrl, verUrl) {
+    if (typeof asrUrl !== "string" || typeof verUrl !== "string") {
+      throw new Error("Invalid URLs");
+    }
+    await this._openAsrOnly(asrUrl);
+    await this._openVerifyOnly(verUrl);
+  }
+
+  async _openAsrOnly(asrUrl) {
+    this.wsAsr = new WebSocket(asrUrl);
+    this.wsAsr.binaryType = "arraybuffer";
+
+    setConn(ui.asrConn, "connecting…", false);
+
+    await new Promise((resolve, reject) => {
+      const ws = this.wsAsr;
+      if (!ws) return reject(new Error("ASR ws not created"));
+
+      const onOpen = () => { cleanup(); resolve(); };
+      const onError = () => { cleanup(); reject(new Error("ASR websocket error")); };
+      const onClose = () => { cleanup(); reject(new Error("ASR websocket closed during connect")); };
+
+      const cleanup = () => {
+        ws.removeEventListener("open", onOpen);
+        ws.removeEventListener("error", onError);
+        ws.removeEventListener("close", onClose);
+      };
+
+      ws.addEventListener("open", onOpen);
+      ws.addEventListener("error", onError);
+      ws.addEventListener("close", onClose);
+    });
+
+    this.wsAsr.addEventListener("message", (ev) => this._onAsrMessage(ev));
+    this.wsAsr.addEventListener("close", () => {
+      setConn(ui.asrConn, "disconnected", false);
+      if (this.state === State.RUNNING) this._failSafe("ASR socket closed unexpectedly");
+    });
+    this.wsAsr.addEventListener("error", () => {
+      if (this.state === State.RUNNING) this._failSafe("ASR socket error");
+    });
+
+    setConn(ui.asrConn, "connected", true);
+    logLine("ASR connected");
+  }
+
+  async _openVerifyOnly(verUrl) {
+    this.wsVer = new WebSocket(verUrl);
+    this.wsVer.binaryType = "arraybuffer";
+
+    setConn(ui.verConn, "connecting…", false);
+
+    await new Promise((resolve, reject) => {
+      const ws = this.wsVer;
+      if (!ws) return reject(new Error("VERIFY ws not created"));
+
+      const onOpen = () => { cleanup(); resolve(); };
+      const onError = () => { cleanup(); reject(new Error("VERIFY websocket error")); };
+      const onClose = () => { cleanup(); reject(new Error("VERIFY websocket closed during connect")); };
+
+      const cleanup = () => {
+        ws.removeEventListener("open", onOpen);
+        ws.removeEventListener("error", onError);
+        ws.removeEventListener("close", onClose);
+      };
+
+      ws.addEventListener("open", onOpen);
+      ws.addEventListener("error", onError);
+      ws.addEventListener("close", onClose);
+    });
+
+    this.wsVer.addEventListener("message", (ev) => this._onVerifyMessage(ev));
+    this.wsVer.addEventListener("close", () => {
+      setConn(ui.verConn, "disconnected", false);
+      // Verify endpoint may close on inactivity :contentReference[oaicite:5]{index=5}
+      // In "постоянно" режиме безопаснее считать это ошибкой,
+      // чтобы не продолжать без верификации.
+      if (this.state === State.RUNNING) this._failSafe("VERIFY socket closed (inactivity or server stop)");
+    });
+    this.wsVer.addEventListener("error", () => {
+      if (this.state === State.RUNNING) this._failSafe("VERIFY socket error");
+    });
+
+    setConn(ui.verConn, "connected", true);
+    logLine("VERIFY connected");
+  }
+
+  async _closeWs(ws, name) {
+    if (!ws) return;
+    const rs = ws.readyState;
+    if (rs === WebSocket.CLOSED) return;
+
+    return await new Promise((resolve) => {
+      const done = () => {
+        ws.removeEventListener("close", done);
+        resolve();
+      };
+      ws.addEventListener("close", done);
+
+      try {
+        // No reliance on server events; close is fail-safe.
+        ws.close(1000, "client_stop");
+        logLine(name + " ws.close()");
+      } catch {
+        resolve();
+      }
+    });
+  }
+
+  async _startMic() {
+    const constraints = {
+      audio: {
+        channelCount: 1,
+        echoCancellation: false,
+        noiseSuppression: false,
+        autoGainControl: false
+      },
+      video: false
+    };
+
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia(constraints);
+    } catch {
+      throw new Error("Microphone access denied or unavailable");
+    }
+
+    this.mediaStream = stream;
+
+    const ctx = new (window.AudioContext || window.webkitAudioContext)({
+      sampleRate: 16000
+    });
+    this.audioCtx = ctx;
+
+    if (ctx.sampleRate !== 16000) {
+      throw new Error("AudioContext sampleRate is not 16000");
+    }
+
+    const source = ctx.createMediaStreamSource(stream);
+
+    // ScriptProcessorNode: deterministic, no HTTPS required
+    const processor = ctx.createScriptProcessor(1024, 1, 1);
+    this.processorNode = processor;
+
+    processor.onaudioprocess = (event) => {
+      if (this.state !== "RUNNING") return;
+
+      const input = event.inputBuffer.getChannelData(0);
+      if (!(input instanceof Float32Array)) return;
+
+      let pcm;
+      try {
+        pcm = float32ToPcm16Bytes(input);
+      } catch {
+        this._failSafe("PCM conversion failed");
+        return;
+      }
+
+      this._enqueueAndSend(new Uint8Array(pcm));
+    };
+
+    source.connect(processor);
+    processor.connect(ctx.destination); // required, even if muted
+
+    if (ctx.state === "suspended") {
+      await ctx.resume();
+    }
+
+    if (ctx.state !== "running") {
+      throw new Error("AudioContext not running");
+    }
+
+    logLine("Microphone started (ScriptProcessorNode, 16kHz mono)");
+  }
+
+
+  async _stopMic() {
+    if (this.processorNode) {
+      try { this.processorNode.disconnect(); } catch {}
+      this.processorNode.onaudioprocess = null;
+    }
+    this.processorNode = null;
+
+    if (this.audioCtx) {
+      try { await this.audioCtx.close(); } catch {}
+    }
+    this.audioCtx = null;
+
+    if (this.mediaStream) {
+      for (const track of this.mediaStream.getTracks()) {
+        try { track.stop(); } catch {}
+      }
+    }
+    this.mediaStream = null;
+
+    logLine("Microphone stopped");
+  }
+
+
+  _onWorkletMessage(ev) {
+    if (this.state !== State.RUNNING) return;
+    const data = ev.data;
+    if (!data || data.type !== "audio" || !data.samples) return;
+
+    // Transfered buffer: reconstruct Float32Array.
+    const samples = data.samples;
+    // Validate type/shape.
+    if (!(samples instanceof Float32Array)) {
+      this._failSafe("Worklet delivered non-Float32Array");
+      return;
+    }
+
+    // Convert to PCM16 bytes.
+    let pcmBuf;
+    try {
+      pcmBuf = float32ToPcm16Bytes(samples);
+    } catch (e) {
+      this._failSafe("PCM conversion failed");
+      return;
+    }
+
+    this._enqueueAndSend(new Uint8Array(pcmBuf));
+  }
+
+  _enqueueAndSend(bytes) {
+    if (!(bytes instanceof Uint8Array)) {
+      this._failSafe("enqueue received invalid bytes");
+      return;
+    }
+
+    // Validate frame size alignment for PCM16 mono: even number of bytes.
+    if ((bytes.length % CONFIG.PCM16_BYTES_PER_SAMPLE) !== 0) {
+      this._failSafe("PCM16 alignment error: odd byte count");
+      return;
+    }
+
+    // Append to pending.
+    const combined = new Uint8Array(this.pendingBytes.length + bytes.length);
+    combined.set(this.pendingBytes, 0);
+    combined.set(bytes, this.pendingBytes.length);
+    this.pendingBytes = combined;
+
+    const chunkBytes = CONFIG.CHUNK_SAMPLES * CONFIG.PCM16_BYTES_PER_SAMPLE; // mono
+    // Send fixed-size chunks deterministically.
+    while (this.pendingBytes.length >= chunkBytes) {
+      const out = this.pendingBytes.slice(0, chunkBytes);
+      this.pendingBytes = this.pendingBytes.slice(chunkBytes);
+
+      // Send to both sockets; any failure => fail-safe.
+      try {
+        this._wsSendBinary(this.wsAsr, out, "ASR");
+        this._wsSendBinary(this.wsVer, out, "VERIFY");
+      } catch (e) {
+        const msg = (e && e.message) ? e.message : String(e);
+        this._failSafe("WS send failed: " + msg);
+        return;
+      }
+    }
+  }
+
+  _wsSendBinary(ws, bytes, name) {
+    if (!ws) throw new Error(name + " websocket missing");
+    if (ws.readyState !== WebSocket.OPEN) throw new Error(name + " websocket not OPEN");
+    // bytes is Uint8Array; send its ArrayBuffer slice to avoid accidental extra bytes.
+    const ab = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+    ws.send(ab);
+  }
+
+  _onAsrMessage(ev) {
+    // Server sends JSON frames like {type:"ready"/"partial"/"final"/"error"} :contentReference[oaicite:6]{index=6}
+    const txt = this._safeEventToText(ev);
+    if (txt === null) return;
+
+    let obj;
+    try {
+      obj = JSON.parse(txt);
+    } catch {
+      ui.asrOut.textContent += "NON-JSON: " + txt + "\n";
+      return;
+    }
+
+    ui.asrOut.textContent += JSON.stringify(obj) + "\n";
+    ui.asrOut.scrollTop = ui.asrOut.scrollHeight;
+
+    if (obj && obj.type === "error") {
+      // Any server error => fail-safe. Requirement: no undefined states.
+      this._failSafe("ASR server error: " + (obj.detail ? String(obj.detail) : "unknown"));
+    }
+  }
+
+  _onVerifyMessage(ev) {
+    // Server sends JSON frames {type:"ready"/"partial"/"final"/"error", session_id,...} :contentReference[oaicite:7]{index=7}
+    const txt = this._safeEventToText(ev);
+    if (txt === null) return;
+
+    let obj;
+    try {
+      obj = JSON.parse(txt);
+    } catch {
+      ui.verOut.textContent += "NON-JSON: " + txt + "\n";
+      return;
+    }
+
+    ui.verOut.textContent += JSON.stringify(obj) + "\n";
+    ui.verOut.scrollTop = ui.verOut.scrollHeight;
+
+    if (obj && obj.type === "error") {
+      this._failSafe("VERIFY server error: " + (obj.code ? String(obj.code) : "unknown"));
+    }
+
+    // If server sends final and keeps open? In verify route, it closes after final :contentReference[oaicite:8]{index=8}
+    // We treat close as fatal (see onclose handler) to avoid silently losing verification.
+  }
+
+  _safeEventToText(ev) {
+    if (!ev) return null;
+    if (typeof ev.data === "string") return ev.data;
+    // If it's ArrayBuffer/Blob, that's unexpected per server behavior; log but do not crash.
+    try {
+      return String(ev.data);
+    } catch {
+      return null;
+    }
+  }
+}
+
+const controller = new RealtimePageController();
+
+function defaultBaseUrl() {
+  // No assumptions about port; use current origin, but allow editing.
+  // If file://, fallback to http://localhost:8000.
+  try {
+    const u = new URL(window.location.href);
+    if (u.protocol === "http:" || u.protocol === "https:") return u.origin;
+  } catch { /* ignore */ }
+  return "http://localhost:8000";
+}
+
+ui.baseUrl.value = defaultBaseUrl();
+
+ui.toggleBtn.addEventListener("click", async () => {
+  try {
+    if (controller.state === State.IDLE || controller.state === State.FAILED) {
+      await controller.start();
+    } else if (controller.state === State.RUNNING) {
+      await controller.stop();
+    }
+  } catch (e) {
+    const msg = (e && e.message) ? e.message : String(e);
+    logLine("Unhandled UI exception: " + msg);
+    setStatus("FAILED: UI exception", "bad");
+    await controller.stop().catch(() => {});
+  }
+});
+
+ui.resetBtn.addEventListener("click", async () => {
+  try {
+    await controller.reset();
+  } catch (e) {
+    const msg = (e && e.message) ? e.message : String(e);
+    controller._failSafe("reset threw: " + msg);
+  }
+});
+
+// Initial status
+setStatus("Idle", "warn");
+logLine("Page loaded");
+</script>
+</body>
+</html>
