@@ -122,7 +122,7 @@ class MultiSpeakerMatcher:
             probe_emb = embed_speechbrain(a) # [D]
             if probe_emb is None:
                 return []
-            probe_emb = torch.nn.functional.normalize(probe_emb, p=2, dim=-1, eps=1e-12).float()
+            probe_emb = torch.nn.functional.normalize(probe_emb, p=2, dim=-1, eps=1e-12).float().to(embs.device)
 
             sims = torch.matmul(embs, probe_emb.view(-1, 1)).squeeze(1)  # [N]
             scores = _cos_to01(sims)

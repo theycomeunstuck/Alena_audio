@@ -20,6 +20,7 @@ def get_encoder() -> EncoderClassifier:
             savedir=str(
                 (Path(__file__).resolve().parents[2] / "pretrained_models" / "SpeechBrain" / "spkrec-ecapa-voxceleb")
             ),
+            run_opts={"device": device}
         ).to(device).eval()
     return _ENCODER
 
@@ -68,6 +69,9 @@ def embed_speechbrain(x: np.ndarray) -> torch.Tensor:
     wav = to_tensor_1d(x) # to.device(cuda|cpu)
     if wav is None: # Если пришёл пустой сигнал
         return None
+
+    model_device = next(enc.parameters()).device
+    wav = wav.to(model_device)
 
     with torch.inference_mode():
         emb = enc.encode_batch(wav)

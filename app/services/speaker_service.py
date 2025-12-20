@@ -60,6 +60,11 @@ class SpeakerService:
 
             emb_p = embed_speechbrain(probe)
             emb_r = embed_speechbrain(ref)
+
+            if emb_p.device != emb_r.device:
+                emb_r = emb_r.to(emb_p.device)
+
+
             sb_score = float(F.cosine_similarity(emb_p.unsqueeze(0), emb_r.unsqueeze(0)).item())
             sb_decision = bool(sb_score >= sim_threshold)  # пример порога
         except Exception as e:
@@ -101,10 +106,11 @@ class SpeakerService:
         emb = embed_speechbrain(audio) # to(device)
         emb = torch.nn.functional.normalize(emb, p=2, dim=-1, eps=1e-12).float()
 
-        emb = emb.detach().cpu()  # если уже float32 — отлично
+        emb = emb.detach() # если уже float32 — отлично
         if emb.dtype != torch.float32:
             emb = emb.to(torch.float32)  # привести один раз в torch
-        np.save(out_npy_path, emb.numpy())
+
+        np.save(out_npy_path, emb.cpu().numpy())
 
 
         return {"user_id": user_id, "wav_path": str(out_wav_path), "npy_path": str(out_npy_path)}
