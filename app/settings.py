@@ -29,6 +29,8 @@ VOICES_DIR.mkdir(parents=True, exist_ok=True)
 
 # Остальные TTS-параметры
 # Set environment variable if not already set
+
+
 if not os.getenv("F5TTS_CKPT_PATH"):
     os.environ["F5TTS_CKPT_PATH"] = TTS_CKPT_PATH
     print(f"🔧 Set F5TTS_CKPT_PATH environment variable to: {TTS_CKPT_PATH}")

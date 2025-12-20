@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 import app.services.streaming_verify as sv
-
+from starlette.websockets import WebSocketDisconnect
 
 @pytest.fixture()
 def patch_sv_for_ws(monkeypatch):
@@ -23,16 +23,23 @@ def patch_sv_for_ws(monkeypatch):
     monkeypatch.setattr(sv, "get_global_matcher", lambda: DummyMatcher(), raising=True)
 
 
+
 def _recv_until(ws, predicate, max_msgs=10, timeout=2.0):
     start = time.time()
     msgs = []
+
     while len(msgs) < max_msgs and (time.time() - start) < timeout:
-        msg = ws.receive_json()
+        try:
+            msg = ws.receive_json()
+        except WebSocketDisconnect:
+            # сокет закрыт — это НОРМАЛЬНО
+            break
+
         msgs.append(msg)
         if predicate(msg):
             return msg, msgs
-    raise AssertionError(f"Expected message not received, got: {msgs}")
 
+    raise AssertionError(f"Expected message not received, got: {msgs}")
 
 def test_ready_and_metadata(client, patch_sv_for_ws):
     with client.websocket_connect("/ws/speaker/verify?emit_interval_ms=1000&top_k=3") as ws:

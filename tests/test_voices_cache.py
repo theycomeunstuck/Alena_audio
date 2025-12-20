@@ -34,12 +34,12 @@ def test_clone_transcription_cache(tmp_path: Path, monkeypatch):
 
     # первый клон → вызов транскрипции
     m1 = store.clone_from_upload(wav, sample_rate=24000, language="ru")
-    assert m1.ref_text == "привет мир"
+    assert m1.ref_text == "прив+ет м+ир" # был добавлен стрессер. здесь никак не чекается работа расстановщика ударений
     assert calls["n"] == 1
 
     # второй клон того же файла → берём из кэша (в VOICES_DIR/whisper_transcriptions.json)
     m2 = store.clone_from_upload(wav, sample_rate=24000, language="ru")
-    assert m2.ref_text == "привет мир"
+    assert m2.ref_text == "прив+ет м+ир"
     assert calls["n"] == 1  # не увеличился — использовали кэш
 
     # проверим, что файл кэша существует и валиден

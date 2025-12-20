@@ -34,7 +34,8 @@ def tmp_registry(tmp_path, monkeypatch):
 def test_reload_loads_all_and_places_index_on_device(tmp_registry, monkeypatch):
     m = msm.MultiSpeakerMatcher(embeddings_dir=tmp_registry)
     n = m.reload()
-    assert n == 3
+
+    assert n[1] == 3
     # Индекс на нужном устройстве
     assert isinstance(m._embs, torch.Tensor)
     assert m._embs.device.type == _device # единый device из конфига

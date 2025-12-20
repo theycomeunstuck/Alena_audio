@@ -2,7 +2,7 @@
 
 import json
 from pathlib import Path
-
+from unittest.mock import patch
 import pytest
 
 from core.TTS.voices import VoiceStore
@@ -39,14 +39,18 @@ def patch_audio_and_asr(monkeypatch):
     monkeypatch.setattr(voices_mod, "AsrTranscriber", DummyTranscriber)
     yield
 
-
-def test_clone_creates_meta_json_with_expected_format_and_content(tmp_path: Path):
+@patch("core.TTS.voices.VoiceStore._clean_reference_audio")
+def test_clone_creates_meta_json_with_expected_format_and_content(
+        mock_clean, tmp_path: Path
+):
     # Arrange: входной "аудио"-файл
     up = tmp_path / "speaker_ru.mp3"
     up.write_bytes(b"\x00\x01FAKE-MP3")
 
-    store = VoiceStore(tmp_path)
+    # просто возвращаем входное аудио как есть
+    mock_clean.side_effect = lambda audio: audio
 
+    store = VoiceStore(tmp_path)
     # Act: клонируем голос
     meta = store.clone_from_upload(up_path=up, sample_rate=24000)
 
@@ -66,7 +70,7 @@ def test_clone_creates_meta_json_with_expected_format_and_content(tmp_path: Path
     assert data["voice_id"] == meta.voice_id
     assert data["sr"] == 24000
     assert data["orig_file"] == "speaker_ru.mp3"
-    assert data["ref_text"] == "Здравствуйте! Это тестовая фраза."
+    assert data["ref_text"].replace("+", "") == "Тестовая фраза. И, да, — это точно тестовая фраза."
 
     # Форматирование (dump с indent=2): проверим, что есть отступы в 2 пробела
     # (жёстко к точному порядку полей не привязываемся)

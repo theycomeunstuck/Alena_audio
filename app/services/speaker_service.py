@@ -28,10 +28,11 @@ class SpeakerService:
     def _default_ref_candidates(self) -> list[Path]: #todo: заменить всю функцию на перебор пользователей
         root = self._project_root()
         return [
-            self.storage_dir / "misha_20sec.wav",
-            self.storage_dir / "ref_misha_20sec.wav",
-            root / "core" / "misha_20sec.wav",
-            root / "tests" / "samples" / "misha_20sec.wav",
+            self.storage_dir / "_default" / "reference.wav",
+            root / "tests" / "samples" / "ru_sample.wav",
+            root / "tests" / "samples" / "reference.wav",
+            root / "storage" / "_default" / "reference.wav",
+            self.storage_dir / "reference.wav",
         ]
 
     def _find_default_ref(self) -> Optional[Path]:
@@ -51,18 +52,15 @@ class SpeakerService:
                 default_ref_path = self._find_default_ref()
                 if default_ref_path is None:
                     searched = self._default_ref_candidates()
-                    hint = "\n".join(f"- {p}" for p in searched)
+                    hint = ";  ".join(f"- {p}" for p in searched)
                     raise ValueError(
                         "reference не задан и не найден дефолтный образец. "
-                        "Положите файл по одному из путей:\n" + hint
+                        "Положите файл по одному из путей: " + hint
                     )
                 ref = load_and_resample(str(default_ref_path))
 
             emb_p = embed_speechbrain(probe)
             emb_r = embed_speechbrain(ref)
-
-            if emb_p.device != emb_r.device:
-                emb_r = emb_r.to(emb_p.device)
 
 
             sb_score = float(F.cosine_similarity(emb_p.unsqueeze(0), emb_r.unsqueeze(0)).item())
@@ -106,11 +104,10 @@ class SpeakerService:
         emb = embed_speechbrain(audio) # to(device)
         emb = torch.nn.functional.normalize(emb, p=2, dim=-1, eps=1e-12).float()
 
-        emb = emb.detach() # если уже float32 — отлично
+        emb = emb.detach().cpu()  # если уже float32 — отлично
         if emb.dtype != torch.float32:
             emb = emb.to(torch.float32)  # привести один раз в torch
-
-        np.save(out_npy_path, emb.cpu().numpy())
+        np.save(out_npy_path, emb.numpy())
 
 
         return {"user_id": user_id, "wav_path": str(out_wav_path), "npy_path": str(out_npy_path)}
@@ -142,10 +139,11 @@ class SpeakerService:
         emb = embed_speechbrain(audio) # to(device)
         emb = torch.nn.functional.normalize(emb, p=2, dim=-1, eps=1e-12).float() # L2-norm
 
-        emb = emb.detach().cpu()
-        if emb.dtype != torch.float32:
-            emb = emb.to(torch.float32)
-        np.save(out_npy_path, emb.numpy())
+        emb = emb.detach()
+        np.save(
+            out_npy_path,
+            emb.cpu().numpy().astype(np.float32)
+        )
 
 
 

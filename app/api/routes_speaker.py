@@ -103,7 +103,9 @@ def train_microphone(
     except ValueError as e:
         raise HTTPException(400, str(e))
     except Exception as e:
-        raise HTTPException(500, f"internal error: {e.__class__.__name__}")
+        raise HTTPException(500, f"internal error: {e.__class__.__name__}\n {e}")
+
+
 
 @router.post("/train/file", response_model=TrainMicResponse)
 async def train_file(

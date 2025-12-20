@@ -164,7 +164,7 @@ async def ws_asr(
         with suppress(Exception):
             await ws.close()
 
-
+@router.websocket("/ws/speaker/verify")
 async def ws_speaker_verify(
     ws: WebSocket,
     sample_rate: int = Query(SAMPLE_RATE, ge=8000, le=48000, description="Частота входящих PCM16 кадров"),
@@ -174,6 +174,7 @@ async def ws_speaker_verify(
     sim_threshold: float = Query(_sim_threshold, ge=0.0, le=1.0, description="Порог совпадения [0..1]"),
     emit_interval_ms: int = Query(500, ge=50, le=5000, description="Интервал авто-partial, мс"),
 ):
+    disconnected = False
     await ws.accept()
 
     session_id = uuid.uuid4().hex
@@ -187,16 +188,18 @@ async def ws_speaker_verify(
     )
 
     async def safe_send(obj: dict) -> None:
-        if ws.client_state == WebSocketState.CONNECTED:
-            # добавим метаданные в каждый ответ
-            obj.setdefault("session_id", session_id)
-            obj.setdefault("version", version)
-            obj.setdefault("ts_ms", int(time.time() * 1000))
-            try:
-                await ws.send_json(obj)
-            except RuntimeError:
-                # гонка при закрытии сокета — просто игнорим
-                pass
+        if ws.client_state != WebSocketState.CONNECTED:
+            return
+
+        # добавим метаданные в каждый ответ
+        obj.setdefault("session_id", session_id)
+        obj.setdefault("version", version)
+        obj.setdefault("ts_ms", int(time.time() * 1000))
+        try:
+            await ws.send_json(obj)
+        except RuntimeError:
+            # гонка при закрытии сокета — просто игнорим
+            pass
 
     await safe_send({
         "type": "ready",
@@ -309,6 +312,7 @@ async def ws_speaker_verify(
 
     except WebSocketDisconnect:
         stop_reason = "client_disconnect"
+        disconnected = True
 
     finally:
         # останавливаем тикер
@@ -319,7 +323,7 @@ async def ws_speaker_verify(
             pass
 
         # финал и закрытие сокета
-        if ws.client_state == WebSocketState.CONNECTED:
+        if not disconnected and ws.client_state == WebSocketState.CONNECTED:
             await send_final(stop_reason)
             try:
                 await ws.close(code=1000)

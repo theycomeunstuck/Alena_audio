@@ -1,12 +1,13 @@
 # tests/test_multi_speaker_verify.py
 import io, json
 import numpy as np
-import torch
-import torchaudio
+import torch, torchaudio
+import pytest
 from pathlib import Path
 from fastapi.testclient import TestClient
 from app.main import app
 from core.config import VOICES_DIR, SAMPLE_RATE
+from fastapi.websockets import WebSocketDisconnect
 
 client = TestClient(app)
 
@@ -56,7 +57,7 @@ def test_rest_verify_all_returns_matches():
     buf = io.BytesIO()
     torchaudio.save(buf, torch.from_numpy(x).unsqueeze(0), sr, format="wav", encoding="PCM_S", bits_per_sample=16)
     files = {"probe": ("probe.wav", buf.getvalue(), "audio/wav")}
-    r = client.post("/speaker/verify_all?top_k=2", files=files)
+    r = client.post("/speaker/verify/topk?top_k=2", files=files)
     assert r.status_code == 200, r.text
     data = r.json()
     assert "matches" in data and isinstance(data["matches"], list)
@@ -65,6 +66,13 @@ def test_rest_verify_all_returns_matches():
 
 def test_ws_verify_basic_flow():
     # Open WS and send a short chunk, then flush
+    def recv_until_any(ws, types=("partial", "final"), max_msgs=20):
+        for _ in range(max_msgs):
+            msg = ws.receive_json()
+            if msg.get("type") in types:
+                return msg
+        raise AssertionError("Did not receive partial/final within limit")
+
     sr = SAMPLE_RATE
     with client.websocket_connect(f"/ws/speaker/verify?sample_rate={sr}&channels=1&top_k=2") as ws:
         ready = ws.receive_json()
@@ -72,7 +80,9 @@ def test_ws_verify_basic_flow():
         x = np.random.uniform(-0.1, 0.1, int(0.2*sr)).astype(np.float32)  # 200ms random
         ws.send_bytes(_bytes_from_np1d(x, sr))
         ws.send_text(json.dumps({"event": "flush"}))
-        msg = ws.receive_json()
-        assert msg["type"] in ("partial","final")
+
+        ws.send_text(json.dumps({"event": "flush"}))
+        msg = recv_until_any(ws)
+        assert msg["type"] in ("partial", "final")
         assert "matches" in msg
         assert all(0.0 <= m["score"] <= 1.0 for m in msg["matches"])

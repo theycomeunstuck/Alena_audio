@@ -99,7 +99,7 @@ class VoiceStore:
         self._save_cache(cache)
         return text
 
-    def clone_from_upload(self, up_path: Path, sample_rate: int = 24000) -> VoiceMeta:
+    def clone_from_upload(self, up_path: Path, sample_rate: int = 24000, language: Optional[str] = None) -> VoiceMeta:
         """
         Создаёт новый voice_id из загруженного WAV/MP3/OGG и заполняет meta.json.
         Дублирование транскрипций избегается за счёт локального кэша в VOICES_DIR.
@@ -121,7 +121,7 @@ class VoiceStore:
 
 
         # meta
-        ref_text = self._transcribe_with_local_cache(ref_path)
+        ref_text = self._transcribe_with_local_cache(ref_path, language)
 
         # расставляем ударения
         stressed_ref_text = accentor(ref_text)
