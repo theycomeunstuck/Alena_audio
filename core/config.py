@@ -41,8 +41,7 @@ if True:
 
 
 
-from pydantic import BaseModel, Field, field_validator
-import os
+
 import whisper
 from torch.cuda import is_available
 from speechbrain.inference.separation import SepformerSeparation as separator
@@ -65,10 +64,6 @@ sim_threshold = 0.65     # Пороговое значение совпаден�
 ASR_LANGUAGE = None          # язык по умолчанию
 ASR_WINDOW_SEC = 8.0         # сколько секунд держим в буфере (StreamingASRSession)
 ASR_EMIT_SEC = 2.0           # как часто выдаём partial
-
-# TTS (F5-TTS); другие параметры в app/settings.py
-TTS_CKPT_PATH =  r"E:\PycharmProjects\AudioAPI\F5-TTS\ckpts\restore points\Cvoice (+sova)\pruned_362500.safetensors" #path to TTSmodel.pt (.safetensors)
-VOCAB_FILE = r"E:\PycharmProjects\AudioAPI\F5-TTS\ckpts\ru_secondtry\vocab.txt"
 
 
 

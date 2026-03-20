@@ -5,13 +5,13 @@ from pydantic import BaseModel
 import uuid, shutil, json, hashlib
 from typing import Optional
 from pydub import AudioSegment, silence  # требует ffmpeg
-from silero_stress import load_accentor # silero-stressor. todo: Если договорюсь с @bceloss (tg), то RuAccent/
+# from silero_stress import load_accentor # silero-stressor. todo: Если договорюсь с @bceloss (tg), то RuAccent/
 
 from core.ASR.transcriber import AsrTranscriber
 from core.config import VOICES_DIR
 
 
-accentor = load_accentor()
+# accentor = load_accentor()
 
 class VoiceMeta(BaseModel):
     voice_id: str
@@ -124,9 +124,9 @@ class VoiceStore:
         ref_text = self._transcribe_with_local_cache(ref_path, language)
 
         # расставляем ударения
-        stressed_ref_text = accentor(ref_text)
+        # stressed_ref_text = accentor(ref_text)
 
-        meta = VoiceMeta(voice_id=voice_id, sr=int(sample_rate), orig_file=str(up_path.name), ref_text=stressed_ref_text)
+        meta = VoiceMeta(voice_id=voice_id, sr=int(sample_rate), orig_file=str(up_path.name), ref_text=ref_text)
 
 
         self.write_meta(meta)

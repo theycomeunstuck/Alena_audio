@@ -1,7 +1,9 @@
 # app/settings.py
 import os
 from pathlib import Path
-from core.config import TTS_CKPT_PATH, VOCAB_FILE, device
+from core.config import device
+
+
 
 # ---- Определяем корень проекта ----
 def _find_project_root(start: Path) -> Path:
@@ -27,24 +29,10 @@ EMBEDDINGS_DIR.mkdir(parents=True, exist_ok=True)
 VOICES_DIR = Path(os.getenv("VOICES_DIR", STORAGE_DIR / "voices_TTS")).resolve()
 VOICES_DIR.mkdir(parents=True, exist_ok=True)
 
-# Остальные TTS-параметры
-# Set environment variable if not already set
 
 
-if not os.getenv("F5TTS_CKPT_PATH"):
-    os.environ["F5TTS_CKPT_PATH"] = TTS_CKPT_PATH
-    print(f"🔧 Set F5TTS_CKPT_PATH environment variable to: {TTS_CKPT_PATH}")
-if not os.getenv("VOCAB_FILE_PATH"):
-    os.environ["VOCAB_FILE_PATH"] = VOCAB_FILE
-
-VOCAB_FILE_PATH = os.getenv("VOCAB_FILE_PATH", VOCAB_FILE)
 
 
-F5TTS_CKPT_PATH = os.getenv("F5TTS_CKPT_PATH", TTS_CKPT_PATH) #path to model.pt (.spt)
-F5TTS_VOCODER_NAME = os.getenv("F5TTS_VOCODER_NAME", "vocos")
-F5TTS_VOCODER_CKPT = os.getenv("F5TTS_VOCODER_CKPT", "")
 DEVICE = os.getenv("DEVICE", device)
-TTS_SAMPLE_RATE = int(os.getenv("TTS_SAMPLE_RATE", "24000"))
-TTS_MAX_SECONDS = int(os.getenv("TTS_MAX_SECONDS", "95"))
-TTS_NFE_STEPS   = int(os.getenv("TTS_NFE_STEPS", "16"))
+TTS_MAX_SECONDS = int(os.getenv("TTS_MAX_SECONDS", "45"))
 

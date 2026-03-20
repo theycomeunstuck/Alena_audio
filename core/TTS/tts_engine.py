@@ -8,8 +8,9 @@ from pydub.utils import which
 from app import settings
 import asyncio, io, soundfile as sf
 from app.settings import STORAGE_DIR
-from silero_stress import load_accentor # silero-stressor. todo: Если договорюсь с @bceloss (tg), то RuAccent/
-from f5_tts.api import F5TTS
+
+import torch
+from qwen_tts import Qwen3TTSModel
 
 # singleton
 _tts_engine: TtsEngine | None = None
@@ -20,29 +21,20 @@ def get_tts_engine() -> TtsEngine:
     return _tts_engine
 
 
-_accentor = None
-
-def get_accentor():
-    global _accentor
-    if _accentor is None:
-        _accentor = load_accentor()
-    return _accentor
-
 class TtsEngine:
     def __init__(self):
-        self._F5TTS = F5TTS(
-            ckpt_file=settings.F5TTS_CKPT_PATH,
-            vocab_file=settings.VOCAB_FILE_PATH,
-            device=settings.DEVICE
+        self._QwenTTS = Qwen3TTSModel.from_pretrained(
+            "pretrained_models/Qwen3-TTS-12Hz-1.7B-Base",
+            device_map="cuda:0",
+            dtype=torch.bfloat16,
+            attn_implementation="flash_attention_2",
         )
+
 
         self.max_sec = settings.TTS_MAX_SECONDS
         if not which("ffmpeg"):
             raise RuntimeError("FFmpeg не найден в PATH. Установите ffmpeg и перезапустите.")
 
-    def _estimate_secs(self, text: str) -> float:
-        # грубо: ~13 символов/сек
-        return max(1.0, len(text) / 13.0)
 
     async def synth(self, text: str, ref_audio: Path, ref_text: str, vid: str, out_format: Literal["wav", "mp3", "ogg"] = "wav") -> bytes:
         if not text or not text.strip():
@@ -68,13 +60,12 @@ class TtsEngine:
             vid: str
     ) -> bytes:
 
-        stressed_ref_text = get_accentor()(ref_text)
-
-        wav_np, sr, _spec = await asyncio.to_thread(self._F5TTS.infer,
-            ref_audio,
-            stressed_ref_text,
-            gen_text,
-            nfe_step=settings.TTS_NFE_STEPS
+        audio_np, sr_ref = sf.read(ref_audio) # Уже делали проверку на наличие файла в app/services/routes_TTS.py
+        wavs, sr = await asyncio.to_thread(self._QwenTTS.generate_voice_clone,
+            text=gen_text,
+            language="Auto",
+            ref_audio=str(ref_audio),
+            ref_text=ref_text.replace("+", "") #todo: Ударения в qwen_tts не работают. Ударения больше не добавляются, но в некоторых files still stress existing
         )
 
         out_dir = STORAGE_DIR / "out_TTS" / vid
@@ -88,12 +79,12 @@ class TtsEngine:
             except Exception as e:
                 print("Cannot delete existing file:", e)
         # сохраняем звук
-        sf.write(out_file, wav_np, sr, format="WAV")
+        sf.write(out_file, wavs[0], sr, format="WAV")
 
         # сохраяем в память
         wav_bytes = io.BytesIO()
         wav_bytes.seek(0)
-        sf.write(wav_bytes, wav_np, sr,  format="WAV")
+        sf.write(wav_bytes, wavs[0], sr,  format="WAV")
         wav_bytes.seek(0)
 
         # если нужен WAV — возвращаем прямо его
