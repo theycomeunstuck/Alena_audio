@@ -329,6 +329,10 @@ def validate_card(card: object, catalog: dict, filename: str) -> list[Finding]:
     interests = card.get("interests")
     if not isinstance(interests, list):
         findings.append(_err(filename, "/interests", 'поле "interests" должно быть списком'))
+    else:
+        for i, el in enumerate(interests):
+            if not isinstance(el, str):
+                findings.append(_err(filename, f"/interests/{i}", "элемент должен быть строкой"))
 
     # knowledge
     knowledge = card.get("knowledge")
@@ -353,6 +357,8 @@ def validate_card(card: object, catalog: dict, filename: str) -> list[Finding]:
                 findings.append(_err(filename, f"{json_path}/topic_id", f'дублирующийся topic_id "{topic_id}" в knowledge'))
             seen_topic_ids.add(topic_id)
             findings.extend(_check_topic_ref(topic_id, catalog, filename, f"{json_path}/topic_id"))
+        elif "topic_id" in item:
+            findings.append(_err(filename, f"{json_path}/topic_id", 'поле "topic_id" должно быть строкой'))
 
         status = item.get("status")
         if status is not None and status not in KNOWLEDGE_STATUSES:
@@ -382,6 +388,8 @@ def validate_card(card: object, catalog: dict, filename: str) -> list[Finding]:
         topic_id = item.get("topic_id")
         if isinstance(topic_id, str):
             findings.extend(_check_topic_ref(topic_id, catalog, filename, f"{json_path}/topic_id"))
+        elif "topic_id" in item:
+            findings.append(_err(filename, f"{json_path}/topic_id", 'поле "topic_id" должно быть строкой'))
 
         subject = item.get("subject")
         if "subject" in item and not _is_nonempty_str(subject):
@@ -412,8 +420,14 @@ def validate_card(card: object, catalog: dict, filename: str) -> list[Finding]:
                 findings.append(_err(filename, f"/mvp/{required_key}", f'отсутствует обязательное поле "{required_key}"'))
 
     for list_key in ("story_preferences", "learning_preferences_observed", "help_strategies"):
-        if list_key in mvp and not isinstance(mvp.get(list_key), list):
-            findings.append(_err(filename, f"/mvp/{list_key}", f'поле "{list_key}" должно быть списком'))
+        if list_key in mvp:
+            list_value = mvp.get(list_key)
+            if not isinstance(list_value, list):
+                findings.append(_err(filename, f"/mvp/{list_key}", f'поле "{list_key}" должно быть списком'))
+            else:
+                for i, el in enumerate(list_value):
+                    if not isinstance(el, str):
+                        findings.append(_err(filename, f"/mvp/{list_key}/{i}", "элемент должен быть строкой"))
 
     # journal
     journal = mvp.get("journal")
@@ -482,8 +496,11 @@ def validate_card(card: object, catalog: dict, filename: str) -> list[Finding]:
         if "role" in item and role != "tutor":
             findings.append(_err(filename, f"{json_path}/role", f'поле "role" должно быть "tutor", получено "{role}"'))
 
-        if "topic_id" in item and isinstance(item.get("topic_id"), str):
-            findings.extend(_check_topic_ref(item["topic_id"], catalog, filename, f"{json_path}/topic_id"))
+        if "topic_id" in item:
+            if isinstance(item.get("topic_id"), str):
+                findings.extend(_check_topic_ref(item["topic_id"], catalog, filename, f"{json_path}/topic_id"))
+            else:
+                findings.append(_err(filename, f"{json_path}/topic_id", 'поле "topic_id" должно быть строкой'))
 
     if balance_went_negative:
         findings.append(_warn(filename, "/mvp/points_ledger", "накопительный баланс баллов уходит в отрицательные значения в процессе хронологии"))

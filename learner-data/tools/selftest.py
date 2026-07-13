@@ -276,6 +276,30 @@ class TestNegativeFixtures(unittest.TestCase):
             [f.format() for f in findings],
         )
 
+    def test_non_string_element_in_string_array(self):
+        card = _minimal_valid_card()
+        card["mvp"]["help_strategies"] = ["дать пример", "разбить на шаги", 42]
+        findings = self._findings_for(card)
+        self.assertTrue(
+            any(
+                f.is_error() and f.json_path == "/mvp/help_strategies/2" and "должен быть строкой" in f.message
+                for f in findings
+            ),
+            [f.format() for f in findings],
+        )
+
+    def test_non_string_topic_id_in_knowledge(self):
+        card = _minimal_valid_card()
+        card["knowledge"] = [{"topic_id": 123, "status": "learning"}]
+        findings = self._findings_for(card)
+        self.assertTrue(
+            any(
+                f.is_error() and f.json_path == "/knowledge/0/topic_id" and "должно быть строкой" in f.message
+                for f in findings
+            ),
+            [f.format() for f in findings],
+        )
+
 
 if __name__ == "__main__":
     if __package__ in (None, ""):

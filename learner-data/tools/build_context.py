@@ -210,7 +210,8 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         catalog = load_catalog(args.catalog)
-    except (OSError, json.JSONDecodeError):
+    except (OSError, json.JSONDecodeError) as e:
+        print(f"предупреждение: каталог не загружен ({e}), topic_id будут показаны как есть", file=sys.stderr)
         catalog = {}
 
     print(build_context_text(card, catalog))
