@@ -615,7 +615,7 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         findings, file_count = validate_all(args.learners_dir, args.catalog)
-    except (OSError, FileNotFoundError) as e:
+    except OSError as e:
         print(str(e), file=sys.stderr)
         return 2
 

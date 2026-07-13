@@ -134,7 +134,11 @@ class TestContextPerLearner(unittest.TestCase):
                 self._assert_tags_balanced(text)
 
                 expected_balance = sum(p.get("points", 0) for p in card["mvp"]["points_ledger"])
-                self.assertIn(f"Баллы: {expected_balance}", text)
+                self.assertIn(
+                    f"Баллы: {expected_balance}",
+                    text.splitlines(),
+                    f'expected an exact "Баллы: {expected_balance}" line in text',
+                )
 
     def _assert_tags_balanced(self, text: str):
         stack = []
@@ -240,11 +244,15 @@ class TestNegativeFixtures(unittest.TestCase):
         )
 
     def test_balance_key_forbidden(self):
+        # Place the balance-like key inside mvp.story_preferences items, which have
+        # no dedicated key allowlist (unlike e.g. mvp itself or points_ledger items).
+        # This isolates the recursive _contains_balance_key rule: if it were deleted,
+        # no other check in validate.py would flag this key, and the test would fail.
         card = _minimal_valid_card()
-        card["mvp"]["points_balance"] = 100
+        card["mvp"]["story_preferences"] = [{"title": "space", "points_balance": 100}]
         findings = self._findings_for(card)
         self.assertTrue(
-            any(f.is_error() and "balance" in f.message for f in findings),
+            any(f.is_error() and "баланс всегда вычисляется" in f.message for f in findings),
             [f.format() for f in findings],
         )
 

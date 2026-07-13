@@ -169,7 +169,7 @@ def build_context_text(card: dict, catalog: dict) -> str:
     parts.append(f"Баллы: {balance}")
     parts.append("</points_balance>")
 
-    return "\n".join(parts)
+    return "\n".join(parts).lstrip("\n")
 
 
 def build_context_json(card: dict) -> str:
