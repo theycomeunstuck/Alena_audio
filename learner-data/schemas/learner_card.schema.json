@@ -1,0 +1,247 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Карточка ученика",
+  "description": "Контракт данных одной карточки ученика (один файл learners/<learner_id>.json = один ребёнок). Схема — документация контракта; фактическая валидация выполняется отдельным валидатором на stdlib (tools/validate.py), реализуемым в отдельной задаче.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "learner_id",
+    "pseudonym",
+    "age_group",
+    "grade",
+    "language",
+    "profile",
+    "interests",
+    "knowledge",
+    "error_patterns",
+    "mvp"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "type": "integer",
+      "description": "Версия схемы карточки. Фиксировано: 1."
+    },
+    "learner_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*$",
+      "description": "Неизменяемый идентификатор ученика; равен имени файла без расширения .json. После создания не переименовывать."
+    },
+    "pseudonym": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Только псевдоним ребёнка, никогда реальное имя (аналог поля children.name в основной БД)."
+    },
+    "age_group": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Возрастная группа ребёнка, например \"9-10\"."
+    },
+    "grade": {
+      "type": "string",
+      "enum": ["3", "4"],
+      "description": "Класс обучения ученика."
+    },
+    "language": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Язык общения с учеником. По умолчанию \"russian\"."
+    },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Профиль обучения ребёнка (аналог полей child_profiles.*).",
+      "required": [
+        "explanation_style",
+        "pace",
+        "autonomy_level",
+        "motivation",
+        "prefers_visual"
+      ],
+      "properties": {
+        "explanation_style": {
+          "type": "string",
+          "description": "Предпочитаемый стиль объяснения материала."
+        },
+        "pace": {
+          "type": "string",
+          "description": "Предпочитаемый темп подачи материала."
+        },
+        "autonomy_level": {
+          "type": "string",
+          "description": "Уровень самостоятельности ребёнка при выполнении заданий."
+        },
+        "motivation": {
+          "type": "string",
+          "description": "Основной источник мотивации ребёнка."
+        },
+        "prefers_visual": {
+          "type": "boolean",
+          "description": "Предпочитает ли ребёнок визуальную подачу материала."
+        }
+      }
+    },
+    "interests": {
+      "type": "array",
+      "description": "Интересы ребёнка (аналог child_interests.tag).",
+      "items": {
+        "type": "string"
+      }
+    },
+    "knowledge": {
+      "type": "array",
+      "description": "Состояние освоения тем по каталогу навыков.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["topic_id", "status"],
+        "properties": {
+          "topic_id": {
+            "type": "string",
+            "pattern": "^math\\.g[34]\\.[a-z_]+(\\.[a-z0-9_]+){0,2}$",
+            "description": "Идентификатор темы из каталога навыков (catalog/math_g3_g4.json)."
+          },
+          "status": {
+            "type": "string",
+            "enum": ["not_started", "learning", "confident", "needs_support"],
+            "description": "Статус освоения темы. Числовых оценок (score) нет и не будет."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Необязательная заметка репетитора по теме."
+          }
+        }
+      }
+    },
+    "error_patterns": {
+      "type": "array",
+      "description": "Повторяющиеся ошибки ребёнка по темам.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["subject", "topic_id", "error_tag", "count", "last_seen"],
+        "properties": {
+          "subject": {
+            "type": "string",
+            "description": "Предмет, к которому относится ошибка."
+          },
+          "topic_id": {
+            "type": "string",
+            "pattern": "^math\\.g[34]\\.[a-z_]+(\\.[a-z0-9_]+){0,2}$",
+            "description": "Идентификатор темы из каталога навыков (catalog/math_g3_g4.json)."
+          },
+          "error_tag": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Метка типа ошибки."
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Сколько раз зафиксирована ошибка."
+          },
+          "last_seen": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+            "format": "date",
+            "description": "Дата последнего наблюдения ошибки в формате YYYY-MM-DD."
+          }
+        }
+      }
+    },
+    "mvp": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Данные MVP-функциональности, которые импортёр в PostgreSQL пропускает целиком.",
+      "required": [
+        "story_preferences",
+        "learning_preferences_observed",
+        "help_strategies",
+        "journal",
+        "points_ledger"
+      ],
+      "properties": {
+        "story_preferences": {
+          "type": "array",
+          "description": "Предпочтения по сюжетам/историям для заданий.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "learning_preferences_observed": {
+          "type": "array",
+          "description": "Наблюдаемые (не заявленные) учебные предпочтения ребёнка.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "help_strategies": {
+          "type": "array",
+          "description": "Стратегии помощи, которые срабатывают для этого ребёнка.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "journal": {
+          "type": "array",
+          "description": "Свободные заметки репетитора по датам.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["date", "note"],
+            "properties": {
+              "date": {
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                "format": "date",
+                "description": "Дата заметки в формате YYYY-MM-DD."
+              },
+              "note": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Текст заметки."
+              }
+            }
+          }
+        },
+        "points_ledger": {
+          "type": "array",
+          "description": "Журнал начислений баллов геймификации. Баланс баллов НИКОГДА не хранится в файле — он всегда вычисляется как сумма по журналу (ledger). Запись только в конец (append-only).",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["date", "points", "reason", "role"],
+            "properties": {
+              "date": {
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                "format": "date",
+                "description": "Дата начисления в формате YYYY-MM-DD."
+              },
+              "points": {
+                "type": "integer",
+                "description": "Количество начисленных (или списанных) баллов."
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Причина начисления баллов."
+              },
+              "role": {
+                "const": "tutor",
+                "type": "string",
+                "description": "Кто начислил баллы. Фиксировано: \"tutor\"."
+              },
+              "topic_id": {
+                "type": "string",
+                "pattern": "^math\\.g[34]\\.[a-z_]+(\\.[a-z0-9_]+){0,2}$",
+                "description": "Необязательная привязка начисления к теме — задел на будущую событийную модель геймификации."
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

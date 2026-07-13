@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Каталог навыков",
+  "description": "Контракт данных каталога тем по предмету (catalog/math_g3_g4.json). Схема — документация контракта; фактическая валидация выполняется отдельным валидатором на stdlib (tools/validate.py), реализуемым в отдельной задаче.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "subject", "grades", "topics"],
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "type": "integer",
+      "description": "Версия схемы каталога. Фиксировано: 1."
+    },
+    "subject": {
+      "const": "math",
+      "type": "string",
+      "description": "Предмет каталога. Фиксировано: \"math\"."
+    },
+    "grades": {
+      "type": "array",
+      "description": "Классы, охваченные каталогом.",
+      "items": {
+        "type": "integer"
+      }
+    },
+    "topics": {
+      "type": "array",
+      "description": "Плоский список тем всех уровней иерархии (разделы, темы, навыки).",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "title_ru", "synonyms", "parent", "grade", "deprecated"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^math\\.g[34]\\.[a-z_]+(\\.[a-z0-9_]+){0,2}$",
+            "description": "Неизменяемый идентификатор темы. Уровень иерархии выводится из числа сегментов id, разделённых точкой: 3 сегмента = раздел, 4 сегмента = тема, 5 сегментов = навык. Устаревшие темы не удаляются и не переименовываются — только помечаются deprecated: true."
+          },
+          "title_ru": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Название темы на русском языке."
+          },
+          "synonyms": {
+            "type": "array",
+            "description": "Синонимы и альтернативные обозначения темы; сюда же кладутся без-классовые коды вида \"math.geometry.segment\".",
+            "items": {
+              "type": "string"
+            }
+          },
+          "parent": {
+            "type": ["string", "null"],
+            "description": "Идентификатор родительской темы — должен равняться id без последнего сегмента. У разделов (верхний уровень иерархии) значение null."
+          },
+          "grade": {
+            "type": "integer",
+            "enum": [3, 4],
+            "description": "Класс, к которому относится тема."
+          },
+          "deprecated": {
+            "type": "boolean",
+            "description": "Признак вывода темы из оборота. Устаревшие темы не удаляются из каталога, только помечаются true."
+          }
+        }
+      }
+    }
+  }
+}
