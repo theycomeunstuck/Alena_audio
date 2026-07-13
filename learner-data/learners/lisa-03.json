@@ -1,0 +1,116 @@
+{
+  "schema_version": 1,
+  "learner_id": "lisa-03",
+  "pseudonym": "Лиса",
+  "age_group": "9-10",
+  "grade": "3",
+  "language": "russian",
+  "profile": {
+    "explanation_style": "через сюжет и картинку, без сухих формулировок",
+    "pace": "средний",
+    "autonomy_level": "нужна поддержка на старте задачи, дальше сама",
+    "motivation": "наклейки и маленькие призы за серию верных ответов",
+    "prefers_visual": true
+  },
+  "interests": [
+    "рисование",
+    "мультфильмы про животных",
+    "домашние питомцы"
+  ],
+  "knowledge": [
+    {
+      "topic_id": "math.g3.fractions.shares",
+      "status": "learning",
+      "notes": "половину и четверть понимает на картинке, словами объяснить сложнее"
+    },
+    {
+      "topic_id": "math.g3.fractions.comparing_shares",
+      "status": "needs_support",
+      "notes": "сравнивает доли по размеру кусочка на глаз, а не по знаменателю"
+    },
+    {
+      "topic_id": "math.g3.word_problems.one_step",
+      "status": "confident",
+      "notes": "простые задачи в одно действие решает быстро и уверенно"
+    },
+    {
+      "topic_id": "math.g3.quantities.mass",
+      "status": "learning",
+      "notes": "граммы и килограммы переводит с опорой на таблицу"
+    },
+    {
+      "topic_id": "math.g3.data.simple_charts",
+      "status": "confident",
+      "notes": "хорошо читает простые диаграммы с картинками"
+    }
+  ],
+  "error_patterns": [
+    {
+      "subject": "math",
+      "topic_id": "math.g3.fractions.comparing_shares",
+      "error_tag": "считает, что доля с большим знаменателем всегда больше",
+      "count": 4,
+      "last_seen": "2026-06-18"
+    },
+    {
+      "subject": "math",
+      "topic_id": "math.g3.quantities.mass",
+      "error_tag": "путает направление перевода: граммы в килограммы и обратно",
+      "count": 2,
+      "last_seen": "2026-06-04"
+    }
+  ],
+  "mvp": {
+    "story_preferences": [
+      "истории про котят и щенков, которые делят угощение поровну"
+    ],
+    "learning_preferences_observed": [
+      "запоминает лучше, если сама рисует иллюстрацию к задаче"
+    ],
+    "help_strategies": [
+      "сначала нарисовать круг или полоску и разделить на доли",
+      "проговорить пример из жизни про питомцев перед решением"
+    ],
+    "journal": [
+      {
+        "date": "2026-05-14",
+        "note": "Знакомство. Любит рисовать — договорились иллюстрировать задачи."
+      },
+      {
+        "date": "2026-06-04",
+        "note": "Массу переводит неуверенно, ввели опорную таблицу граммы-килограммы."
+      },
+      {
+        "date": "2026-06-18",
+        "note": "Доли: путает, у какой доли кусок больше. Рисуем пиццу и делим на глазах."
+      },
+      {
+        "date": "2026-07-02",
+        "note": "После рисунков с пиццей сравнение долей пошло увереннее."
+      }
+    ],
+    "points_ledger": [
+      {
+        "date": "2026-05-14",
+        "points": 5,
+        "reason": "за первую самостоятельно решённую задачу в одно действие",
+        "role": "tutor",
+        "topic_id": "math.g3.word_problems.one_step"
+      },
+      {
+        "date": "2026-06-18",
+        "points": 4,
+        "reason": "за красивый рисунок-пиццу для сравнения долей",
+        "role": "tutor",
+        "topic_id": "math.g3.fractions.comparing_shares"
+      },
+      {
+        "date": "2026-07-02",
+        "points": 6,
+        "reason": "за серию из трёх верных сравнений долей подряд",
+        "role": "tutor",
+        "topic_id": "math.g3.fractions.comparing_shares"
+      }
+    ]
+  }
+}

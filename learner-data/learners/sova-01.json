@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "learner_id": "sova-01",
+  "pseudonym": "Сова",
+  "age_group": "9-10",
+  "grade": "3",
+  "language": "russian",
+  "profile": {
+    "explanation_style": "ещё не определён, первое занятие впереди",
+    "pace": "ещё не определён",
+    "autonomy_level": "ещё не определён",
+    "motivation": "ещё не определена",
+    "prefers_visual": false
+  },
+  "interests": [],
+  "knowledge": [],
+  "error_patterns": [],
+  "mvp": {
+    "story_preferences": [],
+    "learning_preferences_observed": [],
+    "help_strategies": [],
+    "journal": [],
+    "points_ledger": []
+  }
+}

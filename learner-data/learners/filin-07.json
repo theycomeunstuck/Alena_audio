@@ -1,0 +1,99 @@
+{
+  "schema_version": 1,
+  "learner_id": "filin-07",
+  "pseudonym": "Филин",
+  "age_group": "9-10",
+  "grade": "3",
+  "language": "russian",
+  "profile": {
+    "explanation_style": "письменно, с примером решения перед глазами всё время",
+    "pace": "средний",
+    "autonomy_level": "средний, любит подтверждение «правильно ли я подумал» перед тем как писать",
+    "motivation": "чёткий план занятия и видимая цель на сегодня",
+    "prefers_visual": true
+  },
+  "interests": [
+    "поезда и транспорт",
+    "география, карты"
+  ],
+  "knowledge": [
+    {
+      "topic_id": "math.g3.quantities.length",
+      "status": "confident",
+      "notes": "единицы длины переводит свободно, любит задачи про расстояния"
+    },
+    {
+      "topic_id": "math.g3.quantities.time",
+      "status": "learning",
+      "notes": "часы и минуты считает верно, календарь — путается в датах"
+    },
+    {
+      "topic_id": "math.g3.word_problems.price_quantity_cost",
+      "status": "needs_support",
+      "notes": "не может определить, что искать: цену, количество или стоимость"
+    },
+    {
+      "topic_id": "math.g3.data.reading_tables",
+      "status": "confident",
+      "notes": "уверенно находит нужную ячейку в таблице данных"
+    }
+  ],
+  "error_patterns": [
+    {
+      "subject": "math",
+      "topic_id": "math.g3.word_problems.price_quantity_cost",
+      "error_tag": "не может выбрать, что из трёх величин неизвестно",
+      "count": 4,
+      "last_seen": "2026-07-05"
+    },
+    {
+      "subject": "math",
+      "topic_id": "math.g3.quantities.time",
+      "error_tag": "путает количество дней в разных месяцах при работе с календарём",
+      "count": 2,
+      "last_seen": "2026-06-21"
+    }
+  ],
+  "mvp": {
+    "story_preferences": [
+      "истории про путешествия на поезде по расписанию"
+    ],
+    "learning_preferences_observed": [
+      "спокойнее работает, когда видит план занятия списком на бумаге"
+    ],
+    "help_strategies": [
+      "выделять в задаче цену, количество и стоимость разными цветами",
+      "показывать календарь на бумаге при работе с датами"
+    ],
+    "journal": [
+      {
+        "date": "2026-05-11",
+        "note": "Знакомство. Любит поезда и карты — будем встраивать в сюжеты задач."
+      },
+      {
+        "date": "2026-06-21",
+        "note": "Путается в количестве дней по месяцам. Завели бумажный календарь под рукой."
+      },
+      {
+        "date": "2026-07-05",
+        "note": "Задачи цена-количество-стоимость даются тяжело — начали выделять величины цветом."
+      }
+    ],
+    "points_ledger": [
+      {
+        "date": "2026-05-11",
+        "points": 5,
+        "reason": "за уверенный перевод единиц длины на входном занятии",
+        "role": "tutor",
+        "topic_id": "math.g3.quantities.length"
+      },
+      {
+        "date": "2026-07-05",
+        "points": 3,
+        "reason": "за попытки в задачах цена-количество-стоимость без готового ответа",
+        "role": "tutor",
+        "topic_id": "math.g3.word_problems.price_quantity_cost"
+      }
+    ]
+  }
+}

@@ -1,0 +1,98 @@
+{
+  "schema_version": 1,
+  "learner_id": "vydra-10",
+  "pseudonym": "Выдра",
+  "age_group": "10-11",
+  "grade": "4",
+  "language": "russian",
+  "profile": {
+    "explanation_style": "через практическую задачу из жизни, а не абстрактный пример",
+    "pace": "медленный, любит не торопясь разобраться до конца",
+    "autonomy_level": "нужен разбор первого примера вместе, дальше сама",
+    "motivation": "полезность материала: любит понимать, зачем это в жизни нужно",
+    "prefers_visual": true
+  },
+  "interests": [
+    "кулинария и выпечка",
+    "садоводство"
+  ],
+  "knowledge": [
+    {
+      "topic_id": "math.g4.quantities.mass_large_units",
+      "status": "learning",
+      "notes": "центнер и тонну понимает через сравнение с мешками муки на кухне"
+    },
+    {
+      "topic_id": "math.g4.quantities.time_large_units",
+      "status": "confident",
+      "notes": "секунды, сутки и век — переводит уверенно"
+    },
+    {
+      "topic_id": "math.g4.geometry.cube_box",
+      "status": "learning",
+      "notes": "куб и параллелепипед различает, объём пока не считает"
+    },
+    {
+      "topic_id": "math.g4.geometry.rectangle_diagonals",
+      "status": "not_started",
+      "notes": "тема впереди по плану"
+    }
+  ],
+  "error_patterns": [
+    {
+      "subject": "math",
+      "topic_id": "math.g4.quantities.mass_large_units",
+      "error_tag": "путает, сколько центнеров в тонне",
+      "count": 3,
+      "last_seen": "2026-06-27"
+    },
+    {
+      "subject": "math",
+      "topic_id": "math.g4.geometry.cube_box",
+      "error_tag": "путает грань и ребро при описании параллелепипеда",
+      "count": 2,
+      "last_seen": "2026-07-04"
+    }
+  ],
+  "mvp": {
+    "story_preferences": [
+      "задачи про выпечку: сколько муки, сколько порций получится"
+    ],
+    "learning_preferences_observed": [
+      "лучше запоминает единицы массы через кухонные меры, а не абстрактные числа"
+    ],
+    "help_strategies": [
+      "связать тонну и центнер с весом мешков муки или грузовика",
+      "потрогать коробку или кубик, прежде чем считать его свойства"
+    ],
+    "journal": [
+      {
+        "date": "2026-05-13",
+        "note": "Знакомство. Любит кулинарию — переводим задачи в рецепты и порции."
+      },
+      {
+        "date": "2026-06-27",
+        "note": "Центнер и тонна путаются местами. Сравнили с весом мешков муки на кухне — стало понятнее."
+      },
+      {
+        "date": "2026-07-04",
+        "note": "Куб и параллелепипед: взяли коробку из-под печенья, разобрали грани и рёбра руками."
+      }
+    ],
+    "points_ledger": [
+      {
+        "date": "2026-05-13",
+        "points": 5,
+        "reason": "за живой интерес к задачам про выпечку",
+        "role": "tutor"
+      },
+      {
+        "date": "2026-06-27",
+        "points": 4,
+        "reason": "за верный перевод центнеров в тонны после разбора с мешками муки",
+        "role": "tutor",
+        "topic_id": "math.g4.quantities.mass_large_units"
+      }
+    ]
+  }
+}

@@ -1,0 +1,116 @@
+{
+  "schema_version": 1,
+  "learner_id": "belka-06",
+  "pseudonym": "Белка",
+  "age_group": "9-10",
+  "grade": "3",
+  "language": "russian",
+  "profile": {
+    "explanation_style": "любит сама формулировать правило после нескольких примеров",
+    "pace": "быстрый",
+    "autonomy_level": "высокий, легко работает без подсказок",
+    "motivation": "новые, необычные задачи — рутину быстро забрасывает",
+    "prefers_visual": false
+  },
+  "interests": [
+    "музыка",
+    "танцы",
+    "конкурсы и олимпиады"
+  ],
+  "knowledge": [
+    {
+      "topic_id": "math.g3.word_problems.two_step",
+      "status": "confident",
+      "notes": "составные задачи в два действия решает быстро, любит их разнообразие"
+    },
+    {
+      "topic_id": "math.g3.word_problems.comparison.difference",
+      "status": "confident",
+      "notes": "разностное сравнение — без затруднений"
+    },
+    {
+      "topic_id": "math.g3.word_problems.comparison.multiple",
+      "status": "learning",
+      "notes": "кратное сравнение иногда путает с разностным"
+    },
+    {
+      "topic_id": "math.g3.data.patterns",
+      "status": "confident",
+      "notes": "закономерности в числах и фигурах щёлкает как орешки"
+    },
+    {
+      "topic_id": "math.g3.numbers.non_table_mult_div",
+      "status": "learning",
+      "notes": "умножение на круглые числа освоила, деление ещё нет"
+    },
+    {
+      "topic_id": "math.g3.numbers.division_with_remainder",
+      "status": "not_started",
+      "notes": "тема впереди по плану"
+    }
+  ],
+  "error_patterns": [
+    {
+      "subject": "math",
+      "topic_id": "math.g3.word_problems.comparison.multiple",
+      "error_tag": "вместо деления использует вычитание при кратном сравнении",
+      "count": 3,
+      "last_seen": "2026-06-26"
+    }
+  ],
+  "mvp": {
+    "story_preferences": [
+      "задачи-головоломки и логические конкурсы"
+    ],
+    "learning_preferences_observed": [
+      "быстро скучает на однотипных примерах, нужна новизна в формулировке"
+    ],
+    "help_strategies": [
+      "предлагать усложнённый вариант задачи сразу, если базовый решён легко",
+      "проговорить разницу между «на сколько» и «во сколько раз» перед задачей"
+    ],
+    "journal": [
+      {
+        "date": "2026-05-08",
+        "note": "Знакомство. Быстро решает стандартные задачи, скучает — нужны нестандартные форматы."
+      },
+      {
+        "date": "2026-06-12",
+        "note": "Закономерности даются легко, предложили усложнённые примеры на олимпиадный лад."
+      },
+      {
+        "date": "2026-06-26",
+        "note": "Кратное сравнение путает с разностным. Проговорили разницу словами «на» и «во сколько раз»."
+      }
+    ],
+    "points_ledger": [
+      {
+        "date": "2026-05-08",
+        "points": 6,
+        "reason": "за быстрое решение стартового блока задач",
+        "role": "tutor"
+      },
+      {
+        "date": "2026-06-12",
+        "points": 10,
+        "reason": "за успешное решение усложнённой олимпиадной задачи на закономерности",
+        "role": "tutor",
+        "topic_id": "math.g3.data.patterns"
+      },
+      {
+        "date": "2026-06-26",
+        "points": 3,
+        "reason": "за попытку кратного сравнения, несмотря на путаницу",
+        "role": "tutor",
+        "topic_id": "math.g3.word_problems.comparison.multiple"
+      },
+      {
+        "date": "2026-07-10",
+        "points": 8,
+        "reason": "за верное кратное сравнение без подсказки впервые",
+        "role": "tutor",
+        "topic_id": "math.g3.word_problems.comparison.multiple"
+      }
+    ]
+  }
+}

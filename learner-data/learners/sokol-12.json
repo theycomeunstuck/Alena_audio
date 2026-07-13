@@ -1,0 +1,127 @@
+{
+  "schema_version": 1,
+  "learner_id": "sokol-12",
+  "pseudonym": "Сокол",
+  "age_group": "10-11",
+  "grade": "4",
+  "language": "russian",
+  "profile": {
+    "explanation_style": "любит формулы и общий алгоритм, детали выводит сам",
+    "pace": "быстрый, быстро выходит на самостоятельное решение",
+    "autonomy_level": "высокий, почти не нуждается в помощи после объяснения алгоритма",
+    "motivation": "сложные, нестандартные задачи держат интерес лучше похвалы",
+    "prefers_visual": false
+  },
+  "interests": [
+    "программирование для детей",
+    "робототехника",
+    "шахматы"
+  ],
+  "knowledge": [
+    {
+      "topic_id": "math.g4.word_problems.motion.speed_time_distance",
+      "status": "confident",
+      "notes": "формулу пути применяет в любых вариациях задачи"
+    },
+    {
+      "topic_id": "math.g4.word_problems.motion.approach",
+      "status": "confident",
+      "notes": "встречное движение решает без схемы, в уме"
+    },
+    {
+      "topic_id": "math.g4.numbers.order_of_operations_brackets",
+      "status": "confident",
+      "notes": "сложные выражения со скобками — без ошибок"
+    },
+    {
+      "topic_id": "math.g4.geometry.angles",
+      "status": "learning",
+      "notes": "теорию видов углов знает, транспортиром пользуется невнимательно"
+    },
+    {
+      "topic_id": "math.g4.data.tables_read_fill",
+      "status": "confident",
+      "notes": "быстро заполняет и читает таблицы данных"
+    },
+    {
+      "topic_id": "math.g4.word_problems.work_productivity",
+      "status": "learning",
+      "notes": "понимает идею производительности, путается в единицах измерения работы"
+    }
+  ],
+  "error_patterns": [
+    {
+      "subject": "math",
+      "topic_id": "math.g4.geometry.angles",
+      "error_tag": "неправильно совмещает транспортир с вершиной угла",
+      "count": 4,
+      "last_seen": "2026-07-11"
+    },
+    {
+      "subject": "math",
+      "topic_id": "math.g4.word_problems.work_productivity",
+      "error_tag": "путает единицы измерения производительности в составной задаче",
+      "count": 2,
+      "last_seen": "2026-06-30"
+    }
+  ],
+  "mvp": {
+    "story_preferences": [
+      "инженерные задачи и мини-проекты с роботами"
+    ],
+    "learning_preferences_observed": [
+      "быстро выводит общий алгоритм сам, если показать два-три примера подряд"
+    ],
+    "help_strategies": [
+      "давать усложнённую задачу сразу после освоения базового алгоритма",
+      "потренироваться с транспортиром на реальных углах, а не только в тетради"
+    ],
+    "journal": [
+      {
+        "date": "2026-05-15",
+        "note": "Знакомство. Очень быстро схватывает алгоритмы, нужен запас сложных задач про запас."
+      },
+      {
+        "date": "2026-06-05",
+        "note": "Движение и встречное движение прошли без остановки, сразу перешли к смешанным задачам."
+      },
+      {
+        "date": "2026-06-30",
+        "note": "Производительность труда: путает единицы измерения в составных задачах."
+      },
+      {
+        "date": "2026-07-11",
+        "note": "С транспортиром невнимателен из-за спешки — сделали медленную тренировку на реальных углах."
+      }
+    ],
+    "points_ledger": [
+      {
+        "date": "2026-05-15",
+        "points": 9,
+        "reason": "за самостоятельный вывод формулы пути из примеров",
+        "role": "tutor",
+        "topic_id": "math.g4.word_problems.motion.speed_time_distance"
+      },
+      {
+        "date": "2026-06-05",
+        "points": 10,
+        "reason": "за решение усложнённой задачи на встречное движение без схемы",
+        "role": "tutor",
+        "topic_id": "math.g4.word_problems.motion.approach"
+      },
+      {
+        "date": "2026-06-30",
+        "points": 3,
+        "reason": "за настойчивость в задаче на производительность несмотря на путаницу с единицами",
+        "role": "tutor"
+      },
+      {
+        "date": "2026-07-11",
+        "points": 5,
+        "reason": "за терпеливую тренировку измерения углов транспортиром",
+        "role": "tutor",
+        "topic_id": "math.g4.geometry.angles"
+      }
+    ]
+  }
+}
