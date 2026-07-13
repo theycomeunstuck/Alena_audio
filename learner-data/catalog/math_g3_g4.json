@@ -1,0 +1,792 @@
+{
+  "schema_version": 1,
+  "subject": "math",
+  "grades": [
+    3,
+    4
+  ],
+  "topics": [
+    {
+      "id": "math.g3.numbers",
+      "title_ru": "Числа и операции",
+      "synonyms": [
+        "math.numbers"
+      ],
+      "parent": null,
+      "grade": 3,
+      "deprecated": false
+    },
+    {
+      "id": "math.g3.numbers.numeration_1000",
+      "title_ru": "Нумерация в пределах 1000",
+      "synonyms": [
+        "разряды и классы до 1000",
+        "устройство трёхзначных чисел",
+        "math.numbers.numeration_1000"
+      ],
+      "parent": "math.g3.numbers",
+      "grade": 3,
+      "deprecated": false
+    },
+    {
+      "id": "math.g3.numbers.column_addition_subtraction",
+      "title_ru": "Сложение и вычитание столбиком",
+      "synonyms": [
+        "math.numbers.column_addition_subtraction"
+      ],
+      "parent": "math.g3.numbers",
+      "grade": 3,
+      "deprecated": false
+    },
+    {
+      "id": "math.g3.numbers.column_addition_subtraction.no_carry",
+      "title_ru": "Сложение и вычитание столбиком без перехода через разряд",
+      "synonyms": [
+        "столбиком без перехода",
+        "math.numbers.column_addition_subtraction.no_carry"
+      ],
+      "parent": "math.g3.numbers.column_addition_subtraction",
+      "grade": 3,
+      "deprecated": false
+    },
+    {
+      "id": "math.g3.numbers.column_addition_subtraction.with_carry",
+      "title_ru": "Сложение и вычитание столбиком с переходом через разряд",
+      "synonyms": [
+        "столбиком с переходом",
+        "столбиком с заёмом",
+        "math.numbers.column_addition_subtraction.with_carry"
+      ],
+      "parent": "math.g3.numbers.column_addition_subtraction",
+      "grade": 3,
+      "deprecated": false
+    },
+    {
+      "id": "math.g3.numbers.multiplication_table",
+      "title_ru": "Табличное умножение и деление",
+      "synonyms": [
+        "math.numbers.multiplication_table"
+      ],
+      "parent": "math.g3.numbers",
+      "grade": 3,
+      "deprecated": false
+    },
+    {
+      "id": "math.g3.numbers.multiplication_table.times_table",
+      "title_ru": "Таблица умножения",
+      "synonyms": [
+        "таблица умножения наизусть",
+        "math.numbers.multiplication_table.times_table"
+      ],
+      "parent": "math.g3.numbers.multiplication_table",
+      "grade": 3,
+      "deprecated": false
+    },
+    {
+      "id": "math.g3.numbers.multiplication_table.division_from_table",
+      "title_ru": "Деление на основе таблицы умножения",
+      "synonyms": [
+        "деление по таблице умножения",
+        "math.numbers.multiplication_table.division_from_table"
+      ],
+      "parent": "math.g3.numbers.multiplication_table",
+      "grade": 3,
+      "deprecated": false
+    },
+    {
+      "id": "math.g3.numbers.non_table_mult_div",
+      "title_ru": "Внетабличное умножение и деление",
+      "synonyms": [
+        "умножение и деление за пределами таблицы",
+        "умножение на круглые числа",
+        "math.numbers.non_table_mult_div"
+      ],
+      "parent": "math.g3.numbers",
+      "grade": 3,
+      "deprecated": false
+    },
+    {
+      "id": "math.g3.numbers.division_with_remainder",
+      "title_ru": "Деление с остатком",
+      "synonyms": [
+        "деление с остатком",
+        "math.numbers.division_with_remainder"
+      ],
+      "parent": "math.g3.numbers",
+      "grade": 3,
+      "deprecated": false
+    },
+    {
+      "id": "math.g3.numbers.order_of_operations",
+      "title_ru": "Порядок действий и скобки",
+      "synonyms": [
+        "порядок действий",
+        "выражения со скобками",
+        "math.numbers.order_of_operations"
+      ],
+      "parent": "math.g3.numbers",
+      "grade": 3,
+      "deprecated": false
+    },
+    {
+      "id": "math.g3.numbers.simple_equations",
+      "title_ru": "Простые уравнения",
+      "synonyms": [
+        "уравнения с одним неизвестным",
+        "найти неизвестное число",
+        "math.numbers.simple_equations"
+      ],
+      "parent": "math.g3.numbers",
+      "grade": 3,
+      "deprecated": false
+    },
+    {
+      "id": "math.g3.word_problems",
+      "title_ru": "Текстовые задачи",
+      "synonyms": [
+        "math.word_problems"
+      ],
+      "parent": null,
+      "grade": 3,
+      "deprecated": false
+    },
+    {
+      "id": "math.g3.word_problems.one_step",
+      "title_ru": "Простые задачи в одно действие",
+      "synonyms": [
+        "задачи в одно действие",
+        "math.word_problems.one_step"
+      ],
+      "parent": "math.g3.word_problems",
+      "grade": 3,
+      "deprecated": false
+    },
+    {
+      "id": "math.g3.word_problems.two_step",
+      "title_ru": "Составные задачи в два действия",
+      "synonyms": [
+        "задачи в два действия",
+        "составные задачи",
+        "math.word_problems.two_step"
+      ],
+      "parent": "math.g3.word_problems",
+      "grade": 3,
+      "deprecated": false
+    },
+    {
+      "id": "math.g3.word_problems.price_quantity_cost",
+      "title_ru": "Задачи на цену, количество и стоимость",
+      "synonyms": [
+        "цена-количество-стоимость",
+        "задачи про покупки",
+        "math.word_problems.price_quantity_cost"
+      ],
+      "parent": "math.g3.word_problems",
+      "grade": 3,
+      "deprecated": false
+    },
+    {
+      "id": "math.g3.word_problems.comparison",
+      "title_ru": "Сравнение чисел и величин в задачах",
+      "synonyms": [
+        "math.word_problems.comparison"
+      ],
+      "parent": "math.g3.word_problems",
+      "grade": 3,
+      "deprecated": false
+    },
+    {
+      "id": "math.g3.word_problems.comparison.difference",
+      "title_ru": "Разностное сравнение (на сколько больше/меньше)",
+      "synonyms": [
+        "на сколько больше",
+        "разностное сравнение",
+        "math.word_problems.comparison.difference"
+      ],
+      "parent": "math.g3.word_problems.comparison",
+      "grade": 3,
+      "deprecated": false
+    },
+    {
+      "id": "math.g3.word_problems.comparison.multiple",
+      "title_ru": "Кратное сравнение (во сколько раз больше/меньше)",
+      "synonyms": [
+        "во сколько раз больше",
+        "кратное сравнение",
+        "math.word_problems.comparison.multiple"
+      ],
+      "parent": "math.g3.word_problems.comparison",
+      "grade": 3,
+      "deprecated": false
+    },
+    {
+      "id": "math.g3.quantities",
+      "title_ru": "Величины",
+      "synonyms": [
+        "math.quantities"
+      ],
+      "parent": null,
+      "grade": 3,
+      "deprecated": false
+    },
+    {
+      "id": "math.g3.quantities.length",
+      "title_ru": "Длина: миллиметр, сантиметр, метр, километр",
+      "synonyms": [
+        "единицы длины",
+        "перевод единиц длины",
+        "math.quantities.length"
+      ],
+      "parent": "math.g3.quantities",
+      "grade": 3,
+      "deprecated": false
+    },
+    {
+      "id": "math.g3.quantities.mass",
+      "title_ru": "Масса: грамм и килограмм",
+      "synonyms": [
+        "единицы массы",
+        "граммы и килограммы",
+        "math.quantities.mass"
+      ],
+      "parent": "math.g3.quantities",
+      "grade": 3,
+      "deprecated": false
+    },
+    {
+      "id": "math.g3.quantities.time",
+      "title_ru": "Время: час, минута, календарь",
+      "synonyms": [
+        "единицы времени",
+        "часы и минуты",
+        "работа с календарём",
+        "math.quantities.time"
+      ],
+      "parent": "math.g3.quantities",
+      "grade": 3,
+      "deprecated": false
+    },
+    {
+      "id": "math.g3.geometry",
+      "title_ru": "Геометрия",
+      "synonyms": [
+        "math.geometry"
+      ],
+      "parent": null,
+      "grade": 3,
+      "deprecated": false
+    },
+    {
+      "id": "math.g3.geometry.point_line_ray_segment",
+      "title_ru": "Точка, прямая, луч, отрезок",
+      "synonyms": [
+        "основные геометрические фигуры",
+        "math.geometry.point_line_ray_segment"
+      ],
+      "parent": "math.g3.geometry",
+      "grade": 3,
+      "deprecated": false
+    },
+    {
+      "id": "math.g3.geometry.perimeter_polygon",
+      "title_ru": "Периметр многоугольника",
+      "synonyms": [
+        "периметр",
+        "math.geometry.perimeter_polygon"
+      ],
+      "parent": "math.g3.geometry",
+      "grade": 3,
+      "deprecated": false
+    },
+    {
+      "id": "math.g3.geometry.area_rectangle",
+      "title_ru": "Площадь прямоугольника",
+      "synonyms": [
+        "площадь прямоугольника и квадрата",
+        "math.geometry.area_rectangle"
+      ],
+      "parent": "math.g3.geometry",
+      "grade": 3,
+      "deprecated": false
+    },
+    {
+      "id": "math.g3.geometry.triangle_types",
+      "title_ru": "Виды треугольников",
+      "synonyms": [
+        "классификация треугольников",
+        "math.geometry.triangle_types"
+      ],
+      "parent": "math.g3.geometry",
+      "grade": 3,
+      "deprecated": false
+    },
+    {
+      "id": "math.g3.geometry.circle",
+      "title_ru": "Окружность и круг",
+      "synonyms": [
+        "окружность, круг, радиус и диаметр",
+        "math.geometry.circle"
+      ],
+      "parent": "math.g3.geometry",
+      "grade": 3,
+      "deprecated": false
+    },
+    {
+      "id": "math.g3.fractions",
+      "title_ru": "Дроби",
+      "synonyms": [
+        "math.fractions"
+      ],
+      "parent": null,
+      "grade": 3,
+      "deprecated": false
+    },
+    {
+      "id": "math.g3.fractions.shares",
+      "title_ru": "Доли",
+      "synonyms": [
+        "половина, треть, четверть",
+        "math.fractions.shares"
+      ],
+      "parent": "math.g3.fractions",
+      "grade": 3,
+      "deprecated": false
+    },
+    {
+      "id": "math.g3.fractions.comparing_shares",
+      "title_ru": "Сравнение долей",
+      "synonyms": [
+        "какая доля больше",
+        "math.fractions.comparing_shares"
+      ],
+      "parent": "math.g3.fractions",
+      "grade": 3,
+      "deprecated": false
+    },
+    {
+      "id": "math.g3.fractions.finding_share_of_number",
+      "title_ru": "Нахождение доли числа",
+      "synonyms": [
+        "найти долю от числа",
+        "math.fractions.finding_share_of_number"
+      ],
+      "parent": "math.g3.fractions",
+      "grade": 3,
+      "deprecated": false
+    },
+    {
+      "id": "math.g3.data",
+      "title_ru": "Данные и таблицы",
+      "synonyms": [
+        "math.data"
+      ],
+      "parent": null,
+      "grade": 3,
+      "deprecated": false
+    },
+    {
+      "id": "math.g3.data.reading_tables",
+      "title_ru": "Чтение таблиц",
+      "synonyms": [
+        "работа с таблицами данных",
+        "math.data.reading_tables"
+      ],
+      "parent": "math.g3.data",
+      "grade": 3,
+      "deprecated": false
+    },
+    {
+      "id": "math.g3.data.simple_charts",
+      "title_ru": "Простые диаграммы",
+      "synonyms": [
+        "чтение простых диаграмм",
+        "math.data.simple_charts"
+      ],
+      "parent": "math.g3.data",
+      "grade": 3,
+      "deprecated": false
+    },
+    {
+      "id": "math.g3.data.patterns",
+      "title_ru": "Логические цепочки и закономерности",
+      "synonyms": [
+        "закономерности в числах и фигурах",
+        "продолжи ряд",
+        "math.data.patterns"
+      ],
+      "parent": "math.g3.data",
+      "grade": 3,
+      "deprecated": false
+    },
+    {
+      "id": "math.g4.numbers",
+      "title_ru": "Числа и операции",
+      "synonyms": [
+        "math.numbers"
+      ],
+      "parent": null,
+      "grade": 4,
+      "deprecated": false
+    },
+    {
+      "id": "math.g4.numbers.multidigit_numeration",
+      "title_ru": "Многозначные числа: нумерация, разряды и классы",
+      "synonyms": [
+        "классы и разряды многозначных чисел",
+        "чтение больших чисел",
+        "math.numbers.multidigit_numeration"
+      ],
+      "parent": "math.g4.numbers",
+      "grade": 4,
+      "deprecated": false
+    },
+    {
+      "id": "math.g4.numbers.multidigit_addition_subtraction",
+      "title_ru": "Сложение и вычитание многозначных чисел",
+      "synonyms": [
+        "сложение и вычитание столбиком многозначных чисел",
+        "math.numbers.multidigit_addition_subtraction"
+      ],
+      "parent": "math.g4.numbers",
+      "grade": 4,
+      "deprecated": false
+    },
+    {
+      "id": "math.g4.numbers.multiplication_by_1_2_digit",
+      "title_ru": "Умножение на однозначное и двузначное число",
+      "synonyms": [
+        "умножение столбиком",
+        "умножение на двузначное число",
+        "math.numbers.multiplication_by_1_2_digit"
+      ],
+      "parent": "math.g4.numbers",
+      "grade": 4,
+      "deprecated": false
+    },
+    {
+      "id": "math.g4.numbers.division_by_1_2_digit",
+      "title_ru": "Деление на однозначное и двузначное число",
+      "synonyms": [
+        "деление столбиком",
+        "деление на двузначное число",
+        "math.numbers.division_by_1_2_digit"
+      ],
+      "parent": "math.g4.numbers",
+      "grade": 4,
+      "deprecated": false
+    },
+    {
+      "id": "math.g4.numbers.order_of_operations_brackets",
+      "title_ru": "Порядок действий в выражениях со скобками",
+      "synonyms": [
+        "сложные выражения со скобками",
+        "порядок действий",
+        "math.numbers.order_of_operations_brackets"
+      ],
+      "parent": "math.g4.numbers",
+      "grade": 4,
+      "deprecated": false
+    },
+    {
+      "id": "math.g4.word_problems",
+      "title_ru": "Текстовые задачи",
+      "synonyms": [
+        "math.word_problems"
+      ],
+      "parent": null,
+      "grade": 4,
+      "deprecated": false
+    },
+    {
+      "id": "math.g4.word_problems.motion",
+      "title_ru": "Задачи на движение",
+      "synonyms": [
+        "math.word_problems.motion"
+      ],
+      "parent": "math.g4.word_problems",
+      "grade": 4,
+      "deprecated": false
+    },
+    {
+      "id": "math.g4.word_problems.motion.speed_time_distance",
+      "title_ru": "Скорость, время, расстояние",
+      "synonyms": [
+        "формула пути",
+        "задачи на скорость",
+        "math.word_problems.motion.speed_time_distance"
+      ],
+      "parent": "math.g4.word_problems.motion",
+      "grade": 4,
+      "deprecated": false
+    },
+    {
+      "id": "math.g4.word_problems.motion.approach",
+      "title_ru": "Задачи на встречное движение",
+      "synonyms": [
+        "встречное движение",
+        "движение навстречу друг другу",
+        "math.word_problems.motion.approach"
+      ],
+      "parent": "math.g4.word_problems.motion",
+      "grade": 4,
+      "deprecated": false
+    },
+    {
+      "id": "math.g4.word_problems.work_productivity",
+      "title_ru": "Задачи на работу и производительность",
+      "synonyms": [
+        "производительность труда",
+        "задачи на совместную работу",
+        "math.word_problems.work_productivity"
+      ],
+      "parent": "math.g4.word_problems",
+      "grade": 4,
+      "deprecated": false
+    },
+    {
+      "id": "math.g4.word_problems.price_quantity_cost",
+      "title_ru": "Задачи на цену, количество и стоимость",
+      "synonyms": [
+        "цена-количество-стоимость",
+        "math.word_problems.price_quantity_cost"
+      ],
+      "parent": "math.g4.word_problems",
+      "grade": 4,
+      "deprecated": false
+    },
+    {
+      "id": "math.g4.word_problems.multi_step",
+      "title_ru": "Составные задачи в три и более действия",
+      "synonyms": [
+        "задачи в 3+ действия",
+        "многошаговые задачи",
+        "math.word_problems.multi_step"
+      ],
+      "parent": "math.g4.word_problems",
+      "grade": 4,
+      "deprecated": false
+    },
+    {
+      "id": "math.g4.quantities",
+      "title_ru": "Величины",
+      "synonyms": [
+        "math.quantities"
+      ],
+      "parent": null,
+      "grade": 4,
+      "deprecated": false
+    },
+    {
+      "id": "math.g4.quantities.area_units",
+      "title_ru": "Единицы площади",
+      "synonyms": [
+        "квадратный сантиметр и квадратный метр",
+        "перевод единиц площади",
+        "math.quantities.area_units"
+      ],
+      "parent": "math.g4.quantities",
+      "grade": 4,
+      "deprecated": false
+    },
+    {
+      "id": "math.g4.quantities.mass_large_units",
+      "title_ru": "Масса: центнер и тонна",
+      "synonyms": [
+        "крупные единицы массы",
+        "math.quantities.mass_large_units"
+      ],
+      "parent": "math.g4.quantities",
+      "grade": 4,
+      "deprecated": false
+    },
+    {
+      "id": "math.g4.quantities.time_large_units",
+      "title_ru": "Время: секунда, сутки, век",
+      "synonyms": [
+        "крупные и мелкие единицы времени",
+        "math.quantities.time_large_units"
+      ],
+      "parent": "math.g4.quantities",
+      "grade": 4,
+      "deprecated": false
+    },
+    {
+      "id": "math.g4.quantities.unit_conversion",
+      "title_ru": "Соотношения именованных величин",
+      "synonyms": [
+        "перевод одних единиц измерения в другие",
+        "именованные числа",
+        "math.quantities.unit_conversion"
+      ],
+      "parent": "math.g4.quantities",
+      "grade": 4,
+      "deprecated": false
+    },
+    {
+      "id": "math.g4.geometry",
+      "title_ru": "Геометрия",
+      "synonyms": [
+        "math.geometry"
+      ],
+      "parent": null,
+      "grade": 4,
+      "deprecated": false
+    },
+    {
+      "id": "math.g4.geometry.composite_area_perimeter",
+      "title_ru": "Площадь и периметр составных фигур",
+      "synonyms": [
+        "составные фигуры",
+        "площадь фигуры неправильной формы",
+        "math.geometry.composite_area_perimeter"
+      ],
+      "parent": "math.g4.geometry",
+      "grade": 4,
+      "deprecated": false
+    },
+    {
+      "id": "math.g4.geometry.angles",
+      "title_ru": "Углы и их виды",
+      "synonyms": [
+        "острый, прямой и тупой угол",
+        "измерение углов транспортиром",
+        "math.geometry.angles"
+      ],
+      "parent": "math.g4.geometry",
+      "grade": 4,
+      "deprecated": false
+    },
+    {
+      "id": "math.g4.geometry.rectangle_diagonals",
+      "title_ru": "Диагонали прямоугольника",
+      "synonyms": [
+        "свойства диагоналей прямоугольника",
+        "math.geometry.rectangle_diagonals"
+      ],
+      "parent": "math.g4.geometry",
+      "grade": 4,
+      "deprecated": false
+    },
+    {
+      "id": "math.g4.geometry.cube_box",
+      "title_ru": "Куб и прямоугольный параллелепипед",
+      "synonyms": [
+        "объёмные фигуры наглядно",
+        "куб и параллелепипед",
+        "math.geometry.cube_box"
+      ],
+      "parent": "math.g4.geometry",
+      "grade": 4,
+      "deprecated": false
+    },
+    {
+      "id": "math.g4.fractions",
+      "title_ru": "Дроби",
+      "synonyms": [
+        "math.fractions"
+      ],
+      "parent": null,
+      "grade": 4,
+      "deprecated": false
+    },
+    {
+      "id": "math.g4.fractions.numerator_denominator",
+      "title_ru": "Дробь, числитель и знаменатель",
+      "synonyms": [
+        "части дроби",
+        "что такое числитель и знаменатель",
+        "math.fractions.numerator_denominator"
+      ],
+      "parent": "math.g4.fractions",
+      "grade": 4,
+      "deprecated": false
+    },
+    {
+      "id": "math.g4.fractions.comparing_same_denominator",
+      "title_ru": "Сравнение дробей с одинаковым знаменателем",
+      "synonyms": [
+        "сравнение дробей",
+        "math.fractions.comparing_same_denominator"
+      ],
+      "parent": "math.g4.fractions",
+      "grade": 4,
+      "deprecated": false
+    },
+    {
+      "id": "math.g4.fractions.part_of_number",
+      "title_ru": "Часть числа и число по его части",
+      "synonyms": [
+        "math.fractions.part_of_number"
+      ],
+      "parent": "math.g4.fractions",
+      "grade": 4,
+      "deprecated": false
+    },
+    {
+      "id": "math.g4.fractions.part_of_number.finding_part",
+      "title_ru": "Нахождение части числа",
+      "synonyms": [
+        "найти часть от числа",
+        "math.fractions.part_of_number.finding_part"
+      ],
+      "parent": "math.g4.fractions.part_of_number",
+      "grade": 4,
+      "deprecated": false
+    },
+    {
+      "id": "math.g4.fractions.part_of_number.finding_whole",
+      "title_ru": "Нахождение числа по его части",
+      "synonyms": [
+        "найти целое по известной части",
+        "math.fractions.part_of_number.finding_whole"
+      ],
+      "parent": "math.g4.fractions.part_of_number",
+      "grade": 4,
+      "deprecated": false
+    },
+    {
+      "id": "math.g4.data",
+      "title_ru": "Данные и таблицы",
+      "synonyms": [
+        "math.data"
+      ],
+      "parent": null,
+      "grade": 4,
+      "deprecated": false
+    },
+    {
+      "id": "math.g4.data.tables_read_fill",
+      "title_ru": "Таблицы: чтение и заполнение",
+      "synonyms": [
+        "заполнение таблиц данными",
+        "math.data.tables_read_fill"
+      ],
+      "parent": "math.g4.data",
+      "grade": 4,
+      "deprecated": false
+    },
+    {
+      "id": "math.g4.data.bar_charts",
+      "title_ru": "Столбчатые диаграммы",
+      "synonyms": [
+        "чтение столбчатых диаграмм",
+        "math.data.bar_charts"
+      ],
+      "parent": "math.g4.data",
+      "grade": 4,
+      "deprecated": false
+    },
+    {
+      "id": "math.g4.data.true_false_statements",
+      "title_ru": "Истинные и ложные утверждения",
+      "synonyms": [
+        "верно или неверно утверждение",
+        "проверка истинности высказываний",
+        "math.data.true_false_statements"
+      ],
+      "parent": "math.g4.data",
+      "grade": 4,
+      "deprecated": false
+    }
+  ]
+}
