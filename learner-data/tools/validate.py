@@ -211,7 +211,8 @@ def validate_catalog(catalog_data: object, catalog_file: str) -> tuple[list[Find
 
 CARD_TOP_KEYS = {
     "schema_version", "learner_id", "pseudonym", "age_group", "grade",
-    "language", "profile", "interests", "knowledge", "error_patterns", "mvp",
+    "language", "rag_context", "profile", "interests", "knowledge", "error_patterns", "mvp",
+    "learner_model",
 }
 PROFILE_KEYS = {"explanation_style", "pace", "autonomy_level", "motivation", "prefers_visual"}
 MVP_KEYS = {"story_preferences", "learning_preferences_observed", "help_strategies", "journal", "points_ledger"}
@@ -219,6 +220,18 @@ KNOWLEDGE_ITEM_KEYS = {"topic_id", "status", "notes"}
 ERROR_PATTERN_ITEM_KEYS = {"subject", "topic_id", "error_tag", "count", "last_seen"}
 JOURNAL_ITEM_KEYS = {"date", "note"}
 POINTS_ITEM_KEYS = {"date", "points", "reason", "role", "topic_id"}
+RAG_CONTEXT_KEYS = {
+    "current_goal", "current_topics", "priority_difficulties",
+    "effective_strategies", "avoid", "recent_progress",
+}
+RAG_GOAL_KEYS = {"topic_id", "goal", "updated_at"}
+RAG_DIFFICULTY_KEYS = {"topic_id", "description"}
+RAG_PROGRESS_KEYS = {"date", "note"}
+LEARNER_MODEL_KEYS = {
+    "competencies", "zpd", "learning_preferences", "engagement", "ai_usage",
+    "projects", "strengths", "support_needs", "scaffolding_by_topic", "gamification",
+}
+RAG_TEXT_MAX = 280
 
 
 def _contains_balance_key(obj: object, json_path: str, file: str, findings: list[Finding]) -> None:
@@ -233,6 +246,149 @@ def _contains_balance_key(obj: object, json_path: str, file: str, findings: list
     elif isinstance(obj, list):
         for i, item in enumerate(obj):
             _contains_balance_key(item, f"{json_path}/{i}", file, findings)
+
+
+def _check_bounded_text(value: object, filename: str, json_path: str, label: str) -> list[Finding]:
+    """Validate text destined for the compact RAG projection."""
+    findings: list[Finding] = []
+    if not _is_nonempty_str(value):
+        findings.append(_err(filename, json_path, f'{label} должен быть непустой строкой'))
+    elif len(value) > RAG_TEXT_MAX:
+        findings.append(_err(filename, json_path, f'{label} длиннее {RAG_TEXT_MAX} символов и не поместится в компактный RAG-контекст'))
+    return findings
+
+
+def _validate_rag_context(rag: object, catalog: dict, filename: str) -> list[Finding]:
+    """Validate the small explicit projection that may reach the AI tutor."""
+    findings: list[Finding] = []
+    if not isinstance(rag, dict):
+        return [_err(filename, "/rag_context", 'поле "rag_context" должно быть объектом')]
+
+    findings.extend(_find_unknown_keys(rag, RAG_CONTEXT_KEYS, filename, "/rag_context"))
+    for key in RAG_CONTEXT_KEYS:
+        if key not in rag:
+            findings.append(_err(filename, f"/rag_context/{key}", f'отсутствует обязательное поле "{key}"'))
+
+    goal = rag.get("current_goal")
+    if not isinstance(goal, dict):
+        findings.append(_err(filename, "/rag_context/current_goal", 'поле "current_goal" должно быть объектом'))
+    else:
+        findings.extend(_find_unknown_keys(goal, RAG_GOAL_KEYS, filename, "/rag_context/current_goal"))
+        for key in RAG_GOAL_KEYS:
+            if key not in goal:
+                findings.append(_err(filename, f"/rag_context/current_goal/{key}", f'отсутствует обязательное поле "{key}"'))
+        if isinstance(goal.get("topic_id"), str):
+            findings.extend(_check_topic_ref(goal["topic_id"], catalog, filename, "/rag_context/current_goal/topic_id"))
+        elif "topic_id" in goal:
+            findings.append(_err(filename, "/rag_context/current_goal/topic_id", 'поле "topic_id" должно быть строкой'))
+        if "goal" in goal:
+            findings.extend(_check_bounded_text(goal["goal"], filename, "/rag_context/current_goal/goal", "цель"))
+        if "updated_at" in goal:
+            findings.extend(_check_date(goal["updated_at"], filename, "/rag_context/current_goal/updated_at"))
+
+    current_topics = rag.get("current_topics")
+    if not isinstance(current_topics, list):
+        findings.append(_err(filename, "/rag_context/current_topics", 'поле "current_topics" должно быть списком'))
+    else:
+        if len(current_topics) > 3:
+            findings.append(_err(filename, "/rag_context/current_topics", "в RAG-контексте может быть максимум 3 текущие темы"))
+        seen: set[str] = set()
+        for i, topic_id in enumerate(current_topics):
+            path = f"/rag_context/current_topics/{i}"
+            if not isinstance(topic_id, str):
+                findings.append(_err(filename, path, "topic_id должен быть строкой"))
+            else:
+                if topic_id in seen:
+                    findings.append(_err(filename, path, f'дублирующийся topic_id "{topic_id}"'))
+                seen.add(topic_id)
+                findings.extend(_check_topic_ref(topic_id, catalog, filename, path))
+
+    difficulties = rag.get("priority_difficulties")
+    if not isinstance(difficulties, list):
+        findings.append(_err(filename, "/rag_context/priority_difficulties", 'поле "priority_difficulties" должно быть списком'))
+    else:
+        if len(difficulties) > 3:
+            findings.append(_err(filename, "/rag_context/priority_difficulties", "в RAG-контексте может быть максимум 3 трудности"))
+        for i, item in enumerate(difficulties):
+            path = f"/rag_context/priority_difficulties/{i}"
+            if not isinstance(item, dict):
+                findings.append(_err(filename, path, "запись трудности должна быть объектом"))
+                continue
+            findings.extend(_find_unknown_keys(item, RAG_DIFFICULTY_KEYS, filename, path))
+            for key in RAG_DIFFICULTY_KEYS:
+                if key not in item:
+                    findings.append(_err(filename, f"{path}/{key}", f'отсутствует обязательное поле "{key}"'))
+            if isinstance(item.get("topic_id"), str):
+                findings.extend(_check_topic_ref(item["topic_id"], catalog, filename, f"{path}/topic_id"))
+            elif "topic_id" in item:
+                findings.append(_err(filename, f"{path}/topic_id", 'поле "topic_id" должно быть строкой'))
+            if "description" in item:
+                findings.extend(_check_bounded_text(item["description"], filename, f"{path}/description", "описание трудности"))
+
+    for key, label in (("effective_strategies", "стратегия помощи"), ("avoid", "пункт avoid")):
+        items = rag.get(key)
+        path = f"/rag_context/{key}"
+        if not isinstance(items, list):
+            findings.append(_err(filename, path, f'поле "{key}" должно быть списком'))
+            continue
+        if len(items) > 3:
+            findings.append(_err(filename, path, f'в RAG-контексте может быть максимум 3 элементов "{key}"'))
+        for i, item in enumerate(items):
+            findings.extend(_check_bounded_text(item, filename, f"{path}/{i}", label))
+
+    progress = rag.get("recent_progress")
+    if not isinstance(progress, dict):
+        findings.append(_err(filename, "/rag_context/recent_progress", 'поле "recent_progress" должно быть объектом'))
+    else:
+        findings.extend(_find_unknown_keys(progress, RAG_PROGRESS_KEYS, filename, "/rag_context/recent_progress"))
+        for key in RAG_PROGRESS_KEYS:
+            if key not in progress:
+                findings.append(_err(filename, f"/rag_context/recent_progress/{key}", f'отсутствует обязательное поле "{key}"'))
+        if "date" in progress:
+            findings.extend(_check_date(progress["date"], filename, "/rag_context/recent_progress/date"))
+        if "note" in progress:
+            findings.extend(_check_bounded_text(progress["note"], filename, "/rag_context/recent_progress/note", "заметка о прогрессе"))
+    return findings
+
+
+def _validate_learner_model(model: object, catalog: dict, filename: str) -> list[Finding]:
+    """Lightweight structural guard for the rich benchmark-only learner model."""
+    findings: list[Finding] = []
+    if not isinstance(model, dict):
+        return [_err(filename, "/learner_model", 'поле "learner_model" должно быть объектом')]
+    findings.extend(_find_unknown_keys(model, LEARNER_MODEL_KEYS, filename, "/learner_model"))
+    for key in LEARNER_MODEL_KEYS:
+        if key not in model:
+            findings.append(_err(filename, f"/learner_model/{key}", f'отсутствует обязательное поле "{key}"'))
+
+    for key in ("competencies", "projects", "strengths", "support_needs", "scaffolding_by_topic"):
+        if key in model and not isinstance(model[key], list):
+            findings.append(_err(filename, f"/learner_model/{key}", f'поле "{key}" должно быть списком'))
+    for key in ("zpd", "learning_preferences", "engagement", "ai_usage", "gamification"):
+        if key in model and not isinstance(model[key], dict):
+            findings.append(_err(filename, f"/learner_model/{key}", f'поле "{key}" должно быть объектом'))
+
+    for key in ("strengths", "support_needs"):
+        values = model.get(key)
+        if isinstance(values, list):
+            for i, value in enumerate(values):
+                if not _is_nonempty_str(value):
+                    findings.append(_err(filename, f"/learner_model/{key}/{i}", "элемент должен быть непустой строкой"))
+
+    zpd = model.get("zpd")
+    if isinstance(zpd, dict):
+        findings.extend(_find_unknown_keys(zpd, {"current", "outside"}, filename, "/learner_model/zpd"))
+        for key in ("current", "outside"):
+            topics = zpd.get(key)
+            if not isinstance(topics, list):
+                findings.append(_err(filename, f"/learner_model/zpd/{key}", "поле должно быть списком topic_id"))
+                continue
+            for i, topic_id in enumerate(topics):
+                if isinstance(topic_id, str):
+                    findings.extend(_check_topic_ref(topic_id, catalog, filename, f"/learner_model/zpd/{key}/{i}"))
+                else:
+                    findings.append(_err(filename, f"/learner_model/zpd/{key}/{i}", "topic_id должен быть строкой"))
+    return findings
 
 
 def _suggest_topic_id(bad_id: str, catalog: dict) -> str:
@@ -280,8 +436,11 @@ def validate_card(card: object, catalog: dict, filename: str) -> list[Finding]:
     findings.extend(_find_unknown_keys(card, CARD_TOP_KEYS, filename, ""))
 
     for required_key in CARD_TOP_KEYS:
-        if required_key not in card:
+        if required_key != "learner_model" and required_key not in card:
             findings.append(_err(filename, f"/{required_key}", f'отсутствует обязательный ключ "{required_key}"'))
+
+    if card.get("schema_version") != 2:
+        findings.append(_err(filename, "/schema_version", 'schema_version должен быть целым числом 2'))
 
     # learner_id / filename stem check
     learner_id = card.get("learner_id")
@@ -311,6 +470,8 @@ def validate_card(card: object, catalog: dict, filename: str) -> list[Finding]:
     language = card.get("language")
     if not _is_nonempty_str(language):
         findings.append(_err(filename, "/language", 'поле "language" должно быть непустой строкой'))
+
+    findings.extend(_validate_rag_context(card.get("rag_context"), catalog, filename))
 
     # profile
     profile = card.get("profile")
@@ -504,6 +665,9 @@ def validate_card(card: object, catalog: dict, filename: str) -> list[Finding]:
 
     if balance_went_negative:
         findings.append(_warn(filename, "/mvp/points_ledger", "накопительный баланс баллов уходит в отрицательные значения в процессе хронологии"))
+
+    if "learner_model" in card:
+        findings.extend(_validate_learner_model(card["learner_model"], catalog, filename))
 
     # rule 11: any key containing "balance" anywhere in the card -> error
     _contains_balance_key(card, "", filename, findings)

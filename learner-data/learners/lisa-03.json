@@ -1,10 +1,39 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "learner_id": "lisa-03",
   "pseudonym": "Лиса",
   "age_group": "9-10",
   "grade": "3",
   "language": "russian",
+  "rag_context": {
+    "current_goal": {
+      "topic_id": "math.g3.fractions.comparing_shares",
+      "goal": "сравнивать доли по знаменателю, а не только по размеру рисунка",
+      "updated_at": "2026-07-02"
+    },
+    "current_topics": [
+      "math.g3.fractions.shares",
+      "math.g3.quantities.mass"
+    ],
+    "priority_difficulties": [
+      {
+        "topic_id": "math.g3.fractions.comparing_shares",
+        "description": "сравнивает доли на глаз и забывает про знаменатель"
+      }
+    ],
+    "effective_strategies": [
+      "нарисовать круг или полоску и разделить на доли",
+      "дать короткий сюжетный пример перед задачей"
+    ],
+    "avoid": [
+      "не начинать с сухого определения без картинки",
+      "не давать несколько новых правил одновременно"
+    ],
+    "recent_progress": {
+      "date": "2026-07-02",
+      "note": "После рисунков с пиццей сравнение долей стало увереннее."
+    }
+  },
   "profile": {
     "explanation_style": "через сюжет и картинку, без сухих формулировок",
     "pace": "средний",

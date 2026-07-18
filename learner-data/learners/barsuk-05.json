@@ -1,10 +1,38 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "learner_id": "barsuk-05",
   "pseudonym": "Барсук",
   "age_group": "8-9",
   "grade": "3",
   "language": "russian",
+  "rag_context": {
+    "current_goal": {
+      "topic_id": "math.g3.numbers.column_addition_subtraction.with_carry",
+      "goal": "научиться не терять перенос при сложении и вычитании столбиком",
+      "updated_at": "2026-07-01"
+    },
+    "current_topics": [
+      "math.g3.numbers.column_addition_subtraction.with_carry"
+    ],
+    "priority_difficulties": [
+      {
+        "topic_id": "math.g3.numbers.column_addition_subtraction.with_carry",
+        "description": "забывает отметить перенос в следующем разряде"
+      }
+    ],
+    "effective_strategies": [
+      "отмечать перенос ярким кружком над столбиком",
+      "делать короткую разминку между блоками примеров"
+    ],
+    "avoid": [
+      "не давать длинную серию однотипных примеров без паузы",
+      "не пропускать совместный разбор первого примера"
+    ],
+    "recent_progress": {
+      "date": "2026-07-01",
+      "note": "С кружком-подсказкой ошибок стало меньше, но приём пока нужен постоянно."
+    }
+  },
   "profile": {
     "explanation_style": "короткими простыми фразами, без длинных объяснений подряд",
     "pace": "медленный, нужны частые перерывы",

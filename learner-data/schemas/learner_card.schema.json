@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Карточка ученика",
-  "description": "Контракт данных одной карточки ученика (один файл learners/<learner_id>.json = один ребёнок). Схема — документация контракта; фактическая валидация выполняется отдельным валидатором на stdlib (tools/validate.py), реализуемым в отдельной задаче.",
+  "description": "Контракт данных одной карточки ученика (один файл learners/<learner_id>.json = один ребёнок). Карточка хранит полный профиль; в ИИ-репетитор передаётся только компактный rag_context.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -11,6 +11,7 @@
     "age_group",
     "grade",
     "language",
+    "rag_context",
     "profile",
     "interests",
     "knowledge",
@@ -19,9 +20,9 @@
   ],
   "properties": {
     "schema_version": {
-      "const": 1,
+      "const": 2,
       "type": "integer",
-      "description": "Версия схемы карточки. Фиксировано: 1."
+      "description": "Версия схемы карточки. Фиксировано: 2."
     },
     "learner_id": {
       "type": "string",
@@ -47,6 +48,94 @@
       "type": "string",
       "minLength": 1,
       "description": "Язык общения с учеником. По умолчанию \"russian\"."
+    },
+    "rag_context": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Единственная компактная проекция карточки, которую build_context.py передаёт ИИ-репетитору. Полный профиль, журнал, баллы и learner_model в RAG не попадают.",
+      "required": [
+        "current_goal",
+        "current_topics",
+        "priority_difficulties",
+        "effective_strategies",
+        "avoid",
+        "recent_progress"
+      ],
+      "properties": {
+        "current_goal": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["topic_id", "goal", "updated_at"],
+          "properties": {
+            "topic_id": {
+              "type": "string",
+              "pattern": "^math\\.g[34]\\.[a-z_]+(\\.[a-z0-9_]+){0,2}$"
+            },
+            "goal": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 280
+            },
+            "updated_at": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "format": "date"
+            }
+          }
+        },
+        "current_topics": {
+          "type": "array",
+          "maxItems": 3,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^math\\.g[34]\\.[a-z_]+(\\.[a-z0-9_]+){0,2}$"
+          }
+        },
+        "priority_difficulties": {
+          "type": "array",
+          "maxItems": 3,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["topic_id", "description"],
+            "properties": {
+              "topic_id": {
+                "type": "string",
+                "pattern": "^math\\.g[34]\\.[a-z_]+(\\.[a-z0-9_]+){0,2}$"
+              },
+              "description": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 280
+              }
+            }
+          }
+        },
+        "effective_strategies": {
+          "type": "array",
+          "maxItems": 3,
+          "items": {"type": "string", "minLength": 1, "maxLength": 280}
+        },
+        "avoid": {
+          "type": "array",
+          "maxItems": 3,
+          "items": {"type": "string", "minLength": 1, "maxLength": 280}
+        },
+        "recent_progress": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["date", "note"],
+          "properties": {
+            "date": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "format": "date"
+            },
+            "note": {"type": "string", "minLength": 1, "maxLength": 280}
+          }
+        }
+      }
     },
     "profile": {
       "type": "object",
@@ -241,6 +330,35 @@
             }
           }
         }
+      }
+    },
+    "learner_model": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Необязательная полная учебная модель для benchmark-карточки и педагога. build_context.py её никогда не рендерит для RAG.",
+      "required": [
+        "competencies",
+        "zpd",
+        "learning_preferences",
+        "engagement",
+        "ai_usage",
+        "projects",
+        "strengths",
+        "support_needs",
+        "scaffolding_by_topic",
+        "gamification"
+      ],
+      "properties": {
+        "competencies": {"type": "array"},
+        "zpd": {"type": "object"},
+        "learning_preferences": {"type": "object"},
+        "engagement": {"type": "object"},
+        "ai_usage": {"type": "object"},
+        "projects": {"type": "array"},
+        "strengths": {"type": "array", "items": {"type": "string"}},
+        "support_needs": {"type": "array", "items": {"type": "string"}},
+        "scaffolding_by_topic": {"type": "array"},
+        "gamification": {"type": "object"}
       }
     }
   }

@@ -1,10 +1,31 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "learner_id": "primer-01",
   "pseudonym": "Пример",
   "age_group": "9-10",
   "grade": "3",
   "language": "russian",
+  "rag_context": {
+    "current_goal": {
+      "topic_id": "math.g3.numbers.multiplication_table.times_table",
+      "goal": "закрепить таблицу умножения на 2–5 через короткие примеры",
+      "updated_at": "2026-06-01"
+    },
+    "current_topics": [
+      "math.g3.numbers.multiplication_table.times_table"
+    ],
+    "priority_difficulties": [],
+    "effective_strategies": [
+      "разбить задачу на два шага"
+    ],
+    "avoid": [
+      "не давать длинную серию примеров без промежуточной проверки"
+    ],
+    "recent_progress": {
+      "date": "2026-06-01",
+      "note": "Первое занятие: определили начальную тему для работы."
+    }
+  },
   "profile": {
     "explanation_style": "пошагово, с проговариванием каждого действия вслух",
     "pace": "средний, с паузами на переспросить",

@@ -25,18 +25,31 @@ else:
 PACKAGE_ROOT = find_package_root()
 LEARNERS_DIR = PACKAGE_ROOT / "learners"
 CATALOG_FILE = PACKAGE_ROOT / "catalog" / "math_g3_g4.json"
+BENCHMARK_FILE = PACKAGE_ROOT / "benchmarks" / "rag_behavior_cases.json"
 TOOLS_DIR = Path(__file__).resolve().parent
 
 
 def _minimal_valid_card(learner_id: str = "test-01", pseudonym: str = "Тест") -> dict:
     """A minimal structurally-valid card, used as the base for negative fixtures."""
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "learner_id": learner_id,
         "pseudonym": pseudonym,
         "age_group": "9-10",
         "grade": "3",
         "language": "russian",
+        "rag_context": {
+            "current_goal": {
+                "topic_id": "math.g3.numbers.multiplication_table.times_table",
+                "goal": "закрепить таблицу умножения",
+                "updated_at": "2026-06-01",
+            },
+            "current_topics": ["math.g3.numbers.multiplication_table.times_table"],
+            "priority_difficulties": [],
+            "effective_strategies": ["разбить на короткие шаги"],
+            "avoid": ["не давать длинную инструкцию"],
+            "recent_progress": {"date": "2026-06-01", "note": "Первое занятие."},
+        },
         "profile": {
             "explanation_style": "просто",
             "pace": "средний",
@@ -102,9 +115,12 @@ class TestCatalogShape(unittest.TestCase):
 
 
 class TestContextPerLearner(unittest.TestCase):
-    """Check 3: for each of the 12 cards, text context builds in-process, contains
-    own pseudonym and none of the 11 others', all XML tags balanced, Баллы: line
-    matches independently-computed ledger sum. Plus one subprocess smoke test."""
+    """Check 3: the compact RAG projection contains only curated data.
+
+    The test verifies isolation between learners, balanced tags and, crucially,
+    that full journal, points and benchmark-only learner_model data do not leak
+    into the RAG prompt. Plus one subprocess smoke test.
+    """
 
     @classmethod
     def setUpClass(cls):
@@ -132,13 +148,20 @@ class TestContextPerLearner(unittest.TestCase):
                     self.assertNotIn(other, text, f'leaked pseudonym "{other}" into context for "{learner_id}"')
 
                 self._assert_tags_balanced(text)
+                self.assertIn("<learner_rag_context>", text)
+                self.assertIn(card["rag_context"]["current_goal"]["goal"], text)
+                self.assertNotIn("<points_balance>", text)
+                self.assertLess(len(text), 3000, "RAG projection must stay compact")
 
-                expected_balance = sum(p.get("points", 0) for p in card["mvp"]["points_ledger"])
-                self.assertIn(
-                    f"Баллы: {expected_balance}",
-                    text.splitlines(),
-                    f'expected an exact "Баллы: {expected_balance}" line in text',
-                )
+                for entry in card["mvp"]["journal"]:
+                    self.assertNotIn(entry["note"], text, "journal must not reach RAG")
+                for entry in card["mvp"]["points_ledger"]:
+                    self.assertNotIn(entry["reason"], text, "points ledger must not reach RAG")
+                if "learner_model" in card:
+                    self.assertNotIn(
+                        card["learner_model"]["projects"][0]["title"], text,
+                        "benchmark-only learner_model must not reach RAG",
+                    )
 
     def _assert_tags_balanced(self, text: str):
         stack = []
@@ -186,6 +209,25 @@ class TestJsonFormat(unittest.TestCase):
         self.assertEqual(parsed, on_disk)
 
 
+class TestRagBehaviorBenchmark(unittest.TestCase):
+    """The future RAG team receives one behaviour case for every demo learner."""
+
+    def test_cases_cover_every_demo_learner_once(self):
+        data, _ = load_json(BENCHMARK_FILE)
+        self.assertEqual(data["schema_version"], 1)
+        cases = data["cases"]
+        learner_ids = [case["learner_id"] for case in cases]
+        self.assertEqual(len(cases), 12)
+        self.assertEqual(len(learner_ids), len(set(learner_ids)))
+        self.assertEqual(
+            set(learner_ids),
+            {path.stem for path in iter_learner_files(LEARNERS_DIR)},
+        )
+        for case in cases:
+            self.assertTrue(case["question"].strip())
+            self.assertTrue(case["must_do"])
+
+
 class TestMissingLearnerSubprocess(unittest.TestCase):
     """Check 5: build_context.py no-such-child -> exit 2, empty stdout, non-empty stderr."""
 
@@ -197,6 +239,15 @@ class TestMissingLearnerSubprocess(unittest.TestCase):
         self.assertEqual(result.returncode, 2)
         self.assertEqual(result.stdout, "")
         self.assertTrue(result.stderr.strip())
+
+    def test_invalid_learner_id_is_rejected_before_lookup(self):
+        result = subprocess.run(
+            [sys.executable, str(TOOLS_DIR / "build_context.py"), "../catalog/math_g3_g4"],
+            capture_output=True, text=True,
+        )
+        self.assertEqual(result.returncode, 2)
+        self.assertEqual(result.stdout, "")
+        self.assertIn("Некорректный learner_id", result.stderr)
 
 
 class TestNegativeFixtures(unittest.TestCase):
@@ -297,6 +348,15 @@ class TestNegativeFixtures(unittest.TestCase):
                 f.is_error() and f.json_path == "/knowledge/0/topic_id" and "должно быть строкой" in f.message
                 for f in findings
             ),
+            [f.format() for f in findings],
+        )
+
+    def test_rag_context_limit_is_enforced(self):
+        card = _minimal_valid_card()
+        card["rag_context"]["effective_strategies"] = ["один", "два", "три", "четыре"]
+        findings = self._findings_for(card)
+        self.assertTrue(
+            any(f.is_error() and f.json_path == "/rag_context/effective_strategies" for f in findings),
             [f.format() for f in findings],
         )
 

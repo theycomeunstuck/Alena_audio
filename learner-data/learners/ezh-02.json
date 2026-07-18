@@ -1,10 +1,37 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "learner_id": "ezh-02",
   "pseudonym": "Ёж",
   "age_group": "8-9",
   "grade": "3",
   "language": "russian",
+  "rag_context": {
+    "current_goal": {
+      "topic_id": "math.g3.numbers.order_of_operations",
+      "goal": "закрепить порядок действий в длинных выражениях",
+      "updated_at": "2026-06-24"
+    },
+    "current_topics": [
+      "math.g3.numbers.order_of_operations"
+    ],
+    "priority_difficulties": [
+      {
+        "topic_id": "math.g3.numbers.order_of_operations",
+        "description": "видит умножение после того, как уже начал сложение"
+      }
+    ],
+    "effective_strategies": [
+      "сначала подчеркнуть все знаки действий в выражении"
+    ],
+    "avoid": [
+      "не объяснять правило до самостоятельного разбора одного примера",
+      "не давать много одинаковых выражений подряд"
+    ],
+    "recent_progress": {
+      "date": "2026-06-24",
+      "note": "Подчёркивание знаков заметно уменьшило ошибки в порядке действий."
+    }
+  },
   "profile": {
     "explanation_style": "любит, когда сначала показывают пример, а потом объясняют правило",
     "pace": "быстрый, скучает на повторении",

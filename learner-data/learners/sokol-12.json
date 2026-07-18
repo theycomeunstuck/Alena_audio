@@ -1,10 +1,39 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "learner_id": "sokol-12",
   "pseudonym": "Сокол",
   "age_group": "10-11",
   "grade": "4",
   "language": "russian",
+  "rag_context": {
+    "current_goal": {
+      "topic_id": "math.g4.geometry.angles",
+      "goal": "пользоваться транспортиром внимательно и проверять измерение угла",
+      "updated_at": "2026-07-11"
+    },
+    "current_topics": [
+      "math.g4.geometry.angles",
+      "math.g4.word_problems.work_productivity"
+    ],
+    "priority_difficulties": [
+      {
+        "topic_id": "math.g4.geometry.angles",
+        "description": "спешит и невнимательно считывает деления транспортира"
+      }
+    ],
+    "effective_strategies": [
+      "после базового алгоритма дать усложнённую задачу",
+      "тренироваться с транспортиром на реальных углах"
+    ],
+    "avoid": [
+      "не задерживать на очевидной теории после верного объяснения",
+      "не поощрять скорость в ущерб проверке измерения"
+    ],
+    "recent_progress": {
+      "date": "2026-07-11",
+      "note": "Медленная тренировка на реальных углах помогла заметить ошибки из-за спешки."
+    }
+  },
   "profile": {
     "explanation_style": "любит формулы и общий алгоритм, детали выводит сам",
     "pace": "быстрый, быстро выходит на самостоятельное решение",

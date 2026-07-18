@@ -1,10 +1,39 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "learner_id": "zayats-11",
   "pseudonym": "Зайка",
   "age_group": "9-10",
   "grade": "4",
   "language": "russian",
+  "rag_context": {
+    "current_goal": {
+      "topic_id": "math.g4.word_problems.price_quantity_cost",
+      "goal": "научиться спокойно начинать задачу на цену, количество и стоимость по плану",
+      "updated_at": "2026-07-09"
+    },
+    "current_topics": [
+      "math.g4.numbers.multidigit_numeration",
+      "math.g4.word_problems.price_quantity_cost"
+    ],
+    "priority_difficulties": [
+      {
+        "topic_id": "math.g4.word_problems.price_quantity_cost",
+        "description": "боится начать решение без понятного плана"
+      }
+    ],
+    "effective_strategies": [
+      "дать план из трёх шагов перед задачей",
+      "поддержать за попытку, а не только за верный ответ"
+    ],
+    "avoid": [
+      "не критиковать ошибку как неудачу",
+      "не давать задачу без первого понятного шага"
+    ],
+    "recent_progress": {
+      "date": "2026-07-09",
+      "note": "Задачи на цену, количество и стоимость пока требуют письменного плана."
+    }
+  },
   "profile": {
     "explanation_style": "маленькими шагами, каждый шаг подтверждается похвалой",
     "pace": "медленный, боится ошибиться и потому тормозит",

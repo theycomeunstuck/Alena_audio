@@ -1,10 +1,39 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "learner_id": "filin-07",
   "pseudonym": "Филин",
   "age_group": "9-10",
   "grade": "3",
   "language": "russian",
+  "rag_context": {
+    "current_goal": {
+      "topic_id": "math.g3.word_problems.price_quantity_cost",
+      "goal": "научиться определять неизвестную величину в задачах на цену, количество и стоимость",
+      "updated_at": "2026-07-05"
+    },
+    "current_topics": [
+      "math.g3.quantities.time",
+      "math.g3.word_problems.price_quantity_cost"
+    ],
+    "priority_difficulties": [
+      {
+        "topic_id": "math.g3.word_problems.price_quantity_cost",
+        "description": "не определяет, что именно нужно найти в условии"
+      }
+    ],
+    "effective_strategies": [
+      "выделять цену, количество и стоимость разными цветами",
+      "показывать план решения перед началом записи"
+    ],
+    "avoid": [
+      "не убирать пример решения до завершения первого самостоятельного шага",
+      "не переходить к вычислению, пока не названа неизвестная величина"
+    ],
+    "recent_progress": {
+      "date": "2026-07-05",
+      "note": "Начали выделять величины цветом; выбор неизвестного пока требует поддержки."
+    }
+  },
   "profile": {
     "explanation_style": "письменно, с примером решения перед глазами всё время",
     "pace": "средний",

@@ -1,10 +1,38 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "learner_id": "rys-09",
   "pseudonym": "Рысь",
   "age_group": "9-10",
   "grade": "4",
   "language": "russian",
+  "rag_context": {
+    "current_goal": {
+      "topic_id": "math.g4.fractions.part_of_number.finding_part",
+      "goal": "находить часть числа: сначала одну долю, затем нужное число долей",
+      "updated_at": "2026-07-08"
+    },
+    "current_topics": [
+      "math.g4.fractions.part_of_number.finding_part"
+    ],
+    "priority_difficulties": [
+      {
+        "topic_id": "math.g4.fractions.part_of_number.finding_part",
+        "description": "в сложных примерах путает числитель и знаменатель"
+      }
+    ],
+    "effective_strategies": [
+      "проговорить: сначала найти одну часть, затем умножить на число долей",
+      "попросить проверить действие по смыслу дроби"
+    ],
+    "avoid": [
+      "не повторять уже освоенные определения без новой задачи",
+      "не давать готовый ответ вместо проверки своего решения"
+    ],
+    "recent_progress": {
+      "date": "2026-07-08",
+      "note": "В простых примерах справляется; сложные примеры ещё закрепляем на карточках."
+    }
+  },
   "profile": {
     "explanation_style": "через сравнение с уже знакомым материалом прошлого года",
     "pace": "средний, ровный",

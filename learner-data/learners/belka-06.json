@@ -1,10 +1,39 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "learner_id": "belka-06",
   "pseudonym": "Белка",
   "age_group": "9-10",
   "grade": "3",
   "language": "russian",
+  "rag_context": {
+    "current_goal": {
+      "topic_id": "math.g3.word_problems.comparison.multiple",
+      "goal": "различать задачи «на сколько» и «во сколько раз»",
+      "updated_at": "2026-06-26"
+    },
+    "current_topics": [
+      "math.g3.word_problems.comparison.multiple",
+      "math.g3.numbers.non_table_mult_div"
+    ],
+    "priority_difficulties": [
+      {
+        "topic_id": "math.g3.word_problems.comparison.multiple",
+        "description": "иногда выбирает разностное сравнение вместо кратного"
+      }
+    ],
+    "effective_strategies": [
+      "попросить самой сформулировать правило после примеров",
+      "дать усложнённый вариант после лёгкой базовой задачи"
+    ],
+    "avoid": [
+      "не задерживать на простом повторении после уверенного ответа",
+      "не давать готовое правило до попытки найти закономерность"
+    ],
+    "recent_progress": {
+      "date": "2026-06-26",
+      "note": "Закрепляем разницу между словами «на сколько» и «во сколько раз»."
+    }
+  },
   "profile": {
     "explanation_style": "любит сама формулировать правило после нескольких примеров",
     "pace": "быстрый",

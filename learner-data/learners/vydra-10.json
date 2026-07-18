@@ -1,10 +1,39 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "learner_id": "vydra-10",
   "pseudonym": "Выдра",
   "age_group": "10-11",
   "grade": "4",
   "language": "russian",
+  "rag_context": {
+    "current_goal": {
+      "topic_id": "math.g4.geometry.cube_box",
+      "goal": "различать куб и прямоугольный параллелепипед на реальных предметах",
+      "updated_at": "2026-07-04"
+    },
+    "current_topics": [
+      "math.g4.quantities.mass_large_units",
+      "math.g4.geometry.cube_box"
+    ],
+    "priority_difficulties": [
+      {
+        "topic_id": "math.g4.quantities.mass_large_units",
+        "description": "путает, сколько центнеров содержится в тонне"
+      }
+    ],
+    "effective_strategies": [
+      "связать тонну и центнер с весом мешков или грузовика",
+      "дать потрогать коробку или кубик перед разбором свойств"
+    ],
+    "avoid": [
+      "не начинать с абстрактной формулы без жизненного предмета",
+      "не торопить до завершения первого разбора вместе"
+    ],
+    "recent_progress": {
+      "date": "2026-07-04",
+      "note": "Коробка из-под печенья помогла разобрать грани и рёбра руками."
+    }
+  },
   "profile": {
     "explanation_style": "через практическую задачу из жизни, а не абстрактный пример",
     "pace": "медленный, любит не торопясь разобраться до конца",

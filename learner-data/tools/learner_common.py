@@ -90,14 +90,20 @@ def iter_learner_files(learners_dir: Path) -> list[Path]:
 def load_learner(learners_dir: Path, learner_id: str) -> tuple[object, bool]:
     """Load exactly one learner card by id.
 
-    Opens exactly one path: ``learners_dir / f"{learner_id}.json"``. This is a
-    structural guarantee — no glob, no substring/prefix matching — that a
-    lookup for one learner_id can never accidentally read another learner's
-    profile. Callers must not weaken this to a search/glob.
+    Opens exactly one non-symlink file directly inside ``learners_dir``. The
+    id is validated before a path is built, so ``..`` and path separators can
+    never escape the learner directory. Callers must not weaken this to a
+    search/glob.
 
     Returns the same ``(data, had_bom)`` tuple as ``load_json``. Raises
     ``FileNotFoundError`` if the file does not exist, and
     ``json.JSONDecodeError`` if it is not valid JSON.
     """
-    path = learners_dir / f"{learner_id}.json"
+    if not isinstance(learner_id, str) or not LEARNER_ID_RE.fullmatch(learner_id):
+        raise ValueError(f'некорректный learner_id: "{learner_id}"')
+
+    base_dir = learners_dir.resolve()
+    path = base_dir / f"{learner_id}.json"
+    if path.is_symlink() or path.resolve().parent != base_dir:
+        raise ValueError(f'некорректный путь к карточке ученика: "{path}"')
     return load_json(path)
