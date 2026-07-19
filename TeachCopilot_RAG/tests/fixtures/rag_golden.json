@@ -1,0 +1,21 @@
+{
+  "_comment": "Golden RAG evaluation set. Extend to 30-50 real child/parent questions per docs/EVALUATION.md. 'in_domain' items must retrieve the expected source at rank 1 (top1) or within top3. 'off_topic' items should NOT produce a confident hit — the harness reports their max score so you can calibrate RAG_MIN_SCORE PER MODEL (MiniLM relevant band ~0.30-0.61; e5 relevant band ~0.83-0.90). Starter set built 2026-07-10 against books/ test docs; expand once the scanned textbook is vision-ingested.",
+  "items": [
+    { "query": "что такое отрезок", "kind": "in_domain",
+      "expect_source": "small_geometry_test.md", "expect_topic_contains": "Отрезок" },
+    { "query": "чем луч отличается от отрезка", "kind": "in_domain",
+      "expect_source": "small_geometry_test.md", "expect_topic_contains": "Отрезок" },
+    { "query": "у чего есть начало и конец но можно измерить", "kind": "in_domain",
+      "expect_source": "small_geometry_test.md", "expect_topic_contains": "Отрезок" },
+    { "query": "как объяснить ребёнку что такое отрезок", "kind": "in_domain",
+      "expect_source": "small_geometry_test.md", "expect_topic_contains": "Отрезок" },
+    { "query": "секретное слово TeachCopilot", "kind": "in_domain",
+      "expect_source": "rag_secret_test.md", "expect_topic_contains": "Проверка" },
+    { "query": "расскажи про фиолетового бегемота", "kind": "in_domain",
+      "expect_source": "rag_secret_test.md", "expect_topic_contains": "Проверка" },
+    { "query": "да", "kind": "off_topic" },
+    { "query": "как дела", "kind": "off_topic" },
+    { "query": "спасибо пока", "kind": "off_topic" },
+    { "query": "какая погода в москве", "kind": "off_topic" }
+  ]
+}
