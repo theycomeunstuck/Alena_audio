@@ -23,7 +23,7 @@ Returns the full child profile from Postgres.
 Direct retrieval (handy for debugging relevance).
 ```bash
 curl -s localhost:8099/rag/search -H 'content-type: application/json' \
-     -d '{"query":"что такое луч","limit":3}'
+     -d '{"query":"что такое луч","learner_id":"volk-08","limit":3}'
 ```
 ```json
 { "query": "что такое луч", "count": 1,
@@ -39,7 +39,11 @@ curl -s localhost:8099/rag/search -H 'content-type: application/json' \
   } ] }
 ```
 
-`limit` is validated as `1..50` and passed to retrieval.
+`limit` is validated as `1..50` and passed to retrieval.  `learner_id` is
+optional; when present it must come from the authenticated application session
+(not from the child's message).  The server validates exactly that JSON card,
+uses only its compact `rag_context` in the prompt, and adds its `topic_id`s as
+soft retrieval hints.  Full learner cards are never sent to the model.
 
 ### `GET /v1/models`
 OpenAI-style model list. Advertises a single logical model:
@@ -62,6 +66,7 @@ The main entry point. It:
 ```bash
 curl -s localhost:8099/v1/chat/completions -H 'content-type: application/json' -d '{
   "model": "teachcopilot-rag",
+  "learner_id": "volk-08",
   "messages": [{"role":"user","content":"что такое отрезок?"}]
 }'
 ```
@@ -93,17 +98,26 @@ class into Open WebUI → Workspace → Functions. `inlet()` personalizes and gr
 each request; `outlet()` runs the adaptive profile update. Full steps:
 [`../FILTER_INSTALL.md`](../FILTER_INSTALL.md).
 
-> Use **one** mode, not both — otherwise personalization runs twice.
+> Use **one** mode, not both — otherwise personalization runs twice.  The Filter
+> currently uses only the legacy PostgreSQL child profiles.  To use
+> `learner-data/*.json` and `learner_id`, choose **proxy mode**; adding
+> authenticated Open WebUI user → learner-id mapping to the Filter is the next
+> integration task.
 
 ---
 
-## `child_id` resolution order
+## Legacy PostgreSQL `child_id` resolution
 
-Both the proxy and the Filter Function resolve the child the same way:
+The Filter Function resolves its legacy PostgreSQL profile this way:
 
 1. Explicit message prefix `[child_id:<uuid>] question` (testing).
 2. `user_mappings` table: Open WebUI `user_id` → `child_id` (production).
 3. `DEFAULT_CHILD_ID` (fallback, `child_only` mode).
+
+The proxy's JSON learner integration is separate: it accepts top-level
+`learner_id` (or `metadata.learner_id`) and does not interpret message text as
+an identity.  Put authentication and the user → learner-id mapping in the
+calling application or API gateway before forwarding a request.
 
 ---
 

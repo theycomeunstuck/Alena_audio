@@ -17,12 +17,28 @@ Request:
 }
 ```
 
+To personalise from the checked-in JSON learner cards, pass the verified
+application identity as `learner_id` (for example `volk-08`).  `child_id` is a
+legacy PostgreSQL UUID and does not select a JSON card.
+
+```json
+{
+  "query": "Как делить 408 на 4 столбиком?",
+  "learner_id": "volk-08",
+  "limit": 3
+}
+```
+
 Contract:
 
 - `query` is required and non-empty.
 - `limit` is 1..50.
 - `limit` is passed into retrieval, not only sliced after retrieval.
 - Response includes source metadata when present.
+- With `learner_id`, the service validates exactly that card, adds its compact
+  `rag_context` to the model prompt and uses its curriculum `topic_id`s as soft
+  retrieval hints. Full cards, journals, points and `learner_model` never enter
+  the prompt.
 
 Response shape:
 
@@ -88,6 +104,9 @@ Contract:
 
 - Last user message is extracted from OpenAI-compatible `messages`.
 - RAG runs on that last user text.
+- An optional top-level `learner_id` (or `metadata.learner_id`) selects a
+  validated JSON learner context. The calling application must derive it from
+  its authenticated session, never from the child's message text.
 - The proxy prepends one system message with RAG instructions and fragments.
 - Client-supplied system messages are dropped.
 - If `TEACHCOPILOT_CHAT_MODEL` is set and incoming model is `teachcopilot-rag`,

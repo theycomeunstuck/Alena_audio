@@ -39,6 +39,7 @@ All configuration is environment-driven (via `.env`, loaded by
 | `TEACHCOPILOT_CHAT_TIMEOUT_SEC` | `180` | Upstream request timeout. |
 | `TEACHCOPILOT_STREAM_MODE` | `off` | `off` \| `diagnostic` \| `debug`. **Streaming stays disabled**; `diagnostic` only logs when a client requested `stream=true`. See [STREAMING_DIAGNOSIS.md](STREAMING_DIAGNOSIS.md). |
 | `TEACHCOPILOT_DEBUG_RAG` | `false` | Logs each RAG query + top results. |
+| `TEACHCOPILOT_LEARNER_DATA_DIR` | `../learner-data` relative to this project | Directory containing the JSON `learners/`, `catalog/` and `tools/`. Required only when callers send `learner_id`; set an explicit path if code and data deploy separately. |
 
 ## Speaker mode
 
@@ -75,6 +76,8 @@ TEACHCOPILOT_RUNTIME_PROFILE=cpu_debug
 TEACHCOPILOT_STREAM_MODE=off
 TEACHCOPILOT_SPEAKER_MODE=child_only
 TEACHCOPILOT_DEBUG_RAG=1
+# Optional when learner-data is not alongside TeachCopilot_RAG:
+# TEACHCOPILOT_LEARNER_DATA_DIR=/srv/teachcopilot/learner-data
 ```
 
 ## Production notes
@@ -84,3 +87,7 @@ TEACHCOPILOT_DEBUG_RAG=1
 - Keep `EMBEDDING_MODEL` consistent between ingest and serving; re-ingest on change.
 - Raise `RAG_MIN_SCORE` (e.g. `0.5`) once you've validated retrieval quality.
 - Leave `TEACHCOPILOT_STREAM_MODE=off` until streaming parity is proven.
+- Resolve `learner_id` from an authenticated session before invoking the proxy;
+  never accept it directly from a child's message. The current Open WebUI Filter
+  does not yet map Open WebUI users to JSON learner IDs, so use proxy mode for
+  JSON-card personalisation.

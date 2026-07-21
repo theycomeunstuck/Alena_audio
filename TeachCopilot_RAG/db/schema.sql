@@ -54,6 +54,17 @@ CREATE TABLE IF NOT EXISTS knowledge_base (
         UNIQUE (source_file, page_number)
 );
 
+-- Structured JSON task banks keep their original fields in JSONB while the
+-- selected text is embedded into pgvector. These ALTERs are safe for existing
+-- MVP databases created before JSON/JSONB ingestion was added.
+ALTER TABLE knowledge_base ADD COLUMN IF NOT EXISTS topic_id TEXT;
+ALTER TABLE knowledge_base ADD COLUMN IF NOT EXISTS grade VARCHAR(20);
+ALTER TABLE knowledge_base ADD COLUMN IF NOT EXISTS metadata JSONB NOT NULL DEFAULT '{}'::jsonb;
+CREATE INDEX IF NOT EXISTS knowledge_base_topic_grade_idx
+    ON knowledge_base (topic_id, grade);
+CREATE INDEX IF NOT EXISTS knowledge_base_metadata_gin_idx
+    ON knowledge_base USING gin (metadata);
+
 -- Child interests (tags for personalization)
 CREATE TABLE IF NOT EXISTS child_interests (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),

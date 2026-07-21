@@ -210,7 +210,7 @@ def validate_catalog(catalog_data: object, catalog_file: str) -> tuple[list[Find
 # --- learner card validation -------------------------------------------------
 
 CARD_TOP_KEYS = {
-    "schema_version", "learner_id", "pseudonym", "age_group", "grade",
+    "schema_version", "learner_id", "pseudonym", "legal_name", "age_group", "grade",
     "language", "rag_context", "profile", "interests", "knowledge", "error_patterns", "mvp",
     "learner_model",
 }
@@ -232,6 +232,7 @@ LEARNER_MODEL_KEYS = {
     "projects", "strengths", "support_needs", "scaffolding_by_topic", "gamification",
 }
 RAG_TEXT_MAX = 280
+LEGAL_NAME_KEYS = {"first_name", "last_name", "patronymic"}
 
 
 def _contains_balance_key(obj: object, json_path: str, file: str, findings: list[Finding]) -> None:
@@ -436,7 +437,7 @@ def validate_card(card: object, catalog: dict, filename: str) -> list[Finding]:
     findings.extend(_find_unknown_keys(card, CARD_TOP_KEYS, filename, ""))
 
     for required_key in CARD_TOP_KEYS:
-        if required_key != "learner_model" and required_key not in card:
+        if required_key not in {"learner_model", "legal_name"} and required_key not in card:
             findings.append(_err(filename, f"/{required_key}", f'отсутствует обязательный ключ "{required_key}"'))
 
     if card.get("schema_version") != 2:
@@ -458,6 +459,23 @@ def validate_card(card: object, catalog: dict, filename: str) -> list[Finding]:
     pseudonym = card.get("pseudonym")
     if not _is_nonempty_str(pseudonym):
         findings.append(_err(filename, "/pseudonym", 'поле "pseudonym" должно быть непустой строкой'))
+
+    legal_name = card.get("legal_name")
+    if legal_name is not None:
+        if not isinstance(legal_name, dict):
+            findings.append(_err(filename, "/legal_name", 'поле должно быть объектом с first_name, last_name и patronymic'))
+        else:
+            findings.extend(_find_unknown_keys(legal_name, LEGAL_NAME_KEYS, filename, "/legal_name"))
+            for key in LEGAL_NAME_KEYS:
+                if key not in legal_name:
+                    findings.append(_err(filename, f"/legal_name/{key}", f'отсутствует обязательное поле "{key}"'))
+            for key in ("first_name", "last_name"):
+                value = legal_name.get(key)
+                if not _is_nonempty_str(value) or len(value) > 80:
+                    findings.append(_err(filename, f"/legal_name/{key}", 'поле должно быть непустой строкой до 80 символов'))
+            patronymic = legal_name.get("patronymic")
+            if not isinstance(patronymic, str) or len(patronymic) > 80:
+                findings.append(_err(filename, "/legal_name/patronymic", 'отчество должно быть строкой до 80 символов; допустимы "" и "-"'))
 
     age_group = card.get("age_group")
     if not _is_nonempty_str(age_group):

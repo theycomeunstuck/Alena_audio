@@ -1,5 +1,6 @@
 # pipeline/config.py
 import os
+from pathlib import Path
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -16,6 +17,13 @@ RAG_TOP_K        = int(os.getenv("RAG_TOP_K", "3"))
 RAG_MIN_SCORE    = float(os.getenv("RAG_MIN_SCORE", "0.5"))
 LOG_LEVEL        = os.getenv("LOG_LEVEL", "INFO")
 DEFAULT_CHILD_ID = os.getenv("DEFAULT_CHILD_ID", "")
+
+# JSON learner cards live alongside the RAG project in this repository.  An
+# explicit path is useful when the service and data are deployed separately.
+_RAG_ROOT = Path(__file__).resolve().parent.parent
+LEARNER_DATA_DIR = Path(
+    os.getenv("TEACHCOPILOT_LEARNER_DATA_DIR", str(_RAG_ROOT.parent / "learner-data"))
+).expanduser().resolve()
 
 # Runtime profile:
 # - cpu_debug: local development on machines without a GPU; favors CPU and small models.

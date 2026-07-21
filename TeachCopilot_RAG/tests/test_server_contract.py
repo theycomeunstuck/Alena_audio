@@ -5,9 +5,9 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from fastapi.testclient import TestClient
+from fastapi.testclient import TestClient  # noqa: E402
 
-import server
+import server  # noqa: E402
 
 
 def test_rag_search_passes_limit_and_returns_metadata(monkeypatch):
@@ -101,3 +101,79 @@ def test_openai_proxy_forces_non_stream_and_strips_reasoning(monkeypatch):
     assert captured["payload"]["messages"][0]["role"] == "system"
     assert "Источник: math.pdf, стр. 5" in captured["payload"]["messages"][0]["content"]
     assert "reasoning_content" not in response.json()["choices"][0]["message"]
+
+
+def test_rag_search_uses_validated_learner_topics_as_soft_hint(monkeypatch):
+    captured = {}
+
+    def fake_search_knowledge(query, limit=None, **kwargs):
+        captured["query"] = query
+        captured["limit"] = limit
+        return []
+
+    monkeypatch.setattr(server, "search_knowledge", fake_search_knowledge)
+    client = TestClient(server.app)
+
+    response = client.post(
+        "/rag/search",
+        json={"query": "Как делить 408 на 4?", "learner_id": "volk-08", "limit": 2},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["learner_id"] == "volk-08"
+    assert captured["limit"] == 2
+    assert "math.g4.numbers.division_by_1_2_digit" in captured["query"]
+
+
+def test_rag_search_rejects_unknown_learner_before_retrieval(monkeypatch):
+    def retrieval_must_not_run(*args, **kwargs):
+        raise AssertionError("retrieval ran for an unknown learner")
+
+    monkeypatch.setattr(server, "search_knowledge", retrieval_must_not_run)
+    client = TestClient(server.app)
+
+    response = client.post(
+        "/rag/search",
+        json={"query": "Привет", "learner_id": "not-a-learner"},
+    )
+
+    assert response.status_code == 404
+    assert "not found" in response.json()["detail"]
+
+
+def test_chat_injects_only_compact_learner_context(monkeypatch):
+    captured = {}
+
+    def fake_search_knowledge(query):
+        captured["query"] = query
+        return []
+
+    class FakeResponse:
+        status_code = 200
+        text = '{"ok": true}'
+
+        def json(self):
+            return {"choices": [{"message": {"role": "assistant", "content": "Ответ"}}]}
+
+    def fake_post(url, json, timeout, stream):
+        captured["payload"] = json
+        return FakeResponse()
+
+    monkeypatch.setattr(server, "search_knowledge", fake_search_knowledge)
+    monkeypatch.setattr(server.requests, "post", fake_post)
+    client = TestClient(server.app)
+
+    response = client.post(
+        "/v1/chat/completions",
+        json={
+            "messages": [{"role": "user", "content": "Как делить 408 на 4?"}],
+            "learner_id": "volk-08",
+        },
+    )
+
+    assert response.status_code == 200
+    system_prompt = captured["payload"]["messages"][0]["content"]
+    assert "<learner_rag_context>" in system_prompt
+    assert "math.g4.numbers.division_by_1_2_digit" in system_prompt
+    assert "learner_model" not in system_prompt
+    assert "points_ledger" not in system_prompt

@@ -10,6 +10,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import psycopg2
+from psycopg2.extras import Json
 from pipeline.config import (
     DATABASE_URL, PROFILE_LLM_API_URL, PROFILE_LLM_MODEL
 )
@@ -269,10 +270,24 @@ def ingest_pdf(pdf_path: Path, subject: str, topic_prefix: str,
 
 # ---- JSON mode (task banks) ----
 
+def _json_records(payload: object) -> list[dict]:
+    """Accept a JSON list or a JSON object with records/items/tasks/data."""
+    if isinstance(payload, list):
+        records = payload
+    elif isinstance(payload, dict):
+        records = next((payload[key] for key in ("records", "items", "tasks", "data")
+                        if isinstance(payload.get(key), list)), [payload])
+    else:
+        raise ValueError("JSON must be an object or a list of objects")
+    if not all(isinstance(record, dict) for record in records):
+        raise ValueError("each JSON record must be an object")
+    return records
+
+
 def ingest_json(json_path: Path):
-    """Ingest JSON task bank: each task becomes a separate knowledge_base row."""
+    """Embed JSON records and retain every source field as PostgreSQL JSONB."""
     import json as _json
-    tasks = _json.loads(json_path.read_text(encoding="utf-8"))
+    tasks = _json_records(_json.loads(json_path.read_text(encoding="utf-8")))
     if not tasks:
         print(f"No tasks found in {json_path}")
         return
@@ -286,11 +301,11 @@ def ingest_json(json_path: Path):
                 task_id = t.get("task_id", "unknown")
                 topic_id = t.get("topic_id", "general")
                 subject = t.get("subject", "math")
-                content = t.get("content", "")
-                answer = t.get("answer", "")
+                content = str(t.get("content") or t.get("question") or t.get("text") or "")
+                answer = str(t.get("answer") or t.get("solution") or "")
                 tags = ", ".join(t.get("tags", []))
                 difficulty = t.get("difficulty", "")
-                grade = t.get("grade", "")
+                grade = str(t.get("grade") or "")
 
                 # Content for embedding: question + tags + answer context
                 embed_content = f"{content}\nТеги: {tags}\nОтвет: {answer}"
@@ -300,17 +315,21 @@ def ingest_json(json_path: Path):
 
                 cur.execute("""
                     INSERT INTO knowledge_base
-                        (subject, topic, content, source_file, difficulty, tags, embedding)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s::vector)
+                        (subject, topic, topic_id, grade, content, source_file, difficulty, tags, metadata, embedding)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s::vector)
                     ON CONFLICT (source_file, topic)
                     DO UPDATE SET content = EXCLUDED.content,
+                                  topic_id = EXCLUDED.topic_id,
+                                  grade = EXCLUDED.grade,
                                   difficulty = EXCLUDED.difficulty,
                                   tags = EXCLUDED.tags,
+                                  metadata = EXCLUDED.metadata,
                                   embedding = EXCLUDED.embedding
                     RETURNING (xmax = 0) AS is_insert
-                """, (subject, topic, embed_content, json_path.name,
+                """, (subject, topic, topic_id, grade or None, embed_content, json_path.name,
                       difficulty or None,
                       t.get("tags") or None,
+                      Json(t),
                       embedding))
                 row = cur.fetchone()
                 result = "insert" if row and row[0] else "update"

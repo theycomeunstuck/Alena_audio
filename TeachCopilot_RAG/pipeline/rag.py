@@ -63,6 +63,8 @@ def embed_text(text: str) -> list[float]:
 def search_knowledge(query: str, subject: str | None = None,
                      difficulty: str | None = None,
                      tags: list[str] | None = None,
+                     topic_ids: list[str] | None = None,
+                     grade: str | None = None,
                      limit: int | None = None) -> list[dict]:
     """Return ranked knowledge fragments.
 
@@ -84,10 +86,14 @@ def search_knowledge(query: str, subject: str | None = None,
             filters.append("AND difficulty = %(difficulty)s")
         if tags:
             filters.append("AND tags && %(tags)s::text[]")
+        if topic_ids:
+            filters.append("AND topic_id = ANY(%(topic_ids)s)")
+        if grade:
+            filters.append("AND grade = %(grade)s")
         filter_clause = " ".join(filters)
         sql = f"""
-            SELECT topic, content, image_descriptions, source_file,
-                   page_number, image_path, difficulty, tags,
+            SELECT topic, topic_id, grade, content, image_descriptions, source_file,
+                   page_number, image_path, difficulty, tags, metadata,
                    1 - (embedding <=> %(emb)s::vector) AS score
             FROM knowledge_base
             WHERE 1 - (embedding <=> %(emb)s::vector) >= %(min_score)s
@@ -97,7 +103,7 @@ def search_knowledge(query: str, subject: str | None = None,
         """
         params = {"emb": embedding, "min_score": RAG_MIN_SCORE,
                   "top_k": top_k, "subject": subject,
-                  "difficulty": difficulty, "tags": tags}
+                  "difficulty": difficulty, "tags": tags, "topic_ids": topic_ids, "grade": grade}
         with psycopg2.connect(DATABASE_URL,
                               cursor_factory=psycopg2.extras.RealDictCursor) as conn:
             with conn.cursor() as cur:

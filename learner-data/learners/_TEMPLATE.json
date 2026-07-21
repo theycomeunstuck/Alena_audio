@@ -2,6 +2,7 @@
   "schema_version": 2,
   "learner_id": "primer-01",
   "pseudonym": "Пример",
+  "legal_name": {"first_name": "Иван", "last_name": "Иванов", "patronymic": "Иванович"},
   "age_group": "9-10",
   "grade": "3",
   "language": "russian",

@@ -2,6 +2,7 @@
   "schema_version": 2,
   "learner_id": "barsuk-05",
   "pseudonym": "Барсук",
+  "legal_name": {"first_name": "Артём", "last_name": "Артёмов", "patronymic": "Артёмович"},
   "age_group": "8-9",
   "grade": "3",
   "language": "russian",
