@@ -23,7 +23,7 @@ Returns the full child profile from Postgres.
 Direct retrieval (handy for debugging relevance).
 ```bash
 curl -s localhost:8099/rag/search -H 'content-type: application/json' \
-     -d '{"query":"что такое луч","learner_id":"volk-08","limit":3}'
+     -d '{"query":"что такое луч","learner_id":"ivanov-ivan","limit":3}'
 ```
 ```json
 { "query": "что такое луч", "count": 1,
@@ -66,7 +66,7 @@ The main entry point. It:
 ```bash
 curl -s localhost:8099/v1/chat/completions -H 'content-type: application/json' -d '{
   "model": "teachcopilot-rag",
-  "learner_id": "volk-08",
+  "learner_id": "ivanov-ivan",
   "messages": [{"role":"user","content":"что такое отрезок?"}]
 }'
 ```

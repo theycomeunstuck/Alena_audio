@@ -9,9 +9,9 @@ from pipeline.learner_context import LearnerContextError, load_learner_context  
 
 
 def test_compact_context_loads_without_full_card_data():
-    context = load_learner_context("volk-08")
+    context = load_learner_context("ivanov-ivan")
 
-    assert context.learner_id == "volk-08"
+    assert context.learner_id == "ivanov-ivan"
     assert "math.g4.numbers.division_by_1_2_digit" in context.topic_ids
     assert "<learner_rag_context>" in context.prompt_text
     assert "learner_model" not in context.prompt_text
@@ -21,7 +21,7 @@ def test_compact_context_loads_without_full_card_data():
 
 def test_invalid_learner_id_is_rejected_before_file_lookup():
     try:
-        load_learner_context("../volk-08")
+        load_learner_context("../ivanov-ivan")
     except LearnerContextError as exc:
         assert "learner_id" in str(exc)
     else:

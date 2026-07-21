@@ -20,17 +20,20 @@ python learner-data/tools/validate.py --strict
 python learner-data/tools/selftest.py
 ```
 
+Полностью заполненные варианты карточек и инструкция создания нового ученика:
+[`../../learner-data/EXAMPLES.md`](../../learner-data/EXAMPLES.md).
+
 ## Получить безопасный контекст для одного ученика
 
 ```bash
-python learner-data/tools/build_context.py volk-08
+python learner-data/tools/build_context.py ivanov-ivan
 ```
 
 Пример результата:
 
 ```text
 <child_safe_profile>
-Имя_для_обращения: Волк
+Имя_для_обращения: Иван
 Школьный_уровень: 4 класс
 Язык: russian
 </child_safe_profile>
@@ -45,8 +48,8 @@ python learner-data/tools/build_context.py volk-08
 вызывает этот builder и передаёт в LLM только его результат:
 
 ```text
-authenticated session → learner_id=volk-08 → build_context.py
-question → JSON учебных материалов по topic_id/grade
+authenticated session → learner_id=ivanov-ivan → build_context.py
+question → JSON vector index + topic_id/grade
 compact learner context + matching material → LLM answer
 ```
 
@@ -67,10 +70,68 @@ compact learner context + matching material → LLM answer
 }
 ```
 
-## Важное ограничение
+Полная пошаговая инструкция именно для учебных JSON — от добавления объекта до
+поиска и передачи результата модели: [../knowledge-data/README.md](../knowledge-data/README.md).
 
-В коде всё ещё есть старый PostgreSQL/pgvector retrieval-путь. Он не является
-текущей JSON-first архитектурой и не должен подниматься для работы только с
-карточками. Следующая реализация должна добавить файловый локальный векторный
-индекс поверх учебных JSON-файлов (например, FAISS или Chroma) и заменить этот
-legacy-путь без изменения формата `learner-data`.
+## Построить локальную векторную базу из JSON
+
+Для JSON-first режима есть файловый MVP: `scripts/json_rag.py`. Он использует
+модель embedding, но хранит индекс и metadata в обычном JSON-файле — без
+PostgreSQL, Docker и JSONB.
+
+```bash
+cd TeachCopilot_RAG
+uv run python scripts/json_rag.py build \
+  --source knowledge-data/math_g4_division_demo.json \
+  --index .local-rag/math-g4.json
+```
+
+Пример результата:
+
+```json
+{"indexed": 2, "index": ".local-rag/math-g4.json"}
+```
+
+## Найти материал для вопроса
+
+```bash
+uv run python scripts/json_rag.py search \
+  --index .local-rag/math-g4.json \
+  --query "Как разделить 408 на 4 и не забыть ноль?" \
+  --topic-id math.g4.numbers.division_by_1_2_digit \
+  --grade 4
+```
+
+Пример результата:
+
+```json
+[
+  {
+    "score": 0.74,
+    "content": "Раздели 408 на 4 столбиком.\nТеги: деление, столбик, ноль в частном\n408 : 4 = 102...",
+    "metadata": {
+      "task_id": "div-408-4",
+      "topic_id": "math.g4.numbers.division_by_1_2_digit",
+      "grade": "4",
+      "difficulty": "easy"
+    }
+  }
+]
+```
+
+`score` зависит от модели и поэтому меняется между окружениями. Не делайте
+`topic_id` жёстким фильтром для каждого вопроса: сначала пробуйте его как
+предпочтение, затем при нулевом результате повторите поиск без фильтра.
+
+## Добавить новый учебный JSON
+
+1. Добавьте объект с `task_id`, `topic_id`, `grade`, `content`, `answer` и
+   `tags` в JSON-файл учебных материалов.
+2. Убедитесь, что `topic_id` существует в `learner-data/catalog/`.
+3. Повторите команду `build` — индекс намеренно строится заново, чтобы данные и
+   embeddings не расходились.
+4. Запустите `search` на 2–3 реальных вопросах ребёнка и проверьте metadata
+   результата.
+
+Текущий `pipeline/rag.py` с PostgreSQL/pgvector остаётся legacy-кодом и не
+нужен для описанного JSON-first CLI-пути.

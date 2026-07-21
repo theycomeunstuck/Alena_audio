@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
-  "learner_id": "volk-08",
-  "pseudonym": "Волк",
+  "learner_id": "ivanov-ivan",
+  "pseudonym": "Иван",
   "legal_name": {"first_name": "Иван", "last_name": "Иванов", "patronymic": "Иванович"},
   "age_group": "10-11",
   "grade": "4",

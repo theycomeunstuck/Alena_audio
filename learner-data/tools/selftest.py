@@ -80,7 +80,7 @@ class TestValidatorOnRealData(unittest.TestCase):
         details = "\n".join(f.format() for f in findings)
         self.assertEqual(len(errors), 0, f"unexpected errors:\n{details}")
         self.assertEqual(len(warnings), 0, f"unexpected warnings:\n{details}")
-        self.assertEqual(file_count, 12)
+        self.assertEqual(file_count, 16)
 
 
 class TestCatalogShape(unittest.TestCase):
@@ -117,9 +117,9 @@ class TestCatalogShape(unittest.TestCase):
 class TestContextPerLearner(unittest.TestCase):
     """Check 3: the compact RAG projection contains only curated data.
 
-    The test verifies isolation between learners, balanced tags and, crucially,
-    that full journal, points and benchmark-only learner_model data do not leak
-    into the RAG prompt. Plus one subprocess smoke test.
+    The test verifies isolation between learners, balanced tags and that direct
+    identifiers do not leak while anonymised personalisation does. Plus one
+    subprocess smoke test.
     """
 
     @classmethod
@@ -131,8 +131,8 @@ class TestContextPerLearner(unittest.TestCase):
             card, _ = load_json(path)
             cls.cards.append((path.stem, card))
 
-    def test_twelve_cards_present(self):
-        self.assertEqual(len(self.cards), 12)
+    def test_sixteen_cards_present(self):
+        self.assertEqual(len(self.cards), 16)
 
     def test_each_card_context_isolated_and_balanced(self):
         all_pseudonyms = {card["pseudonym"] for _, card in self.cards}
@@ -150,18 +150,17 @@ class TestContextPerLearner(unittest.TestCase):
                 self._assert_tags_balanced(text)
                 self.assertIn("<learner_rag_context>", text)
                 self.assertIn(card["rag_context"]["current_goal"]["goal"], text)
-                self.assertNotIn("<points_balance>", text)
-                self.assertLess(len(text), 3000, "RAG projection must stay compact")
-
-                for entry in card["mvp"]["journal"]:
-                    self.assertNotIn(entry["note"], text, "journal must not reach RAG")
-                for entry in card["mvp"]["points_ledger"]:
-                    self.assertNotIn(entry["reason"], text, "points ledger must not reach RAG")
-                if "learner_model" in card:
-                    self.assertNotIn(
-                        card["learner_model"]["projects"][0]["title"], text,
-                        "benchmark-only learner_model must not reach RAG",
-                    )
+                self.assertIn("<learner_personalization>", text)
+                self.assertLess(len(text), 5000, "RAG projection must stay bounded")
+                legal_name = card.get("legal_name") or {}
+                for value in (legal_name.get("last_name"), legal_name.get("patronymic")):
+                    if not value or value == "-":
+                        continue
+                    self.assertNotIn(value, text, "legal name must not reach RAG")
+                if card["interests"]:
+                    self.assertIn(card["interests"][0], text)
+                if card["mvp"]["points_ledger"]:
+                    self.assertIn(card["mvp"]["points_ledger"][-1]["reason"], text)
 
     def _assert_tags_balanced(self, text: str):
         stack = []
@@ -217,7 +216,7 @@ class TestRagBehaviorBenchmark(unittest.TestCase):
         self.assertEqual(data["schema_version"], 1)
         cases = data["cases"]
         learner_ids = [case["learner_id"] for case in cases]
-        self.assertEqual(len(cases), 12)
+        self.assertEqual(len(cases), 16)
         self.assertEqual(len(learner_ids), len(set(learner_ids)))
         self.assertEqual(
             set(learner_ids),

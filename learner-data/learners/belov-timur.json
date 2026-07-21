@@ -1,0 +1,23 @@
+{
+  "schema_version": 2,
+  "learner_id": "belov-timur",
+  "pseudonym": "Тимур",
+  "legal_name": {"first_name": "Тимур", "last_name": "Белов", "patronymic": "Романович"},
+  "age_group": "10-11",
+  "grade": "4",
+  "language": "russian",
+  "rag_context": {
+    "current_goal": {"topic_id": "math.g4.fractions.numerator_denominator", "goal": "понять связь числителя и знаменателя на наглядных моделях", "updated_at": "2026-07-16"},
+    "current_topics": ["math.g4.fractions.numerator_denominator", "math.g4.fractions.part_of_number.finding_part"],
+    "priority_difficulties": [{"topic_id": "math.g4.fractions.numerator_denominator", "description": "называет числитель и знаменатель наоборот"}],
+    "effective_strategies": ["рисовать целое, разделённое на равные части", "просить показать числитель пальцем после рисунка"],
+    "avoid": ["не начинать с терминов без модели целого", "не исправлять ответ без вопроса-подсказки"],
+    "recent_progress": {"date": "2026-07-16", "note": "На рисунке уверенно находит половины и четверти; термины ещё путает."}
+  },
+  "profile": {"explanation_style": "через рисунок, затем короткое правило", "pace": "средний", "autonomy_level": "средний", "motivation": "интерес к задачам с понятным практическим смыслом", "prefers_visual": true},
+  "interests": ["кулинария", "космос", "комиксы"],
+  "knowledge": [{"topic_id": "math.g4.fractions.numerator_denominator", "status": "needs_support", "notes": "смысл доли понимает, названия частей дроби меняет местами"}, {"topic_id": "math.g4.fractions.part_of_number.finding_part", "status": "not_started", "notes": "перейдём после закрепления терминов"}],
+  "error_patterns": [{"subject": "math", "topic_id": "math.g4.fractions.numerator_denominator", "error_tag": "меняет местами числитель и знаменатель", "count": 6, "last_seen": "2026-07-16"}],
+  "mvp": {"story_preferences": ["рецепты и деление пиццы на равные части"], "learning_preferences_observed": ["лучше понимает дроби на предметном рисунке"], "help_strategies": ["каждый раз связывать термин со стрелкой на рисунке"], "journal": [{"date": "2026-07-16", "note": "Через пиццу быстро объяснил одну вторую и одну четвертую; названия частей повторили три раза."}], "points_ledger": [{"date": "2026-07-16", "points": 5, "reason": "за точное объяснение одной четверти на рисунке", "role": "tutor", "topic_id": "math.g4.fractions.numerator_denominator"}]},
+  "learner_model": {"competencies": [{"topic_id": "math.g4.fractions.numerator_denominator", "mastery": 0.44, "needs_scaffolding": true}], "zpd": {"current": ["math.g4.fractions.numerator_denominator"], "outside": ["math.g4.fractions.part_of_number.finding_part"]}, "learning_preferences": {"visual": 0.91, "storyline": 0.7}, "engagement": {"best_activity": "задача с предметным смыслом"}, "ai_usage": {"asks_clarifying_questions": false}, "projects": [], "strengths": ["понимает рисунок целого"], "support_needs": ["связь терминов с моделью"], "scaffolding_by_topic": [{"topic_id": "math.g4.fractions.numerator_denominator", "strategies": ["показывать части на рисунке"]}], "gamification": {"xp": 75, "level": 1, "badges": ["Исследователь дробей"], "missions_completed": 1}}
+}

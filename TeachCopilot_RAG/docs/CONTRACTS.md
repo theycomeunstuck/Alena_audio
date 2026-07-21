@@ -18,13 +18,13 @@ Request:
 ```
 
 To personalise from the checked-in JSON learner cards, pass the verified
-application identity as `learner_id` (for example `volk-08`).  `child_id` is a
+application identity as `learner_id` (for example `ivanov-ivan`).  `child_id` is a
 legacy PostgreSQL UUID and does not select a JSON card.
 
 ```json
 {
   "query": "Как делить 408 на 4 столбиком?",
-  "learner_id": "volk-08",
+  "learner_id": "ivanov-ivan",
   "limit": 3
 }
 ```

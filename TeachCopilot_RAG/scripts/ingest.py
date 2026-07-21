@@ -4,7 +4,6 @@ Supports --mode text (dedup) and --mode pdf (qwen3-vl multimodal)."""
 import sys
 import argparse
 import base64
-import json
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))

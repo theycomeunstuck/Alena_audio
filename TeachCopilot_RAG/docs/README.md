@@ -11,6 +11,7 @@ below actually work.
 | Doc | What's inside |
 |-----|---------------|
 | **[LEARNER_DATA_USAGE.md](LEARNER_DATA_USAGE.md)** | Current JSON-first flow, commands, examples and sample output. |
+| **[../knowledge-data/README.md](../knowledge-data/README.md)** | Add JSON learning material, build the local vector index and search it. |
 | **[SETUP.md](SETUP.md)** | Legacy pgvector setup; do not use for the current JSON-only phase. |
 | **[RAG_RUNBOOK.md](RAG_RUNBOOK.md)** | Known-good local runbook and verified RAG startup path. |
 | **[CONFIGURATION.md](CONFIGURATION.md)** | Every environment variable, its default, and CPU vs production notes. |

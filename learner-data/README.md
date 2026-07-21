@@ -1,6 +1,6 @@
 # learner-data
 
-`learner-data/` — демонстрационный набор из 12 профилей учеников для
+`learner-data/` — демонстрационный набор из 16 профилей учеников для
 персонализации будущего ИИ-репетитора. Это **не** векторная база учебных
 материалов и не production-хранилище персональных данных.
 
@@ -23,6 +23,8 @@
 ```
 learner-data/
 ├── README.md
+├── EXAMPLES.md                    # готовые заполненные примеры и инструкция
+├── MANUAL.md                      # полный manual: данные → RAG → поиск
 ├── RAG_HANDOFF.md                 # короткий контракт для команды RAG
 ├── schemas/
 │   ├── learner_card.schema.json   # схема карточки, версия 2
@@ -30,9 +32,9 @@ learner-data/
 ├── catalog/math_g3_g4.json        # общий каталог тем математики 3–4 класса
 ├── learners/
 │   ├── _TEMPLATE.json
-│   └── <learner_id>.json          # 12 синтетических профилей
+│   └── <learner_id>.json          # 16 синтетических профилей
 ├── benchmarks/
-│   └── rag_behavior_cases.json    # 12 сценариев проверки будущего RAG
+│   └── rag_behavior_cases.json    # 16 сценариев проверки будущего RAG
 └── tools/
     ├── validate.py
     ├── build_context.py
@@ -43,7 +45,7 @@ learner-data/
 ## Что получает RAG
 
 ```bash
-python learner-data/tools/build_context.py volk-08
+python learner-data/tools/build_context.py ivanov-ivan
 ```
 
 Команда печатает компактный блок из:
@@ -56,16 +58,27 @@ python learner-data/tools/build_context.py volk-08
 - списка «чего избегать»;
 - одной свежей заметки о прогрессе.
 
-В этот вывод **не** попадают `interests`, подробные `knowledge`,
-`error_patterns`, `mvp.journal`, `mvp.points_ledger` и `learner_model`.
+В этот вывод не попадают прямые идентификаторы: фамилия, отчество, контакты и
+другие персональные данные. В него попадает обезличенная персонализация:
+интересы, сильные и западающие темы, повторяющиеся затруднения, баллы за
+прогресс, удачи и ЗБР.
 Полную карточку можно посмотреть только в диагностическом/педагогическом
 инструменте:
 
 ```bash
-python learner-data/tools/build_context.py volk-08 --format json
+python learner-data/tools/build_context.py ivanov-ivan --format json
 ```
 
 Этот JSON нельзя отправлять в RAG как есть.
+
+## С чего начать
+
+Выберите один из заполненных профилей и создайте новый файл по его образцу.
+Пошаговая инструкция, готовые варианты для 3 и 4 класса и пример результата
+находятся в [EXAMPLES.md](EXAMPLES.md).
+
+Для полного human-readable сценария — от создания карточки до локального
+JSON-векторного поиска — используйте [MANUAL.md](MANUAL.md).
 
 ## Как заполнять `rag_context`
 
@@ -100,7 +113,7 @@ python learner-data/tools/build_context.py volk-08 --format json
 
 ## Полный benchmark-профиль
 
-`learners/volk-08.json` содержит дополнительный `learner_model`: карту
+`learners/ivanov-ivan.json` содержит дополнительный `learner_model`: карту
 компетенций, ЗБР, наблюдения о вовлечённости, работе с ИИ, проектах и
 геймификации. Он соответствует более широкому концепту Learner Model и нужен
 как богатый тестовый случай. `build_context.py` его не читает для текстового
@@ -129,8 +142,9 @@ python learner-data/tools/validate.py --strict
 python learner-data/tools/selftest.py
 ```
 
-Самопроверка включает валидность 12 карточек, изоляцию профилей, запрет утечки
-журнала/баллов/полной модели в RAG-контекст и 12 сценариев будущего RAG.
+Самопроверка включает валидность 16 карточек, изоляцию профилей, запрет утечки
+фамилии и отчества в RAG-контекст, обезличенную персонализацию и 16 сценариев
+будущего RAG.
 
 ## Данные детей
 

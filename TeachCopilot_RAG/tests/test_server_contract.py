@@ -116,11 +116,11 @@ def test_rag_search_uses_validated_learner_topics_as_soft_hint(monkeypatch):
 
     response = client.post(
         "/rag/search",
-        json={"query": "Как делить 408 на 4?", "learner_id": "volk-08", "limit": 2},
+        json={"query": "Как делить 408 на 4?", "learner_id": "ivanov-ivan", "limit": 2},
     )
 
     assert response.status_code == 200
-    assert response.json()["learner_id"] == "volk-08"
+    assert response.json()["learner_id"] == "ivanov-ivan"
     assert captured["limit"] == 2
     assert "math.g4.numbers.division_by_1_2_digit" in captured["query"]
 
@@ -167,7 +167,7 @@ def test_chat_injects_only_compact_learner_context(monkeypatch):
         "/v1/chat/completions",
         json={
             "messages": [{"role": "user", "content": "Как делить 408 на 4?"}],
-            "learner_id": "volk-08",
+            "learner_id": "ivanov-ivan",
         },
     )
 

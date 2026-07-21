@@ -4,6 +4,183 @@ AI-powered tutoring system for children aged 7-12. Voice-first architecture:
 child speaks, Whisper transcribes, pipeline personalizes the LLM response,
 TTS speaks back.
 
+> **Текущий режим: JSON-first RAG, без PostgreSQL.** Карточки учеников лежат
+> в `../learner-data/learners/*.json`, учебные материалы — в
+> `knowledge-data/*.json`, а локальный векторный индекс — в `.local-rag/*.json`
+> (генерируется и не коммитится).
+
+## Быстрый старт: JSON RAG
+
+### 1. Посмотреть безопасный контекст ученика
+
+Карточка ученика — отдельный JSON-файл, например
+`../learner-data/learners/ivanov-ivan.json`:
+
+```json
+{
+  "learner_id": "ivanov-ivan",
+  "pseudonym": "Иван",
+  "legal_name": {
+    "first_name": "Иван",
+    "last_name": "Иванов",
+    "patronymic": "Иванович"
+  },
+  "age_group": "10-11",
+  "grade": "4",
+  "language": "russian",
+  "rag_context": {
+    "current_goal": {
+      "topic_id": "math.g4.numbers.division_by_1_2_digit",
+      "goal": "закрепить деление столбиком с проверкой нулей и остатка",
+      "updated_at": "2026-07-12"
+    },
+    "current_topics": ["math.g4.numbers.division_by_1_2_digit"],
+    "priority_difficulties": [
+      {
+        "topic_id": "math.g4.numbers.division_by_1_2_digit",
+        "description": "теряет ноль в частном"
+      }
+    ],
+    "effective_strategies": ["проговорить план решения вслух"],
+    "avoid": ["не переходить к новой теме до проверки текущего шага"],
+    "recent_progress": {
+      "date": "2026-07-12",
+      "note": "Деление столбиком остаётся главным приоритетом."
+    }
+  }
+}
+```
+
+Полная реальная демо-карточка также содержит `profile`, `knowledge`,
+`error_patterns` и `mvp`; посмотреть её можно в
+[`../learner-data/learners/ivanov-ivan.json`](../learner-data/learners/ivanov-ivan.json).
+
+```bash
+cd ..
+python learner-data/tools/build_context.py ivanov-ivan
+```
+
+Пример результата — именно это передаётся модели:
+
+```text
+<child_safe_profile>
+Имя_для_обращения: Иван
+Школьный_уровень: 4 класс
+Язык: russian
+</child_safe_profile>
+
+<learner_rag_context>
+Текущая_цель: Деление на однозначное и двузначное число [math.g4.numbers.division_by_1_2_digit] — закрепить деление столбиком с проверкой нулей и остатка
+Приоритетные_трудности:
+- Деление на однозначное и двузначное число [math.g4.numbers.division_by_1_2_digit] — теряет ноль в частном
+Как_помогать:
+- проговорить план решения вслух
+</learner_rag_context>
+
+<learner_personalization>
+Интересы: футбол, конструкторы Lego, динозавры
+Западающие_темы:
+- Деление на однозначное и двузначное число [...] — деление столбиком даётся тяжело
+Баллы_за_прогресс: 42
+ЗБР_сейчас:
+- Деление на однозначное и двузначное число [...]
+</learner_personalization>
+```
+
+В модель передаётся обезличенная персонализация: интересы, сильные и западающие
+темы, повторяющиеся ошибки, баллы за прогресс, последние удачи и ЗБР. Фамилия,
+отчество, контакты и другие прямые идентификаторы в модель не передаются.
+
+### 2. Как выглядит учебный JSON
+
+Создайте или дополните файл в `knowledge-data/`:
+
+```json
+{
+  "tasks": [
+    {
+      "task_id": "div-408-4",
+      "topic_id": "math.g4.numbers.division_by_1_2_digit",
+      "grade": "4",
+      "content": "Раздели 408 на 4 столбиком.",
+      "answer": "408 : 4 = 102. Ноль в частном записываем обязательно.",
+      "difficulty": "easy",
+      "tags": ["деление", "столбик", "ноль в частном"]
+    }
+  ]
+}
+```
+
+`topic_id` и `grade` должны совпадать с каталогом
+`../learner-data/catalog/math_g3_g4.json`. Это связывает профиль ученика и
+учебный материал.
+
+### 3. Построить или обновить локальный векторный индекс
+
+```bash
+uv run python scripts/json_rag.py build \
+  --source knowledge-data/math_g4_division_demo.json \
+  --index .local-rag/math-g4.json
+```
+
+Пример ответа:
+
+```json
+{"indexed": 2, "index": ".local-rag/math-g4.json"}
+```
+
+После любого изменения учебного JSON снова выполните `build`: embeddings должны
+соответствовать текущему тексту.
+
+### 4. Найти учебный материал
+
+```bash
+uv run python scripts/json_rag.py search \
+  --index .local-rag/math-g4.json \
+  --query "Как разделить 408 на 4 и не забыть ноль?" \
+  --topic-id math.g4.numbers.division_by_1_2_digit \
+  --grade 4
+```
+
+Пример результата:
+
+```json
+[
+  {
+    "score": 0.74,
+    "content": "Раздели 408 на 4 столбиком...",
+    "metadata": {
+      "task_id": "div-408-4",
+      "topic_id": "math.g4.numbers.division_by_1_2_digit",
+      "grade": "4",
+      "difficulty": "easy"
+    }
+  }
+]
+```
+
+`score` зависит от embedding-модели. Если поиск с `topic_id` и `grade` ничего
+не вернул, повторите его без этих фильтров: ребёнок мог спросить тему вне
+текущей цели.
+
+### 5. Что передать модели
+
+```text
+проверенная сессия → learner_id
+learner_id → build_context.py → compact learner context
+вопрос → json_rag.py search → 1–3 учебных фрагмента
+compact context + учебные фрагменты + вопрос → LLM
+```
+
+Не передавайте модели полный JSON ученика и не индексируйте
+`../learner-data/learners/`: это персональные педагогические данные, а не
+учебная база.
+
+Для готовых полностью заполненных карточек и шаблонов смотрите
+[`../learner-data/EXAMPLES.md`](../learner-data/EXAMPLES.md).
+Полный manual по данным, приватности и JSON RAG:
+[`../learner-data/MANUAL.md`](../learner-data/MANUAL.md).
+
 > 📚 **New here? Start with [`docs/`](docs/README.md)** — a verified, task-oriented
 > guide: [Setup](docs/SETUP.md) · [Configuration](docs/CONFIGURATION.md) ·
 > [API & Open WebUI](docs/API.md) · [Troubleshooting](docs/TROUBLESHOOTING.md).

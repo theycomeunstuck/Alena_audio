@@ -19,6 +19,7 @@ pipeline/__pycache_/
 
 # Vector DB
 chroma_db/
+.local-rag/
 
 # IDE
 .idea/
