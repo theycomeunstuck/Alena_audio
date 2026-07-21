@@ -1,5 +1,9 @@
 # ⚙️ Configuration
 
+> JSON-first phase: для карточек учеников достаточно
+> `TEACHCOPILOT_LEARNER_DATA_DIR`. `DATABASE_URL` и retrieval-настройки ниже
+> относятся к legacy PostgreSQL/pgvector коду и пока не нужны.
+
 All configuration is environment-driven (via `.env`, loaded by
 `pipeline/config.py`). Real environment variables **override** `.env` values.
 

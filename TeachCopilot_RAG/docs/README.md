@@ -1,7 +1,8 @@
-# 📚 TeachCopilot RAG — Documentation
+# 📚 TeachCopilot — Documentation
 
-> Personalized, RAG-grounded tutoring backend that plugs into **Open WebUI** via an
-> OpenAI-compatible proxy. CPU-friendly, Russian-first, child-safe.
+> Current direction: JSON-first learner data. The learner profile source of
+> truth is `../learner-data/`; PostgreSQL/pgvector documents describe a legacy
+> retrieval implementation, not the active storage decision.
 
 This folder is the documentation hub. Everything here was **verified against a
 running instance** (Postgres + pgvector, embedding model, proxy) — the commands
@@ -9,7 +10,8 @@ below actually work.
 
 | Doc | What's inside |
 |-----|---------------|
-| **[SETUP.md](SETUP.md)** | Step-by-step CPU setup: deps → pgvector → schema → ingest → run. |
+| **[LEARNER_DATA_USAGE.md](LEARNER_DATA_USAGE.md)** | Current JSON-first flow, commands, examples and sample output. |
+| **[SETUP.md](SETUP.md)** | Legacy pgvector setup; do not use for the current JSON-only phase. |
 | **[RAG_RUNBOOK.md](RAG_RUNBOOK.md)** | Known-good local runbook and verified RAG startup path. |
 | **[CONFIGURATION.md](CONFIGURATION.md)** | Every environment variable, its default, and CPU vs production notes. |
 | **[API.md](API.md)** | HTTP endpoints, the OpenAI-compatible contract, and Open WebUI integration. |
@@ -22,9 +24,18 @@ below actually work.
 
 ---
 
-## What this service does
+## Current JSON-first scope
 
-A child (or a teacher/parent) chats in Open WebUI. Before the message reaches the
+1. `learner-data/learners/*.json` is the source of truth for learner cards.
+2. `build_context.py <learner_id>` renders the safe, compact projection for an
+   LLM; full cards remain outside the prompt.
+3. Educational material remains JSON files linked by `topic_id` and `grade`.
+4. A file-backed vector index for those educational JSON files is the next
+   implementation task. Do not start PostgreSQL merely to read learner cards.
+
+## Legacy pgvector implementation
+
+A child (or a teacher/parent) chats in Open WebUI. In the legacy path, before the message reaches the
 LLM, TeachCopilot:
 
 1. **Identifies the speaker** — maps the Open WebUI user to a child profile (or an
@@ -85,7 +96,7 @@ relevant; do not invent facts") — never as the sole source of truth.
 
 ---
 
-## Quickstart (CPU, verified)
+## Legacy quickstart (CPU, verified)
 
 ```bash
 # 0) deps
