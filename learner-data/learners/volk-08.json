@@ -1,0 +1,454 @@
+{
+  "schema_version": 2,
+  "learner_id": "volk-08",
+  "pseudonym": "Волк",
+  "legal_name": {"first_name": "Иван", "last_name": "Иванов", "patronymic": "Иванович"},
+  "age_group": "10-11",
+  "grade": "4",
+  "language": "russian",
+  "rag_context": {
+    "current_goal": {
+      "topic_id": "math.g4.numbers.division_by_1_2_digit",
+      "goal": "закрепить деление столбиком с проверкой нулей и остатка",
+      "updated_at": "2026-07-12"
+    },
+    "current_topics": [
+      "math.g4.numbers.division_by_1_2_digit",
+      "math.g4.word_problems.multi_step",
+      "math.g4.geometry.composite_area_perimeter"
+    ],
+    "priority_difficulties": [
+      {
+        "topic_id": "math.g4.numbers.division_by_1_2_digit",
+        "description": "теряет ноль в частном и не всегда проверяет остаток"
+      },
+      {
+        "topic_id": "math.g4.word_problems.multi_step",
+        "description": "теряет промежуточный результат в задаче из трёх действий"
+      },
+      {
+        "topic_id": "math.g4.geometry.composite_area_perimeter",
+        "description": "не сразу видит разбиение фигуры на прямоугольники"
+      }
+    ],
+    "effective_strategies": [
+      "сначала нарисовать схему движения стрелками",
+      "разбить составную фигуру на прямоугольники цветными карандашами",
+      "проговорить план решения вслух перед записью"
+    ],
+    "avoid": [
+      "не давать длинную цепочку действий без плана и промежуточной проверки",
+      "не переходить к новому типу задачи до проверки текущего шага"
+    ],
+    "recent_progress": {
+      "date": "2026-07-12",
+      "note": "Площадь составных фигур почти закрыта; деление столбиком остаётся главным приоритетом."
+    }
+  },
+  "profile": {
+    "explanation_style": "короткими блоками, с примером «на пальцах» перед правилом",
+    "pace": "медленный старт, потом ускоряется, если тема пошла",
+    "autonomy_level": "может работать сам 10-15 минут, потом теряет концентрацию",
+    "motivation": "соревновательный азарт: любит считать баллы и сравнивать с прошлым разом",
+    "prefers_visual": true
+  },
+  "interests": [
+    "футбол",
+    "конструкторы Lego",
+    "динозавры",
+    "компьютерные игры про стратегии"
+  ],
+  "knowledge": [
+    {
+      "topic_id": "math.g4.numbers.multidigit_numeration",
+      "status": "confident",
+      "notes": "уверенно читает и записывает многозначные числа, разряды называет без запинки"
+    },
+    {
+      "topic_id": "math.g4.numbers.multidigit_addition_subtraction",
+      "status": "confident",
+      "notes": "столбиком складывает и вычитает быстро и почти без ошибок"
+    },
+    {
+      "topic_id": "math.g4.numbers.multiplication_by_1_2_digit",
+      "status": "learning",
+      "notes": "умножение на однозначное — хорошо, на двузначное — сбивается на втором шаге"
+    },
+    {
+      "topic_id": "math.g4.numbers.division_by_1_2_digit",
+      "status": "needs_support",
+      "notes": "деление столбиком даётся тяжело, часто теряет разряд"
+    },
+    {
+      "topic_id": "math.g4.numbers.order_of_operations_brackets",
+      "status": "learning",
+      "notes": "в целом помнит порядок, но забывает про скобки внутри скобок"
+    },
+    {
+      "topic_id": "math.g4.word_problems.motion.speed_time_distance",
+      "status": "confident",
+      "notes": "формулу пути помнит и применяет без подсказок"
+    },
+    {
+      "topic_id": "math.g4.word_problems.motion.approach",
+      "status": "learning",
+      "notes": "путает встречное движение с движением вдогонку, нужна схема"
+    },
+    {
+      "topic_id": "math.g4.word_problems.work_productivity",
+      "status": "not_started",
+      "notes": "тему ещё не проходили на занятиях"
+    },
+    {
+      "topic_id": "math.g4.word_problems.multi_step",
+      "status": "needs_support",
+      "notes": "теряется, если в задаче больше двух действий подряд"
+    },
+    {
+      "topic_id": "math.g4.quantities.area_units",
+      "status": "confident",
+      "notes": "переводит квадратные см и м без ошибок"
+    },
+    {
+      "topic_id": "math.g4.quantities.unit_conversion",
+      "status": "learning",
+      "notes": "с именованными числами справляется медленно, но верно"
+    },
+    {
+      "topic_id": "math.g4.geometry.composite_area_perimeter",
+      "status": "needs_support",
+      "notes": "не видит, как разбить составную фигуру на прямоугольники"
+    },
+    {
+      "topic_id": "math.g4.geometry.angles",
+      "status": "learning",
+      "notes": "определяет виды углов на глаз, транспортиром пользуется неуверенно"
+    },
+    {
+      "topic_id": "math.g4.fractions.numerator_denominator",
+      "status": "confident",
+      "notes": "хорошо объясняет своими словами, что такое числитель и знаменатель"
+    },
+    {
+      "topic_id": "math.g4.fractions.part_of_number.finding_part",
+      "status": "not_started",
+      "notes": "ещё не начинали, идёт следующим блоком"
+    },
+    {
+      "topic_id": "math.g4.data.bar_charts",
+      "status": "confident",
+      "notes": "быстро читает столбчатые диаграммы, сам строит простые"
+    }
+  ],
+  "error_patterns": [
+    {
+      "subject": "math",
+      "topic_id": "math.g4.numbers.division_by_1_2_digit",
+      "error_tag": "теряет ноль при делении столбиком",
+      "count": 9,
+      "last_seen": "2026-07-10"
+    },
+    {
+      "subject": "math",
+      "topic_id": "math.g4.numbers.division_by_1_2_digit",
+      "error_tag": "не проверяет остаток сравнением с делителем",
+      "count": 4,
+      "last_seen": "2026-07-03"
+    },
+    {
+      "subject": "math",
+      "topic_id": "math.g4.numbers.multiplication_by_1_2_digit",
+      "error_tag": "забывает сдвиг разряда во второй строке при умножении на двузначное",
+      "count": 7,
+      "last_seen": "2026-07-06"
+    },
+    {
+      "subject": "math",
+      "topic_id": "math.g4.numbers.order_of_operations_brackets",
+      "error_tag": "выполняет действия в скобках не по порядку вложенности",
+      "count": 3,
+      "last_seen": "2026-06-22"
+    },
+    {
+      "subject": "math",
+      "topic_id": "math.g4.word_problems.motion.approach",
+      "error_tag": "путает встречное движение со вдогонку",
+      "count": 5,
+      "last_seen": "2026-06-29"
+    },
+    {
+      "subject": "math",
+      "topic_id": "math.g4.word_problems.multi_step",
+      "error_tag": "теряет промежуточный результат при задаче в три действия",
+      "count": 6,
+      "last_seen": "2026-07-06"
+    },
+    {
+      "subject": "math",
+      "topic_id": "math.g4.word_problems.multi_step",
+      "error_tag": "не перечитывает вопрос задачи перед ответом",
+      "count": 2,
+      "last_seen": "2026-06-08"
+    },
+    {
+      "subject": "math",
+      "topic_id": "math.g4.geometry.composite_area_perimeter",
+      "error_tag": "не делит составную фигуру на простые части",
+      "count": 8,
+      "last_seen": "2026-07-10"
+    },
+    {
+      "subject": "math",
+      "topic_id": "math.g4.geometry.angles",
+      "error_tag": "путает острый и тупой угол на глаз",
+      "count": 1,
+      "last_seen": "2026-05-25"
+    },
+    {
+      "subject": "math",
+      "topic_id": "math.g4.quantities.unit_conversion",
+      "error_tag": "путает порядок при переводе крупных единиц в мелкие",
+      "count": 4,
+      "last_seen": "2026-06-15"
+    },
+    {
+      "subject": "math",
+      "topic_id": "math.g4.numbers.multidigit_addition_subtraction",
+      "error_tag": "забывает про заём через ноль при вычитании",
+      "count": 2,
+      "last_seen": "2026-05-18"
+    },
+    {
+      "subject": "math",
+      "topic_id": "math.g4.data.bar_charts",
+      "error_tag": "путает ось значений при чтении столбчатой диаграммы",
+      "count": 1,
+      "last_seen": "2026-05-11"
+    }
+  ],
+  "mvp": {
+    "story_preferences": [
+      "истории про футбольные матчи и турниры",
+      "задачи про постройку из Lego"
+    ],
+    "learning_preferences_observed": [
+      "лучше включается, если задача оформлена как соревнование или матч",
+      "быстро устаёт от однотипных примеров без сюжета"
+    ],
+    "help_strategies": [
+      "сначала нарисовать схему движения стрелками",
+      "разбить составную фигуру на прямоугольники цветными карандашами",
+      "проговорить план решения вслух перед тем как писать"
+    ],
+    "journal": [
+      {
+        "date": "2026-05-04",
+        "note": "Знакомство. Хорошо считает столбиком, но деление вызывает панику ещё до начала решения."
+      },
+      {
+        "date": "2026-05-18",
+        "note": "Разобрали деление с проверкой остатка. Стало спокойнее, но ноль в частном теряет."
+      },
+      {
+        "date": "2026-06-01",
+        "note": "Ввели соревновательный формат — считаем баллы за каждую верную задачу. Мотивация заметно выросла."
+      },
+      {
+        "date": "2026-06-15",
+        "note": "Встречное движение и вдогонку по-прежнему путает. Нужна схема со стрелками на каждой задаче."
+      },
+      {
+        "date": "2026-06-29",
+        "note": "Составные фигуры: пробуем цветные карандаши для разбиения на прямоугольники — начал получаться результат."
+      },
+      {
+        "date": "2026-07-06",
+        "note": "Хороший прогресс по площади составных фигур. В задачах на три действия всё ещё теряет средний шаг."
+      },
+      {
+        "date": "2026-07-12",
+        "note": "Итог месяца: деление столбиком остаётся приоритетом, площадь составных фигур почти закрыта."
+      }
+    ],
+    "points_ledger": [
+      {
+        "date": "2026-05-04",
+        "points": 10,
+        "reason": "за активное включение на первом занятии",
+        "role": "tutor"
+      },
+      {
+        "date": "2026-05-11",
+        "points": 8,
+        "reason": "за верное чтение столбчатой диаграммы",
+        "role": "tutor",
+        "topic_id": "math.g4.data.bar_charts"
+      },
+      {
+        "date": "2026-05-18",
+        "points": 6,
+        "reason": "за самостоятельную проверку остатка при делении",
+        "role": "tutor",
+        "topic_id": "math.g4.numbers.division_by_1_2_digit"
+      },
+      {
+        "date": "2026-05-25",
+        "points": -5,
+        "reason": "корректировка: баллы за прошлое занятие начислены дважды по ошибке",
+        "role": "tutor"
+      },
+      {
+        "date": "2026-06-01",
+        "points": 12,
+        "reason": "за серию из пяти верных примеров подряд в новом формате",
+        "role": "tutor"
+      },
+      {
+        "date": "2026-06-08",
+        "points": 7,
+        "reason": "за исправление ошибки в задаче на три действия без подсказки",
+        "role": "tutor",
+        "topic_id": "math.g4.word_problems.multi_step"
+      },
+      {
+        "date": "2026-06-15",
+        "points": 9,
+        "reason": "за уверенное применение формулы пути",
+        "role": "tutor",
+        "topic_id": "math.g4.word_problems.motion.speed_time_distance"
+      },
+      {
+        "date": "2026-06-22",
+        "points": 4,
+        "reason": "за старание в теме про углы, даже с ошибками",
+        "role": "tutor",
+        "topic_id": "math.g4.geometry.angles"
+      },
+      {
+        "date": "2026-06-29",
+        "points": 6,
+        "reason": "за первый верно разбитый чертёж составной фигуры",
+        "role": "tutor",
+        "topic_id": "math.g4.geometry.composite_area_perimeter"
+      },
+      {
+        "date": "2026-07-06",
+        "points": 5,
+        "reason": "за аккуратное оформление решения без напоминаний",
+        "role": "tutor"
+      }
+    ]
+  },
+  "learner_model": {
+    "competencies": [
+      {
+        "topic_id": "math.g4.numbers.division_by_1_2_digit",
+        "mastery": 0.38,
+        "confidence": 0.82,
+        "independence": 0.3,
+        "needs_scaffolding": true,
+        "effective_scaffolding": [
+          "проговорить план решения",
+          "проверить ноль в частном отдельным шагом"
+        ],
+        "last_assessed": "2026-07-10"
+      },
+      {
+        "topic_id": "math.g4.word_problems.multi_step",
+        "mastery": 0.49,
+        "confidence": 0.76,
+        "independence": 0.42,
+        "needs_scaffolding": true,
+        "effective_scaffolding": [
+          "записать план из трёх действий",
+          "отмечать промежуточный результат"
+        ],
+        "last_assessed": "2026-07-06"
+      },
+      {
+        "topic_id": "math.g4.geometry.composite_area_perimeter",
+        "mastery": 0.68,
+        "confidence": 0.72,
+        "independence": 0.61,
+        "needs_scaffolding": true,
+        "effective_scaffolding": [
+          "разбить фигуру цветом на прямоугольники"
+        ],
+        "last_assessed": "2026-07-12"
+      }
+    ],
+    "zpd": {
+      "current": [
+        "math.g4.numbers.division_by_1_2_digit",
+        "math.g4.word_problems.multi_step",
+        "math.g4.geometry.composite_area_perimeter"
+      ],
+      "outside": [
+        "math.g4.word_problems.work_productivity"
+      ]
+    },
+    "learning_preferences": {
+      "visual": 0.9,
+      "audio": 0.45,
+      "hands_on": 0.7,
+      "storyline": 0.72,
+      "competition": 0.84,
+      "collaboration": 0.48
+    },
+    "engagement": {
+      "average_attention_minutes": 15,
+      "drops_after_minutes": 12,
+      "best_activity": "короткая задача с видимым прогрессом",
+      "worst_activity": "длинная серия однотипных примеров"
+    },
+    "ai_usage": {
+      "asks_clarifying_questions": false,
+      "reflection_level": 0.43,
+      "copies_answers": false
+    },
+    "projects": [
+      {
+        "title": "Турнир задач на движение",
+        "role": "решатель и автор схем",
+        "topic_ids": [
+          "math.g4.word_problems.motion.approach",
+          "math.g4.word_problems.motion.speed_time_distance"
+        ],
+        "teacher_feedback": "Хорошо объясняет схему движения, если сначала нарисует стрелки."
+      }
+    ],
+    "strengths": [
+      "быстро понимает визуальные схемы",
+      "включается в задачу с ясной целью",
+      "умеет объяснить ход решения после небольшой подготовки"
+    ],
+    "support_needs": [
+      "теряет внимание в длинной однотипной работе",
+      "нуждается в видимом плане задачи из нескольких действий"
+    ],
+    "scaffolding_by_topic": [
+      {
+        "topic_id": "math.g4.numbers.division_by_1_2_digit",
+        "strategies": [
+          "проговорить план",
+          "проверить ноль в частном"
+        ]
+      },
+      {
+        "topic_id": "math.g4.geometry.composite_area_perimeter",
+        "strategies": [
+          "разделить фигуру цветом на прямоугольники"
+        ]
+      }
+    ],
+    "gamification": {
+      "xp": 620,
+      "level": 3,
+      "badges": [
+        "Охотник за ошибками",
+        "Исследователь задач на движение"
+      ],
+      "missions_completed": 7
+    }
+  }
+}

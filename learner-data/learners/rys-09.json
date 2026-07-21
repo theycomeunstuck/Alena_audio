@@ -1,0 +1,124 @@
+{
+  "schema_version": 2,
+  "learner_id": "rys-09",
+  "pseudonym": "Рысь",
+  "age_group": "9-10",
+  "grade": "4",
+  "language": "russian",
+  "rag_context": {
+    "current_goal": {
+      "topic_id": "math.g4.fractions.part_of_number.finding_part",
+      "goal": "находить часть числа: сначала одну долю, затем нужное число долей",
+      "updated_at": "2026-07-08"
+    },
+    "current_topics": [
+      "math.g4.fractions.part_of_number.finding_part"
+    ],
+    "priority_difficulties": [
+      {
+        "topic_id": "math.g4.fractions.part_of_number.finding_part",
+        "description": "в сложных примерах путает числитель и знаменатель"
+      }
+    ],
+    "effective_strategies": [
+      "проговорить: сначала найти одну часть, затем умножить на число долей",
+      "попросить проверить действие по смыслу дроби"
+    ],
+    "avoid": [
+      "не повторять уже освоенные определения без новой задачи",
+      "не давать готовый ответ вместо проверки своего решения"
+    ],
+    "recent_progress": {
+      "date": "2026-07-08",
+      "note": "В простых примерах справляется; сложные примеры ещё закрепляем на карточках."
+    }
+  },
+  "profile": {
+    "explanation_style": "через сравнение с уже знакомым материалом прошлого года",
+    "pace": "средний, ровный",
+    "autonomy_level": "высокий, сама замечает свои ошибки при проверке",
+    "motivation": "чёткая обратная связь: что уже получается, а что ещё нет",
+    "prefers_visual": false
+  },
+  "interests": [
+    "чтение книг фэнтези",
+    "рукоделие"
+  ],
+  "knowledge": [
+    {
+      "topic_id": "math.g4.fractions.numerator_denominator",
+      "status": "confident",
+      "notes": "уверенно называет числитель и знаменатель, понимает смысл дроби"
+    },
+    {
+      "topic_id": "math.g4.fractions.comparing_same_denominator",
+      "status": "confident",
+      "notes": "сравнивает дроби с одинаковым знаменателем без ошибок"
+    },
+    {
+      "topic_id": "math.g4.fractions.part_of_number.finding_part",
+      "status": "learning",
+      "notes": "находит часть числа, но иногда путает, что на что делить"
+    },
+    {
+      "topic_id": "math.g4.fractions.part_of_number.finding_whole",
+      "status": "not_started",
+      "notes": "ещё не приступали, следующий шаг после нахождения части"
+    },
+    {
+      "topic_id": "math.g4.data.true_false_statements",
+      "status": "confident",
+      "notes": "хорошо аргументирует, почему утверждение верно или нет"
+    }
+  ],
+  "error_patterns": [
+    {
+      "subject": "math",
+      "topic_id": "math.g4.fractions.part_of_number.finding_part",
+      "error_tag": "делит на числитель вместо знаменателя при нахождении части числа",
+      "count": 3,
+      "last_seen": "2026-07-08"
+    }
+  ],
+  "mvp": {
+    "story_preferences": [
+      "истории про магические миры и квесты с делением сокровищ"
+    ],
+    "learning_preferences_observed": [
+      "легко проводит параллель с материалом третьего класса, если напомнить его"
+    ],
+    "help_strategies": [
+      "проговорить вслух: сначала находим одну часть, потом умножаем на нужное число долей"
+    ],
+    "journal": [
+      {
+        "date": "2026-05-19",
+        "note": "Знакомство. Дроби понимает на уровне смысла, готова двигаться быстрее программы."
+      },
+      {
+        "date": "2026-06-23",
+        "note": "Нахождение части числа: иногда путает деление на числитель и знаменатель."
+      },
+      {
+        "date": "2026-07-08",
+        "note": "Ошибка с числителем и знаменателем повторяется в сложных примерах, закрепляем на карточках."
+      }
+    ],
+    "points_ledger": [
+      {
+        "date": "2026-05-19",
+        "points": 7,
+        "reason": "за уверенное объяснение смысла дроби своими словами",
+        "role": "tutor",
+        "topic_id": "math.g4.fractions.numerator_denominator"
+      },
+      {
+        "date": "2026-06-23",
+        "points": 4,
+        "reason": "за самостоятельное обнаружение своей ошибки при проверке",
+        "role": "tutor",
+        "topic_id": "math.g4.fractions.part_of_number.finding_part"
+      }
+    ]
+  }
+}

@@ -1,0 +1,118 @@
+{
+  "schema_version": 2,
+  "learner_id": "ezh-02",
+  "pseudonym": "Ёж",
+  "age_group": "8-9",
+  "grade": "3",
+  "language": "russian",
+  "rag_context": {
+    "current_goal": {
+      "topic_id": "math.g3.numbers.order_of_operations",
+      "goal": "закрепить порядок действий в длинных выражениях",
+      "updated_at": "2026-06-24"
+    },
+    "current_topics": [
+      "math.g3.numbers.order_of_operations"
+    ],
+    "priority_difficulties": [
+      {
+        "topic_id": "math.g3.numbers.order_of_operations",
+        "description": "видит умножение после того, как уже начал сложение"
+      }
+    ],
+    "effective_strategies": [
+      "сначала подчеркнуть все знаки действий в выражении"
+    ],
+    "avoid": [
+      "не объяснять правило до самостоятельного разбора одного примера",
+      "не давать много одинаковых выражений подряд"
+    ],
+    "recent_progress": {
+      "date": "2026-06-24",
+      "note": "Подчёркивание знаков заметно уменьшило ошибки в порядке действий."
+    }
+  },
+  "profile": {
+    "explanation_style": "любит, когда сначала показывают пример, а потом объясняют правило",
+    "pace": "быстрый, скучает на повторении",
+    "autonomy_level": "почти всегда работает самостоятельно, помощь просит редко",
+    "motivation": "любит фиксировать свой прогресс в таблице побед",
+    "prefers_visual": false
+  },
+  "interests": [
+    "шахматы",
+    "энциклопедии про космос"
+  ],
+  "knowledge": [
+    {
+      "topic_id": "math.g3.numbers.multiplication_table.times_table",
+      "status": "confident",
+      "notes": "таблицу умножения знает наизусть полностью"
+    },
+    {
+      "topic_id": "math.g3.numbers.multiplication_table.division_from_table",
+      "status": "confident",
+      "notes": "деление по таблице умножения — без ошибок"
+    },
+    {
+      "topic_id": "math.g3.numbers.order_of_operations",
+      "status": "learning",
+      "notes": "в простых выражениях справляется, в длинных теряет порядок"
+    },
+    {
+      "topic_id": "math.g3.geometry.perimeter_polygon",
+      "status": "confident",
+      "notes": "периметр любого многоугольника считает быстро"
+    }
+  ],
+  "error_patterns": [
+    {
+      "subject": "math",
+      "topic_id": "math.g3.numbers.order_of_operations",
+      "error_tag": "сначала выполняет сложение, потом видит умножение в том же выражении",
+      "count": 3,
+      "last_seen": "2026-06-10"
+    }
+  ],
+  "mvp": {
+    "story_preferences": [
+      "истории про космические миссии и планеты"
+    ],
+    "learning_preferences_observed": [
+      "быстрее понимает через логическую загадку, чем через готовое правило"
+    ],
+    "help_strategies": [
+      "предложить сначала подчеркнуть все знаки действий в выражении"
+    ],
+    "journal": [
+      {
+        "date": "2026-05-20",
+        "note": "Знакомство. Таблицу умножения знает уже сейчас, можно двигаться дальше программы."
+      },
+      {
+        "date": "2026-06-10",
+        "note": "Порядок действий в длинных выражениях путает — предложили подчёркивать знаки цветом."
+      },
+      {
+        "date": "2026-06-24",
+        "note": "Приём с подчёркиванием сработал, ошибок в порядке действий заметно меньше."
+      }
+    ],
+    "points_ledger": [
+      {
+        "date": "2026-05-20",
+        "points": 8,
+        "reason": "за отличное знание таблицы умножения на входном занятии",
+        "role": "tutor",
+        "topic_id": "math.g3.numbers.multiplication_table.times_table"
+      },
+      {
+        "date": "2026-06-24",
+        "points": 6,
+        "reason": "за успешное применение приёма с подчёркиванием знаков",
+        "role": "tutor",
+        "topic_id": "math.g3.numbers.order_of_operations"
+      }
+    ]
+  }
+}

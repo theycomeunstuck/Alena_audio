@@ -1,0 +1,117 @@
+{
+  "schema_version": 2,
+  "learner_id": "barsuk-05",
+  "pseudonym": "Барсук",
+  "legal_name": {"first_name": "Артём", "last_name": "Артёмов", "patronymic": "Артёмович"},
+  "age_group": "8-9",
+  "grade": "3",
+  "language": "russian",
+  "rag_context": {
+    "current_goal": {
+      "topic_id": "math.g3.numbers.column_addition_subtraction.with_carry",
+      "goal": "научиться не терять перенос при сложении и вычитании столбиком",
+      "updated_at": "2026-07-01"
+    },
+    "current_topics": [
+      "math.g3.numbers.column_addition_subtraction.with_carry"
+    ],
+    "priority_difficulties": [
+      {
+        "topic_id": "math.g3.numbers.column_addition_subtraction.with_carry",
+        "description": "забывает отметить перенос в следующем разряде"
+      }
+    ],
+    "effective_strategies": [
+      "отмечать перенос ярким кружком над столбиком",
+      "делать короткую разминку между блоками примеров"
+    ],
+    "avoid": [
+      "не давать длинную серию однотипных примеров без паузы",
+      "не пропускать совместный разбор первого примера"
+    ],
+    "recent_progress": {
+      "date": "2026-07-01",
+      "note": "С кружком-подсказкой ошибок стало меньше, но приём пока нужен постоянно."
+    }
+  },
+  "profile": {
+    "explanation_style": "короткими простыми фразами, без длинных объяснений подряд",
+    "pace": "медленный, нужны частые перерывы",
+    "autonomy_level": "низкий, почти каждый шаг проговаривается вместе",
+    "motivation": "физическая активность между заданиями держит интерес",
+    "prefers_visual": true
+  },
+  "interests": [
+    "футбол",
+    "машинки"
+  ],
+  "knowledge": [
+    {
+      "topic_id": "math.g3.numbers.column_addition_subtraction.no_carry",
+      "status": "confident",
+      "notes": "сложение и вычитание столбиком без перехода — уверенно"
+    },
+    {
+      "topic_id": "math.g3.numbers.column_addition_subtraction.with_carry",
+      "status": "needs_support",
+      "notes": "с переходом через разряд сбивается, забывает про перенос"
+    }
+  ],
+  "error_patterns": [
+    {
+      "subject": "math",
+      "topic_id": "math.g3.numbers.column_addition_subtraction.with_carry",
+      "error_tag": "забывает добавить единицу переноса в следующий разряд",
+      "count": 5,
+      "last_seen": "2026-07-01"
+    },
+    {
+      "subject": "math",
+      "topic_id": "math.g3.numbers.column_addition_subtraction.with_carry",
+      "error_tag": "путает порядок разрядов при записи в столбик",
+      "count": 2,
+      "last_seen": "2026-06-17"
+    }
+  ],
+  "mvp": {
+    "story_preferences": [
+      "истории про футбольный счёт матчей"
+    ],
+    "learning_preferences_observed": [
+      "после 10-15 минут нужен физический перерыв, иначе теряет внимание"
+    ],
+    "help_strategies": [
+      "делать разминку между блоками примеров",
+      "отмечать перенос через разряд ярким кружком над столбиком"
+    ],
+    "journal": [
+      {
+        "date": "2026-05-27",
+        "note": "Знакомство. Сложение без перехода уверенное, с переходом — сбивается. Ввели перерывы на разминку."
+      },
+      {
+        "date": "2026-06-17",
+        "note": "Перенос через разряд по-прежнему теряется. Начали отмечать перенос кружком."
+      },
+      {
+        "date": "2026-07-01",
+        "note": "С кружком-подсказкой стало заметно меньше ошибок, но приём ещё нужен постоянно."
+      }
+    ],
+    "points_ledger": [
+      {
+        "date": "2026-05-27",
+        "points": 4,
+        "reason": "за терпение на первом занятии",
+        "role": "tutor"
+      },
+      {
+        "date": "2026-07-01",
+        "points": 5,
+        "reason": "за три примера с переходом через разряд подряд без ошибок",
+        "role": "tutor",
+        "topic_id": "math.g3.numbers.column_addition_subtraction.with_carry"
+      }
+    ]
+  }
+}

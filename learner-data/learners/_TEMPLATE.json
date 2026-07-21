@@ -1,0 +1,82 @@
+{
+  "schema_version": 2,
+  "learner_id": "primer-01",
+  "pseudonym": "Пример",
+  "legal_name": {"first_name": "Иван", "last_name": "Иванов", "patronymic": "Иванович"},
+  "age_group": "9-10",
+  "grade": "3",
+  "language": "russian",
+  "rag_context": {
+    "current_goal": {
+      "topic_id": "math.g3.numbers.multiplication_table.times_table",
+      "goal": "закрепить таблицу умножения на 2–5 через короткие примеры",
+      "updated_at": "2026-06-01"
+    },
+    "current_topics": [
+      "math.g3.numbers.multiplication_table.times_table"
+    ],
+    "priority_difficulties": [],
+    "effective_strategies": [
+      "разбить задачу на два шага"
+    ],
+    "avoid": [
+      "не давать длинную серию примеров без промежуточной проверки"
+    ],
+    "recent_progress": {
+      "date": "2026-06-01",
+      "note": "Первое занятие: определили начальную тему для работы."
+    }
+  },
+  "profile": {
+    "explanation_style": "пошагово, с проговариванием каждого действия вслух",
+    "pace": "средний, с паузами на переспросить",
+    "autonomy_level": "нужен внешний толчок, чтобы начать, дальше работает сам",
+    "motivation": "похвала и видимый прогресс по темам",
+    "prefers_visual": true
+  },
+  "interests": [
+    "динозавры"
+  ],
+  "knowledge": [
+    {
+      "topic_id": "math.g3.numbers.multiplication_table.times_table",
+      "status": "learning",
+      "notes": "таблица умножения на 2-5 уверенно, дальше путается"
+    }
+  ],
+  "error_patterns": [
+    {
+      "subject": "math",
+      "topic_id": "math.g3.numbers.column_addition_subtraction.with_carry",
+      "error_tag": "забывает добавить единицу переноса в следующий разряд",
+      "count": 2,
+      "last_seen": "2026-06-01"
+    }
+  ],
+  "mvp": {
+    "story_preferences": [
+      "истории про динозавров"
+    ],
+    "learning_preferences_observed": [
+      "лучше запоминает через рисунок, а не через текст"
+    ],
+    "help_strategies": [
+      "разбить задачу на два шага"
+    ],
+    "journal": [
+      {
+        "date": "2026-06-01",
+        "note": "Первое занятие: познакомились, определили темп и интересы ребёнка."
+      }
+    ],
+    "points_ledger": [
+      {
+        "date": "2026-06-01",
+        "points": 5,
+        "reason": "за старание на первом занятии",
+        "role": "tutor",
+        "topic_id": "math.g3.numbers.multiplication_table.times_table"
+      }
+    ]
+  }
+}

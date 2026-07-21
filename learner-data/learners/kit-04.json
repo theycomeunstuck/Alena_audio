@@ -1,0 +1,102 @@
+{
+  "schema_version": 2,
+  "learner_id": "kit-04",
+  "pseudonym": "Кит",
+  "age_group": "9-10",
+  "grade": "3",
+  "language": "russian",
+  "rag_context": {
+    "current_goal": {
+      "topic_id": "math.g3.geometry.triangle_types",
+      "goal": "различать названия треугольников по сторонам и по углам",
+      "updated_at": "2026-06-20"
+    },
+    "current_topics": [
+      "math.g3.geometry.triangle_types",
+      "math.g3.numbers.simple_equations"
+    ],
+    "priority_difficulties": [
+      {
+        "topic_id": "math.g3.geometry.triangle_types",
+        "description": "смешивает классификацию по углам и по сторонам"
+      }
+    ],
+    "effective_strategies": [
+      "задавать наводящий вопрос вместо готового ответа",
+      "сначала сравнить два похожих случая и объяснить почему"
+    ],
+    "avoid": [
+      "не давать правило без объяснения причины",
+      "не торопить с ответом, пока не проверил ход рассуждения"
+    ],
+    "recent_progress": {
+      "date": "2026-06-20",
+      "note": "Таблица-подсказка помогает, но названия по углам ещё путаются."
+    }
+  },
+  "profile": {
+    "explanation_style": "любит логические объяснения «почему так», а не просто правило",
+    "pace": "медленный, но очень основательный",
+    "autonomy_level": "самостоятелен, но перепроверяет каждый шаг",
+    "motivation": "интерес к самому предмету, похвала вторична",
+    "prefers_visual": false
+  },
+  "interests": [
+    "морские животные",
+    "настольные игры со стратегией"
+  ],
+  "knowledge": [
+    {
+      "topic_id": "math.g3.geometry.point_line_ray_segment",
+      "status": "confident",
+      "notes": "чётко различает точку, прямую, луч и отрезок"
+    },
+    {
+      "topic_id": "math.g3.geometry.triangle_types",
+      "status": "learning",
+      "notes": "классифицирует треугольники по сторонам, по углам путает названия"
+    },
+    {
+      "topic_id": "math.g3.geometry.circle",
+      "status": "confident",
+      "notes": "радиус и диаметр окружности не путает"
+    },
+    {
+      "topic_id": "math.g3.numbers.simple_equations",
+      "status": "learning",
+      "notes": "простые уравнения решает, но записывает решение не по шагам"
+    }
+  ],
+  "error_patterns": [
+    {
+      "subject": "math",
+      "topic_id": "math.g3.geometry.triangle_types",
+      "error_tag": "путает название треугольника по углам с названием по сторонам",
+      "count": 3,
+      "last_seen": "2026-06-20"
+    }
+  ],
+  "mvp": {
+    "story_preferences": [
+      "истории про исследование океана и подводные экспедиции"
+    ],
+    "learning_preferences_observed": [
+      "любит, когда объясняют логику правила через вопрос «а что если»"
+    ],
+    "help_strategies": [
+      "задать наводящий вопрос вместо готового ответа",
+      "предложить проверить решение уравнения подстановкой"
+    ],
+    "journal": [
+      {
+        "date": "2026-05-06",
+        "note": "Знакомство. Любит разбираться в логике, готовые правила без объяснения не принимает."
+      },
+      {
+        "date": "2026-06-20",
+        "note": "Виды треугольников по углам и по сторонам путает названия — сделали таблицу-подсказку."
+      }
+    ],
+    "points_ledger": []
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "schema_version": 2,
+  "learner_id": "sova-01",
+  "pseudonym": "Сова",
+  "legal_name": {"first_name": "Софья", "last_name": "Петрова", "patronymic": "-"},
+  "age_group": "9-10",
+  "grade": "3",
+  "language": "russian",
+  "rag_context": {
+    "current_goal": {
+      "topic_id": "math.g3.numbers.multiplication_table.times_table",
+      "goal": "провести короткую доброжелательную диагностику стартового уровня",
+      "updated_at": "2026-07-13"
+    },
+    "current_topics": [],
+    "priority_difficulties": [],
+    "effective_strategies": [],
+    "avoid": [
+      "не делать выводы об уровне без короткой диагностики",
+      "не ссылаться на несуществующую историю занятий"
+    ],
+    "recent_progress": {
+      "date": "2026-07-13",
+      "note": "Новый ученик: данных пока нет, нужно начать с нескольких простых диагностических задач."
+    }
+  },
+  "profile": {
+    "explanation_style": "ещё не определён, первое занятие впереди",
+    "pace": "ещё не определён",
+    "autonomy_level": "ещё не определён",
+    "motivation": "ещё не определена",
+    "prefers_visual": false
+  },
+  "interests": [],
+  "knowledge": [],
+  "error_patterns": [],
+  "mvp": {
+    "story_preferences": [],
+    "learning_preferences_observed": [],
+    "help_strategies": [],
+    "journal": [],
+    "points_ledger": []
+  }
+}

@@ -1,0 +1,376 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Карточка ученика",
+  "description": "Контракт данных одной карточки ученика (один файл learners/<learner_id>.json = один ребёнок). Карточка хранит полный профиль; в ИИ-репетитор передаётся только компактный rag_context.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "learner_id",
+    "pseudonym",
+    "age_group",
+    "grade",
+    "language",
+    "rag_context",
+    "profile",
+    "interests",
+    "knowledge",
+    "error_patterns",
+    "mvp"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 2,
+      "type": "integer",
+      "description": "Версия схемы карточки. Фиксировано: 2."
+    },
+    "learner_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*$",
+      "description": "Неизменяемый идентификатор ученика; равен имени файла без расширения .json. После создания не переименовывать."
+    },
+    "pseudonym": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Только псевдоним ребёнка, никогда реальное имя (аналог поля children.name в основной БД)."
+    },
+    "legal_name": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["first_name", "last_name", "patronymic"],
+      "description": "Необязательное ФИО для закрытого педагогического/административного интерфейса. Никогда не передаётся в rag_context или модели.",
+      "properties": {
+        "first_name": {"type": "string", "minLength": 1, "maxLength": 80},
+        "last_name": {"type": "string", "minLength": 1, "maxLength": 80},
+        "patronymic": {"type": "string", "maxLength": 80, "description": "Допускаются пустая строка или прочерк."}
+      }
+    },
+    "age_group": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Возрастная группа ребёнка, например \"9-10\"."
+    },
+    "grade": {
+      "type": "string",
+      "enum": ["3", "4"],
+      "description": "Класс обучения ученика."
+    },
+    "language": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Язык общения с учеником. По умолчанию \"russian\"."
+    },
+    "rag_context": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Единственная компактная проекция карточки, которую build_context.py передаёт ИИ-репетитору. Полный профиль, журнал, баллы и learner_model в RAG не попадают.",
+      "required": [
+        "current_goal",
+        "current_topics",
+        "priority_difficulties",
+        "effective_strategies",
+        "avoid",
+        "recent_progress"
+      ],
+      "properties": {
+        "current_goal": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["topic_id", "goal", "updated_at"],
+          "properties": {
+            "topic_id": {
+              "type": "string",
+              "pattern": "^math\\.g[34]\\.[a-z_]+(\\.[a-z0-9_]+){0,2}$"
+            },
+            "goal": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 280
+            },
+            "updated_at": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "format": "date"
+            }
+          }
+        },
+        "current_topics": {
+          "type": "array",
+          "maxItems": 3,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^math\\.g[34]\\.[a-z_]+(\\.[a-z0-9_]+){0,2}$"
+          }
+        },
+        "priority_difficulties": {
+          "type": "array",
+          "maxItems": 3,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["topic_id", "description"],
+            "properties": {
+              "topic_id": {
+                "type": "string",
+                "pattern": "^math\\.g[34]\\.[a-z_]+(\\.[a-z0-9_]+){0,2}$"
+              },
+              "description": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 280
+              }
+            }
+          }
+        },
+        "effective_strategies": {
+          "type": "array",
+          "maxItems": 3,
+          "items": {"type": "string", "minLength": 1, "maxLength": 280}
+        },
+        "avoid": {
+          "type": "array",
+          "maxItems": 3,
+          "items": {"type": "string", "minLength": 1, "maxLength": 280}
+        },
+        "recent_progress": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["date", "note"],
+          "properties": {
+            "date": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "format": "date"
+            },
+            "note": {"type": "string", "minLength": 1, "maxLength": 280}
+          }
+        }
+      }
+    },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Профиль обучения ребёнка (аналог полей child_profiles.*).",
+      "required": [
+        "explanation_style",
+        "pace",
+        "autonomy_level",
+        "motivation",
+        "prefers_visual"
+      ],
+      "properties": {
+        "explanation_style": {
+          "type": "string",
+          "description": "Предпочитаемый стиль объяснения материала."
+        },
+        "pace": {
+          "type": "string",
+          "description": "Предпочитаемый темп подачи материала."
+        },
+        "autonomy_level": {
+          "type": "string",
+          "description": "Уровень самостоятельности ребёнка при выполнении заданий."
+        },
+        "motivation": {
+          "type": "string",
+          "description": "Основной источник мотивации ребёнка."
+        },
+        "prefers_visual": {
+          "type": "boolean",
+          "description": "Предпочитает ли ребёнок визуальную подачу материала."
+        }
+      }
+    },
+    "interests": {
+      "type": "array",
+      "description": "Интересы ребёнка (аналог child_interests.tag).",
+      "items": {
+        "type": "string"
+      }
+    },
+    "knowledge": {
+      "type": "array",
+      "description": "Состояние освоения тем по каталогу навыков.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["topic_id", "status"],
+        "properties": {
+          "topic_id": {
+            "type": "string",
+            "pattern": "^math\\.g[34]\\.[a-z_]+(\\.[a-z0-9_]+){0,2}$",
+            "description": "Идентификатор темы из каталога навыков (catalog/math_g3_g4.json)."
+          },
+          "status": {
+            "type": "string",
+            "enum": ["not_started", "learning", "confident", "needs_support"],
+            "description": "Статус освоения темы. Числовых оценок (score) нет и не будет."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Необязательная заметка репетитора по теме."
+          }
+        }
+      }
+    },
+    "error_patterns": {
+      "type": "array",
+      "description": "Повторяющиеся ошибки ребёнка по темам.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["subject", "topic_id", "error_tag", "count", "last_seen"],
+        "properties": {
+          "subject": {
+            "type": "string",
+            "description": "Предмет, к которому относится ошибка."
+          },
+          "topic_id": {
+            "type": "string",
+            "pattern": "^math\\.g[34]\\.[a-z_]+(\\.[a-z0-9_]+){0,2}$",
+            "description": "Идентификатор темы из каталога навыков (catalog/math_g3_g4.json)."
+          },
+          "error_tag": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Метка типа ошибки."
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Сколько раз зафиксирована ошибка."
+          },
+          "last_seen": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+            "format": "date",
+            "description": "Дата последнего наблюдения ошибки в формате YYYY-MM-DD."
+          }
+        }
+      }
+    },
+    "mvp": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Данные MVP-функциональности, которые импортёр в PostgreSQL пропускает целиком.",
+      "required": [
+        "story_preferences",
+        "learning_preferences_observed",
+        "help_strategies",
+        "journal",
+        "points_ledger"
+      ],
+      "properties": {
+        "story_preferences": {
+          "type": "array",
+          "description": "Предпочтения по сюжетам/историям для заданий.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "learning_preferences_observed": {
+          "type": "array",
+          "description": "Наблюдаемые (не заявленные) учебные предпочтения ребёнка.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "help_strategies": {
+          "type": "array",
+          "description": "Стратегии помощи, которые срабатывают для этого ребёнка.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "journal": {
+          "type": "array",
+          "description": "Свободные заметки репетитора по датам.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["date", "note"],
+            "properties": {
+              "date": {
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                "format": "date",
+                "description": "Дата заметки в формате YYYY-MM-DD."
+              },
+              "note": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Текст заметки."
+              }
+            }
+          }
+        },
+        "points_ledger": {
+          "type": "array",
+          "description": "Журнал начислений баллов геймификации. Баланс баллов НИКОГДА не хранится в файле — он всегда вычисляется как сумма по журналу (ledger). Запись только в конец (append-only).",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["date", "points", "reason", "role"],
+            "properties": {
+              "date": {
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                "format": "date",
+                "description": "Дата начисления в формате YYYY-MM-DD."
+              },
+              "points": {
+                "type": "integer",
+                "description": "Количество начисленных (или списанных) баллов."
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Причина начисления баллов."
+              },
+              "role": {
+                "const": "tutor",
+                "type": "string",
+                "description": "Кто начислил баллы. Фиксировано: \"tutor\"."
+              },
+              "topic_id": {
+                "type": "string",
+                "pattern": "^math\\.g[34]\\.[a-z_]+(\\.[a-z0-9_]+){0,2}$",
+                "description": "Необязательная привязка начисления к теме — задел на будущую событийную модель геймификации."
+              }
+            }
+          }
+        }
+      }
+    },
+    "learner_model": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Необязательная полная учебная модель для benchmark-карточки и педагога. build_context.py её никогда не рендерит для RAG.",
+      "required": [
+        "competencies",
+        "zpd",
+        "learning_preferences",
+        "engagement",
+        "ai_usage",
+        "projects",
+        "strengths",
+        "support_needs",
+        "scaffolding_by_topic",
+        "gamification"
+      ],
+      "properties": {
+        "competencies": {"type": "array"},
+        "zpd": {"type": "object"},
+        "learning_preferences": {"type": "object"},
+        "engagement": {"type": "object"},
+        "ai_usage": {"type": "object"},
+        "projects": {"type": "array"},
+        "strengths": {"type": "array", "items": {"type": "string"}},
+        "support_needs": {"type": "array", "items": {"type": "string"}},
+        "scaffolding_by_topic": {"type": "array"},
+        "gamification": {"type": "object"}
+      }
+    }
+  }
+}
