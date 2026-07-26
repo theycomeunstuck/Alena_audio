@@ -2,22 +2,148 @@
   "schema_version": 2,
   "learner_id": "kuznetsov-maksim",
   "pseudonym": "Максим",
-  "legal_name": {"first_name": "Максим", "last_name": "Кузнецов", "patronymic": "Дмитриевич"},
+  "legal_name": {
+    "first_name": "Максим",
+    "last_name": "Кузнецов",
+    "patronymic": "Дмитриевич"
+  },
   "age_group": "10-11",
   "grade": "4",
   "language": "russian",
   "rag_context": {
-    "current_goal": {"topic_id": "math.g4.geometry.angles", "goal": "научиться измерять и строить углы транспортиром", "updated_at": "2026-07-17"},
-    "current_topics": ["math.g4.geometry.angles", "math.g4.geometry.composite_area_perimeter"],
-    "priority_difficulties": [{"topic_id": "math.g4.geometry.angles", "description": "выбирает неверную шкалу транспортира"}],
-    "effective_strategies": ["сначала отмечать вершину и нулевую линию", "просить объяснить выбор шкалы до измерения"],
-    "avoid": ["не хвалить только за скорость", "не давать формулу вместо работы с чертежом"],
-    "recent_progress": {"date": "2026-07-17", "note": "Максим уверенно различает острый и тупой угол, но шкалу ещё проверяет с подсказкой."}
+    "current_goal": {
+      "topic_id": "math.g4.geometry.angles",
+      "goal": "научиться измерять и строить углы транспортиром",
+      "updated_at": "2026-07-17"
+    },
+    "current_topics": [
+      "math.g4.geometry.angles",
+      "math.g4.geometry.composite_area_perimeter"
+    ],
+    "priority_difficulties": [
+      {
+        "topic_id": "math.g4.geometry.angles",
+        "description": "выбирает неверную шкалу транспортира"
+      }
+    ],
+    "effective_strategies": [
+      "сначала отмечать вершину и нулевую линию",
+      "просить объяснить выбор шкалы до измерения"
+    ],
+    "avoid": [
+      "не хвалить только за скорость",
+      "не давать формулу вместо работы с чертежом"
+    ],
+    "recent_progress": {
+      "date": "2026-07-17",
+      "note": "Максим уверенно различает острый и тупой угол, но шкалу ещё проверяет с подсказкой."
+    }
   },
-  "profile": {"explanation_style": "через точный алгоритм и короткую проверку", "pace": "быстрый, но с обязательной остановкой на самопроверку", "autonomy_level": "высокий", "motivation": "интерес к техническим задачам и измерениям", "prefers_visual": true},
-  "interests": ["робототехника", "велосипеды", "конструирование"],
-  "knowledge": [{"topic_id": "math.g4.geometry.angles", "status": "learning", "notes": "виды углов определяет, измерение транспортиром требует проверки"}, {"topic_id": "math.g4.geometry.composite_area_perimeter", "status": "confident", "notes": "разбивает фигуру на прямоугольники без подсказки"}],
-  "error_patterns": [{"subject": "math", "topic_id": "math.g4.geometry.angles", "error_tag": "считывает значение с противоположной шкалы транспортира", "count": 4, "last_seen": "2026-07-17"}],
-  "mvp": {"story_preferences": ["проектирование робота-помощника"], "learning_preferences_observed": ["сам замечает ошибку, если его попросить объяснить действие"], "help_strategies": ["просить назвать нулевую отметку и шкалу до ответа"], "journal": [{"date": "2026-07-17", "note": "Построил два угла верно после verbal check шкалы."}], "points_ledger": [{"date": "2026-07-17", "points": 6, "reason": "за самостоятельную проверку обоих построений", "role": "tutor", "topic_id": "math.g4.geometry.angles"}]},
-  "learner_model": {"competencies": [{"topic_id": "math.g4.geometry.angles", "mastery": 0.63, "needs_scaffolding": true}], "zpd": {"current": ["math.g4.geometry.angles"], "outside": ["math.g4.word_problems.work_productivity"]}, "learning_preferences": {"visual": 0.82, "hands_on": 0.75}, "engagement": {"best_activity": "точное построение"}, "ai_usage": {"asks_clarifying_questions": true}, "projects": [], "strengths": ["самопроверка по алгоритму"], "support_needs": ["контроль выбора шкалы"], "scaffolding_by_topic": [{"topic_id": "math.g4.geometry.angles", "strategies": ["назвать шкалу до измерения"]}], "gamification": {"xp": 120, "level": 2, "badges": ["Точный измеритель"], "missions_completed": 2}}
+  "profile": {
+    "explanation_style": "через точный алгоритм и короткую проверку",
+    "pace": "быстрый, но с обязательной остановкой на самопроверку",
+    "autonomy_level": "высокий",
+    "motivation": "интерес к техническим задачам и измерениям",
+    "prefers_visual": true
+  },
+  "interests": [
+    "робототехника",
+    "велосипеды",
+    "конструирование"
+  ],
+  "knowledge": [
+    {
+      "topic_id": "math.g4.geometry.angles",
+      "status": "learning",
+      "notes": "виды углов определяет, измерение транспортиром требует проверки"
+    },
+    {
+      "topic_id": "math.g4.geometry.composite_area_perimeter",
+      "status": "confident",
+      "notes": "разбивает фигуру на прямоугольники без подсказки"
+    }
+  ],
+  "error_patterns": [
+    {
+      "subject": "math",
+      "topic_id": "math.g4.geometry.angles",
+      "error_tag": "считывает значение с противоположной шкалы транспортира",
+      "count": 4,
+      "last_seen": "2026-07-17"
+    }
+  ],
+  "mvp": {
+    "story_preferences": [
+      "проектирование робота-помощника"
+    ],
+    "learning_preferences_observed": [
+      "сам замечает ошибку, если его попросить объяснить действие"
+    ],
+    "help_strategies": [
+      "просить назвать нулевую отметку и шкалу до ответа"
+    ],
+    "journal": [
+      {
+        "date": "2026-07-17",
+        "note": "Построил два угла верно после verbal check шкалы."
+      }
+    ],
+    "points_ledger": [
+      {
+        "date": "2026-07-17",
+        "points": 6,
+        "reason": "за самостоятельную проверку обоих построений",
+        "role": "tutor",
+        "topic_id": "math.g4.geometry.angles"
+      }
+    ]
+  },
+  "learner_model": {
+    "competencies": [
+      {
+        "topic_id": "math.g4.geometry.angles",
+        "mastery": 0.63,
+        "needs_scaffolding": true
+      }
+    ],
+    "zpd": {
+      "current": [
+        "math.g4.geometry.angles"
+      ],
+      "outside": []
+    },
+    "learning_preferences": {
+      "visual": 0.82,
+      "hands_on": 0.75
+    },
+    "engagement": {
+      "best_activity": "точное построение"
+    },
+    "ai_usage": {
+      "asks_clarifying_questions": true
+    },
+    "projects": [],
+    "strengths": [
+      "самопроверка по алгоритму"
+    ],
+    "support_needs": [
+      "контроль выбора шкалы"
+    ],
+    "scaffolding_by_topic": [
+      {
+        "topic_id": "math.g4.geometry.angles",
+        "strategies": [
+          "назвать шкалу до измерения"
+        ]
+      }
+    ],
+    "gamification": {
+      "xp": 120,
+      "level": 2,
+      "badges": [
+        "Точный измеритель"
+      ],
+      "missions_completed": 2
+    }
+  }
 }

@@ -1,0 +1,85 @@
+{
+  "tasks": [
+    {
+      "task_id": "fraction-name-parts",
+      "topic_id": "math.g4.fractions.numerator_denominator",
+      "grade": "4",
+      "content": "В дроби 3/7 назови числитель и знаменатель.",
+      "answer": "Числитель 3 — он записан сверху. Знаменатель 7 — он записан снизу, под чертой.",
+      "difficulty": "easy",
+      "tags": ["дробь", "числитель", "знаменатель"]
+    },
+    {
+      "task_id": "fraction-what-denominator-shows",
+      "topic_id": "math.g4.fractions.numerator_denominator",
+      "grade": "4",
+      "content": "Что показывает знаменатель дроби, а что — числитель?",
+      "answer": "Знаменатель показывает, на сколько равных частей разделили целое. Числитель показывает, сколько таких частей взяли. Знаменатель внизу — «на сколько разделили», числитель сверху — «сколько взяли».",
+      "difficulty": "easy",
+      "tags": ["дробь", "смысл числителя", "смысл знаменателя"]
+    },
+    {
+      "task_id": "fraction-pie-3-of-8",
+      "topic_id": "math.g4.fractions.numerator_denominator",
+      "grade": "4",
+      "content": "Пирог разделили на 8 равных частей и съели 3. Какой дробью записать съеденную часть?",
+      "answer": "3/8. Внизу 8 — на столько частей разделили, сверху 3 — столько взяли.",
+      "difficulty": "medium",
+      "tags": ["дробь", "запись дроби", "задача"]
+    },
+    {
+      "task_id": "fraction-find-mistake-5-2",
+      "topic_id": "math.g4.fractions.numerator_denominator",
+      "grade": "4",
+      "content": "Ученик записал «взяли 2 части из 5» как 5/2. Найди ошибку.",
+      "answer": "Верная запись 2/5. Снизу пишут, на сколько частей разделили целое (5), а сверху — сколько частей взяли (2). Проверка: взятая часть меньше целого, значит число сверху должно быть меньше.",
+      "difficulty": "medium",
+      "tags": ["дробь", "поиск ошибки", "перепутаны числитель и знаменатель"]
+    },
+    {
+      "task_id": "part-quarter-of-20",
+      "topic_id": "math.g4.fractions.part_of_number.finding_part",
+      "grade": "4",
+      "content": "Найди 1/4 от числа 20.",
+      "answer": "20 : 4 = 5. Делим на знаменатель — на число, которое стоит внизу.",
+      "difficulty": "easy",
+      "tags": ["часть числа", "деление на знаменатель"]
+    },
+    {
+      "task_id": "part-three-quarters-of-20",
+      "topic_id": "math.g4.fractions.part_of_number.finding_part",
+      "grade": "4",
+      "content": "Найди 3/4 от числа 20.",
+      "answer": "Сначала одна часть: 20 : 4 = 5. Потом берём три такие части: 5 · 3 = 15. Порядок всегда один: сначала делим на знаменатель, потом умножаем на числитель.",
+      "difficulty": "medium",
+      "tags": ["часть числа", "два шага", "правило"]
+    },
+    {
+      "task_id": "part-find-mistake-2-5-of-30",
+      "topic_id": "math.g4.fractions.part_of_number.finding_part",
+      "grade": "4",
+      "content": "Ученик нашёл 2/5 от 30 так: 30 : 2 · 5 = 75. Найди ошибку.",
+      "answer": "Верно 12. Делить нужно на знаменатель (нижнее число), а умножать на числитель: 30 : 5 = 6, затем 6 · 2 = 12. Проверка здравым смыслом: часть числа не может быть больше самого числа, а 75 больше 30.",
+      "difficulty": "medium",
+      "tags": ["часть числа", "поиск ошибки", "делит на числитель"]
+    },
+    {
+      "task_id": "part-two-thirds-of-27",
+      "topic_id": "math.g4.fractions.part_of_number.finding_part",
+      "grade": "4",
+      "content": "Найди 2/3 от числа 27.",
+      "answer": "27 : 3 = 9, затем 9 · 2 = 18.",
+      "difficulty": "medium",
+      "tags": ["часть числа", "два шага"]
+    },
+    {
+      "task_id": "part-girls-in-class",
+      "topic_id": "math.g4.fractions.part_of_number.finding_part",
+      "grade": "4",
+      "content": "В классе 24 ученика, 3/8 из них — девочки. Сколько в классе девочек?",
+      "answer": "24 : 8 = 3 ученика в одной части, 3 · 3 = 9 девочек.",
+      "difficulty": "hard",
+      "tags": ["часть числа", "задача", "два шага"]
+    }
+  ]
+}

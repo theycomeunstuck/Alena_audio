@@ -78,6 +78,57 @@ Important limitation: `[]` can mean either "no relevant material" or "retrieval
 failed". Check logs with `TEACHCOPILOT_DEBUG_RAG=1` before concluding content is
 missing.
 
+## `/task/design`
+
+ЗБР stage 4 — one individual task card. See [ZPD_STAGE4.md](ZPD_STAGE4.md).
+
+Request:
+
+```json
+{"learner_id": "zvezdin-artem", "topic_id": "math.g3.geometry.point_line_ray_segment", "count": 3}
+```
+
+Contract:
+
+- `learner_id` is required and must pass learner-data validation (404 otherwise).
+- `topic_id` is optional; without it the ЗБР policy selects the target from the
+  competence map. An id outside the skills catalog is a 404.
+- `count` is 1..10.
+- Difficulty and the number of hint rungs come from the competence map, never
+  from the model; the response repeats them as `difficulty` and `hint_depth`.
+- The model's topic, hint order, hint types and task count are re-imposed by the
+  service. Every repair is reported in `card.warnings`.
+- `text_for_child` contains no answers, no hints and no `topic_id`.
+- Unusable model output is 422; an unreachable LLM is 502.
+- The learner's `legal_name`, journal and points never enter the prompt or the
+  response.
+
+## `/learner/update`
+
+Lesson notes → learner card updates.
+
+Request:
+
+```json
+{"learner_ids": ["zvezdin-artem"], "notes": "...", "apply": false, "mode": "auto_ema"}
+```
+
+Contract:
+
+- `apply` defaults to `false`: the call is a dry run and nothing is written.
+- One call handles the whole group; the roster restricts the model to the
+  learners, topics and known error tags it was given.
+- The model never supplies `mastery`/`independence`; they are recomputed from the
+  reported help level (`independent|hint_question|visual|joint`).
+- Observations with an unknown topic or help level are dropped and reported in
+  `warnings`, not applied.
+- In `tutor_confirmed` mode competency numbers are applied only for topics listed
+  in `confirmed_topics` (or `all`); journal, error patterns and progress notes
+  apply in both modes.
+- A card is written only after passing full learner-data validation; otherwise
+  422 and the file on disk is untouched.
+- The response contains diffs only — never full cards.
+
 ## `/v1/models`
 
 Response advertises one logical model:

@@ -86,11 +86,37 @@ cp learner-data/learners/smirnova-alina.json learner-data/learners/student-01.js
 | `knowledge` | сильные, изучаемые, западающие темы | да |
 | `error_patterns` | повторяющиеся учебные ошибки | да |
 | `mvp.points_ledger` | события прогресса с баллами | да, как агрегат и удачи |
-| `learner_model.zpd` | текущая и будущая ЗБР | да |
+| `learner_model.competencies` | карта компетенций: mastery, самостоятельность, опоры | да, только по теме задания |
+| `learner_model.zpd` | производная проекция карты компетенций | да |
 | `legal_name` | настоящее ФИО для закрытого интерфейса | нет |
 
 Используйте только `topic_id` из `catalog/math_g3_g4.json`. Готовые разные
 профили: [EXAMPLES.md](EXAMPLES.md).
+
+### Карта компетенций и ЗБР
+
+Зона ближайшего развития **не заполняется руками**. Источник правды —
+`learner_model.competencies`; блок `learner_model.zpd` из него выводится:
+
+```
+mastery >= 0.85 и independence >= 0.80  ->  освоено (делает сам)
+mastery <  0.30                          ->  пока за пределами ЗБР
+иначе                                    ->  в ЗБР (делает с опорой)
+```
+
+```bash
+python learner-data/tools/zpd.py student-01           # какая зона и почему
+python learner-data/tools/zpd.py student-01 --write   # перезаписать блок zpd
+```
+
+Если тема должна быть «за пределами ЗБР», дайте ей запись в карте компетенций с
+низкой `mastery` — иначе валидатор предупредит, что зона не выводится. Тему,
+которую ещё не проходили, в блок `zpd` не вносят: для неё достаточно
+`knowledge[].status = not_started`.
+
+`mastery` и `independence` обычно не выставляют вручную: их пересчитывает код по
+уровню помощи, который потребовался ребёнку. Подробности и лестница подсказок —
+[TeachCopilot_RAG/docs/ZPD_STAGE4.md](../TeachCopilot_RAG/docs/ZPD_STAGE4.md).
 
 ## 4. Проверить карточки и увидеть LLM-контекст
 

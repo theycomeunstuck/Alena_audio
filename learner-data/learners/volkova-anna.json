@@ -2,22 +2,147 @@
   "schema_version": 2,
   "learner_id": "volkova-anna",
   "pseudonym": "Анна",
-  "legal_name": {"first_name": "Анна", "last_name": "Волкова", "patronymic": "-"},
+  "legal_name": {
+    "first_name": "Анна",
+    "last_name": "Волкова",
+    "patronymic": "-"
+  },
   "age_group": "9-10",
   "grade": "3",
   "language": "russian",
   "rag_context": {
-    "current_goal": {"topic_id": "math.g3.numbers.column_addition_subtraction.with_carry", "goal": "решать сложение столбиком с переходом через разряд без потери переноса", "updated_at": "2026-07-19"},
-    "current_topics": ["math.g3.numbers.column_addition_subtraction.with_carry"],
-    "priority_difficulties": [{"topic_id": "math.g3.numbers.column_addition_subtraction.with_carry", "description": "не записывает единицу переноса над следующим разрядом"}],
-    "effective_strategies": ["обводить перенос цветным карандашом", "после каждого разряда задавать вопрос о переносе"],
-    "avoid": ["не выполнять вычисление за ученицу", "не переходить к вычитанию до устойчивого сложения"],
-    "recent_progress": {"date": "2026-07-19", "note": "В двухразрядных примерах перенос отмечает сама, в трёхразрядных ещё нужен вопрос."}
+    "current_goal": {
+      "topic_id": "math.g3.numbers.column_addition_subtraction.with_carry",
+      "goal": "решать сложение столбиком с переходом через разряд без потери переноса",
+      "updated_at": "2026-07-19"
+    },
+    "current_topics": [
+      "math.g3.numbers.column_addition_subtraction.with_carry"
+    ],
+    "priority_difficulties": [
+      {
+        "topic_id": "math.g3.numbers.column_addition_subtraction.with_carry",
+        "description": "не записывает единицу переноса над следующим разрядом"
+      }
+    ],
+    "effective_strategies": [
+      "обводить перенос цветным карандашом",
+      "после каждого разряда задавать вопрос о переносе"
+    ],
+    "avoid": [
+      "не выполнять вычисление за ученицу",
+      "не переходить к вычитанию до устойчивого сложения"
+    ],
+    "recent_progress": {
+      "date": "2026-07-19",
+      "note": "В двухразрядных примерах перенос отмечает сама, в трёхразрядных ещё нужен вопрос."
+    }
   },
-  "profile": {"explanation_style": "пошагово и спокойно, с цветовой опорой", "pace": "медленный", "autonomy_level": "низкий на новой теме, средний на повторении", "motivation": "уверенность после понятного первого шага", "prefers_visual": true},
-  "interests": ["танцы", "животные", "сказки"],
-  "knowledge": [{"topic_id": "math.g3.numbers.column_addition_subtraction.no_carry", "status": "confident", "notes": "складывает столбиком без перехода"}, {"topic_id": "math.g3.numbers.column_addition_subtraction.with_carry", "status": "learning", "notes": "перенос понимает после цветовой подсказки"}],
-  "error_patterns": [{"subject": "math", "topic_id": "math.g3.numbers.column_addition_subtraction.with_carry", "error_tag": "не записывает единицу переноса", "count": 5, "last_seen": "2026-07-19"}],
-  "mvp": {"story_preferences": ["сказки о животных"], "learning_preferences_observed": ["цветная отметка помогает удержать перенос"], "help_strategies": ["обводить перенос цветом и проговаривать его"], "journal": [{"date": "2026-07-19", "note": "Анна решила четыре примера с переходом; в последнем сама заметила пропущенный перенос."}], "points_ledger": [{"date": "2026-07-19", "points": 5, "reason": "за самостоятельное исправление пропущенного переноса", "role": "tutor", "topic_id": "math.g3.numbers.column_addition_subtraction.with_carry"}]},
-  "learner_model": {"competencies": [{"topic_id": "math.g3.numbers.column_addition_subtraction.with_carry", "mastery": 0.48, "needs_scaffolding": true}], "zpd": {"current": ["math.g3.numbers.column_addition_subtraction.with_carry"], "outside": []}, "learning_preferences": {"visual": 0.88, "audio": 0.5}, "engagement": {"best_activity": "короткий пример с цветовой опорой"}, "ai_usage": {"asks_clarifying_questions": false}, "projects": [], "strengths": ["замечает ошибку после вопроса"], "support_needs": ["пауза после каждого разряда"], "scaffolding_by_topic": [{"topic_id": "math.g3.numbers.column_addition_subtraction.with_carry", "strategies": ["обвести перенос цветом"]}], "gamification": {"xp": 60, "level": 1, "badges": ["Охотник за переносами"], "missions_completed": 1}}
+  "profile": {
+    "explanation_style": "пошагово и спокойно, с цветовой опорой",
+    "pace": "медленный",
+    "autonomy_level": "низкий на новой теме, средний на повторении",
+    "motivation": "уверенность после понятного первого шага",
+    "prefers_visual": true
+  },
+  "interests": [
+    "танцы",
+    "животные",
+    "сказки"
+  ],
+  "knowledge": [
+    {
+      "topic_id": "math.g3.numbers.column_addition_subtraction.no_carry",
+      "status": "confident",
+      "notes": "складывает столбиком без перехода"
+    },
+    {
+      "topic_id": "math.g3.numbers.column_addition_subtraction.with_carry",
+      "status": "learning",
+      "notes": "перенос понимает после цветовой подсказки"
+    }
+  ],
+  "error_patterns": [
+    {
+      "subject": "math",
+      "topic_id": "math.g3.numbers.column_addition_subtraction.with_carry",
+      "error_tag": "не записывает единицу переноса",
+      "count": 5,
+      "last_seen": "2026-07-19"
+    }
+  ],
+  "mvp": {
+    "story_preferences": [
+      "сказки о животных"
+    ],
+    "learning_preferences_observed": [
+      "цветная отметка помогает удержать перенос"
+    ],
+    "help_strategies": [
+      "обводить перенос цветом и проговаривать его"
+    ],
+    "journal": [
+      {
+        "date": "2026-07-19",
+        "note": "Анна решила четыре примера с переходом; в последнем сама заметила пропущенный перенос."
+      }
+    ],
+    "points_ledger": [
+      {
+        "date": "2026-07-19",
+        "points": 5,
+        "reason": "за самостоятельное исправление пропущенного переноса",
+        "role": "tutor",
+        "topic_id": "math.g3.numbers.column_addition_subtraction.with_carry"
+      }
+    ]
+  },
+  "learner_model": {
+    "competencies": [
+      {
+        "topic_id": "math.g3.numbers.column_addition_subtraction.with_carry",
+        "mastery": 0.48,
+        "needs_scaffolding": true
+      }
+    ],
+    "zpd": {
+      "current": [
+        "math.g3.numbers.column_addition_subtraction.with_carry"
+      ],
+      "outside": []
+    },
+    "learning_preferences": {
+      "visual": 0.88,
+      "audio": 0.5
+    },
+    "engagement": {
+      "best_activity": "короткий пример с цветовой опорой"
+    },
+    "ai_usage": {
+      "asks_clarifying_questions": false
+    },
+    "projects": [],
+    "strengths": [
+      "замечает ошибку после вопроса"
+    ],
+    "support_needs": [
+      "пауза после каждого разряда"
+    ],
+    "scaffolding_by_topic": [
+      {
+        "topic_id": "math.g3.numbers.column_addition_subtraction.with_carry",
+        "strategies": [
+          "обвести перенос цветом"
+        ]
+      }
+    ],
+    "gamification": {
+      "xp": 60,
+      "level": 1,
+      "badges": [
+        "Охотник за переносами"
+      ],
+      "missions_completed": 1
+    }
+  }
 }

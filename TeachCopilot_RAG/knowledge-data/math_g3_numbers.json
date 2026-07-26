@@ -1,0 +1,229 @@
+{
+  "tasks": [
+    {
+      "task_id": "carry-47-38",
+      "topic_id": "math.g3.numbers.column_addition_subtraction.with_carry",
+      "grade": "3",
+      "content": "Сложи столбиком 47 + 38.",
+      "answer": "47 + 38 = 85. Единицы: 7 + 8 = 15, пишем 5, а 1 десяток запоминаем и отмечаем над десятками. Десятки: 4 + 3 + 1 = 8.",
+      "difficulty": "easy",
+      "tags": ["столбик", "переход через разряд", "перенос"]
+    },
+    {
+      "task_id": "carry-256-137",
+      "topic_id": "math.g3.numbers.column_addition_subtraction.with_carry",
+      "grade": "3",
+      "content": "Сложи столбиком 256 + 137.",
+      "answer": "256 + 137 = 393. Единицы: 6 + 7 = 13, пишем 3, переносим 1. Десятки: 5 + 3 + 1 = 9. Сотни: 2 + 1 = 3.",
+      "difficulty": "easy",
+      "tags": ["столбик", "переход через разряд", "трёхзначные"]
+    },
+    {
+      "task_id": "carry-find-mistake-68-25",
+      "topic_id": "math.g3.numbers.column_addition_subtraction.with_carry",
+      "grade": "3",
+      "content": "Ученик записал 68 + 25 = 83. Найди ошибку и посчитай верно.",
+      "answer": "Верно 68 + 25 = 93. Ученик забыл добавить единицу переноса: 8 + 5 = 13, пишем 3, а 1 десяток нужно прибавить к десяткам: 6 + 2 + 1 = 9.",
+      "difficulty": "medium",
+      "tags": ["столбик", "перенос", "поиск ошибки"]
+    },
+    {
+      "task_id": "carry-borrow-52-27",
+      "topic_id": "math.g3.numbers.column_addition_subtraction.with_carry",
+      "grade": "3",
+      "content": "Вычти столбиком 52 − 27.",
+      "answer": "52 − 27 = 25. Единиц не хватает: занимаем один десяток, получаем 12 − 7 = 5. Десятков осталось 4: 4 − 2 = 2.",
+      "difficulty": "medium",
+      "tags": ["столбик", "вычитание", "занимаем десяток"]
+    },
+    {
+      "task_id": "carry-align-234-9",
+      "topic_id": "math.g3.numbers.column_addition_subtraction.with_carry",
+      "grade": "3",
+      "content": "Запиши в столбик 234 + 9 и найди сумму.",
+      "answer": "234 + 9 = 243. Единицы пишем строго под единицами: 9 встаёт под 4. Единицы: 4 + 9 = 13, пишем 3, переносим 1. Десятки: 3 + 1 = 4. Сотни: 2.",
+      "difficulty": "medium",
+      "tags": ["столбик", "порядок разрядов", "перенос"]
+    },
+    {
+      "task_id": "times-7-8",
+      "topic_id": "math.g3.numbers.multiplication_table.times_table",
+      "grade": "3",
+      "content": "Сколько будет 7 · 8?",
+      "answer": "7 · 8 = 56. Это то же самое, что 8 · 7: от перестановки множителей произведение не меняется.",
+      "difficulty": "easy",
+      "tags": ["таблица умножения", "семь", "восемь"]
+    },
+    {
+      "task_id": "times-boxes-6-7",
+      "topic_id": "math.g3.numbers.multiplication_table.times_table",
+      "grade": "3",
+      "content": "В коробке 6 карандашей. Сколько карандашей в 7 таких коробках?",
+      "answer": "6 · 7 = 42 карандаша. По 6 карандашей взяли 7 раз.",
+      "difficulty": "easy",
+      "tags": ["таблица умножения", "задача", "смысл умножения"]
+    },
+    {
+      "task_id": "times-meaning-4-9",
+      "topic_id": "math.g3.numbers.multiplication_table.times_table",
+      "grade": "3",
+      "content": "В 4 вазах по 9 цветов. Ученик записал 4 · 9 = 36 и сказал, что нашёл число ваз. Что он нашёл на самом деле?",
+      "answer": "Он нашёл число цветов: их 36. Ваз было 4, это известно из условия. Значение произведения от перестановки множителей не меняется, но смысл записи разный: по 9 цветов взяли 4 раза.",
+      "difficulty": "medium",
+      "tags": ["таблица умножения", "смысл множителей", "поиск ошибки"]
+    },
+    {
+      "task_id": "times-divide-56-8",
+      "topic_id": "math.g3.numbers.multiplication_table.times_table",
+      "grade": "3",
+      "content": "Раздели 56 на 8.",
+      "answer": "56 : 8 = 7. Проверяем по таблице умножения: 7 · 8 = 56.",
+      "difficulty": "easy",
+      "tags": ["таблица умножения", "деление", "проверка"]
+    },
+    {
+      "task_id": "times-missing-factor-63",
+      "topic_id": "math.g3.numbers.multiplication_table.times_table",
+      "grade": "3",
+      "content": "Найди пропущенное число: 7 · ? = 63.",
+      "answer": "Пропущено 9, потому что 7 · 9 = 63. Неизвестный множитель находят делением: 63 : 7 = 9.",
+      "difficulty": "medium",
+      "tags": ["таблица умножения", "неизвестный множитель"]
+    },
+    {
+      "task_id": "nontable-24-3",
+      "topic_id": "math.g3.numbers.non_table_mult_div",
+      "grade": "3",
+      "content": "Вычисли 24 · 3.",
+      "answer": "24 · 3 = 72. Разбиваем 24 на разрядные слагаемые: 20 · 3 = 60, 4 · 3 = 12, затем 60 + 12 = 72.",
+      "difficulty": "easy",
+      "tags": ["внетабличное умножение", "разрядные слагаемые"]
+    },
+    {
+      "task_id": "nontable-96-3",
+      "topic_id": "math.g3.numbers.non_table_mult_div",
+      "grade": "3",
+      "content": "Вычисли 96 : 3.",
+      "answer": "96 : 3 = 32. Делим по частям: 90 : 3 = 30 и 6 : 3 = 2, затем 30 + 2 = 32.",
+      "difficulty": "easy",
+      "tags": ["внетабличное деление", "по частям"]
+    },
+    {
+      "task_id": "nontable-17-4",
+      "topic_id": "math.g3.numbers.non_table_mult_div",
+      "grade": "3",
+      "content": "Вычисли 17 · 4.",
+      "answer": "17 · 4 = 68. 10 · 4 = 40, 7 · 4 = 28, 40 + 28 = 68.",
+      "difficulty": "medium",
+      "tags": ["внетабличное умножение", "разрядные слагаемые"]
+    },
+    {
+      "task_id": "nontable-84-6",
+      "topic_id": "math.g3.numbers.non_table_mult_div",
+      "grade": "3",
+      "content": "Вычисли 84 : 6.",
+      "answer": "84 : 6 = 14. Удобно разбить 84 на 60 и 24: 60 : 6 = 10, 24 : 6 = 4, вместе 14.",
+      "difficulty": "medium",
+      "tags": ["внетабличное деление", "удобные слагаемые"]
+    },
+    {
+      "task_id": "nontable-check-78-3",
+      "topic_id": "math.g3.numbers.non_table_mult_div",
+      "grade": "3",
+      "content": "Ученик получил 78 : 3 = 26. Как проверить, что это верно?",
+      "answer": "Умножить частное на делитель: 26 · 3 = 78. Получилось делимое, значит деление выполнено верно.",
+      "difficulty": "medium",
+      "tags": ["внетабличное деление", "проверка"]
+    },
+    {
+      "task_id": "order-12-plus-3-times-4",
+      "topic_id": "math.g3.numbers.order_of_operations",
+      "grade": "3",
+      "content": "Вычисли 12 + 3 · 4.",
+      "answer": "12 + 3 · 4 = 24. Сначала умножение: 3 · 4 = 12, потом сложение: 12 + 12 = 24.",
+      "difficulty": "easy",
+      "tags": ["порядок действий", "умножение вперёд"]
+    },
+    {
+      "task_id": "order-brackets-12-3-4",
+      "topic_id": "math.g3.numbers.order_of_operations",
+      "grade": "3",
+      "content": "Вычисли (12 + 3) · 4.",
+      "answer": "(12 + 3) · 4 = 60. Скобки выполняются первыми: 12 + 3 = 15, затем 15 · 4 = 60.",
+      "difficulty": "easy",
+      "tags": ["порядок действий", "скобки"]
+    },
+    {
+      "task_id": "order-find-mistake-20-4-3",
+      "topic_id": "math.g3.numbers.order_of_operations",
+      "grade": "3",
+      "content": "Ученик посчитал 20 − 4 · 3 = 48. Найди ошибку.",
+      "answer": "Верно 20 − 4 · 3 = 8. Ученик сначала вычел, а умножение выполняется раньше вычитания: 4 · 3 = 12, затем 20 − 12 = 8. Перед решением стоит отметить, какое действие первое.",
+      "difficulty": "medium",
+      "tags": ["порядок действий", "поиск ошибки", "умножение вперёд"]
+    },
+    {
+      "task_id": "order-place-brackets-30",
+      "topic_id": "math.g3.numbers.order_of_operations",
+      "grade": "3",
+      "content": "Расставь скобки так, чтобы получилось 30: 2 + 4 · 5.",
+      "answer": "(2 + 4) · 5 = 30. Без скобок вышло бы 2 + 20 = 22, поэтому скобки нужны вокруг сложения.",
+      "difficulty": "medium",
+      "tags": ["порядок действий", "скобки", "подбор"]
+    },
+    {
+      "task_id": "order-two-operations",
+      "topic_id": "math.g3.numbers.order_of_operations",
+      "grade": "3",
+      "content": "Вычисли 36 : 6 + 2 · 5.",
+      "answer": "36 : 6 + 2 · 5 = 16. Сначала оба действия второй ступени: 36 : 6 = 6 и 2 · 5 = 10, затем сложение: 6 + 10 = 16.",
+      "difficulty": "medium",
+      "tags": ["порядок действий", "два действия"]
+    },
+    {
+      "task_id": "equation-x-plus-7",
+      "topic_id": "math.g3.numbers.simple_equations",
+      "grade": "3",
+      "content": "Реши уравнение x + 7 = 15.",
+      "answer": "x = 15 − 7 = 8. Неизвестное слагаемое находят вычитанием известного из суммы. Проверка: 8 + 7 = 15.",
+      "difficulty": "easy",
+      "tags": ["уравнение", "неизвестное слагаемое", "проверка"]
+    },
+    {
+      "task_id": "equation-x-minus-9",
+      "topic_id": "math.g3.numbers.simple_equations",
+      "grade": "3",
+      "content": "Реши уравнение x − 9 = 21.",
+      "answer": "x = 21 + 9 = 30. Неизвестное уменьшаемое находят сложением. Проверка: 30 − 9 = 21.",
+      "difficulty": "easy",
+      "tags": ["уравнение", "неизвестное уменьшаемое"]
+    },
+    {
+      "task_id": "equation-42-minus-x",
+      "topic_id": "math.g3.numbers.simple_equations",
+      "grade": "3",
+      "content": "Реши уравнение 42 − x = 15.",
+      "answer": "x = 42 − 15 = 27. Неизвестное вычитаемое находят вычитанием разности из уменьшаемого. Проверка: 42 − 27 = 15.",
+      "difficulty": "medium",
+      "tags": ["уравнение", "неизвестное вычитаемое"]
+    },
+    {
+      "task_id": "equation-x-times-4",
+      "topic_id": "math.g3.numbers.simple_equations",
+      "grade": "3",
+      "content": "Реши уравнение x · 4 = 36.",
+      "answer": "x = 36 : 4 = 9. Неизвестный множитель находят делением произведения на известный множитель. Проверка: 9 · 4 = 36.",
+      "difficulty": "medium",
+      "tags": ["уравнение", "неизвестный множитель"]
+    },
+    {
+      "task_id": "equation-56-div-x",
+      "topic_id": "math.g3.numbers.simple_equations",
+      "grade": "3",
+      "content": "Реши уравнение 56 : x = 8.",
+      "answer": "x = 56 : 8 = 7. Неизвестный делитель находят делением делимого на частное. Проверка: 56 : 7 = 8.",
+      "difficulty": "medium",
+      "tags": ["уравнение", "неизвестный делитель"]
+    }
+  ]
+}

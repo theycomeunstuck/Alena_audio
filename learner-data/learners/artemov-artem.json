@@ -2,7 +2,11 @@
   "schema_version": 2,
   "learner_id": "artemov-artem",
   "pseudonym": "Артём",
-  "legal_name": {"first_name": "Артём", "last_name": "Артёмов", "patronymic": "Артёмович"},
+  "legal_name": {
+    "first_name": "Артём",
+    "last_name": "Артёмов",
+    "patronymic": "Артёмович"
+  },
   "age_group": "8-9",
   "grade": "3",
   "language": "russian",

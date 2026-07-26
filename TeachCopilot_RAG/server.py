@@ -11,16 +11,22 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
+from pipeline.card_updater import CardUpdateError, render_update, update_from_notes
 from pipeline.db import get_child_full_profile
 from pipeline.learner_context import LearnerContext, LearnerContextError, load_learner_context
+from pipeline.llm_json import LlmError
 from pipeline.rag import search_knowledge
+from pipeline.task_designer import TaskDesignError, design_task_card, render_task_card
 from pipeline.config import (
     CHAT_API_BASE_URL,
     CHAT_MODEL,
     CHAT_REQUEST_TIMEOUT_SEC,
     DEBUG_RAG,
     DEFAULT_CHILD_ID,
+    MASTERY_MODE,
+    MASTERY_MODES,
     STREAM_MODE,
+    TASK_CARD_TASK_COUNT,
 )
 
 load_dotenv()
@@ -91,6 +97,85 @@ def rag_search(request: RagRequest):
         "child_id": request.child_id,
         "count": len(results),
         "results": results,
+    }
+
+
+class TaskDesignRequest(BaseModel):
+    """ЗБР stage 4: build one individual task card."""
+
+    learner_id: str = Field(..., min_length=1)
+    # Lesson theme. Omit it and the ЗБР policy picks the target from the
+    # competence map (current goal first, then the zone).
+    topic_id: str | None = None
+    count: int = Field(default=TASK_CARD_TASK_COUNT, ge=1, le=10)
+
+
+class LearnerUpdateRequest(BaseModel):
+    """Lesson notes (one text for the whole group) → card updates."""
+
+    notes: str = Field(..., min_length=1)
+    learner_ids: list[str] = Field(..., min_length=1)
+    # Default is a dry run: the tutor reads the diff before anything is written.
+    apply: bool = False
+    mode: str | None = None
+    confirmed_topics: list[str] | None = None
+
+
+@app.post("/task/design")
+def task_design(request: TaskDesignRequest):
+    """Return one individual task card: story, tasks, hint ladder, tutor notes."""
+    try:
+        card = design_task_card(request.learner_id, request.topic_id, count=request.count)
+    except LearnerContextError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except TaskDesignError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except LlmError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    return {
+        "card": card.as_dict(),
+        # Two renders: what the child gets and what the adult keeps.
+        "text_for_child": render_task_card(card, show_answers=False),
+        "text_for_tutor": render_task_card(card, show_answers=True),
+    }
+
+
+@app.post("/learner/update")
+def learner_update(request: LearnerUpdateRequest):
+    """Turn lesson notes into card updates. Returns diffs, never full cards."""
+    mode = (request.mode or MASTERY_MODE).strip().lower()
+    if mode not in MASTERY_MODES:
+        raise HTTPException(status_code=422, detail=f"unknown mode '{mode}'; allowed: {', '.join(MASTERY_MODES)}")
+
+    try:
+        results = update_from_notes(
+            request.notes,
+            request.learner_ids,
+            apply=request.apply,
+            mode=mode,
+            confirmed_topics=request.confirmed_topics,
+        )
+    except LearnerContextError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except CardUpdateError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except LlmError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    return {
+        "applied": request.apply,
+        "mode": mode,
+        "updates": [
+            {
+                "learner_id": result.learner_id,
+                "changes": list(result.changes),
+                "pending": list(result.pending),
+                "warnings": list(result.warnings),
+                "summary": render_update(result, applied=request.apply and result.changed()),
+            }
+            for result in results
+        ],
     }
 
 

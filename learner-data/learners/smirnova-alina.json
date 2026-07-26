@@ -2,22 +2,142 @@
   "schema_version": 2,
   "learner_id": "smirnova-alina",
   "pseudonym": "Алина",
-  "legal_name": {"first_name": "Алина", "last_name": "Смирнова", "patronymic": "Олеговна"},
+  "legal_name": {
+    "first_name": "Алина",
+    "last_name": "Смирнова",
+    "patronymic": "Олеговна"
+  },
   "age_group": "8-9",
   "grade": "3",
   "language": "russian",
   "rag_context": {
-    "current_goal": {"topic_id": "math.g3.numbers.multiplication_table.times_table", "goal": "закрепить таблицу умножения на 6–9 через короткие игровые задания", "updated_at": "2026-07-18"},
-    "current_topics": ["math.g3.numbers.multiplication_table.times_table"],
-    "priority_difficulties": [{"topic_id": "math.g3.numbers.multiplication_table.times_table", "description": "долго вспоминает примеры с 7 и 8"}],
-    "effective_strategies": ["давать один пример и ждать собственный ответ", "связывать примеры с рисунком групп предметов"],
-    "avoid": ["не торопить ответ секундомером", "не заменять объяснение длинным списком примеров"],
-    "recent_progress": {"date": "2026-07-18", "note": "Умножение на 2–5 уверенное; на 6 уже отвечает без опоры."}
+    "current_goal": {
+      "topic_id": "math.g3.numbers.multiplication_table.times_table",
+      "goal": "закрепить таблицу умножения на 6–9 через короткие игровые задания",
+      "updated_at": "2026-07-18"
+    },
+    "current_topics": [
+      "math.g3.numbers.multiplication_table.times_table"
+    ],
+    "priority_difficulties": [
+      {
+        "topic_id": "math.g3.numbers.multiplication_table.times_table",
+        "description": "долго вспоминает примеры с 7 и 8"
+      }
+    ],
+    "effective_strategies": [
+      "давать один пример и ждать собственный ответ",
+      "связывать примеры с рисунком групп предметов"
+    ],
+    "avoid": [
+      "не торопить ответ секундомером",
+      "не заменять объяснение длинным списком примеров"
+    ],
+    "recent_progress": {
+      "date": "2026-07-18",
+      "note": "Умножение на 2–5 уверенное; на 6 уже отвечает без опоры."
+    }
   },
-  "profile": {"explanation_style": "доброжелательно, через один короткий пример", "pace": "средний с паузой на самостоятельный ответ", "autonomy_level": "средний", "motivation": "видит успех в маленьких сериях заданий", "prefers_visual": true},
-  "interests": ["рисование", "кошки", "настольные игры"],
-  "knowledge": [{"topic_id": "math.g3.numbers.multiplication_table.times_table", "status": "learning", "notes": "таблицу на 2–5 знает, примеры на 7 и 8 пока считает"}],
-  "error_patterns": [{"subject": "math", "topic_id": "math.g3.numbers.multiplication_table.times_table", "error_tag": "меняет множители местами и теряет смысл задачи", "count": 3, "last_seen": "2026-07-15"}],
-  "mvp": {"story_preferences": ["приключения в художественной мастерской"], "learning_preferences_observed": ["лучше включается после рисунка или схемы"], "help_strategies": ["рисовать группы предметов перед вычислением"], "journal": [{"date": "2026-07-18", "note": "Проверили таблицу на 2–6; Алина спокойно объясняет ответ рисунком."}], "points_ledger": [{"date": "2026-07-18", "points": 4, "reason": "за самостоятельное объяснение трёх примеров", "role": "tutor", "topic_id": "math.g3.numbers.multiplication_table.times_table"}]},
-  "learner_model": {"competencies": [{"topic_id": "math.g3.numbers.multiplication_table.times_table", "mastery": 0.52, "needs_scaffolding": true}], "zpd": {"current": ["math.g3.numbers.multiplication_table.times_table"], "outside": []}, "learning_preferences": {"visual": 0.86, "audio": 0.4}, "engagement": {"best_activity": "короткая задача с рисунком"}, "ai_usage": {"asks_clarifying_questions": true}, "projects": [], "strengths": ["объясняет через рисунок"], "support_needs": ["время на самостоятельный ответ"], "scaffolding_by_topic": [{"topic_id": "math.g3.numbers.multiplication_table.times_table", "strategies": ["рисовать группы предметов"]}], "gamification": {"xp": 45, "level": 1, "badges": ["Внимательный счёт"], "missions_completed": 1}}
+  "profile": {
+    "explanation_style": "доброжелательно, через один короткий пример",
+    "pace": "средний с паузой на самостоятельный ответ",
+    "autonomy_level": "средний",
+    "motivation": "видит успех в маленьких сериях заданий",
+    "prefers_visual": true
+  },
+  "interests": [
+    "рисование",
+    "кошки",
+    "настольные игры"
+  ],
+  "knowledge": [
+    {
+      "topic_id": "math.g3.numbers.multiplication_table.times_table",
+      "status": "learning",
+      "notes": "таблицу на 2–5 знает, примеры на 7 и 8 пока считает"
+    }
+  ],
+  "error_patterns": [
+    {
+      "subject": "math",
+      "topic_id": "math.g3.numbers.multiplication_table.times_table",
+      "error_tag": "меняет множители местами и теряет смысл задачи",
+      "count": 3,
+      "last_seen": "2026-07-15"
+    }
+  ],
+  "mvp": {
+    "story_preferences": [
+      "приключения в художественной мастерской"
+    ],
+    "learning_preferences_observed": [
+      "лучше включается после рисунка или схемы"
+    ],
+    "help_strategies": [
+      "рисовать группы предметов перед вычислением"
+    ],
+    "journal": [
+      {
+        "date": "2026-07-18",
+        "note": "Проверили таблицу на 2–6; Алина спокойно объясняет ответ рисунком."
+      }
+    ],
+    "points_ledger": [
+      {
+        "date": "2026-07-18",
+        "points": 4,
+        "reason": "за самостоятельное объяснение трёх примеров",
+        "role": "tutor",
+        "topic_id": "math.g3.numbers.multiplication_table.times_table"
+      }
+    ]
+  },
+  "learner_model": {
+    "competencies": [
+      {
+        "topic_id": "math.g3.numbers.multiplication_table.times_table",
+        "mastery": 0.52,
+        "needs_scaffolding": true
+      }
+    ],
+    "zpd": {
+      "current": [
+        "math.g3.numbers.multiplication_table.times_table"
+      ],
+      "outside": []
+    },
+    "learning_preferences": {
+      "visual": 0.86,
+      "audio": 0.4
+    },
+    "engagement": {
+      "best_activity": "короткая задача с рисунком"
+    },
+    "ai_usage": {
+      "asks_clarifying_questions": true
+    },
+    "projects": [],
+    "strengths": [
+      "объясняет через рисунок"
+    ],
+    "support_needs": [
+      "время на самостоятельный ответ"
+    ],
+    "scaffolding_by_topic": [
+      {
+        "topic_id": "math.g3.numbers.multiplication_table.times_table",
+        "strategies": [
+          "рисовать группы предметов"
+        ]
+      }
+    ],
+    "gamification": {
+      "xp": 45,
+      "level": 1,
+      "badges": [
+        "Внимательный счёт"
+      ],
+      "missions_completed": 1
+    }
+  }
 }

@@ -1,0 +1,49 @@
+{
+  "tasks": [
+    {
+      "task_id": "mass-kg-in-centner",
+      "topic_id": "math.g4.quantities.mass_large_units",
+      "grade": "4",
+      "content": "Сколько килограммов в одном центнере?",
+      "answer": "1 ц = 100 кг.",
+      "difficulty": "easy",
+      "tags": ["центнер", "килограмм", "соотношение"]
+    },
+    {
+      "task_id": "mass-centners-in-ton",
+      "topic_id": "math.g4.quantities.mass_large_units",
+      "grade": "4",
+      "content": "Сколько центнеров в одной тонне?",
+      "answer": "1 т = 10 ц. Проверяем через килограммы: 1 т = 1000 кг, 1 ц = 100 кг, значит 1000 : 100 = 10 центнеров.",
+      "difficulty": "easy",
+      "tags": ["тонна", "центнер", "соотношение", "проверка через килограммы"]
+    },
+    {
+      "task_id": "mass-3t-4c-to-kg",
+      "topic_id": "math.g4.quantities.mass_large_units",
+      "grade": "4",
+      "content": "Вырази 3 т 4 ц в килограммах.",
+      "answer": "3 т = 3000 кг, 4 ц = 400 кг, вместе 3400 кг.",
+      "difficulty": "medium",
+      "tags": ["тонна", "центнер", "перевод в килограммы"]
+    },
+    {
+      "task_id": "mass-compare-5c-400kg",
+      "topic_id": "math.g4.quantities.mass_large_units",
+      "grade": "4",
+      "content": "Что тяжелее: 5 ц или 400 кг?",
+      "answer": "Тяжелее 5 ц, потому что 5 ц = 500 кг, а 500 > 400. Перед сравнением переводим всё в килограммы.",
+      "difficulty": "medium",
+      "tags": ["центнер", "сравнение", "одинаковые единицы"]
+    },
+    {
+      "task_id": "mass-find-mistake-1t-100c",
+      "topic_id": "math.g4.quantities.mass_large_units",
+      "grade": "4",
+      "content": "Ученик записал: 1 т = 100 ц. Найди ошибку.",
+      "answer": "Верно 1 т = 10 ц. 100 — это сколько килограммов в центнере, а не сколько центнеров в тонне. Проверка: 10 ц · 100 кг = 1000 кг = 1 т.",
+      "difficulty": "medium",
+      "tags": ["тонна", "центнер", "поиск ошибки", "путает соотношения"]
+    }
+  ]
+}

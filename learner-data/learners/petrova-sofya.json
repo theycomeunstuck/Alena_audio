@@ -2,7 +2,11 @@
   "schema_version": 2,
   "learner_id": "petrova-sofya",
   "pseudonym": "Софья",
-  "legal_name": {"first_name": "Софья", "last_name": "Петрова", "patronymic": "-"},
+  "legal_name": {
+    "first_name": "Софья",
+    "last_name": "Петрова",
+    "patronymic": "-"
+  },
   "age_group": "9-10",
   "grade": "3",
   "language": "russian",

@@ -2,7 +2,11 @@
   "schema_version": 2,
   "learner_id": "ivanov-ivan",
   "pseudonym": "Иван",
-  "legal_name": {"first_name": "Иван", "last_name": "Иванов", "patronymic": "Иванович"},
+  "legal_name": {
+    "first_name": "Иван",
+    "last_name": "Иванов",
+    "patronymic": "Иванович"
+  },
   "age_group": "10-11",
   "grade": "4",
   "language": "russian",
@@ -383,9 +387,7 @@
         "math.g4.word_problems.multi_step",
         "math.g4.geometry.composite_area_perimeter"
       ],
-      "outside": [
-        "math.g4.word_problems.work_productivity"
-      ]
+      "outside": []
     },
     "learning_preferences": {
       "visual": 0.9,

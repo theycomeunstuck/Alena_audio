@@ -32,6 +32,7 @@ if __package__ in (None, ""):
         iter_learner_files,
         load_json,
     )
+    import zpd
 else:
     from .learner_common import (
         DATE_RE,
@@ -43,6 +44,7 @@ else:
         iter_learner_files,
         load_json,
     )
+    from . import zpd
 
 
 class Finding:
@@ -215,7 +217,12 @@ CARD_TOP_KEYS = {
     "learner_model",
 }
 PROFILE_KEYS = {"explanation_style", "pace", "autonomy_level", "motivation", "prefers_visual"}
-MVP_KEYS = {"story_preferences", "learning_preferences_observed", "help_strategies", "journal", "points_ledger"}
+# "lessons" — необязательный журнал занятий (пункт 4 концепта): дата, темы,
+# длительность. Старые карточки без него остаются валидными.
+MVP_KEYS = {"story_preferences", "learning_preferences_observed", "help_strategies",
+            "journal", "points_ledger", "lessons"}
+MVP_REQUIRED_KEYS = MVP_KEYS - {"lessons"}
+LESSON_ITEM_KEYS = {"date", "topic_ids", "minutes", "note"}
 KNOWLEDGE_ITEM_KEYS = {"topic_id", "status", "notes"}
 ERROR_PATTERN_ITEM_KEYS = {"subject", "topic_id", "error_tag", "count", "last_seen"}
 JOURNAL_ITEM_KEYS = {"date", "note"}
@@ -231,6 +238,15 @@ LEARNER_MODEL_KEYS = {
     "competencies", "zpd", "learning_preferences", "engagement", "ai_usage",
     "projects", "strengths", "support_needs", "scaffolding_by_topic", "gamification",
 }
+# Competence map (concept section 2). Only topic_id and mastery are required so
+# that short demo cards stay valid; the ZPD policy handles missing independence.
+COMPETENCY_ITEM_KEYS = {
+    "topic_id", "mastery", "confidence", "independence", "needs_scaffolding",
+    "effective_scaffolding", "recommended_scaffolding", "last_assessed", "history",
+}
+COMPETENCY_REQUIRED_KEYS = ("topic_id", "mastery")
+COMPETENCY_UNIT_KEYS = ("mastery", "confidence", "independence")
+COMPETENCY_HISTORY_KEYS = {"date", "mastery", "independence", "help_level"}
 RAG_TEXT_MAX = 280
 LEGAL_NAME_KEYS = {"first_name", "last_name", "patronymic"}
 
@@ -352,6 +368,186 @@ def _validate_rag_context(rag: object, catalog: dict, filename: str) -> list[Fin
     return findings
 
 
+def _check_unit_number(value: object, filename: str, json_path: str, label: str) -> list[Finding]:
+    """Validate a 0..1 pedagogical score (mastery, independence, confidence)."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return [_err(filename, json_path, f"{label} должен быть числом от 0 до 1")]
+    if float(value) < 0.0 or float(value) > 1.0:
+        return [_err(filename, json_path, f"{label} должен быть в диапазоне от 0 до 1, получено {value}")]
+    return []
+
+
+def _validate_competencies(competencies: list, catalog: dict, filename: str) -> list[Finding]:
+    """Validate the competence map — the source of truth for the ZPD policy.
+
+    These checks matter more than usual because ``card_updater`` lets an LLM
+    propose writes here: a malformed mastery must fail validation, not quietly
+    become a zone verdict.
+    """
+    findings: list[Finding] = []
+    seen_topic_ids: set[str] = set()
+
+    for i, item in enumerate(competencies):
+        json_path = f"/learner_model/competencies/{i}"
+        if not isinstance(item, dict):
+            findings.append(_err(filename, json_path, "запись карты компетенций должна быть объектом"))
+            continue
+
+        findings.extend(_find_unknown_keys(item, COMPETENCY_ITEM_KEYS, filename, json_path))
+        for required_key in COMPETENCY_REQUIRED_KEYS:
+            if required_key not in item:
+                findings.append(_err(filename, f"{json_path}/{required_key}", f'отсутствует обязательное поле "{required_key}"'))
+
+        topic_id = item.get("topic_id")
+        if isinstance(topic_id, str):
+            if topic_id in seen_topic_ids:
+                findings.append(_err(filename, f"{json_path}/topic_id", f'дублирующийся topic_id "{topic_id}" в карте компетенций'))
+            seen_topic_ids.add(topic_id)
+            findings.extend(_check_topic_ref(topic_id, catalog, filename, f"{json_path}/topic_id"))
+        elif "topic_id" in item:
+            findings.append(_err(filename, f"{json_path}/topic_id", 'поле "topic_id" должно быть строкой'))
+
+        for key in COMPETENCY_UNIT_KEYS:
+            if key in item:
+                findings.extend(_check_unit_number(item[key], filename, f"{json_path}/{key}", f'поле "{key}"'))
+
+        if "needs_scaffolding" in item and not _is_bool(item.get("needs_scaffolding")):
+            findings.append(_err(filename, f"{json_path}/needs_scaffolding", 'поле "needs_scaffolding" должно быть булевым значением'))
+
+        if "effective_scaffolding" in item:
+            strategies = item.get("effective_scaffolding")
+            if not isinstance(strategies, list):
+                findings.append(_err(filename, f"{json_path}/effective_scaffolding", 'поле "effective_scaffolding" должно быть списком'))
+            else:
+                for j, strategy in enumerate(strategies):
+                    if not _is_nonempty_str(strategy):
+                        findings.append(_err(filename, f"{json_path}/effective_scaffolding/{j}", "стратегия должна быть непустой строкой"))
+
+        if "recommended_scaffolding" in item and not _is_nonempty_str(item.get("recommended_scaffolding")):
+            findings.append(_err(filename, f"{json_path}/recommended_scaffolding", 'поле "recommended_scaffolding" должно быть непустой строкой'))
+
+        if "last_assessed" in item:
+            findings.extend(_check_date(item.get("last_assessed"), filename, f"{json_path}/last_assessed"))
+
+        if "history" in item:
+            history = item.get("history")
+            if not isinstance(history, list):
+                findings.append(_err(filename, f"{json_path}/history", 'поле "history" должно быть списком'))
+            else:
+                if len(history) > zpd.HISTORY_LIMIT:
+                    findings.append(
+                        _warn(
+                            filename,
+                            f"{json_path}/history",
+                            f"в истории {len(history)} записей — храним последние {zpd.HISTORY_LIMIT}",
+                        )
+                    )
+                for j, entry in enumerate(history):
+                    entry_path = f"{json_path}/history/{j}"
+                    if not isinstance(entry, dict):
+                        findings.append(_err(filename, entry_path, "запись истории должна быть объектом"))
+                        continue
+                    findings.extend(_find_unknown_keys(entry, COMPETENCY_HISTORY_KEYS, filename, entry_path))
+                    if "date" not in entry:
+                        findings.append(_err(filename, f"{entry_path}/date", 'отсутствует обязательное поле "date"'))
+                    else:
+                        findings.extend(_check_date(entry.get("date"), filename, f"{entry_path}/date"))
+                    for key in ("mastery", "independence"):
+                        if key in entry:
+                            findings.extend(_check_unit_number(entry[key], filename, f"{entry_path}/{key}", f'поле "{key}"'))
+                    help_key = entry.get("help_level")
+                    if "help_level" in entry and (not isinstance(help_key, str) or help_key not in zpd.HELP_BY_KEY):
+                        allowed = ", ".join(zpd.HELP_BY_KEY)
+                        findings.append(
+                            _err(filename, f"{entry_path}/help_level", f'неизвестный уровень помощи "{help_key}"; допустимы: {allowed}')
+                        )
+
+    return findings
+
+
+def _check_zpd_matches_competencies(model: dict, filename: str) -> list[Finding]:
+    """Warn when the stored ZPD block contradicts the competence map.
+
+    Concept section 2 (the competence map) is authoritative and section 3 is a
+    derived mirror, so a mismatch means the card was hand-edited and is now
+    stale. It is a warning, not an error: reading a slightly stale card is
+    better than refusing to run a lesson.
+    """
+    stored = model.get("zpd")
+    if not isinstance(stored, dict):
+        return []
+    if not isinstance(model.get("competencies"), list) or not model["competencies"]:
+        return []
+
+    mapped_topics = {
+        item["topic_id"]
+        for item in model["competencies"]
+        if isinstance(item, dict) and isinstance(item.get("topic_id"), str)
+    }
+    derived = zpd.derive_zpd({"learner_model": model})
+    findings: list[Finding] = []
+    for key in ("current", "outside"):
+        stored_list = stored.get(key)
+        if not isinstance(stored_list, list):
+            continue
+        stored_topics = [item for item in stored_list if isinstance(item, str)]
+
+        for i, topic_id in enumerate(stored_topics):
+            if topic_id not in mapped_topics:
+                findings.append(
+                    _warn(
+                        filename,
+                        f"/learner_model/zpd/{key}/{i}",
+                        f'тема "{topic_id}" указана в zpd, но её нет в карте компетенций — '
+                        "добавьте оценку mastery, иначе зона не выводится",
+                    )
+                )
+
+        assessed = sorted(topic_id for topic_id in stored_topics if topic_id in mapped_topics)
+        if assessed != sorted(derived[key]):
+            findings.append(
+                _warn(
+                    filename,
+                    f"/learner_model/zpd/{key}",
+                    "не совпадает с ЗБР, выведенной из карты компетенций "
+                    f"(ожидалось: {', '.join(derived[key]) or '—'}); "
+                    "перезаписать: python learner-data/tools/zpd.py <learner_id> --write",
+                )
+            )
+    return findings
+
+
+def _check_knowledge_matches_competencies(card: dict, knowledge: list, filename: str) -> list[Finding]:
+    """Warn when a topic's status contradicts its zone in the competence map.
+
+    Catches the two unambiguous cases: a topic that already has an assessment
+    still marked ``not_started``, and a topic marked ``confident`` that the child
+    cannot yet do alone. Compatible variations are left to the tutor.
+    """
+    findings: list[Finding] = []
+    by_topic = {
+        item["topic_id"]: index
+        for index, item in enumerate(knowledge)
+        if isinstance(item, dict) and isinstance(item.get("topic_id"), str)
+    }
+    for verdict in zpd.classify_card(card):
+        index = by_topic.get(verdict.topic_id)
+        if index is None:
+            continue
+        status = knowledge[index].get("status")
+        if zpd.status_conflicts(verdict.zone, status):
+            findings.append(
+                _warn(
+                    filename,
+                    f"/knowledge/{index}/status",
+                    f'статус "{status}" противоречит карте компетенций '
+                    f'(зона: {verdict.label_ru()}, ожидается один из '
+                    f'{", ".join(zpd.COMPATIBLE_STATUSES[verdict.zone])})',
+                )
+            )
+    return findings
+
+
 def _validate_learner_model(model: object, catalog: dict, filename: str) -> list[Finding]:
     """Lightweight structural guard for the rich benchmark-only learner model."""
     findings: list[Finding] = []
@@ -376,11 +572,13 @@ def _validate_learner_model(model: object, catalog: dict, filename: str) -> list
                 if not _is_nonempty_str(value):
                     findings.append(_err(filename, f"/learner_model/{key}/{i}", "элемент должен быть непустой строкой"))
 
-    zpd = model.get("zpd")
-    if isinstance(zpd, dict):
-        findings.extend(_find_unknown_keys(zpd, {"current", "outside"}, filename, "/learner_model/zpd"))
+    # Local name is zpd_block, not zpd: the module-level `zpd` import is the ZPD
+    # policy and must stay reachable from this function.
+    zpd_block = model.get("zpd")
+    if isinstance(zpd_block, dict):
+        findings.extend(_find_unknown_keys(zpd_block, {"current", "outside"}, filename, "/learner_model/zpd"))
         for key in ("current", "outside"):
-            topics = zpd.get(key)
+            topics = zpd_block.get(key)
             if not isinstance(topics, list):
                 findings.append(_err(filename, f"/learner_model/zpd/{key}", "поле должно быть списком topic_id"))
                 continue
@@ -389,6 +587,12 @@ def _validate_learner_model(model: object, catalog: dict, filename: str) -> list
                     findings.extend(_check_topic_ref(topic_id, catalog, filename, f"/learner_model/zpd/{key}/{i}"))
                 else:
                     findings.append(_err(filename, f"/learner_model/zpd/{key}/{i}", "topic_id должен быть строкой"))
+
+    competencies = model.get("competencies")
+    if isinstance(competencies, list):
+        findings.extend(_validate_competencies(competencies, catalog, filename))
+        findings.extend(_check_zpd_matches_competencies(model, filename))
+
     return findings
 
 
@@ -594,7 +798,7 @@ def validate_card(card: object, catalog: dict, filename: str) -> list[Finding]:
         mvp = {}
     else:
         findings.extend(_find_unknown_keys(mvp, MVP_KEYS, filename, "/mvp"))
-        for required_key in MVP_KEYS:
+        for required_key in MVP_REQUIRED_KEYS:
             if required_key not in mvp:
                 findings.append(_err(filename, f"/mvp/{required_key}", f'отсутствует обязательное поле "{required_key}"'))
 
@@ -629,6 +833,37 @@ def validate_card(card: object, catalog: dict, filename: str) -> list[Finding]:
             findings.extend(_check_date(item.get("date"), filename, f"{json_path}/date"))
         if "note" in item and not _is_nonempty_str(item.get("note")):
             findings.append(_err(filename, f"{json_path}/note", 'поле "note" должно быть непустой строкой'))
+
+    # lessons — необязательный журнал занятий
+    lessons = mvp.get("lessons")
+    if "lessons" in mvp and not isinstance(lessons, list):
+        findings.append(_err(filename, "/mvp/lessons", 'поле "lessons" должно быть списком'))
+        lessons = []
+    for i, item in enumerate(lessons if isinstance(lessons, list) else []):
+        json_path = f"/mvp/lessons/{i}"
+        if not isinstance(item, dict):
+            findings.append(_err(filename, json_path, "запись занятия должна быть объектом"))
+            continue
+        findings.extend(_find_unknown_keys(item, LESSON_ITEM_KEYS, filename, json_path))
+        if "date" not in item:
+            findings.append(_err(filename, f"{json_path}/date", 'отсутствует обязательное поле "date"'))
+        else:
+            findings.extend(_check_date(item.get("date"), filename, f"{json_path}/date"))
+        topic_ids = item.get("topic_ids")
+        if topic_ids is not None:
+            if not isinstance(topic_ids, list):
+                findings.append(_err(filename, f"{json_path}/topic_ids", 'поле "topic_ids" должно быть списком'))
+            else:
+                for j, topic_id in enumerate(topic_ids):
+                    if isinstance(topic_id, str):
+                        findings.extend(_check_topic_ref(topic_id, catalog, filename, f"{json_path}/topic_ids/{j}"))
+                    else:
+                        findings.append(_err(filename, f"{json_path}/topic_ids/{j}", "topic_id должен быть строкой"))
+        minutes = item.get("minutes")
+        if minutes is not None and (not _is_strict_int(minutes) or minutes <= 0 or minutes > 600):
+            findings.append(_err(filename, f"{json_path}/minutes", 'поле "minutes" должно быть целым числом от 1 до 600'))
+        if "note" in item and not isinstance(item.get("note"), str):
+            findings.append(_err(filename, f"{json_path}/note", 'поле "note" должно быть строкой'))
 
     # points_ledger
     points_ledger = mvp.get("points_ledger")
@@ -686,6 +921,7 @@ def validate_card(card: object, catalog: dict, filename: str) -> list[Finding]:
 
     if "learner_model" in card:
         findings.extend(_validate_learner_model(card["learner_model"], catalog, filename))
+        findings.extend(_check_knowledge_matches_competencies(card, knowledge, filename))
 
     # rule 11: any key containing "balance" anywhere in the card -> error
     _contains_balance_key(card, "", filename, findings)

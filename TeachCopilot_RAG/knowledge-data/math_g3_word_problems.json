@@ -1,0 +1,85 @@
+{
+  "tasks": [
+    {
+      "task_id": "multiple-apples-pears",
+      "topic_id": "math.g3.word_problems.comparison.multiple",
+      "grade": "3",
+      "content": "В корзине 12 яблок и 3 груши. Во сколько раз яблок больше, чем груш?",
+      "answer": "12 : 3 = 4. Яблок больше в 4 раза. Вопрос «во сколько раз» решается делением.",
+      "difficulty": "easy",
+      "tags": ["кратное сравнение", "деление", "во сколько раз"]
+    },
+    {
+      "task_id": "multiple-find-mistake-subtraction",
+      "topic_id": "math.g3.word_problems.comparison.multiple",
+      "grade": "3",
+      "content": "Ученик решил так: «Яблок 12, груш 3, значит яблок больше в 12 − 3 = 9 раз». Найди ошибку.",
+      "answer": "Вопрос «во сколько раз» решается делением: 12 : 3 = 4 раза. Вычитание отвечает на другой вопрос — «на сколько больше»: 12 − 3 = 9 штук. Слово «раз» — сигнал к делению.",
+      "difficulty": "medium",
+      "tags": ["кратное сравнение", "поиск ошибки", "деление против вычитания"]
+    },
+    {
+      "task_id": "multiple-both-questions",
+      "topic_id": "math.g3.word_problems.comparison.multiple",
+      "grade": "3",
+      "content": "Маша прочитала 24 страницы, а Петя — 8. На сколько страниц больше прочитала Маша и во сколько раз больше?",
+      "answer": "На сколько больше: 24 − 8 = 16 страниц. Во сколько раз больше: 24 : 8 = 3 раза. Это два разных вопроса и два разных действия.",
+      "difficulty": "medium",
+      "tags": ["кратное сравнение", "разностное сравнение", "два вопроса"]
+    },
+    {
+      "task_id": "multiple-five-times-less",
+      "topic_id": "math.g3.word_problems.comparison.multiple",
+      "grade": "3",
+      "content": "Какое число в 5 раз меньше, чем 45?",
+      "answer": "45 : 5 = 9. «В несколько раз меньше» — это деление.",
+      "difficulty": "medium",
+      "tags": ["кратное сравнение", "в раз меньше", "деление"]
+    },
+    {
+      "task_id": "price-cost-4-notebooks",
+      "topic_id": "math.g3.word_problems.price_quantity_cost",
+      "grade": "3",
+      "content": "Тетрадь стоит 15 рублей. Сколько стоят 4 такие тетради?",
+      "answer": "15 · 4 = 60 рублей. Цена · количество = стоимость.",
+      "difficulty": "easy",
+      "tags": ["цена количество стоимость", "стоимость", "умножение"]
+    },
+    {
+      "task_id": "price-find-price-6-pens",
+      "topic_id": "math.g3.word_problems.price_quantity_cost",
+      "grade": "3",
+      "content": "За 6 одинаковых ручек заплатили 90 рублей. Сколько стоит одна ручка?",
+      "answer": "90 : 6 = 15 рублей. Цена = стоимость : количество.",
+      "difficulty": "easy",
+      "tags": ["цена количество стоимость", "цена", "деление"]
+    },
+    {
+      "task_id": "price-find-quantity-pencils",
+      "topic_id": "math.g3.word_problems.price_quantity_cost",
+      "grade": "3",
+      "content": "Карандаш стоит 8 рублей, за карандаши заплатили 56 рублей. Сколько карандашей купили?",
+      "answer": "56 : 8 = 7 карандашей. Количество = стоимость : цена.",
+      "difficulty": "medium",
+      "tags": ["цена количество стоимость", "количество", "деление"]
+    },
+    {
+      "task_id": "price-what-is-unknown",
+      "topic_id": "math.g3.word_problems.price_quantity_cost",
+      "grade": "3",
+      "content": "В задаче известны цена и стоимость. Что нужно найти и каким действием?",
+      "answer": "Найти количество, действие — деление: количество = стоимость : цена. Полезно выписать в столбик три слова — цена, количество, стоимость — и отметить, какое из них неизвестно.",
+      "difficulty": "medium",
+      "tags": ["цена количество стоимость", "что неизвестно", "план решения"]
+    },
+    {
+      "task_id": "price-fill-the-table",
+      "topic_id": "math.g3.word_problems.price_quantity_cost",
+      "grade": "3",
+      "content": "Заполни пропуск: цена 20 рублей, количество 3, стоимость — ?",
+      "answer": "Стоимость 60 рублей: 20 · 3 = 60.",
+      "difficulty": "easy",
+      "tags": ["цена количество стоимость", "таблица"]
+    }
+  ]
+}

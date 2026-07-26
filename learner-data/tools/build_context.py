@@ -201,6 +201,13 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     if args.format == "json":
+        # Полная карточка содержит ФИО, журнал и баллы. Молчаливый вывод легко
+        # скопировать в модель по привычке, поэтому предупреждаем явно.
+        print(
+            "ВНИМАНИЕ: это полная карточка, включая legal_name и журнал. "
+            "Для ИИ-репетитора используйте вывод без --format json.",
+            file=sys.stderr,
+        )
         print(build_context_json(card))
     else:
         print(build_context_text(card, catalog))

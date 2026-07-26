@@ -10,6 +10,10 @@ below actually work.
 
 | Doc | What's inside |
 |-----|---------------|
+| **[SERVER_CHECKLIST.md](SERVER_CHECKLIST.md)** | Что проверить на сервере: сервер, эндпоинты, pgvector, локальная модель. |
+| **[HOWTO.md](HOWTO.md)** | Инструкция «урок за уроком»: какие команды запускать до занятия, после и для отчёта. |
+| **[ZPD_STAGE4.md](ZPD_STAGE4.md)** | 4 этап ЗБР: правила, устройство, контракты индивидуальных карточек-заданий. |
+| **[../../HANDOFF.md](../../HANDOFF.md)** | Передача дел: что не проверено, открытые вопросы, принятые решения, следующие шаги. |
 | **[LEARNER_DATA_USAGE.md](LEARNER_DATA_USAGE.md)** | Current JSON-first flow, commands, examples and sample output. |
 | **[../knowledge-data/README.md](../knowledge-data/README.md)** | Add JSON learning material, build the local vector index and search it. |
 | **[SETUP.md](SETUP.md)** | Legacy pgvector setup; do not use for the current JSON-only phase. |

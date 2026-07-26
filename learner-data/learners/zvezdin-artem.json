@@ -1,0 +1,271 @@
+{
+  "schema_version": 2,
+  "learner_id": "zvezdin-artem",
+  "pseudonym": "Тёма",
+  "legal_name": {
+    "first_name": "Артём",
+    "last_name": "Звездин",
+    "patronymic": "-"
+  },
+  "age_group": "9-10",
+  "grade": "3",
+  "language": "russian",
+  "rag_context": {
+    "current_goal": {
+      "topic_id": "math.g3.geometry.point_line_ray_segment",
+      "goal": "уверенно различать луч и отрезок и чертить их по описанию",
+      "updated_at": "2026-07-22"
+    },
+    "current_topics": [
+      "math.g3.geometry.point_line_ray_segment",
+      "math.g3.quantities.length"
+    ],
+    "priority_difficulties": [
+      {
+        "topic_id": "math.g3.geometry.point_line_ray_segment",
+        "description": "рисует у луча два конца, как у отрезка"
+      }
+    ],
+    "effective_strategies": [
+      "сравнивать луч с лучом фонарика: начало есть, конца нет",
+      "просить сначала начертить, а потом объяснить словами"
+    ],
+    "avoid": [
+      "не давать длинное словесное определение без чертежа",
+      "не подсказывать ответ раньше, чем он попробует сам"
+    ],
+    "recent_progress": {
+      "date": "2026-07-22",
+      "note": "На занятии-детективе разобрал маршрут вора как ломаную, вершины нашёл сам."
+    }
+  },
+  "profile": {
+    "explanation_style": "через рисунок и сравнение со знакомым: фонарик, траектория ракеты",
+    "pace": "средний, любит сначала подумать молча",
+    "autonomy_level": "средний, начинает сам после одного наводящего вопроса",
+    "motivation": "сюжет и роль в истории: детектив, космонавт",
+    "prefers_visual": true
+  },
+  "interests": [
+    "космос",
+    "ракеты",
+    "роботы"
+  ],
+  "knowledge": [
+    {
+      "topic_id": "math.g3.geometry.point_line_ray_segment",
+      "status": "learning",
+      "notes": "на чертеже различает, но в определении луча путается"
+    },
+    {
+      "topic_id": "math.g3.quantities.length",
+      "status": "confident",
+      "notes": "измеряет линейкой в сантиметрах и миллиметрах уверенно"
+    },
+    {
+      "topic_id": "math.g3.geometry.perimeter_polygon",
+      "status": "needs_support",
+      "notes": "сумму длин всех звеньев пока не берётся считать сам"
+    }
+  ],
+  "error_patterns": [
+    {
+      "subject": "math",
+      "topic_id": "math.g3.geometry.point_line_ray_segment",
+      "error_tag": "рисует у луча два конца, как у отрезка",
+      "count": 4,
+      "last_seen": "2026-07-22"
+    },
+    {
+      "subject": "math",
+      "topic_id": "math.g3.geometry.point_line_ray_segment",
+      "error_tag": "называет отрезок прямой",
+      "count": 2,
+      "last_seen": "2026-07-15"
+    }
+  ],
+  "mvp": {
+    "story_preferences": [
+      "детектив",
+      "космос"
+    ],
+    "learning_preferences_observed": [
+      "включается сразу, если в задаче есть космос или роботы",
+      "сначала чертит, только потом формулирует правило словами"
+    ],
+    "help_strategies": [
+      "сравнить луч с лучом фонарика",
+      "попросить показать начало и конец прямо на чертеже"
+    ],
+    "journal": [
+      {
+        "date": "2026-07-08",
+        "note": "Знакомство. Линейкой работает уверенно, луч и отрезок пока путает."
+      },
+      {
+        "date": "2026-07-15",
+        "note": "Ввели сравнение с фонариком. Отрезок иногда называет прямой."
+      },
+      {
+        "date": "2026-07-22",
+        "note": "Урок-детектив: маршрут вора как ломаная. Вершины нашёл сам, звенья измерил."
+      }
+    ],
+    "points_ledger": [
+      {
+        "date": "2026-07-08",
+        "points": 3,
+        "reason": "за аккуратные чертежи на первом занятии",
+        "role": "tutor"
+      },
+      {
+        "date": "2026-07-22",
+        "points": 6,
+        "reason": "за самостоятельно найденные вершины ломаной в задании детектива",
+        "role": "tutor",
+        "topic_id": "math.g3.geometry.point_line_ray_segment"
+      }
+    ]
+  },
+  "learner_model": {
+    "competencies": [
+      {
+        "topic_id": "math.g3.geometry.point_line_ray_segment",
+        "mastery": 0.62,
+        "confidence": 0.78,
+        "independence": 0.48,
+        "needs_scaffolding": true,
+        "effective_scaffolding": [
+          "сравнить луч с лучом фонарика: начало есть, конца нет",
+          "сначала чертёж, потом словесный ответ"
+        ],
+        "recommended_scaffolding": "visual",
+        "last_assessed": "2026-07-22",
+        "history": [
+          {
+            "date": "2026-07-08",
+            "mastery": 0.35,
+            "independence": 0.2,
+            "help_level": "joint"
+          },
+          {
+            "date": "2026-07-15",
+            "mastery": 0.5,
+            "independence": 0.32,
+            "help_level": "visual"
+          },
+          {
+            "date": "2026-07-22",
+            "mastery": 0.62,
+            "independence": 0.48,
+            "help_level": "hint_question"
+          }
+        ]
+      },
+      {
+        "topic_id": "math.g3.quantities.length",
+        "mastery": 0.88,
+        "confidence": 0.85,
+        "independence": 0.86,
+        "needs_scaffolding": false,
+        "effective_scaffolding": [],
+        "last_assessed": "2026-07-22",
+        "history": [
+          {
+            "date": "2026-07-15",
+            "mastery": 0.8,
+            "independence": 0.76,
+            "help_level": "independent"
+          },
+          {
+            "date": "2026-07-22",
+            "mastery": 0.88,
+            "independence": 0.86,
+            "help_level": "independent"
+          }
+        ]
+      },
+      {
+        "topic_id": "math.g3.geometry.perimeter_polygon",
+        "mastery": 0.24,
+        "confidence": 0.5,
+        "independence": 0.1,
+        "needs_scaffolding": true,
+        "effective_scaffolding": [],
+        "recommended_scaffolding": "visual",
+        "last_assessed": "2026-07-22",
+        "history": [
+          {
+            "date": "2026-07-22",
+            "mastery": 0.24,
+            "independence": 0.1,
+            "help_level": "joint"
+          }
+        ]
+      }
+    ],
+    "zpd": {
+      "current": [
+        "math.g3.geometry.point_line_ray_segment"
+      ],
+      "outside": [
+        "math.g3.geometry.perimeter_polygon"
+      ]
+    },
+    "learning_preferences": {
+      "visual": 0.92,
+      "audio": 0.4,
+      "hands_on": 0.78,
+      "storyline": 0.9,
+      "competition": 0.5,
+      "collaboration": 0.6
+    },
+    "engagement": {
+      "average_attention_minutes": 16,
+      "drops_after_minutes": 13,
+      "best_activity": "квест с сюжетом и ролью",
+      "worst_activity": "длинное словесное определение без чертежа"
+    },
+    "ai_usage": {
+      "asks_clarifying_questions": true,
+      "reflection_level": 0.55,
+      "copies_answers": false
+    },
+    "projects": [
+      {
+        "title": "Карта побега вора",
+        "role": "шифровальщик",
+        "topic_ids": [
+          "math.g3.geometry.point_line_ray_segment"
+        ],
+        "teacher_feedback": "Вершины ломаной нашёл сам, но общий путь считать пока не берётся."
+      }
+    ],
+    "strengths": [
+      "аккуратно строит чертежи",
+      "быстро включается в сюжетную задачу",
+      "уверенно работает линейкой"
+    ],
+    "support_needs": [
+      "словесное определение даётся тяжелее чертежа",
+      "нужен один наводящий вопрос, чтобы начать"
+    ],
+    "scaffolding_by_topic": [
+      {
+        "topic_id": "math.g3.geometry.point_line_ray_segment",
+        "strategies": [
+          "сравнить луч с лучом фонарика",
+          "отметить начало луча яркой точкой"
+        ]
+      }
+    ],
+    "gamification": {
+      "xp": 180,
+      "level": 2,
+      "badges": [
+        "Мастер лучей"
+      ],
+      "missions_completed": 3
+    }
+  }
+}
