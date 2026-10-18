@@ -17,6 +17,7 @@ import time
 import unicodedata
 from typing import Any, Callable, Mapping, Sequence
 
+from local_app.teaching_policy import TEACHING_RESPONSE_RULES
 from research_memory.spiderssense import SpiderssenseClient
 
 
@@ -62,6 +63,7 @@ _PURPOSE_INSTRUCTIONS = {
         "Учитывай переданные interests, когда это уместно для текущей задачи; не навязывай любимый "
         "сюжет в каждом ответе. Не используй сюжеты из avoided_interests. Интерес не доказывает "
         "учебное умение. Используй короткое тире –."
+        + TEACHING_RESPONSE_RULES
     ),
     "next_step": (
         "Подготовь черновик следующего учебного действия для просмотра преподавателем. "
