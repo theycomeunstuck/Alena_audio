@@ -202,6 +202,7 @@ class RagService:
         preferences = self._conversation_preferences(preference_context)
         resolver = getattr(self.runtime, "resolve_chat_query", None)
         out_of_scope = False
+        query_resolution = {}
         if callable(resolver):
             resolution = resolver(latest_query, history[:latest_user_index], subject_id)
             if (
@@ -218,9 +219,12 @@ class RagService:
                 resolved_query = resolution.get("search_query")
                 if not isinstance(resolved_query, str) or not resolved_query.strip():
                     raise IncompleteCompletionError("Follow-up query resolver returned no retrieval query")
-                resolved_query = (
-                    f"{resolved_query.strip()}\nLatest learner message: {latest_query.strip()}"
-                )
+                if resolution.get("query_source") == "original_learner_message":
+                    query_resolution = {"source": "original_learner_message"}
+                else:
+                    resolved_query = (
+                        f"{resolved_query.strip()}\nLatest learner message: {latest_query.strip()}"
+                    )
                 if resolution["uses_prior_context"]:
                     anchor = resolution.get("prior_learner_question_index")
                     if "prior_learner_question_index" in resolution:
@@ -273,6 +277,7 @@ class RagService:
                 "citations": [],
                 "sources": [],
                 "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+                **({"query_resolution": query_resolution} if query_resolution else {}),
             }
         context = self._source_context(sources, include_private_answers=include_private_answers)
         compact_profile = self._compact_profile(profile)
@@ -390,6 +395,7 @@ class RagService:
                 "total_tokens": response.get("prompt_eval_count", 0) + response.get("eval_count", 0),
             },
             "answer_routing": response.get("answer_routing", {"backend": "local"}),
+            **({"query_resolution": query_resolution} if query_resolution else {}),
         }
 
     def _social_answer(self, history: Sequence[dict[str, str]], preferences: dict[str, list[str]]) -> dict[str, Any]:

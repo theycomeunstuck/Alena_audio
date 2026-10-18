@@ -55,7 +55,7 @@ def generation_priority(priority: str):
     finally:
         _GENERATION_STATE.priority = previous
 _QWEN_QUERY_INSTRUCTION = "Instruct: Retrieve educational materials relevant to the query.\nQuery: "
-_SCOPE_POLICY_VERSION = "teachcopilot-curriculum-and-social-scope-v2"
+_SCOPE_POLICY_VERSION = "teachcopilot-curriculum-and-social-scope-v3"
 
 
 class ModelUnavailableError(RuntimeError):
@@ -469,7 +469,15 @@ class OllamaRuntime:
             if resolved or result["uses_prior_context"]:
                 raise IncompleteCompletionError("Out-of-scope query resolver must return no retrieval context")
             return {"in_scope": False, "uses_prior_context": False, "search_query": ""}
-        if not resolved or len(resolved) > 500:
+        original_query = not resolved
+        if original_query:
+            # A positive scope decision does not require a model rewrite.
+            # Keep the learner's actual text whole and require an explicit
+            # learner anchor when an otherwise empty rewrite uses history.
+            if not current or len(current) > 1200 or (result["uses_prior_context"] and anchor is None):
+                raise IncompleteCompletionError("Follow-up resolver cannot use the original learner message")
+            resolved = current
+        elif len(resolved) > 500:
             raise IncompleteCompletionError("Ollama follow-up resolver returned an invalid search query")
         if result["uses_prior_context"] and not bounded_prior:
             raise IncompleteCompletionError("Follow-up resolver requested missing prior learner context")
@@ -478,6 +486,8 @@ class OllamaRuntime:
             "uses_prior_context": result["uses_prior_context"],
             "search_query": resolved,
         }
+        if original_query:
+            decision["query_source"] = "original_learner_message"
         if anchor is not None:
             decision["prior_learner_question_index"] = anchor
         return decision

@@ -6,7 +6,7 @@ import pytest
 
 from local_app.answer_adapter import AnswerAdapter
 from local_app.rag import RagService
-from local_app.runtime import OllamaRuntime
+from local_app.runtime import IncompleteCompletionError, OllamaRuntime
 
 
 class Settings:
@@ -97,6 +97,22 @@ class LessonMaterials:
                  "subject_id": "math", "score": 0.8}]
 
 
+def test_recognized_curriculum_uses_original_message_when_rewrite_is_empty_without_retry():
+    message = "Как проверить 3456 : 12? Пока получил 288."
+    session = CurriculumSession(
+        json.dumps({"in_scope": True, "uses_prior_context": False, "search_query": ""}),
+        json.dumps({"answer": "Проверь 288 × 12.", "citations": ["division-1"]}),
+    )
+    database = LessonMaterials()
+    result = RagService(database, OllamaRuntime(Settings(), session=session), Settings()).answer([
+        {"role": "user", "content": message},
+    ])
+    assert message in database.query
+    assert result["query_resolution"] == {"source": "original_learner_message"}
+    assert result["choices"][0]["message"]["content"] == "Проверь 288 × 12."
+    assert len(session.requests) == 2  # One classifier and one answer, no retry.
+
+
 def test_child_can_return_to_their_actual_question_after_a_short_hobby_aside():
     session = CurriculumSession(
         json.dumps({"in_scope": True, "uses_prior_context": True,
@@ -120,6 +136,41 @@ def test_child_can_return_to_their_actual_question_after_a_short_hobby_aside():
     assert result["citations"][0]["id"] == "division-1"
     supplied_context = session.requests[0]["messages"][1]["content"]
     assert "2842" in supplied_context and "999" not in supplied_context
+
+
+def test_empty_rewrite_with_history_uses_only_the_explicit_learner_anchor():
+    session = CurriculumSession(
+        json.dumps({"in_scope": True, "uses_prior_context": True, "search_query": "",
+                    "prior_learner_question_index": 0}),
+        json.dumps({"answer": "Умножь 203 на 14.", "citations": ["division-1"]}),
+    )
+    database = LessonMaterials()
+    result = RagService(database, OllamaRuntime(Settings(), session=session), Settings()).answer([
+        {"role": "user", "content": "Как проверить 2842 : 14 = 203?"},
+        {"role": "assistant", "content": "Твой пример был 999 : 3."},
+        {"role": "user", "content": "Я вчера играл в футбол."},
+        {"role": "user", "content": "Вернёмся к проверке."},
+    ])
+    assert "2842 : 14 = 203" in database.query
+    assert "Вернёмся к проверке." in database.query
+    assert "999" not in database.query and "футбол" not in database.query
+    assert result["query_resolution"] == {"source": "original_learner_message"}
+    assert len(session.requests) == 2
+
+
+@pytest.mark.parametrize("message,decision,prior", [
+    ("x" * 1201, {"in_scope": True, "uses_prior_context": False, "search_query": ""}, []),
+    ("Вернёмся.", {"in_scope": True, "uses_prior_context": True, "search_query": ""},
+     [{"role": "user", "content": "2842 : 14?"}]),
+    ("Вернёмся.", {"in_scope": True, "uses_prior_context": True, "search_query": "",
+                    "prior_learner_question_index": 1},
+     [{"role": "user", "content": "2842 : 14?"}, {"role": "assistant", "content": "999 : 3?"}]),
+])
+def test_empty_rewrite_does_not_truncate_or_guess_missing_learner_context(message, decision, prior):
+    session = LocalSession(json.dumps(decision))
+    with pytest.raises(IncompleteCompletionError):
+        OllamaRuntime(Settings(), session=session).resolve_chat_query(message, prior)
+    assert len(session.requests) == 1
 
 
 @pytest.mark.parametrize("social_aside", [False, True])
