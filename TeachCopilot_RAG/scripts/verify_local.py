@@ -72,7 +72,7 @@ def run_checks(include_ui: bool = False) -> dict:
     try:
         command = [sys.executable, "-m", "pytest", "-q", "tests"]
         if not include_ui:
-            command += ["--ignore=tests/test_ui_acceptance.py"]
+            command += ["--ignore=tests/test_ui_acceptance.py", "--ignore=tests/test_explicit_learning_actions_ui.py"]
         execute("pytest", command)
         execute("learner-policy", [sys.executable, str(ROOT.parent / "learner-data" / "tools" / "selftest.py")])
     finally:

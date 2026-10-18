@@ -42,6 +42,7 @@
     $('#account-name').textContent = ''; $('#role-label').textContent = ''; $('#learner-name').textContent = ''; $('#learner-avatar').textContent = ''; $('#profile-grade').textContent = ''; $('#profile-meta').textContent = ''; $('#current-goal').textContent = ''; $('#goal-subject').textContent = ''; $('#revision-label').textContent = ''; $('#zone-map').replaceChildren(); $('#history-list').replaceChildren(); $('#task-cards').replaceChildren(); $('#task-result').hidden = true; $('#proposal-result').replaceChildren(); $('#proposal-result').hidden = true;
     $('#topic-select').replaceChildren(new Option('Выберите тему', '')); $('#observation-topic').replaceChildren(new Option('Выберите тему', '')); $('#chat-subject').value = 'math'; $('#edit-goal').value = ''; $('#edit-interests').value = '';
     $('#chat-log').replaceChildren(el('div', 'chat-bubble assistant', greeting)); $('#chat-input').value = ''; $('#lesson-notes').value = ''; $('#observation-notes').value = ''; $('#observation-task').value = ''; $('#assessment-pair').value = ''; $('#observation-difficulty').value = 'medium';
+    resetLearningAction();
     $('#email').value = ''; $('#password').value = '';
     $('#teacher-actions').hidden = true; $('#student-actions').hidden = true; $('#action-empty').hidden = false;
     $('#memory-section').hidden = true; $('#memory-history').replaceChildren(); $('#memory-status').textContent = ''; $('#next-step-result').replaceChildren(); $('#next-step-result').hidden = true; $('#next-step-status').textContent = ''; $('#memory-method').value = 'tail'; $('#request-next-step').disabled = false; renderLearningSession();
@@ -104,6 +105,7 @@
   function showError(error) { $('#profile-content').hidden = true; $('#loading-state').hidden = true; $('#empty-profile').hidden = true; $('#error-state').hidden = false; $('#error-text').textContent = errorText(error); }
   async function selectLearner(id) {
     const viewRevision = ++state.viewRevision;
+    if (state.learnerId !== id) resetLearningAction();
     state.learnerId = id; state.dashboard = null; state.task = null; state.proposal = null; renderRoster();
     if (state.account?.role === 'student') { renderChatHistory(id); renderLearningSession(); }
     renderNextStep(); $('#memory-history').replaceChildren(); $('#memory-status').textContent = '';
@@ -424,15 +426,24 @@
     box.append(el('p', '', 'После подтверждения показанные изменения попадут в учебный профиль.'));
     const confirm = el('button', 'button primary wide', 'Подтвердить изменение профиля'); confirm.type = 'button'; confirm.addEventListener('click', () => busy(confirm, async () => { await request(`/lessons/proposals/${encodeURIComponent(data.proposal_id || state.proposal)}/confirm`, { method: 'POST' }); toast('Изменение подтверждено'); box.hidden = true; await selectLearner(state.learnerId); })); box.append(confirm);
   }
-  function updateChat(role, text, citations = []) {
+  function chatBubble(role, text, tool) {
     const bubble = el('div', `chat-bubble ${role}`, text);
+    if (role === 'assistant' && tool?.operation === 'print_output' && tool.status === 'verified' && typeof tool.facts?.stdout === 'string') {
+      const stdout = tool.facts.stdout;
+      bubble.replaceChildren(el('p', '', 'Проверенный вывод:'), el('pre', 'learning-tool-stdout', stdout));
+      bubble.append(el('p', 'field-hint', !stdout ? 'Вывод пустой.' : stdout.endsWith('\n') ? 'В конце есть перевод строки.' : 'В конце нет перевода строки.'));
+    }
+    return bubble;
+  }
+  function updateChat(role, text, citations = [], tool = null) {
+    const bubble = chatBubble(role, text, tool);
     if (role === 'assistant' && citations.length) {
       const tags = el('div', 'chat-citations'); tags.append(document.createTextNode('Материалы: '));
       citations.slice(0, 5).forEach(item => tags.append(el('span', '', citationLabel(item))));
       bubble.append(tags);
     }
     $('#chat-log').append(bubble);
-    if (state.learnerId) { const history = state.chatByLearner.get(state.learnerId) || []; history.push({ role, content: text }); state.chatByLearner.set(state.learnerId, history.slice(-20)); }
+    if (state.learnerId) { const history = state.chatByLearner.get(state.learnerId) || []; history.push({ role, content: text, tool }); state.chatByLearner.set(state.learnerId, history.slice(-20)); }
     bubble.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }
   function citationLabel(item) {
@@ -445,15 +456,46 @@
   }
   function renderChatHistory(learnerId) {
     const root = $('#chat-log'); root.replaceChildren(el('div', 'chat-bubble assistant', greeting));
-    (state.chatByLearner.get(learnerId) || []).forEach(message => root.append(el(`div`, `chat-bubble ${message.role}`, message.content)));
+    (state.chatByLearner.get(learnerId) || []).forEach(message => root.append(chatBubble(message.role, message.content, message.tool)));
+  }
+  const actionLabels = { division_check: 'Проверить деление', division_places: 'Разряды частного', division_practice: 'Дать пример', print_output: 'Вывод Python' };
+  function resetLearningAction() {
+    $('#learning-action-form').reset(); $('#chat-mode').value = 'chat';
+    $('#learning-action-error').hidden = true; $('#learning-action-error').textContent = '';
+    $('#action-code-count').textContent = '0 из 4000 символов';
+  }
+  function renderLearningAction(pending) {
+    const subject = $('#chat-subject').value;
+    $$('#chat-mode option').forEach(option => {
+      option.disabled = option.value === 'print_output' ? !['python', 'programming'].includes(subject) : option.value !== 'chat' && subject !== 'math';
+    });
+    if ($('#chat-mode').selectedOptions[0]?.disabled && !pending) $('#chat-mode').value = 'chat';
+    const mode = $('#chat-mode').value, isAction = mode !== 'chat';
+    $('#chat-form').hidden = isAction; $('#learning-action-panel').hidden = !isAction;
+    $('#learning-action-availability').hidden = subject !== 'scratch';
+    $('#action-division-fields').hidden = !['division_check', 'division_places'].includes(mode);
+    $('#action-quotient-field').hidden = mode !== 'division_check';
+    $('#action-practice-fields').hidden = mode !== 'division_practice';
+    $('#action-print-fields').hidden = mode !== 'print_output';
+    $('#learning-action-title').textContent = actionLabels[mode] || '';
+    $('#send-learning-action').textContent = pending?.sending ? 'Проверяем…' : actionLabels[mode] || 'Выполнить';
+    $('#learning-action-hint').textContent = {
+      division_check: 'Покажу результат и проверку умножением. Можно указать свой ответ. Для деления с остатком покажу остаток.',
+      division_places: 'Покажу всё частное и значение каждой его цифры.',
+      division_practice: 'Деление без остатка. В частном три цифры, ноль в десятках и ненулевые единицы. Ответ останется тебе.',
+      print_output: 'Покажу точные символы вывода. Поддерживаются до 8 вызовов print со строками, целыми числами, True, False, None и параметрами sep и end. Выражения и переменные здесь не поддерживаются.'
+    }[mode] || '';
+    $('#chat-mode').disabled = !!pending;
+    $$('#learning-action-form input, #learning-action-form select, #learning-action-form textarea, #learning-action-form button').forEach(field => { field.disabled = !!pending; });
   }
   function renderLearningSession() {
     const session = state.learningSessionsByLearner.get(state.learnerId), pending = state.pendingMessages.get(state.learnerId);
     $('#learning-session-status').textContent = session?.status === 'active' ? 'Занятие идёт. После завершения диалог будет сохранён для просмотра учителем.' : session?.status === 'completed' ? 'Занятие завершено. Обновление памяти поставлено в очередь.' : 'Занятие начнётся с первого вопроса.';
-    $('#complete-learning-session').hidden = session?.status !== 'active'; $('#complete-learning-session').disabled = !!pending?.sending;
+    $('#complete-learning-session').hidden = session?.status !== 'active'; $('#complete-learning-session').disabled = !!pending && !pending.terminal;
     $('#chat-subject').disabled = session?.status === 'active' || !!pending;
     $('#send-chat').disabled = !!pending; $('#chat-input').disabled = !!pending;
     $('#chat-retry').hidden = !pending?.error; $('#chat-error').textContent = pending?.error || ''; $('#retry-chat').hidden = !!pending?.terminal;
+    renderLearningAction(pending);
   }
   async function sendPendingMessage() {
     const learnerId = state.learnerId, pending = state.pendingMessages.get(learnerId), token = state.token;
@@ -466,14 +508,30 @@
         if (state.token !== token) return;
         session.subject_id = pending.subject_id; state.learningSessionsByLearner.set(learnerId, session);
       }
-      const data = await request('/v1/chat/completions', { method: 'POST', body: { model: 'teachcopilot-rag', learning_session_id: session.learning_session_id, client_message_id: pending.client_message_id, messages: [{ role: 'user', content: pending.content }], metadata: { subject_id: session.subject_id || pending.subject_id } } });
+      const body = { model: 'teachcopilot-rag', learning_session_id: session.learning_session_id, client_message_id: pending.client_message_id, messages: pending.learning_action ? [] : [{ role: 'user', content: pending.content }], metadata: { subject_id: session.subject_id || pending.subject_id } };
+      if (pending.learning_action) body.learning_action = pending.learning_action;
+      const data = await request('/v1/chat/completions', { method: 'POST', body });
       if (state.token !== token) return;
       const message = data.choices?.[0]?.message?.content;
       if (!message) throw new Error('В ответе нет объяснения. Повторите этот же вопрос, чтобы проверить результат запроса.');
       state.pendingMessages.delete(learnerId);
-      if (state.learnerId === learnerId) updateChat('assistant', message, data.citations || data.sources || []);
-      else { const history = state.chatByLearner.get(learnerId) || []; history.push({ role: 'assistant', content: message }); state.chatByLearner.set(learnerId, history); }
-    } catch (error) { if (state.token === token) { pending.terminal = error.status === 409 && /automatic retry is disabled/.test(error.detail || ''); pending.error = pending.terminal ? 'Исход предыдущего запроса неизвестен. Завершите занятие; новый оплачиваемый запрос автоматически не отправляется.' : `${errorText(error)} Можно повторно проверить этот же вопрос.`; toast(errorText(error)); } }
+      if (state.learnerId === learnerId) updateChat('assistant', message, data.citations || data.sources || [], data.learning_tool);
+      else { const history = state.chatByLearner.get(learnerId) || []; history.push({ role: 'assistant', content: message, tool: data.learning_tool }); state.chatByLearner.set(learnerId, history); }
+    } catch (error) {
+      if (state.token === token) {
+        if (pending.learning_action && [400, 422].includes(error.status)) {
+          state.pendingMessages.delete(learnerId);
+          const history = state.chatByLearner.get(learnerId) || []; history.pop(); state.chatByLearner.set(learnerId, history);
+          if (state.learnerId === learnerId) {
+            renderChatHistory(learnerId); $('#learning-action-error').textContent = error.detail || errorText(error); $('#learning-action-error').hidden = false;
+          }
+        } else {
+          pending.terminal = error.status === 409 && /automatic retry is disabled/.test(error.detail || '');
+          pending.error = pending.terminal ? 'Исход предыдущего запроса неизвестен. Завершите занятие; новый оплачиваемый запрос автоматически не отправляется.' : `${errorText(error)} Можно повторно проверить этот же вопрос.`;
+        }
+        toast(errorText(error));
+      }
+    }
     finally {
       pending.sending = false;
       if (state.token === token && state.learnerId === learnerId) { $('#send-chat').textContent = 'Отправить вопрос'; renderLearningSession(); }
@@ -523,6 +581,38 @@
     const client_message_id = crypto.randomUUID();
     state.pendingMessages.set(learnerId, { content, client_message_id, client_session_id: crypto.randomUUID(), subject_id: $('#chat-subject').value });
     updateChat('user', content); input.value = ''; sendPendingMessage();
+  });
+  $('#chat-mode').addEventListener('change', () => { $('#learning-action-error').hidden = true; renderLearningSession(); });
+  $('#chat-subject').addEventListener('change', () => { resetLearningAction(); renderLearningSession(); });
+  $('#action-code').addEventListener('input', () => { $('#action-code-count').textContent = `${$('#action-code').value.length} из 4000 символов`; });
+  $('#learning-action-form').addEventListener('submit', event => {
+    event.preventDefault(); const learnerId = state.learnerId, operation = $('#chat-mode').value;
+    if (!learnerId || !actionLabels[operation] || state.pendingMessages.has(learnerId)) return;
+    $('#learning-action-error').hidden = true;
+    try {
+      const action = { operation }; let content;
+      const number = (selector, label, min, max) => {
+        const value = $(selector).value;
+        if (!/^[0-9]+$/.test(value) || Number(value) < min || Number(value) > max) { $(selector).focus(); throw new Error(`${label}: введите целое число от ${min} до ${max}.`); }
+        return Number(value);
+      };
+      if (['division_check', 'division_places'].includes(operation)) {
+        action.dividend = number('#action-dividend', 'Делимое', 0, 999999);
+        action.divisor = number('#action-divisor', 'Делитель', 1, 99);
+        if (operation === 'division_check' && $('#action-quotient').value !== '') action.stated_quotient = number('#action-quotient', 'Мой ответ', 0, 999999);
+        content = `${actionLabels[operation]}: ${action.dividend} : ${action.divisor}${action.stated_quotient === undefined ? '' : ` = ${action.stated_quotient}`}.`;
+      } else if (operation === 'division_practice') {
+        action.divisor_digits = Number($('#action-divisor-digits').value);
+        content = `Дать пример: ${$('#action-divisor-digits').selectedOptions[0].textContent}. В частном три цифры и ноль в десятках. Ответ не показывай.`;
+      } else {
+        action.code = $('#action-code').value;
+        if (!action.code.trim() || action.code.length > 4000) throw new Error('Введите код: от 1 до 4000 символов.');
+        content = `Покажи точный вывод Python:\n${action.code}`;
+      }
+      if (state.learningSessionsByLearner.get(learnerId)?.status === 'completed') { state.chatByLearner.delete(learnerId); renderChatHistory(learnerId); }
+      state.pendingMessages.set(learnerId, { content, learning_action: Object.freeze(action), client_message_id: crypto.randomUUID(), client_session_id: crypto.randomUUID(), subject_id: $('#chat-subject').value });
+      updateChat('user', content); sendPendingMessage();
+    } catch (error) { $('#learning-action-error').textContent = errorText(error); $('#learning-action-error').hidden = false; }
   });
   $('#retry-chat').addEventListener('click', () => busy($('#retry-chat'), sendPendingMessage));
   $('#complete-learning-session').addEventListener('click', () => busy($('#complete-learning-session'), async () => {

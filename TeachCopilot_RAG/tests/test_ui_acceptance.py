@@ -26,8 +26,7 @@ if str(ROOT) not in sys.path:
 os.environ.setdefault("PLAYWRIGHT_BROWSERS_PATH", str(ROOT / ".local" / "ms-playwright"))
 
 playwright_api = pytest.importorskip("playwright.sync_api", reason="install requirements-dev-local.txt for browser acceptance tests")
-from playwright.sync_api import Error as PlaywrightError
-from playwright.sync_api import expect, sync_playwright
+from playwright.sync_api import expect
 
 from local_app.auth import hash_password
 from local_app.api import create_app
@@ -343,17 +342,6 @@ def _install_pipeline_stubs(monkeypatch):
     monkeypatch.setattr(card_updater, "update_from_notes", update_from_notes)
     monkeypatch.setattr(card_updater, "render_update", lambda row, applied=False: row.summary)
     return calls
-
-
-@pytest.fixture(scope="session")
-def chromium():
-    with sync_playwright() as playwright:
-        try:
-            browser = playwright.chromium.launch(headless=True)
-        except PlaywrightError as exc:
-            pytest.skip(f"Playwright Chromium is not installed: {exc}")
-        yield browser
-        browser.close()
 
 
 @pytest.fixture

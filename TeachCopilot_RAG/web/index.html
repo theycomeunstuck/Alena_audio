@@ -90,7 +90,52 @@
             <form id="lesson-form" class="work-form compact-form"><textarea id="lesson-notes" rows="3" placeholder="Например: сравнивали доли на рисунке, с опорой на полоски ученик объяснил, почему 1/3 больше 1/5."></textarea><button id="preview-lesson" class="button secondary wide" type="submit">Подготовить изменение профиля</button></form>
             <div id="proposal-result" class="proposal-result" hidden></div>
           </div>
-          <div id="student-actions" hidden><div class="action-header"><span class="section-kicker">Мой помощник</span><h2>Спросить о задаче</h2><p>Можно попросить объяснить шаг или привести похожий пример.</p></div><label for="chat-subject" class="section-kicker">Предмет</label><select id="chat-subject" class="chat-subject"><option value="math">Математика</option><option value="programming">Программирование</option><option value="python">Python</option><option value="scratch">Scratch</option></select><div class="learning-session-controls"><p id="learning-session-status" class="review-note" role="status">Занятие начнётся с первого вопроса.</p><button id="complete-learning-session" type="button" class="text-button" hidden>Завершить занятие</button></div><div id="chat-log" class="chat-log" aria-live="polite"><div class="chat-bubble assistant">Привет! Расскажи, что разбираете, и я помогу найти следующий шаг.</div></div><form id="chat-form" class="chat-form"><label class="sr-only" for="chat-input">Сообщение помощнику</label><textarea id="chat-input" rows="2" placeholder="Напишите вопрос…" required></textarea><button id="send-chat" class="button primary wide" type="submit">Отправить вопрос</button></form><div id="chat-retry" class="chat-retry" hidden><p id="chat-error" class="form-error" role="alert"></p><button id="retry-chat" class="button secondary wide" type="button">Повторить этот вопрос</button></div></div>
+          <div id="student-actions" hidden>
+            <div class="action-header"><span class="section-kicker">Мой помощник</span><h2>Спросить о задаче</h2><p>Можно попросить объяснить шаг или выбрать действие с числами и кодом.</p></div>
+            <label for="chat-subject" class="section-kicker">Предмет</label>
+            <select id="chat-subject" class="chat-subject"><option value="math">Математика</option><option value="programming">Программирование</option><option value="python">Python</option><option value="scratch">Scratch</option></select>
+            <div class="learning-session-controls"><p id="learning-session-status" class="review-note" role="status">Занятие начнётся с первого вопроса.</p><button id="complete-learning-session" type="button" class="text-button" hidden>Завершить занятие</button></div>
+            <div id="chat-log" class="chat-log" aria-live="polite"><div class="chat-bubble assistant">Привет! Расскажи, что разбираете, и я помогу найти следующий шаг.</div></div>
+            <div id="learning-action-picker" class="learning-action-picker">
+              <label for="chat-mode">Что сделать</label>
+              <select id="chat-mode" aria-controls="chat-form learning-action-panel" aria-describedby="learning-action-availability">
+                <option value="chat">Задать вопрос</option>
+                <option value="division_check">Проверить деление</option>
+                <option value="division_places">Разряды частного</option>
+                <option value="division_practice">Дать пример</option>
+                <option value="print_output">Вывод Python</option>
+              </select>
+            </div>
+            <p id="learning-action-availability" class="review-note" hidden>Для Scratch можно задать обычный вопрос. Действия с числами доступны в математике, с print – в Python и программировании.</p>
+            <form id="chat-form" class="chat-form"><label class="sr-only" for="chat-input">Сообщение помощнику</label><textarea id="chat-input" rows="2" placeholder="Напишите вопрос…" required></textarea><button id="send-chat" class="button primary wide" type="submit">Отправить вопрос</button></form>
+            <section id="learning-action-panel" class="learning-action-panel" aria-labelledby="learning-action-title" hidden>
+              <h3 id="learning-action-title">Проверить деление</h3>
+              <p id="learning-action-hint" class="review-note"></p>
+              <form id="learning-action-form" class="learning-action-form" novalidate>
+                <fieldset id="action-division-fields" class="action-fields" aria-describedby="action-division-hint">
+                  <legend class="sr-only">Числа для деления</legend>
+                  <div class="action-number-row">
+                    <div><label for="action-dividend">Делимое</label><input id="action-dividend" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="off" required aria-describedby="action-division-hint learning-action-error"></div>
+                    <div><label for="action-divisor">Делитель</label><input id="action-divisor" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="2" autocomplete="off" required aria-describedby="action-division-hint learning-action-error"></div>
+                  </div>
+                  <small id="action-division-hint" class="field-hint">Целые числа: делимое от 0 до 999999, делитель от 1 до 99.</small>
+                  <div id="action-quotient-field"><label for="action-quotient">Мой ответ <span class="optional-label">необязательно</span></label><input id="action-quotient" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="off" placeholder="От 0 до 999999" aria-describedby="learning-action-error"></div>
+                </fieldset>
+                <div id="action-practice-fields" class="action-fields" hidden>
+                  <label for="action-divisor-digits">Делитель</label>
+                  <select id="action-divisor-digits" aria-describedby="learning-action-hint learning-action-error"><option value="0">Любой: 1 или 2 цифры</option><option value="1">Однозначный (2–9)</option><option value="2">Двузначный (10–99)</option></select>
+                </div>
+                <div id="action-print-fields" class="action-fields" hidden>
+                  <label for="action-code">Код целиком</label>
+                  <textarea id="action-code" rows="5" maxlength="4000" autocomplete="off" autocapitalize="off" spellcheck="false" wrap="off" placeholder="print('Привет', 3, sep=': ', end='!')" aria-describedby="learning-action-hint action-code-count learning-action-error"></textarea>
+                  <small id="action-code-count" class="field-hint">0 из 4000 символов</small>
+                </div>
+                <p id="learning-action-error" class="form-error" role="alert" hidden></p>
+                <button id="send-learning-action" class="button primary wide" type="submit">Проверить деление</button>
+              </form>
+            </section>
+            <div id="chat-retry" class="chat-retry" hidden><p id="chat-error" class="form-error" role="alert"></p><button id="retry-chat" class="button secondary wide" type="button">Повторить этот вопрос</button></div>
+          </div>
           <div id="action-empty" class="action-empty"><span class="section-kicker">В работе</span><p>Выберите ученика, чтобы увидеть подходящий следующий шаг.</p></div>
         </aside>
       </div>
