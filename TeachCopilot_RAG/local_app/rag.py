@@ -8,7 +8,6 @@ from typing import Any, Sequence
 
 from local_app.answer_adapter import AnswerAdapter, EducationalProjection
 from local_app.runtime import IncompleteCompletionError
-from local_app.teaching_policy import TEACHING_RESPONSE_RULES
 
 
 class RagService:
@@ -290,7 +289,6 @@ class RagService:
             "Используй их только как подтверждение фактов и не выдумывай ссылки. "
             "Если источников недостаточно, честно скажи об этом."
         )
-        system += TEACHING_RESPONSE_RULES
         if compact_profile:
             system += "\nКраткий профиль ученика: " + compact_profile
         system += self._preference_instructions(preferences)
