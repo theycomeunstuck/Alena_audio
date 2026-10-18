@@ -1,0 +1,301 @@
+{
+  "kind": "completed_negative_operation_contract_experiment",
+  "created_at": "2026-10-18T17:31:39.148847+00:00",
+  "human_reviewed": false,
+  "formal_memory_assessment_unchanged": "not_assessed",
+  "experiment_commit": "ce3b1a4cb0f295881a73fd104990daacd05da6cd",
+  "selected_release_commit": "73049daff23252f00ccd97bc359d4e049c2d0908",
+  "technical_summary": {
+    "denominator": 24,
+    "recorded_case_outcomes": 24,
+    "technical_responses_returned": 24,
+    "error_outcomes": 0,
+    "not_attempted_outcomes": 0,
+    "deterministic_responses": 1,
+    "deterministic_responses_with_zero_answer_generations": 1,
+    "operation_selection_returned_decisions": 10,
+    "operation_selection_errors": 0,
+    "mechanical_route_matches": 12,
+    "failures_remain_in_denominator": true,
+    "technical_ok_and_route_match_do_not_establish_semantic_correctness": true,
+    "operation_selection_interpretation_verified": false
+  },
+  "positive_routes": {
+    "matches": 1,
+    "denominator": 12
+  },
+  "negative_routes": {
+    "matches": 11,
+    "denominator": 12,
+    "false_computed_answers": 0
+  },
+  "tool_selection_outcomes": {
+    "missing_literal_evidence": 7,
+    "literal_operation_validated": 1,
+    "unsupported_conditions_or_help": 1,
+    "model_declined": 1
+  },
+  "positive_selection_not_attempted": [
+    "VO02",
+    "VO03",
+    "VO06",
+    "VO08"
+  ],
+  "release_gate": {
+    "required_positive_matches": 10,
+    "required_false_computed_answers": 0,
+    "passed": false,
+    "decision": "model_selector_disabled_by_default; kernels_and_strict_legacy_path_preserved"
+  },
+  "stages": {
+    "scope_resolution": {
+      "calls": 24,
+      "input_tokens": 15649,
+      "output_tokens": 988,
+      "http_seconds": 22.66537119972054
+    },
+    "operation_selection": {
+      "calls": 10,
+      "input_tokens": 6427,
+      "output_tokens": 1293,
+      "http_seconds": 14.767762799863704
+    },
+    "answer_generation": {
+      "calls": 22,
+      "input_tokens": 10995,
+      "output_tokens": 6498,
+      "http_seconds": 66.72234780003782
+    }
+  },
+  "actual_generation_tokens": {
+    "input_tokens": 33071,
+    "output_tokens": 8779,
+    "calls_with_both_counts": 56,
+    "generation_calls": 56,
+    "counts_are_partial_if_calls_with_both_counts_below_generation_calls": true
+  },
+  "elapsed_seconds": 113.03099999995902,
+  "generation_http_elapsed_seconds": 104.15548179962207,
+  "source_integrity_unchanged_during_experiment": true,
+  "data_integrity": {
+    "model_identity_unchanged": true,
+    "end_model_identity": "gemma4:12b@6114515d63c17436a7c0417d82820ac65ad643e2806c5a3c89cb62846436ed0b",
+    "embedding_model_identity_unchanged": true,
+    "start_embedding_model_identity": "bge-m3:latest@7907646426070047a77226ac3e684fbbe8410524f7b4a74d02837e43f2146bab",
+    "end_embedding_model_identity": "bge-m3:latest@7907646426070047a77226ac3e684fbbe8410524f7b4a74d02837e43f2146bab",
+    "public_materials_unchanged": true,
+    "start_public_materials_sha256": "cc80e1563faaf6071fabac1a633c9257a5d0b525fd3c8454a9dbc10627101692",
+    "end_public_materials_sha256": "cc80e1563faaf6071fabac1a633c9257a5d0b525fd3c8454a9dbc10627101692"
+  },
+  "informal_ai_review": {
+    "human_reviewed": false,
+    "reviewer_calibrated": false,
+    "summary": {
+      "denominator": 24,
+      "responses_present": {
+        "count": 24,
+        "denominator": 24
+      },
+      "full_responses_read": {
+        "count": 24,
+        "denominator": 24
+      },
+      "pedagogical_usefulness": {
+        "полезен": {
+          "count": 15,
+          "denominator": 24,
+          "case_ids": [
+            "VO01",
+            "VO03",
+            "VO04",
+            "VO05",
+            "VO06",
+            "VO09",
+            "VO10",
+            "VO11",
+            "VO12",
+            "VO14",
+            "VO17",
+            "VO19",
+            "VO20",
+            "VO22",
+            "VO23"
+          ]
+        },
+        "частично": {
+          "count": 5,
+          "denominator": 24,
+          "case_ids": [
+            "VO02",
+            "VO07",
+            "VO08",
+            "VO18",
+            "VO21"
+          ]
+        },
+        "неполезен": {
+          "count": 4,
+          "denominator": 24,
+          "case_ids": [
+            "VO13",
+            "VO15",
+            "VO16",
+            "VO24"
+          ]
+        }
+      },
+      "substantial_errors": {
+        "yes": {
+          "count": 7,
+          "denominator": 24,
+          "case_ids": [
+            "VO02",
+            "VO07",
+            "VO08",
+            "VO13",
+            "VO15",
+            "VO16",
+            "VO18"
+          ]
+        },
+        "no": {
+          "count": 17,
+          "denominator": 24,
+          "case_ids": [
+            "VO01",
+            "VO03",
+            "VO04",
+            "VO05",
+            "VO06",
+            "VO09",
+            "VO10",
+            "VO11",
+            "VO12",
+            "VO14",
+            "VO17",
+            "VO19",
+            "VO20",
+            "VO21",
+            "VO22",
+            "VO23",
+            "VO24"
+          ]
+        },
+        "uncertain": {
+          "count": 0,
+          "denominator": 24,
+          "case_ids": []
+        }
+      },
+      "withholding_violations": {
+        "count": 2,
+        "denominator": 24,
+        "case_ids": [
+          "VO15",
+          "VO16"
+        ]
+      },
+      "gold_interpretation_notes": [
+        "VO21: проверка обоих вариантов не равна молчаливому выбору одного.",
+        "VO22: полезность и истинность арифметики отделены от политики предмета.",
+        "VO24: соответствие ограничению области по gold не равно помощи по прямой просьбе."
+      ]
+    }
+  },
+  "pre_experiment_checks": {
+    "created_at": "2026-10-18T17:17:20.820691+00:00",
+    "ui_requested": true,
+    "checks": [
+      {
+        "name": "pytest",
+        "passed": true,
+        "exit_code": 0,
+        "log": ".local\\verification\\pytest.log",
+        "passed_tests": 675,
+        "skipped_tests": 0
+      },
+      {
+        "name": "learner-policy",
+        "passed": true,
+        "exit_code": 0,
+        "log": ".local\\verification\\learner-policy.log",
+        "tests": 52
+      }
+    ],
+    "passed": true
+  },
+  "selected_release_checks": {
+    "created_at": "2026-10-18T17:23:33.356379+00:00",
+    "ui_requested": true,
+    "checks": [
+      {
+        "name": "pytest",
+        "passed": true,
+        "exit_code": 0,
+        "log": ".local\\verification\\pytest.log",
+        "passed_tests": 676,
+        "skipped_tests": 0
+      },
+      {
+        "name": "learner-policy",
+        "passed": true,
+        "exit_code": 0,
+        "log": ".local\\verification\\learner-policy.log",
+        "tests": 52
+      }
+    ],
+    "passed": true
+  },
+  "readiness": {
+    "status": "ready",
+    "database": "ok",
+    "schema_version": 11,
+    "index": {
+      "embedding_model": "bge-m3",
+      "dimension": 1024,
+      "total": 147,
+      "indexed": 147,
+      "ready": true,
+      "embedding_model_identity": "bge-m3:latest@7907646426070047a77226ac3e684fbbe8410524f7b4a74d02837e43f2146bab@recipe=269bda234d703b088f748f6e2e68687de148258c776da902d257e232589e83c3",
+      "embedding_prompt_recipe": "raw-query-v1",
+      "embedding_prompt_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "models": {
+      "ready": true,
+      "models": [
+        {
+          "name": "bge-m3:latest",
+          "digest": "7907646426070047a77226ac3e684fbbe8410524f7b4a74d02837e43f2146bab"
+        },
+        {
+          "name": "gemma4:12b",
+          "digest": "6114515d63c17436a7c0417d82820ac65ad643e2806c5a3c89cb62846436ed0b"
+        }
+      ],
+      "local_only": true
+    },
+    "checked_at": "2026-10-18T17:26:14.104392+00:00",
+    "processes": {
+      "release_commit": "73049da",
+      "worker_pid": 43072,
+      "learning_operation_selection_enabled": false,
+      "api_pid": 18856,
+      "active_jobs_before_restart": 0
+    }
+  },
+  "frozen_research_files_unchanged": 29,
+  "previous_archives_unchanged": 3,
+  "new_paid_calls": 0,
+  "cumulative_paid_usd": "1.2405025",
+  "remaining_from_four_usd": "2.7594975",
+  "default_memory_method": "tail",
+  "teacher_confirmation_preserved": true,
+  "input_sha256": {
+    "run01/report.json": "39c28ae1f831dfe516ca7cc07a023607759b3333636581cd89cf8111b394eabf",
+    "run01/preregistered.json": "ddfef3163dc0af85a09e40301f43665bf3cf920a701996a4436a4cd6b3d89c7b",
+    "run01/ollama_http.jsonl": "989e606038c2c91b92350b4b7a24c14c265ecfa4ace2480bc8f65d3d1c48241a",
+    "review01/ai_review.json": "285dec23cc31e6d435726408c72e99ba02d8d0f009ee3ef847170aa2bc6cc760",
+    "receipts/latest.json": "3b1c59822c1ca4a6d5fec95ba510a2b875005a4a4490cee63301e444cbaaccfe",
+    "receipts/release_latest.json": "da21c464d3234272ee2a9b9d27a3473059d3ee822f176701d940e872dadbb76a"
+  }
+}
