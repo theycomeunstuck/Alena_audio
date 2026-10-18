@@ -1,0 +1,89 @@
+{
+  "status": "implemented_and_technically_verified",
+  "recorded_at": "2026-10-18T22:29:31.557245+00:00",
+  "backend_commit": "8be843c",
+  "release_commit": "0a4ce2f9ea84765fba8008dc202b91850bc39149",
+  "verification": {
+    "created_at": "2026-10-18T22:24:58.562512+00:00",
+    "ui_requested": true,
+    "checks": [
+      {
+        "name": "pytest",
+        "passed": true,
+        "exit_code": 0,
+        "log": ".local\\verification\\pytest.log",
+        "passed_tests": 715,
+        "skipped_tests": 0
+      },
+      {
+        "name": "learner-policy",
+        "passed": true,
+        "exit_code": 0,
+        "log": ".local\\verification\\learner-policy.log",
+        "tests": 52
+      }
+    ],
+    "passed": true
+  },
+  "browser_scenarios_total": 13,
+  "new_browser_scenarios": 5,
+  "new_api_cases": 32,
+  "new_postgres_scenarios": 2,
+  "browser_storage": "synthetic_in_memory_real_HTTP_API",
+  "postgres_storage": "real_disposable_database",
+  "readiness": {
+    "status": "ready",
+    "database": "ok",
+    "schema_version": 11,
+    "index": {
+      "embedding_model": "bge-m3",
+      "dimension": 1024,
+      "total": 147,
+      "indexed": 147,
+      "ready": true,
+      "embedding_model_identity": "bge-m3:latest@7907646426070047a77226ac3e684fbbe8410524f7b4a74d02837e43f2146bab@recipe=269bda234d703b088f748f6e2e68687de148258c776da902d257e232589e83c3",
+      "embedding_prompt_recipe": "raw-query-v1",
+      "embedding_prompt_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "models": {
+      "ready": true,
+      "models": [
+        {
+          "name": "bge-m3:latest",
+          "digest": "7907646426070047a77226ac3e684fbbe8410524f7b4a74d02837e43f2146bab"
+        },
+        {
+          "name": "gemma4:12b",
+          "digest": "6114515d63c17436a7c0417d82820ac65ad643e2806c5a3c89cb62846436ed0b"
+        }
+      ],
+      "local_only": true
+    }
+  },
+  "served_action_form": true,
+  "api_launcher_pid": 1696,
+  "worker_launcher_pid": 9136,
+  "model_selector_enabled": false,
+  "default_memory_method": "tail",
+  "frozen_code_prompt_and_input_files_unchanged": 29,
+  "prior_archive_sha256_verified": {
+    "conversation_longitudinal_v1_20261018.zip": "f83f58291a976a8372ec8ca7b5f1403f8c883b24ad428da83c08118b731db622",
+    "conversation_boundaries_v2_20261018.zip": "856f58c6a446f127d450bb6ee3be6d989aaa16a82730ecf9270a62ea1d28b5b0",
+    "verified_learning_tools_v1_20261018.zip": "f83ef78d3950934690f86ab289cf5fea4df1e6180aa3f40e49189a0db8a28c52",
+    "learning_operations_v2_20261019.zip": "dd6cfd22378d90e99ea5cf05463bf3c864121f52ead88a814a69732a8428a1c5"
+  },
+  "paid_calls_this_stage": 0,
+  "cumulative_external_usd_including_reserves": 1.2405025,
+  "remaining_external_usd": 2.7594975,
+  "formal_memory_semantic_assessment": "not_assessed",
+  "human_content_review": "not_performed",
+  "new_load_or_free_text_model_experiment": false,
+  "artifact_sha256": {
+    "latest.json": "5b7bafcb70d609440f69a1c9dd60cf3495f5f77af41b413a26952357dce2914e",
+    "learner-policy.log": "d59d30901ca5ec5a8963b4a729805fc52a5a5ca7698af95d89b028a1c647f281",
+    "pytest.log": "10ce1af1aa33a598743b4d4b782bdf0e5786cd810180588d6546788c5469f296",
+    "student-explicit-action-mobile-320.png": "3fb78fcec971129dc60b680f187228e97f278a1a8de9902e373c85c8cff270c0",
+    "student-explicit-math-actions.png": "1a420f0fe9dac3932e13d7113836ad937648cf7c6c6b0fa2c201cec51a9fa1c8",
+    "student-explicit-print-action.png": "ee73bd5d85179f010fd3e092eec28e2391f99baefe40c2c95421ca4cab36a3b0"
+  }
+}
