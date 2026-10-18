@@ -277,7 +277,9 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None) -> Fas
 
     def memory_error(exc: Exception):
         from local_app.store import RevisionConflict
-        from local_app.memory_store import MemoryQueueFullError
+        from local_app.memory_store import MemoryQueueFullError, MemoryIdempotencyConflict
+        if isinstance(exc, MemoryIdempotencyConflict):
+            raise HTTPException(status_code=409, detail="client_message_id was reused for a different request") from exc
         if isinstance(exc, RevisionConflict):
             raise HTTPException(status_code=409, detail="learner revision changed; reload before continuing") from exc
         if isinstance(exc, MemoryQueueFullError):
@@ -990,6 +992,17 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None) -> Fas
         if store.get_card(target) is None:
             raise HTTPException(status_code=404, detail="learner not found")
         messages = payload.get("messages")
+        explicit = 'learning_action' in payload
+        action = None
+        if explicit:
+            from local_app.explicit_learning_actions import validate_action
+            if messages is not None and messages != [] or 'messages' in payload and messages is None:
+                raise HTTPException(status_code=422, detail="Учебное действие не совмещается с сообщениями. Используйте поля формы.")
+            try:
+                action, action_text = validate_action(payload['learning_action'])
+            except (ValueError, TypeError) as exc:
+                raise HTTPException(status_code=422, detail=str(exc)) from exc
+            messages = [{"role": "user", "content": action_text}]
         if not isinstance(messages, list):
             raise HTTPException(status_code=422, detail="messages must be an array")
         # Preserve only chat roles and content. Ignore client model, tools, sampling
@@ -1002,6 +1015,8 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None) -> Fas
             raise HTTPException(status_code=422, detail="message content must be nonempty text within 12000 characters")
         learning_session_id = payload.get("learning_session_id") or meta.get("learning_session_id")
         client_message_id = payload.get("client_message_id") or meta.get("client_message_id")
+        if explicit and not learning_session_id:
+            raise HTTPException(status_code=422, detail="Для учебного действия требуется learning_session_id.")
         reserved = False
         chat_job = None
         chat_worker_id = "chat-" + secrets.token_urlsafe(18)
@@ -1014,8 +1029,14 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None) -> Fas
             session = store.get_learning_session(str(learning_session_id), target)
             if not session:
                 raise HTTPException(status_code=404, detail="learning session not found for this learner")
-            if _role(user) == "student" and str(session.get("actor_id")) != _account_id(user):
+            if str(session.get("actor_id")) != _account_id(user):
                 raise HTTPException(status_code=403, detail="learning session belongs to another account")
+            if explicit:
+                from local_app.explicit_learning_actions import validate_subject
+                try:
+                    validate_subject(action, session.get('topic_id'), meta.get('subject_id'), store.catalog())
+                except (ValueError, TypeError) as exc:
+                    raise HTTPException(status_code=422, detail=str(exc)) from exc
             latest_user = next(message for message in reversed(clean_messages) if message["role"] == "user")
             try:
                 reservation = store.reserve_chat_message(str(learning_session_id), target,
@@ -1025,6 +1046,10 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None) -> Fas
             if not reservation.get("created"):
                 if reservation.get("status") == "completed" and isinstance(reservation.get("response"), dict):
                     cached = reservation["response"]
+                    from local_app.explicit_learning_actions import VERSION
+                    expected_action = {'operation': action['operation'], 'request_text': action_text, 'version': VERSION} if explicit else None
+                    if cached.get('learning_action') != expected_action:
+                        raise HTTPException(status_code=409, detail="client_message_id was reused for a different request mode")
                     if _role(user) == "student":
                         cached = _safe_student_completion(cached)
                     return JSONResponse(content=cached)
@@ -1056,6 +1081,21 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None) -> Fas
                 raise
             except Exception as exc:
                 memory_error(exc)
+        if explicit:
+            from local_app.explicit_learning_actions import action_response
+            try:
+                response = action_response(action, action_text, clean_messages)
+                response.update(learning_session_id=str(learning_session_id), client_message_id=client_message_id,
+                                memory_version_id=None, memory_stale=False)
+                finished = store.finish_memory_job(chat_job['job_id'], result={'response_ready': True}, worker_id=chat_worker_id)
+                if finished.get('status') != 'completed':
+                    raise ValueError('chat context changed or job lease expired during action')
+                store.complete_chat_message(str(learning_session_id), client_message_id, response)
+            except Exception as exc:
+                store.fail_chat_message(str(learning_session_id), client_message_id, error=type(exc).__name__, unknown_outcome=False)
+                store.finish_memory_job(chat_job['job_id'], error=type(exc).__name__, worker_id=chat_worker_id, unknown_outcome=False)
+                memory_error(exc)
+            return JSONResponse(content=_safe_student_completion(response) if _role(user) == 'student' else response)
         if app.state.rag_service is None:
             if reserved:
                 store.fail_chat_message(str(learning_session_id), client_message_id,
