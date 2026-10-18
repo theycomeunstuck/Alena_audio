@@ -256,7 +256,8 @@ class RagService:
                     return verified
                 from local_app.learning_operation import operation_candidates, interpreted_response
                 selector = getattr(self.runtime, 'select_learning_operation', None)
-                candidates = operation_candidates(latest_query, subject_id) if callable(selector) else []
+                candidates = operation_candidates(latest_query, subject_id) if (
+                    callable(selector) and getattr(self.settings, 'learning_operation_selection_enabled', False)) else []
                 if candidates:
                     try:
                         proposal = selector(latest_query, subject_id, candidates)

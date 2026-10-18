@@ -295,7 +295,10 @@ def run(args: argparse.Namespace) -> dict:
         prepared = fixture_cases(fixture, expected_count)
         if not callable(getattr(OllamaRuntime, "select_learning_operation", None)):
             raise RuntimeError("application_runtime_has_no_operation_selection_contract")
-        settings = replace(Settings.from_env(), request_timeout=MAX_REQUEST_SECONDS)
+        # This finite experimental harness explicitly enables the rejected
+        # selector; the normal application default remains disabled.
+        settings = replace(Settings.from_env(), request_timeout=MAX_REQUEST_SECONDS,
+                           learning_operation_selection_enabled=True)
         if settings.chat_model != "gemma4:12b" or settings.context_tokens != 8192:
             raise ValueError("batch requires preregistered gemma4:12b and 8192-token context")
         params = require_local_dsn(settings.database_url)

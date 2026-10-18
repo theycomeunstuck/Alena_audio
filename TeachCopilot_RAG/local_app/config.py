@@ -28,6 +28,7 @@ class Settings:
     session_hours: int = 12
     rag_limit: int = 3
     minimum_similarity: float = 0.35
+    learning_operation_selection_enabled: bool = False
 
     def __post_init__(self):
         require_local_url(self.ollama_url)
@@ -50,4 +51,5 @@ class Settings:
             max_output_tokens=int(os.getenv("LOCAL_MAX_OUTPUT_TOKENS", "1024")),
             session_hours=int(os.getenv("LOCAL_SESSION_HOURS", "12")),
             minimum_similarity=float(os.getenv("LOCAL_MIN_SIMILARITY", "0.35")),
+            learning_operation_selection_enabled=os.getenv('LOCAL_LEARNING_OPERATION_SELECTION', '0') == '1',
         )

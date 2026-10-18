@@ -15,7 +15,7 @@ from local_app.learning_operation import SCHEMA, VERSION
 from local_app.rag import RagService
 from local_app.runtime import OllamaRuntime
 from tests.test_local_api import auth, token
-from tests.test_social_chat import Settings
+from tests.test_social_chat import Settings as LocalSettings
 from tests.test_verified_learning_api import (
     FOREIGN_LEARNER,
     LEARNER,
@@ -24,6 +24,10 @@ from tests.test_verified_learning_api import (
     NoExternalProvider,
     start_session,
 )
+
+
+class Settings(LocalSettings):
+    learning_operation_selection_enabled = True
 
 
 QUESTION = "Будь добр, проверь мою запись 6957 : 9 = 773 и покажи короткую проверку."

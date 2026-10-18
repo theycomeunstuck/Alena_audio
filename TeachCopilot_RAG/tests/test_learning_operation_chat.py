@@ -4,9 +4,13 @@ import pytest
 
 from local_app.rag import RagService
 from local_app.runtime import OllamaRuntime
-from tests.test_social_chat import LocalSession, Settings
+from tests.test_social_chat import LocalSession, Settings as LocalSettings
 from tests.test_social_chat import CurriculumSession, LessonMaterials
 from tests.test_verified_learning_chat import NoMaterials
+
+
+class Settings(LocalSettings):
+    learning_operation_selection_enabled = True
 
 
 class SubjectMaterials(LessonMaterials):
@@ -137,3 +141,16 @@ def test_negated_divisor_property_is_not_evidence_for_a_two_digit_divisor():
         [{'role': 'user', 'content': message}], subject_id='math')
     assert 'learning_tool' not in result
     assert result['tool_selection']['reason'] == 'divisor_evidence_mismatch'
+
+
+def test_production_defaults_do_not_call_the_failed_experimental_selector():
+    from local_app.config import Settings as ProductionSettings
+    settings = ProductionSettings(database_url='', ollama_url=Settings.ollama_url, chat_model=Settings.chat_model,
+                                  embedding_model=Settings.embedding_model, minimum_similarity=0)
+    message = 'Будь добр, проверь мою запись 6957 : 9 = 773 и покажи короткую проверку.'
+    session = CurriculumSession(scope(), json.dumps({'answer': 'Обычный учебный ответ.', 'citations': []}))
+    result = RagService(LessonMaterials(), OllamaRuntime(settings, session=session), settings).answer(
+        [{'role': 'user', 'content': message}], subject_id='math')
+    assert result['choices'][0]['message']['content'] == 'Обычный учебный ответ.'
+    assert 'tool_selection' not in result
+    assert len(session.requests) == 2
