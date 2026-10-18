@@ -1,0 +1,11 @@
+{
+  "sealed_at_before_unblinding": "2026-10-18T00:48:21.721269+00:00",
+  "human_reviewed": false,
+  "kind": "uncalibrated_ai_review_seal",
+  "sha256": {
+    "ai_review_T01_T06.json": "b884e48c5fc4c0b0a3da4b1e3493ccdce3affab01a5978d6425c79a93a533b78",
+    "ai_review_T01_T06.md": "cad1da3462c424be5b465caed09ce0078400bf76e3294b4190df401074f9af65",
+    "ai_review_T07_T12.json": "37d6e8fa7deb462bdb83d8752c2f908d5586d07957b890877629c65e97a97f1a",
+    "ai_review_T07_T12.md": "b6febe19421d9af16312bb70214b9a556270ea429edb445fb0f6790f14ca99ff"
+  }
+}

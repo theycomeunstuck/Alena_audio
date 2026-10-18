@@ -1,0 +1,8 @@
+{
+  "exit_code": 0,
+  "passed": true,
+  "passed_tests": 95,
+  "scope": "preference worker, social routing, RAG and outgoing external projection",
+  "model_calls": 0,
+  "paid_calls": 0
+}

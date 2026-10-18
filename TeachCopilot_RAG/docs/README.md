@@ -15,6 +15,7 @@ and verification scope they describe.
 | **[CONVERSATION_MEMORY.md](CONVERSATION_MEMORY.md)** | Короткий разговор, интересы с цитатами, выбор преподавателя и перенос между темами. |
 | **[CONVERSATION_LONGITUDINAL_RESULTS.md](CONVERSATION_LONGITUDINAL_RESULTS.md)** | Итог 20 сессий: перенос интересов, ошибки объяснений и отдельная проверка исправления. |
 | **[CONVERSATION_LONGITUDINAL_PROTOCOL.md](CONVERSATION_LONGITUDINAL_PROTOCOL.md)** | Заранее зафиксированная процедура последовательных синтетических разговоров. |
+| **[CONVERSATION_BOUNDARIES_V2_RESULTS.md](CONVERSATION_BOUNDARIES_V2_RESULTS.md)** | Парная проверка предпочтений и учебных ответов: ограниченный эффект и отклонение неудачной части правки. |
 | **[EXTERNAL_ANSWERS.md](EXTERNAL_ANSWERS.md)** | Учебная проекция, локальная проверка приватности и отдельный бюджет внешнего ответа. |
 | **[research_reporting.md](research_reporting.md)** | Воспроизводимый отчёт, зависимые истории и слепой пакет человеческого просмотра. |
 | **[USE_CASES.md](USE_CASES.md)** | Ten realistic fictional end-to-end scenarios and acceptance criteria. |

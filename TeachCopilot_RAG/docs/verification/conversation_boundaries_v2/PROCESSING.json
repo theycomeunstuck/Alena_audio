@@ -1,0 +1,94 @@
+{
+  "status": "completed_comparison_with_documented_limitations",
+  "processed_at": "2026-10-18T05:45:56.152461+00:00",
+  "human_reviewed": false,
+  "baseline_commit": "8d74504",
+  "experimental_candidate_commit": "d3d833d",
+  "selected_code_commit": "a6c30a1",
+  "selected_component_changes": [
+    "durable preference prompt only"
+  ],
+  "rejected_component_changes": [
+    "expanded curriculum response prompt"
+  ],
+  "full_model_run_of_selected_combination": false,
+  "technical_cases_per_variant": {
+    "interest": 24,
+    "teaching": 12
+  },
+  "preference_fixed_alias_matches": {
+    "baseline": 20,
+    "candidate": 22,
+    "denominator": 24
+  },
+  "preference_heldout_matches": {
+    "baseline": 10,
+    "candidate": 10,
+    "denominator": 12
+  },
+  "teaching_uncalibrated_ai_meets_task": {
+    "baseline": 6,
+    "candidate": 6,
+    "denominator": 12
+  },
+  "teaching_uncalibrated_ai_material_errors": {
+    "baseline": 4,
+    "candidate": 4,
+    "denominator": 12
+  },
+  "new_model_calls": 96,
+  "embedding_calls": 22,
+  "paid_calls": 0,
+  "post_selection_profile_tests": 95,
+  "offline_checker_tests": 11,
+  "restored_curriculum_code_equals_baseline_after_line_ending_normalization": {
+    "local_app/rag.py": true,
+    "local_app/answer_adapter.py": true
+  },
+  "selected_preference_prompt_sha256": "02ef1a9405f74b3d543a348e8ba259463c98449826d15328a3122f878be942e8",
+  "frozen_research_hashes_unchanged": {
+    "research_memory\\__init__.py": true,
+    "research_memory\\__main__.py": true,
+    "research_memory\\analysis.py": true,
+    "research_memory\\batch.py": true,
+    "research_memory\\clients.py": true,
+    "research_memory\\contracts.py": true,
+    "research_memory\\dataset.py": true,
+    "research_memory\\judge.py": true,
+    "research_memory\\methods.py": true,
+    "research_memory\\reuse.py": true,
+    "research_memory\\runner.py": true,
+    "research_memory\\spiderssense.py": true,
+    "research_memory\\workflow.py": true,
+    "research_memory\\prompts\\action.txt": true,
+    "research_memory\\prompts\\extract.txt": true,
+    "research_memory\\prompts\\judge.txt": true,
+    "research_memory\\prompts\\judge_context.txt": true,
+    "research_memory\\prompts\\judge_context_v3.txt": true,
+    "research_memory\\prompts\\shorten.txt": true,
+    "research_memory\\prompts\\summary.txt": true,
+    "research_memory\\config.json": true,
+    "research_memory\\data\\v4\\calibration.cases.jsonl": true,
+    "research_memory\\data\\v4\\calibration.expected.jsonl": true,
+    "research_memory\\data\\v4\\design.private.json": true,
+    "research_memory\\data\\v4\\gold.test.jsonl": true,
+    "research_memory\\data\\v4\\histories.test.jsonl": true,
+    "research_memory\\data\\v4\\manifest.json": true,
+    "research_memory\\data\\v4\\requests.test.jsonl": true,
+    "research_memory\\data\\v4\\review.selection.json": true
+  },
+  "active_jobs_before_restart": [],
+  "original_batch_source_integrity": {
+    "baseline": true,
+    "candidate": true
+  },
+  "report": "docs/CONVERSATION_BOUNDARIES_V2_RESULTS.md",
+  "primary_result_sha256": {
+    "baseline01/report.json": "ff40f25eef7dd3fe19131d124b01736215f9f26b754ca49afb98cd5167b905f0",
+    "baseline01/ollama_http.jsonl": "fe9a083fe5174d0f1856538a965e8dfee60235574214303f2148d62dfe85ba76",
+    "candidate01/report.json": "ccbc2134db77ad832611aa671cb83c8b7a9bfbd25c11262f6f8d4c0b3b0a772c",
+    "candidate01/ollama_http.jsonl": "6e09afb3fa08ec17708a24c4bc2fda75cfcff78888467a77463e2ffb607b512a",
+    "comparison01/summary.json": "5ea17845c665edf0995daf521e4f7f66a5316c14830062eee03c5edee130baf2",
+    "review01/REVIEW_SEAL.json": "0b945f99e7766b423e46c52a8eb48027f9fe32c8e4273069501f7d13ba0f5105"
+  }
+}

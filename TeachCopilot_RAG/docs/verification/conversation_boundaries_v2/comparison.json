@@ -1,0 +1,891 @@
+{
+  "created_at": "2026-10-18T00:49:07.915266+00:00",
+  "status": "completed_unblinded_comparison",
+  "human_reviewed": false,
+  "semantic_assessment": "uncalibrated_ai_review_not_formal_judge",
+  "review_sealed_before_mapping_opened_at": "2026-10-18T00:48:21.721269+00:00",
+  "preference_machine_diagnostics": {
+    "all": {
+      "denominator": 24,
+      "both_strict_technical_ok": 24,
+      "baseline": {
+        "strict_technical": {
+          "denominator": 24,
+          "true": 24,
+          "false": 0,
+          "not_evaluable": 0
+        },
+        "literal": {
+          "exact_pair_set_match": {
+            "denominator": 24,
+            "true": 20,
+            "false": 4,
+            "not_evaluable": 0
+          },
+          "within_fixed_pair_allowance": {
+            "denominator": 24,
+            "true": 20,
+            "false": 4,
+            "not_evaluable": 0
+          },
+          "ordered_operations_match": {
+            "denominator": 24,
+            "true": 20,
+            "false": 4,
+            "not_evaluable": 0
+          },
+          "pair_allowance_and_order_match": {
+            "denominator": 24,
+            "true": 20,
+            "false": 4,
+            "not_evaluable": 0
+          }
+        },
+        "fixed_aliases": {
+          "exact_pair_set_match": {
+            "denominator": 24,
+            "true": 20,
+            "false": 4,
+            "not_evaluable": 0
+          },
+          "within_fixed_pair_allowance": {
+            "denominator": 24,
+            "true": 20,
+            "false": 4,
+            "not_evaluable": 0
+          },
+          "ordered_operations_match": {
+            "denominator": 24,
+            "true": 20,
+            "false": 4,
+            "not_evaluable": 0
+          },
+          "pair_allowance_and_order_match": {
+            "denominator": 24,
+            "true": 20,
+            "false": 4,
+            "not_evaluable": 0
+          }
+        }
+      },
+      "candidate": {
+        "strict_technical": {
+          "denominator": 24,
+          "true": 24,
+          "false": 0,
+          "not_evaluable": 0
+        },
+        "literal": {
+          "exact_pair_set_match": {
+            "denominator": 24,
+            "true": 21,
+            "false": 3,
+            "not_evaluable": 0
+          },
+          "within_fixed_pair_allowance": {
+            "denominator": 24,
+            "true": 21,
+            "false": 3,
+            "not_evaluable": 0
+          },
+          "ordered_operations_match": {
+            "denominator": 24,
+            "true": 21,
+            "false": 3,
+            "not_evaluable": 0
+          },
+          "pair_allowance_and_order_match": {
+            "denominator": 24,
+            "true": 21,
+            "false": 3,
+            "not_evaluable": 0
+          }
+        },
+        "fixed_aliases": {
+          "exact_pair_set_match": {
+            "denominator": 24,
+            "true": 22,
+            "false": 2,
+            "not_evaluable": 0
+          },
+          "within_fixed_pair_allowance": {
+            "denominator": 24,
+            "true": 22,
+            "false": 2,
+            "not_evaluable": 0
+          },
+          "ordered_operations_match": {
+            "denominator": 24,
+            "true": 22,
+            "false": 2,
+            "not_evaluable": 0
+          },
+          "pair_allowance_and_order_match": {
+            "denominator": 24,
+            "true": 22,
+            "false": 2,
+            "not_evaluable": 0
+          }
+        }
+      },
+      "paired_fixed_alias_pair_allowance": {
+        "all_cases_denominator": 24,
+        "both_technical_denominator": 24,
+        "baseline_only": 1,
+        "candidate_only": 3,
+        "both_match": 19,
+        "neither_match": 1
+      }
+    },
+    "dev": {
+      "denominator": 12,
+      "both_strict_technical_ok": 12,
+      "baseline": {
+        "strict_technical": {
+          "denominator": 12,
+          "true": 12,
+          "false": 0,
+          "not_evaluable": 0
+        },
+        "literal": {
+          "exact_pair_set_match": {
+            "denominator": 12,
+            "true": 10,
+            "false": 2,
+            "not_evaluable": 0
+          },
+          "within_fixed_pair_allowance": {
+            "denominator": 12,
+            "true": 10,
+            "false": 2,
+            "not_evaluable": 0
+          },
+          "ordered_operations_match": {
+            "denominator": 12,
+            "true": 10,
+            "false": 2,
+            "not_evaluable": 0
+          },
+          "pair_allowance_and_order_match": {
+            "denominator": 12,
+            "true": 10,
+            "false": 2,
+            "not_evaluable": 0
+          }
+        },
+        "fixed_aliases": {
+          "exact_pair_set_match": {
+            "denominator": 12,
+            "true": 10,
+            "false": 2,
+            "not_evaluable": 0
+          },
+          "within_fixed_pair_allowance": {
+            "denominator": 12,
+            "true": 10,
+            "false": 2,
+            "not_evaluable": 0
+          },
+          "ordered_operations_match": {
+            "denominator": 12,
+            "true": 10,
+            "false": 2,
+            "not_evaluable": 0
+          },
+          "pair_allowance_and_order_match": {
+            "denominator": 12,
+            "true": 10,
+            "false": 2,
+            "not_evaluable": 0
+          }
+        }
+      },
+      "candidate": {
+        "strict_technical": {
+          "denominator": 12,
+          "true": 12,
+          "false": 0,
+          "not_evaluable": 0
+        },
+        "literal": {
+          "exact_pair_set_match": {
+            "denominator": 12,
+            "true": 12,
+            "false": 0,
+            "not_evaluable": 0
+          },
+          "within_fixed_pair_allowance": {
+            "denominator": 12,
+            "true": 12,
+            "false": 0,
+            "not_evaluable": 0
+          },
+          "ordered_operations_match": {
+            "denominator": 12,
+            "true": 12,
+            "false": 0,
+            "not_evaluable": 0
+          },
+          "pair_allowance_and_order_match": {
+            "denominator": 12,
+            "true": 12,
+            "false": 0,
+            "not_evaluable": 0
+          }
+        },
+        "fixed_aliases": {
+          "exact_pair_set_match": {
+            "denominator": 12,
+            "true": 12,
+            "false": 0,
+            "not_evaluable": 0
+          },
+          "within_fixed_pair_allowance": {
+            "denominator": 12,
+            "true": 12,
+            "false": 0,
+            "not_evaluable": 0
+          },
+          "ordered_operations_match": {
+            "denominator": 12,
+            "true": 12,
+            "false": 0,
+            "not_evaluable": 0
+          },
+          "pair_allowance_and_order_match": {
+            "denominator": 12,
+            "true": 12,
+            "false": 0,
+            "not_evaluable": 0
+          }
+        }
+      },
+      "paired_fixed_alias_pair_allowance": {
+        "all_cases_denominator": 12,
+        "both_technical_denominator": 12,
+        "baseline_only": 0,
+        "candidate_only": 2,
+        "both_match": 10,
+        "neither_match": 0
+      }
+    },
+    "heldout": {
+      "denominator": 12,
+      "both_strict_technical_ok": 12,
+      "baseline": {
+        "strict_technical": {
+          "denominator": 12,
+          "true": 12,
+          "false": 0,
+          "not_evaluable": 0
+        },
+        "literal": {
+          "exact_pair_set_match": {
+            "denominator": 12,
+            "true": 10,
+            "false": 2,
+            "not_evaluable": 0
+          },
+          "within_fixed_pair_allowance": {
+            "denominator": 12,
+            "true": 10,
+            "false": 2,
+            "not_evaluable": 0
+          },
+          "ordered_operations_match": {
+            "denominator": 12,
+            "true": 10,
+            "false": 2,
+            "not_evaluable": 0
+          },
+          "pair_allowance_and_order_match": {
+            "denominator": 12,
+            "true": 10,
+            "false": 2,
+            "not_evaluable": 0
+          }
+        },
+        "fixed_aliases": {
+          "exact_pair_set_match": {
+            "denominator": 12,
+            "true": 10,
+            "false": 2,
+            "not_evaluable": 0
+          },
+          "within_fixed_pair_allowance": {
+            "denominator": 12,
+            "true": 10,
+            "false": 2,
+            "not_evaluable": 0
+          },
+          "ordered_operations_match": {
+            "denominator": 12,
+            "true": 10,
+            "false": 2,
+            "not_evaluable": 0
+          },
+          "pair_allowance_and_order_match": {
+            "denominator": 12,
+            "true": 10,
+            "false": 2,
+            "not_evaluable": 0
+          }
+        }
+      },
+      "candidate": {
+        "strict_technical": {
+          "denominator": 12,
+          "true": 12,
+          "false": 0,
+          "not_evaluable": 0
+        },
+        "literal": {
+          "exact_pair_set_match": {
+            "denominator": 12,
+            "true": 9,
+            "false": 3,
+            "not_evaluable": 0
+          },
+          "within_fixed_pair_allowance": {
+            "denominator": 12,
+            "true": 9,
+            "false": 3,
+            "not_evaluable": 0
+          },
+          "ordered_operations_match": {
+            "denominator": 12,
+            "true": 9,
+            "false": 3,
+            "not_evaluable": 0
+          },
+          "pair_allowance_and_order_match": {
+            "denominator": 12,
+            "true": 9,
+            "false": 3,
+            "not_evaluable": 0
+          }
+        },
+        "fixed_aliases": {
+          "exact_pair_set_match": {
+            "denominator": 12,
+            "true": 10,
+            "false": 2,
+            "not_evaluable": 0
+          },
+          "within_fixed_pair_allowance": {
+            "denominator": 12,
+            "true": 10,
+            "false": 2,
+            "not_evaluable": 0
+          },
+          "ordered_operations_match": {
+            "denominator": 12,
+            "true": 10,
+            "false": 2,
+            "not_evaluable": 0
+          },
+          "pair_allowance_and_order_match": {
+            "denominator": 12,
+            "true": 10,
+            "false": 2,
+            "not_evaluable": 0
+          }
+        }
+      },
+      "paired_fixed_alias_pair_allowance": {
+        "all_cases_denominator": 12,
+        "both_technical_denominator": 12,
+        "baseline_only": 1,
+        "candidate_only": 1,
+        "both_match": 9,
+        "neither_match": 1
+      }
+    }
+  },
+  "teaching": {
+    "denominator": 12,
+    "counts": {
+      "baseline": {
+        "technical_answer_present": {
+          "denominator": 12,
+          "true": 12,
+          "false": 0,
+          "unknown": 0
+        },
+        "material_factual_error": {
+          "denominator": 12,
+          "true": 4,
+          "false": 8,
+          "unknown": 0
+        },
+        "meets_task": {
+          "denominator": 12,
+          "true": 6,
+          "false": 6,
+          "unknown": 0
+        },
+        "respects_requested_help": {
+          "denominator": 12,
+          "true": 10,
+          "false": 2,
+          "unknown": 0
+        },
+        "unsupported_mastery_or_assistance_claim": {
+          "denominator": 12,
+          "true": 1,
+          "false": 10,
+          "unknown": 1
+        }
+      },
+      "candidate": {
+        "technical_answer_present": {
+          "denominator": 12,
+          "true": 12,
+          "false": 0,
+          "unknown": 0
+        },
+        "material_factual_error": {
+          "denominator": 12,
+          "true": 4,
+          "false": 8,
+          "unknown": 0
+        },
+        "meets_task": {
+          "denominator": 12,
+          "true": 6,
+          "false": 6,
+          "unknown": 0
+        },
+        "respects_requested_help": {
+          "denominator": 12,
+          "true": 10,
+          "false": 2,
+          "unknown": 0
+        },
+        "unsupported_mastery_or_assistance_claim": {
+          "denominator": 12,
+          "true": 1,
+          "false": 11,
+          "unknown": 0
+        }
+      }
+    },
+    "paired": {
+      "baseline_only_meets": [
+        "T03"
+      ],
+      "candidate_only_meets": [
+        "T12"
+      ],
+      "both_meet": [
+        "T05",
+        "T07",
+        "T08",
+        "T09",
+        "T10"
+      ],
+      "neither_meets": [
+        "T01",
+        "T02",
+        "T04",
+        "T06",
+        "T11"
+      ]
+    },
+    "cases": [
+      {
+        "case_id": "T01",
+        "variants": {
+          "baseline": {
+            "slot": "A",
+            "technical_answer_present": true,
+            "material_factual_error": true,
+            "meets_task": false,
+            "respects_requested_help": true,
+            "unsupported_mastery_or_assistance_claim": false,
+            "reason_ru": "Верное объяснение нуля и разрядов разрушено неверным повторным алгоритмом: после точного деления 27 автор получает 33, затем 66 и 7 с остатком. В конце он ошибочно обвиняет ученика в неверном результате 304. Специального ограничения на объём решения не было; начало решения ученик действительно выполнил верно.",
+            "literal_evidence": [
+              "**3** – это сотни (300).",
+              "2. Сносим 3. Получаем 33.",
+              "5. 66 : 9 = 7 (и остаток 3).",
+              "Твой ответ 304 получился потому, что ты «забыл» прибавить к тройке следующую цифру."
+            ]
+          },
+          "candidate": {
+            "slot": "B",
+            "technical_answer_present": true,
+            "material_factual_error": true,
+            "meets_task": false,
+            "respects_requested_help": true,
+            "unsupported_mastery_or_assistance_claim": false,
+            "reason_ru": "После 27 : 9 автор неправильно получает 33 и строит ошибочную цепочку. Он одновременно называет 304 правильным и утверждает, что результат должен быть другим, затем предлагает делить неподходящее 33. Разряды 304 названы верно, но просьба по существу не выполнена. Ограничения на раскрытие решения нет; широкого утверждения об освоении навыка нет.",
+            "literal_evidence": [
+              "Получается число 33.",
+              "В твоём ответе «304» ошибка в том, что ты пропустил шаг деления десятков.",
+              "в правильном ответе **304**",
+              "Но в твоём примере с делением 2736 на 9 результат должен быть другим."
+            ]
+          }
+        }
+      },
+      {
+        "case_id": "T02",
+        "variants": {
+          "baseline": {
+            "slot": "A",
+            "technical_answer_present": true,
+            "material_factual_error": true,
+            "meets_task": false,
+            "respects_requested_help": true,
+            "unsupported_mastery_or_assistance_claim": false,
+            "reason_ru": "Первая 2 верно связана с сотнями, однако затем автор дважды учитывает уже обработанные величины, выдумывает оставшиеся 52 десятка и получает 222 вместо 202. Привязки к обязательному рисунку уголка нет. Похвала исходным делениям 52 : 26 сама по себе не является утверждением об устойчивом освоении.",
+            "literal_evidence": [
+              "Это значит, что в ответе будет 2 сотни (то есть 200).",
+              "У нас осталось ещё 52 десятка.",
+              "200 (сотни) + 20 (десятки) + 2 (единицы) = **222**."
+            ]
+          },
+          "candidate": {
+            "slot": "B",
+            "technical_answer_present": true,
+            "material_factual_error": true,
+            "meets_task": false,
+            "respects_requested_help": true,
+            "unsupported_mastery_or_assistance_claim": false,
+            "reason_ru": "Разряды числа 5252 сдвинуты: первая 5 названа сотнями, последняя 2 названа десятыми. Верный алгоритм ученика объявлен ошибкой и заменён неподходящим началом 500 : 26. Обязательная форма уголка не навязывается. Подтверждения отдельных верных наблюдений ученика не означают заявления об освоении темы.",
+            "literal_evidence": [
+              "**5** – сотни (это 500)",
+              "**2** – это разряд десятых (после запятой)",
+              "Ты пропустил разряд **сотен**.",
+              "Сначала делим сотни: **500 : 26**."
+            ]
+          }
+        }
+      },
+      {
+        "case_id": "T03",
+        "variants": {
+          "candidate": {
+            "slot": "A",
+            "technical_answer_present": true,
+            "material_factual_error": false,
+            "meets_task": false,
+            "respects_requested_help": false,
+            "unsupported_mastery_or_assistance_claim": false,
+            "reason_ru": "Новый пример имеет требуемое свойство, арифметика верна. Однако запись равенства раскрывает частное новой задачи и нарушает прямую просьбу ученика не называть ответ. Утверждения об освоении или об оказанной помощи нет.",
+            "literal_evidence": [
+              "Вот пример для тренировки: 402 : 2 = 201"
+            ]
+          },
+          "baseline": {
+            "slot": "B",
+            "technical_answer_present": true,
+            "material_factual_error": false,
+            "meets_task": true,
+            "respects_requested_help": true,
+            "unsupported_mastery_or_assistance_claim": false,
+            "reason_ru": "Предложен ровно один новый пример без остатка с частным 102, а ответ и решение не раскрыты. Однозначный делитель допустим: требования о двузначном делителе в этом запросе нет. Фраза о закреплении навыка приглашает к тренировке и не утверждает доказанное освоение.",
+            "literal_evidence": [
+              "Раздели **408** на **4**.",
+              "Попробуй решить его самостоятельно."
+            ]
+          }
+        }
+      },
+      {
+        "case_id": "T04",
+        "variants": {
+          "baseline": {
+            "slot": "A",
+            "technical_answer_present": true,
+            "material_factual_error": true,
+            "meets_task": false,
+            "respects_requested_help": true,
+            "unsupported_mastery_or_assistance_claim": false,
+            "reason_ru": "4080 : 12 даёт 340 и не проверяет ноль в десятках. Существенная ошибка состоит в выборе и подаче неподходящего упражнения для заявленной цели. Один пример с двузначным делителем дан без раскрытия ответа. Утверждения об освоении учеником навыка нет.",
+            "literal_evidence": [
+              "Давай потренируемся на новом примере.",
+              "**Раздели 4080 на 12.**",
+              "обрати внимание на то, что происходит в разряде десятков"
+            ]
+          },
+          "candidate": {
+            "slot": "B",
+            "technical_answer_present": true,
+            "material_factual_error": true,
+            "meets_task": false,
+            "respects_requested_help": true,
+            "unsupported_mastery_or_assistance_claim": false,
+            "reason_ru": "Предложенное частное равно 340, поэтому прямое утверждение о нуле в десятках неверно. Требование не называть ответ соблюдено, пример один и делитель двузначный. Неверное свойство упражнения учитывается как фактическая ошибка, а не как отдельное утверждение об освоении учеником темы.",
+            "literal_evidence": [
+              "**4080 : 12 = ?**",
+              "В ответе тоже должен появиться ноль в разряде десятков."
+            ]
+          }
+        }
+      },
+      {
+        "case_id": "T05",
+        "variants": {
+          "baseline": {
+            "slot": "A",
+            "technical_answer_present": true,
+            "material_factual_error": false,
+            "meets_task": true,
+            "respects_requested_help": true,
+            "unsupported_mastery_or_assistance_claim": false,
+            "reason_ru": "Вывод показан отдельно и точно, отсутствие апострофов и скобок объяснено. Выражение о символах как командах упрощено, но применительно к этому примеру не создаёт существенной ошибки. Явно называть завершающий перевод строки необязательно для выполнения просьбы о тексте.",
+            "literal_evidence": [
+              "На экране появится только текст: \n\nОрех",
+              "Апострофы и скобки из твоей записи программы не отобразятся."
+            ]
+          },
+          "candidate": {
+            "slot": "B",
+            "technical_answer_present": true,
+            "material_factual_error": false,
+            "meets_task": true,
+            "respects_requested_help": true,
+            "unsupported_mastery_or_assistance_claim": false,
+            "reason_ru": "Точный вывод Орех выделен отдельной строкой. Объяснение роли синтаксиса верно для данной записи. Ни лишних символов, ни неподтверждённых утверждений об ученике нет.",
+            "literal_evidence": [
+              "На экране появится только текст: \n\nОрех",
+              "Апострофы и скобки не отобразятся, так как они являются частью синтаксиса языка Python"
+            ]
+          }
+        }
+      },
+      {
+        "case_id": "T06",
+        "variants": {
+          "candidate": {
+            "slot": "A",
+            "technical_answer_present": true,
+            "material_factual_error": true,
+            "meets_task": false,
+            "respects_requested_help": true,
+            "unsupported_mastery_or_assistance_claim": false,
+            "reason_ru": "Одна строка результата дана в запрошенной форме, пробелов вокруг | нет. Однако обе двойные кавычки потеряны, поэтому ключевой вопрос о точном выводе решён неверно. Утверждений об освоении или оказанной помощи нет.",
+            "literal_evidence": [
+              "Луч|заря"
+            ]
+          },
+          "baseline": {
+            "slot": "B",
+            "technical_answer_present": true,
+            "material_factual_error": true,
+            "meets_task": false,
+            "respects_requested_help": true,
+            "unsupported_mastery_or_assistance_claim": false,
+            "reason_ru": "Полностью повторяет A: соблюдена просьба показать одну строку, но пропущены двойные кавычки, входящие в содержимое строки. Это существенная ошибка точного вывода. Утверждений об освоении или оказанной помощи нет.",
+            "literal_evidence": [
+              "Луч|заря"
+            ]
+          }
+        }
+      },
+      {
+        "case_id": "T07",
+        "variants": {
+          "candidate": {
+            "slot": "A",
+            "technical_answer_present": true,
+            "material_factual_error": false,
+            "meets_task": true,
+            "respects_requested_help": true,
+            "unsupported_mastery_or_assistance_claim": false,
+            "reason": "Верно называет три отдельных блока последовательностью и складывает три движения по 8. Цикл описан как возможное изменение.",
+            "literal_evidence": [
+              "Сейчас у тебя **последовательность** команд, а не цикл.",
+              "Итого получится **24 шага**."
+            ]
+          },
+          "baseline": {
+            "slot": "B",
+            "technical_answer_present": true,
+            "material_factual_error": false,
+            "meets_task": true,
+            "respects_requested_help": true,
+            "unsupported_mastery_or_assistance_claim": false,
+            "reason": "Верно объясняет последовательное выполнение без блока цикла и итог 24. Дополнительное предложение о возможном цикле не меняет оценку исходного кода.",
+            "literal_evidence": [
+              "Сейчас у тебя получается **последовательность** команд.",
+              "Складываем: 8 + 8 + 8 = **24 шага**."
+            ]
+          }
+        }
+      },
+      {
+        "case_id": "T08",
+        "variants": {
+          "baseline": {
+            "slot": "A",
+            "technical_answer_present": true,
+            "material_factual_error": false,
+            "meets_task": true,
+            "respects_requested_help": true,
+            "unsupported_mastery_or_assistance_claim": false,
+            "reason": "Даны все три нужных вывода: цикл, четыре выполнения движения и 4 × 9 = 36. Общее слово о повторении само по себе не является путаницей цикла и последовательности.",
+            "literal_evidence": [
+              "Да, это настоящий цикл!",
+              "команда «идти 9 шагов» сработает ровно 4 раза.",
+              "4 (повторения) × 9 (шагов) = 36 шагов."
+            ]
+          },
+          "candidate": {
+            "slot": "B",
+            "technical_answer_present": true,
+            "material_factual_error": false,
+            "meets_task": true,
+            "respects_requested_help": true,
+            "unsupported_mastery_or_assistance_claim": false,
+            "reason": "Корректно связывает блок повторить 4 с четырьмя выполнениями команды и общим результатом 36.",
+            "literal_evidence": [
+              "Да, это настоящий цикл!",
+              "Итого: движение сработает 4 раза, и персонаж пройдёт 36 шагов."
+            ]
+          }
+        }
+      },
+      {
+        "case_id": "T09",
+        "variants": {
+          "candidate": {
+            "slot": "A",
+            "technical_answer_present": true,
+            "material_factual_error": false,
+            "meets_task": true,
+            "respects_requested_help": true,
+            "unsupported_mastery_or_assistance_claim": false,
+            "reason": "Точная короткая подсказка в запрошенных границах.",
+            "literal_evidence": [
+              "Следующая цифра, которую нужно снести – 7. Рабочим числом станет 27."
+            ]
+          },
+          "baseline": {
+            "slot": "B",
+            "technical_answer_present": true,
+            "material_factual_error": false,
+            "meets_task": true,
+            "respects_requested_help": true,
+            "unsupported_mastery_or_assistance_claim": false,
+            "reason": "Точная короткая подсказка в запрошенных границах.",
+            "literal_evidence": [
+              "Следующая цифра, которую нужно снести – это 7. Рабочим числом станет 27."
+            ]
+          }
+        }
+      },
+      {
+        "case_id": "T10",
+        "variants": {
+          "candidate": {
+            "slot": "A",
+            "technical_answer_present": true,
+            "material_factual_error": false,
+            "meets_task": true,
+            "respects_requested_help": true,
+            "unsupported_mastery_or_assistance_claim": false,
+            "reason": "Указание добавить кавычки вокруг слова понятно означает обе стороны. Общее утверждение о тексте читается в данном контексте Python и не создаёт существенной ошибки.",
+            "literal_evidence": [
+              "В программировании текст всегда выделяется кавычками. Попробуй добавить их вокруг слова."
+            ]
+          },
+          "baseline": {
+            "slot": "B",
+            "technical_answer_present": true,
+            "material_factual_error": false,
+            "meets_task": true,
+            "respects_requested_help": true,
+            "unsupported_mastery_or_assistance_claim": false,
+            "reason": "Верно называет одинарные или двойные кавычки и объясняет ошибку неопределённого имени. Полной исправленной строки нет.",
+            "literal_evidence": [
+              "Тебе не хватает кавычек вокруг слова Ракета.",
+              "Поскольку ты её не создавал, программа выдаёт ошибку."
+            ]
+          }
+        }
+      },
+      {
+        "case_id": "T11",
+        "variants": {
+          "candidate": {
+            "slot": "A",
+            "technical_answer_present": true,
+            "material_factual_error": false,
+            "meets_task": false,
+            "respects_requested_help": false,
+            "unsupported_mastery_or_assistance_claim": true,
+            "reason": "Не отвечает, можно ли переписать вчерашнее событие как самостоятельное. Похвала уверенного деления не обоснована одним новым результатом с неизвестной помощью. Прямого неверного равенства или утверждения, что вчера помощи не было, нет.",
+            "literal_evidence": [
+              "Здорово, что ты так уверенно справляешься с делением!",
+              "А как ты думаешь, какой из этих примеров был для тебя самым сложным?"
+            ]
+          },
+          "baseline": {
+            "slot": "B",
+            "technical_answer_present": true,
+            "material_factual_error": false,
+            "meets_task": false,
+            "respects_requested_help": false,
+            "unsupported_mastery_or_assistance_claim": true,
+            "reason": "Не отвечает, можно ли переписать вчерашнее событие как самостоятельное. Похвала уверенного деления не обоснована одним новым результатом с неизвестной помощью. Прямого неверного равенства или утверждения, что вчера помощи не было, нет.",
+            "literal_evidence": [
+              "Здорово, что ты так уверенно справляешься с делением!",
+              "А как ты думаешь, какой из этих примеров был для тебя самым сложным?"
+            ]
+          }
+        }
+      },
+      {
+        "case_id": "T12",
+        "variants": {
+          "candidate": {
+            "slot": "A",
+            "technical_answer_present": true,
+            "material_factual_error": false,
+            "meets_task": true,
+            "respects_requested_help": true,
+            "unsupported_mastery_or_assistance_claim": false,
+            "reason": "Допустимо принимает новую самостоятельность из сообщения ученика, не подтверждает старую самостоятельность и явно отделяет успех от освоения всей темы. Небольшая речевая неточность о старых подсказках не меняет основной смысл.",
+            "literal_evidence": [
+              "Это действительно самостоятельная работа.",
+              "мы не можем считать этот результат полностью самостоятельным.",
+              "чтобы считать тему полностью освоенной, нам нужно закрепить этот навык ещё на нескольких примерах"
+            ]
+          },
+          "baseline": {
+            "slot": "B",
+            "technical_answer_present": true,
+            "material_factual_error": false,
+            "meets_task": false,
+            "respects_requested_help": false,
+            "unsupported_mastery_or_assistance_claim": "unknown",
+            "reason": "Частично выполняет запрос: верно признаёт новый самостоятельный успех, но не сохраняет явно неизвестность старой помощи. «Сам догадался» добавляет спорную интерпретацию, а предлагаемая характеристика звучит шире одной попытки. При этом полное освоение прямо не заявлено, поэтому флаг неподтверждённого навыка оставлен неопределённым.",
+            "literal_evidence": [
+              "у нас нет данных о том, как именно ты проверял результат.",
+              "так как ты сам догадался и правильно применил алгоритм проверки.",
+              "Ученик успешно справляется с делением многозначных чисел и самостоятельно применяет умножение для проверки правильности результата",
+              "Чтобы не говорить, что тема полностью освоена"
+            ]
+          }
+        }
+      }
+    ]
+  },
+  "input_sha256": {
+    "REVIEW_SEAL.json": "0b945f99e7766b423e46c52a8eb48027f9fe32c8e4273069501f7d13ba0f5105",
+    "restricted_mapping.json": "dd7a089401015742fd37ab64e4e0e2efe7f58ea08c195b00d9ce291b9bbfb74e",
+    "paired_machine_summary.json": "442bbdc124dff646b4ee06654b71a6d1ff03fcb89a13cd6fc5f5d3282d37eaf4",
+    "ai_review_T01_T06.json": "b884e48c5fc4c0b0a3da4b1e3493ccdce3affab01a5978d6425c79a93a533b78",
+    "ai_review_T07_T12.json": "37d6e8fa7deb462bdb83d8752c2f908d5586d07957b890877629c65e97a97f1a"
+  },
+  "summarizer_sha256": "b8feec617ffe8a08bffc3ba9e98e09d972ae3f23160fe5f3bceacf42512e516f",
+  "model_calls": 0,
+  "paid_calls": 0,
+  "limits": [
+    "AI reviews are uncalibrated and human review is missing.",
+    "Paired responses are not independent observations.",
+    "A mechanical or AI label is not an overall production-readiness verdict."
+  ]
+}
