@@ -1,0 +1,22 @@
+{
+  "status": "packaged_verified",
+  "completed_at": "2026-10-18T12:23:09.265608+00:00",
+  "archive": "C:\\Users\\name\\PycharmProjects\\misc\\teachCopilot\\nirs\\artifacts\\verified_learning_tools_v1_20261018.zip",
+  "sha256": "f83ef78d3950934690f86ab289cf5fea4df1e6180aa3f40e49189a0db8a28c52",
+  "archive_bytes": 422268,
+  "manifest_sha256": "47c6c72d98c770a294f8ac7f9d7432afb6f5b21b2e21d3407cb503d047c17555",
+  "manifest_files": 117,
+  "zip_crc_passed": true,
+  "all_manifest_entry_sha256_readbacks_passed": true,
+  "whole_archive_sha256_read_twice": true,
+  "original_artifact_sha256_unchanged": true,
+  "source_commits": {
+    "v1": "7b8c3a744d75b4b25d6b14af066f8fd5017aa21e",
+    "v1_1": "c1cd84a1963fd14f89ab45cfd77bbc45733b02e7"
+  },
+  "documents_commit": "147ed0d0f39e16ca4c9f3068edc883d9536f80c4",
+  "paid_provider_calls_during_packaging": 0,
+  "model_calls_during_packaging": 0,
+  "semantic_assessment": "not_human_reviewed",
+  "selector_replay_is_not_a_new_live_batch": true
+}
