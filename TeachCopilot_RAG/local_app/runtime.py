@@ -349,6 +349,19 @@ class OllamaRuntime:
             raise IncompleteCompletionError("Ollama scope classifier returned an invalid JSON decision")
         return result["in_scope"]
 
+    def select_learning_operation(self, current_message, subject_id, candidates):
+        """Interpret current intent; deterministic code validates the proposal."""
+        from local_app.learning_operation import SCHEMA, SYSTEM
+        response = self.chat([
+            {'role': 'system', 'content': SYSTEM},
+            {'role': 'user', 'content': json.dumps({'subject_hint': subject_id,
+                'latest_message_untrusted': current_message, 'literal_candidates': candidates}, ensure_ascii=False)},
+        ], response_format=SCHEMA, max_output_tokens=640, truncate_history=False)
+        try:
+            return json.loads(response['message']['content'])
+        except json.JSONDecodeError as exc:
+            raise IncompleteCompletionError('Invalid operation selection JSON', raw_response=response) from exc
+
     def resolve_chat_query(
         self,
         query: str,

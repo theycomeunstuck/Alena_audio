@@ -203,6 +203,7 @@ class RagService:
         resolver = getattr(self.runtime, "resolve_chat_query", None)
         out_of_scope = False
         query_resolution = {}
+        tool_selection = None
         if callable(resolver):
             resolution = resolver(latest_query, history[:latest_user_index], subject_id)
             if (
@@ -253,6 +254,24 @@ class RagService:
                     if query_resolution:
                         verified['query_resolution'] = query_resolution
                     return verified
+                from local_app.learning_operation import operation_candidates, interpreted_response
+                selector = getattr(self.runtime, 'select_learning_operation', None)
+                candidates = operation_candidates(latest_query, subject_id) if callable(selector) else []
+                if candidates:
+                    try:
+                        proposal = selector(latest_query, subject_id, candidates)
+                        interpreted, tool_selection = interpreted_response(
+                            latest_query, candidates, proposal, previous_messages=history[:latest_user_index])
+                    except (ConnectionError, ValueError) as exc:
+                        interpreted = None
+                        tool_selection = {'source': 'local_model_contract', 'intent_verified': False,
+                                          'status': 'invalid', 'reason': type(exc).__name__}
+                    if interpreted is not None:
+                        interpreted['tool_selection'] = tool_selection
+                        interpreted['usage_scope'] = 'deterministic_answer_only_excludes_scope_and_operation_selection'
+                        if query_resolution:
+                            interpreted['query_resolution'] = query_resolution
+                        return interpreted
                 sources = self.search(
                     resolved_query.strip(), subject_id, topic_id, grade, limit, _scope_checked=True
                 )
@@ -285,6 +304,8 @@ class RagService:
                 "sources": [],
                 "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
                 **({"query_resolution": query_resolution} if query_resolution else {}),
+                **({'tool_selection': tool_selection,
+                    'usage_scope': 'final_answer_only_excludes_scope_and_operation_selection'} if tool_selection else {}),
             }
         context = self._source_context(sources, include_private_answers=include_private_answers)
         compact_profile = self._compact_profile(profile)
@@ -403,6 +424,8 @@ class RagService:
             },
             "answer_routing": response.get("answer_routing", {"backend": "local"}),
             **({"query_resolution": query_resolution} if query_resolution else {}),
+            **({'tool_selection': tool_selection,
+                'usage_scope': 'final_answer_only_excludes_scope_and_operation_selection'} if tool_selection else {}),
         }
 
     def _social_answer(self, history: Sequence[dict[str, str]], preferences: dict[str, list[str]]) -> dict[str, Any]:

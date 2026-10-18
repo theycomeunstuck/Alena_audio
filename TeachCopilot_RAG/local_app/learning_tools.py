@@ -123,7 +123,7 @@ def verified_learning_response(current_message: str, subject_id: str | None = No
         if any(len(value) != 1 or value not in str(facts['quotient']) for value in references):
             return None
         outside = re.sub(r'[0-9]', ' ', outside)
-    if re.search(r'[0-9=+*/×÷^<>−-]', outside) or not _known_words(outside, _CHECK_WORDS):
+    if re.search(r'[0-9=+*/×÷^<>−()!-]', outside) or not _known_words(outside, _CHECK_WORDS):
         return None
     text = format_verified_division(facts, mode='places' if places else 'check')
     if expression[3] is not None:
