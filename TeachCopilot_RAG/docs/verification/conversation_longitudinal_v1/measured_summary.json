@@ -1,0 +1,1147 @@
+{
+  "version": "conversation-longitudinal-report-v1",
+  "generated_at": "2026-10-18T00:26:52.340922+00:00",
+  "data_origin": "synthetic_unreviewed",
+  "human_reviewed": false,
+  "semantic_review": {
+    "status": "pending_separate_ai_review",
+    "human_reviewed": false,
+    "automatic_semantic_pass": false
+  },
+  "run_status": "completed",
+  "teacher_review": "simulated_by_preregistered_expected_preferences",
+  "expected_messages": 80,
+  "expected_sessions": 20,
+  "messages": {
+    "attempted": 80,
+    "http_200": 66,
+    "not_attempted": 0,
+    "http_status_counts": {
+      "200": 66,
+      "503": 14
+    }
+  },
+  "sessions": {
+    "attempted": 20,
+    "completed": 20,
+    "ready": 20,
+    "candidate_sets_matched": 10,
+    "final_preferences_matched": 20,
+    "completed_ready_candidates_and_state_matched": 10,
+    "candidate_differences_unavailable": 0
+  },
+  "candidate_differences": [
+    {
+      "code": "L01S01",
+      "missing_candidates": [],
+      "extra_candidates": []
+    },
+    {
+      "code": "L01S02",
+      "missing_candidates": [],
+      "extra_candidates": [
+        [
+          "avoid",
+          "снег"
+        ]
+      ]
+    },
+    {
+      "code": "L01S03",
+      "missing_candidates": [],
+      "extra_candidates": [
+        [
+          "add",
+          "scratch"
+        ],
+        [
+          "avoid",
+          "цикл и счётчик"
+        ]
+      ]
+    },
+    {
+      "code": "L01S04",
+      "missing_candidates": [],
+      "extra_candidates": []
+    },
+    {
+      "code": "L02S01",
+      "missing_candidates": [],
+      "extra_candidates": [
+        [
+          "allow",
+          "футбол"
+        ]
+      ]
+    },
+    {
+      "code": "L02S02",
+      "missing_candidates": [],
+      "extra_candidates": [
+        [
+          "add",
+          "деление с нулём внутри"
+        ]
+      ]
+    },
+    {
+      "code": "L02S03",
+      "missing_candidates": [],
+      "extra_candidates": []
+    },
+    {
+      "code": "L02S04",
+      "missing_candidates": [],
+      "extra_candidates": []
+    },
+    {
+      "code": "L03S01",
+      "missing_candidates": [],
+      "extra_candidates": [
+        [
+          "avoid",
+          "шахматы"
+        ]
+      ]
+    },
+    {
+      "code": "L03S02",
+      "missing_candidates": [],
+      "extra_candidates": []
+    },
+    {
+      "code": "L03S03",
+      "missing_candidates": [],
+      "extra_candidates": []
+    },
+    {
+      "code": "L03S04",
+      "missing_candidates": [],
+      "extra_candidates": [
+        [
+          "allow",
+          "увлечение из первой встречи"
+        ],
+        [
+          "avoid",
+          "сразу правильный порядок"
+        ],
+        [
+          "avoid",
+          "шахматная игра в scratch"
+        ]
+      ]
+    },
+    {
+      "code": "L04S01",
+      "missing_candidates": [],
+      "extra_candidates": [
+        [
+          "allow",
+          "minecraft"
+        ]
+      ]
+    },
+    {
+      "code": "L04S02",
+      "missing_candidates": [],
+      "extra_candidates": []
+    },
+    {
+      "code": "L04S03",
+      "missing_candidates": [],
+      "extra_candidates": [
+        [
+          "avoid",
+          "музей поездов"
+        ]
+      ]
+    },
+    {
+      "code": "L04S04",
+      "missing_candidates": [],
+      "extra_candidates": [
+        [
+          "avoid",
+          "любимая игра"
+        ]
+      ]
+    },
+    {
+      "code": "L05S01",
+      "missing_candidates": [],
+      "extra_candidates": []
+    },
+    {
+      "code": "L05S02",
+      "missing_candidates": [],
+      "extra_candidates": []
+    },
+    {
+      "code": "L05S03",
+      "missing_candidates": [],
+      "extra_candidates": []
+    },
+    {
+      "code": "L05S04",
+      "missing_candidates": [],
+      "extra_candidates": [
+        [
+          "add",
+          "рисование программой"
+        ]
+      ]
+    }
+  ],
+  "unexpected_report_session_codes": [],
+  "unexpected_report_message_codes": [],
+  "idempotency": {
+    "message_replay": {
+      "observed": 5,
+      "true": 4,
+      "false": 1,
+      "unknown": 0
+    },
+    "message_replay_expected_checks": 5,
+    "session_completion": {
+      "observed": 20,
+      "true": 20,
+      "false": 0,
+      "unknown": 0
+    },
+    "teacher_confirmation": {
+      "observed": 20,
+      "true": 20,
+      "false": 0,
+      "unknown": 0
+    }
+  },
+  "isolation": {
+    "authorization": {
+      "observed": 5,
+      "true": 5,
+      "false": 0,
+      "unknown": 0
+    },
+    "authorization_original_checks": [
+      {
+        "learner": "night-l01",
+        "foreign_dashboard_status": 403,
+        "student_memory_status": 403,
+        "passed": true
+      },
+      {
+        "learner": "night-l02",
+        "foreign_dashboard_status": 403,
+        "student_memory_status": 403,
+        "passed": true
+      },
+      {
+        "learner": "night-l03",
+        "foreign_dashboard_status": 403,
+        "student_memory_status": 403,
+        "passed": true
+      },
+      {
+        "learner": "night-l04",
+        "foreign_dashboard_status": 403,
+        "student_memory_status": 403,
+        "passed": true
+      },
+      {
+        "learner": "night-l05",
+        "foreign_dashboard_status": 403,
+        "student_memory_status": 403,
+        "passed": true
+      }
+    ],
+    "memory_source_scope": {
+      "observed": 80,
+      "true": 80,
+      "false": 0,
+      "unknown": 0
+    },
+    "meaning": "Checks authorization and source ownership; semantic cross-learner facts still need review."
+  },
+  "competencies_unchanged": {
+    "observed": 20,
+    "true": 20,
+    "false": 0,
+    "unknown": 0
+  },
+  "generation": {
+    "all_http_chat_calls": {
+      "calls": 167,
+      "responses": 167,
+      "errors": 0,
+      "prompt_tokens": {
+        "total": 178104,
+        "known_calls": 167,
+        "unknown_calls": 0
+      },
+      "completion_tokens": {
+        "total": 21533,
+        "known_calls": 167,
+        "unknown_calls": 0
+      },
+      "http_seconds": {
+        "count": 167,
+        "sum": 246.50827290024608,
+        "p50": 0.9376558000221848,
+        "p95": 3.1522255000309087,
+        "max": 5.273916699981783
+      },
+      "ollama_total_seconds": {
+        "count": 167,
+        "sum": 246.2162695,
+        "p50": 0.9357657,
+        "p95": 3.1497645,
+        "max": 5.2722322
+      }
+    },
+    "dialogue_including_routing": {
+      "calls": 147,
+      "responses": 147,
+      "errors": 0,
+      "prompt_tokens": {
+        "total": 156274,
+        "known_calls": 147,
+        "unknown_calls": 0
+      },
+      "completion_tokens": {
+        "total": 19754,
+        "known_calls": 147,
+        "unknown_calls": 0
+      },
+      "http_seconds": {
+        "count": 147,
+        "sum": 226.12256590020843,
+        "p50": 0.8967527999775484,
+        "p95": 3.1613704999908805,
+        "max": 5.273916699981783
+      },
+      "ollama_total_seconds": {
+        "count": 147,
+        "sum": 225.8615304,
+        "p50": 0.8947063,
+        "p95": 3.1595563,
+        "max": 5.2722322
+      }
+    },
+    "memory_updates": {
+      "calls": 20,
+      "responses": 20,
+      "errors": 0,
+      "prompt_tokens": {
+        "total": 21830,
+        "known_calls": 20,
+        "unknown_calls": 0
+      },
+      "completion_tokens": {
+        "total": 1779,
+        "known_calls": 20,
+        "unknown_calls": 0
+      },
+      "http_seconds": {
+        "count": 20,
+        "sum": 20.385707000037655,
+        "p50": 0.9566154500062112,
+        "p95": 1.7372525000246242,
+        "max": 1.7812092000385746
+      },
+      "ollama_total_seconds": {
+        "count": 20,
+        "sum": 20.3547391,
+        "p50": 0.9554928,
+        "p95": 1.735007,
+        "max": 1.7788446
+      }
+    },
+    "reported_generation_calls": 167,
+    "http_call_count_matches_report": true,
+    "embedding_http_calls": 64,
+    "invalid_http_lines": [],
+    "measurement_limits": "HTTP call durations and Ollama-reported tokens only. Not full message latency, queue latency or provider throughput. Sequential synthetic sessions are not concurrent load.",
+    "run_elapsed_seconds_including_setup_and_cleanup": 332.0
+  },
+  "paid_provider_calls": 0,
+  "temporary_database_removed": true,
+  "aliases": {
+    "Minecraft": [
+      "Minecraft",
+      "Майнкрафт",
+      "майнкрафт",
+      "строительство в Minecraft",
+      "строительство в Майнкрафте"
+    ],
+    "футбол": [
+      "футбол",
+      "игра в футбол"
+    ],
+    "астрономия": [
+      "астрономия",
+      "космос",
+      "изучение космоса",
+      "наблюдение за звёздами"
+    ],
+    "шахматы": [
+      "шахматы",
+      "игра в шахматы"
+    ],
+    "рисование": [
+      "рисование",
+      "рисовать",
+      "рисование животных"
+    ]
+  },
+  "source_files": [
+    {
+      "path": "C:\\Users\\name\\PycharmProjects\\misc\\teachCopilot\\Alena_audio\\TeachCopilot_RAG\\.local\\conversation_longitudinal_v1\\run01\\report.json",
+      "sha256": "489db5482e8318baea7c1e8d5cc42c8c68ad013f7b127c814841cda9af5b7d7c"
+    },
+    {
+      "path": "C:\\Users\\name\\PycharmProjects\\misc\\teachCopilot\\Alena_audio\\TeachCopilot_RAG\\.local\\conversation_longitudinal_v1\\run01\\preregistered.json",
+      "sha256": "3629b6c94abdac05a835ccda9114bd7a657f35b94c25a3dd8d044d4f5e4b758b"
+    },
+    {
+      "path": "C:\\Users\\name\\PycharmProjects\\misc\\teachCopilot\\Alena_audio\\TeachCopilot_RAG\\.local\\conversation_longitudinal_v1\\run01\\ollama_http.jsonl",
+      "sha256": "aedc68e59e8aa8b853e8aea9da83b70a2685be263bd884e37e5a04a29724c2ea"
+    }
+  ],
+  "session_details": [
+    {
+      "code": "L01S01",
+      "status": "completed",
+      "topic_id": "math.g4.numbers.division_by_1_2_digit",
+      "extraction_status": "ready",
+      "expected_candidates": [
+        [
+          "add",
+          "minecraft"
+        ],
+        [
+          "avoid",
+          "minecraft"
+        ]
+      ],
+      "actual_candidates": [
+        [
+          "add",
+          "minecraft"
+        ],
+        [
+          "avoid",
+          "minecraft"
+        ]
+      ],
+      "missing_candidates": [],
+      "extra_candidates": [],
+      "candidate_sets_match": true,
+      "final_preferences_match": true,
+      "final_interests_match": true,
+      "final_avoided_match": true,
+      "competencies_unchanged": true,
+      "completion_idempotent": true,
+      "approval_idempotent": true,
+      "http_200": 4,
+      "expected_messages": 4,
+      "harness_missing_expected": [],
+      "harness_extra_candidates": [],
+      "candidate_difference_matches_harness": true,
+      "error": null
+    },
+    {
+      "code": "L01S02",
+      "status": "completed",
+      "topic_id": "math.g4.fractions.numerator_denominator",
+      "extraction_status": "ready",
+      "expected_candidates": [],
+      "actual_candidates": [
+        [
+          "avoid",
+          "снег"
+        ]
+      ],
+      "missing_candidates": [],
+      "extra_candidates": [
+        [
+          "avoid",
+          "снег"
+        ]
+      ],
+      "candidate_sets_match": false,
+      "final_preferences_match": true,
+      "final_interests_match": true,
+      "final_avoided_match": true,
+      "competencies_unchanged": true,
+      "completion_idempotent": true,
+      "approval_idempotent": true,
+      "http_200": 3,
+      "expected_messages": 4,
+      "harness_missing_expected": [],
+      "harness_extra_candidates": [
+        [
+          "avoid",
+          "снег"
+        ]
+      ],
+      "candidate_difference_matches_harness": true,
+      "error": null
+    },
+    {
+      "code": "L01S03",
+      "status": "completed",
+      "topic_id": "programming.scratch.sequence",
+      "extraction_status": "ready",
+      "expected_candidates": [
+        [
+          "allow",
+          "minecraft"
+        ]
+      ],
+      "actual_candidates": [
+        [
+          "add",
+          "scratch"
+        ],
+        [
+          "allow",
+          "minecraft"
+        ],
+        [
+          "avoid",
+          "цикл и счётчик"
+        ]
+      ],
+      "missing_candidates": [],
+      "extra_candidates": [
+        [
+          "add",
+          "scratch"
+        ],
+        [
+          "avoid",
+          "цикл и счётчик"
+        ]
+      ],
+      "candidate_sets_match": false,
+      "final_preferences_match": true,
+      "final_interests_match": true,
+      "final_avoided_match": true,
+      "competencies_unchanged": true,
+      "completion_idempotent": true,
+      "approval_idempotent": true,
+      "http_200": 3,
+      "expected_messages": 4,
+      "harness_missing_expected": [],
+      "harness_extra_candidates": [
+        [
+          "add",
+          "scratch"
+        ],
+        [
+          "avoid",
+          "цикл и счётчик"
+        ]
+      ],
+      "candidate_difference_matches_harness": true,
+      "error": null
+    },
+    {
+      "code": "L01S04",
+      "status": "completed",
+      "topic_id": "programming.python.output",
+      "extraction_status": "ready",
+      "expected_candidates": [],
+      "actual_candidates": [],
+      "missing_candidates": [],
+      "extra_candidates": [],
+      "candidate_sets_match": true,
+      "final_preferences_match": true,
+      "final_interests_match": true,
+      "final_avoided_match": true,
+      "competencies_unchanged": true,
+      "completion_idempotent": true,
+      "approval_idempotent": true,
+      "http_200": 2,
+      "expected_messages": 4,
+      "harness_missing_expected": [],
+      "harness_extra_candidates": [],
+      "candidate_difference_matches_harness": true,
+      "error": null
+    },
+    {
+      "code": "L02S01",
+      "status": "completed",
+      "topic_id": "math.g4.fractions.numerator_denominator",
+      "extraction_status": "ready",
+      "expected_candidates": [
+        [
+          "add",
+          "футбол"
+        ]
+      ],
+      "actual_candidates": [
+        [
+          "add",
+          "футбол"
+        ],
+        [
+          "allow",
+          "футбол"
+        ]
+      ],
+      "missing_candidates": [],
+      "extra_candidates": [
+        [
+          "allow",
+          "футбол"
+        ]
+      ],
+      "candidate_sets_match": false,
+      "final_preferences_match": true,
+      "final_interests_match": true,
+      "final_avoided_match": true,
+      "competencies_unchanged": true,
+      "completion_idempotent": true,
+      "approval_idempotent": true,
+      "http_200": 4,
+      "expected_messages": 4,
+      "harness_missing_expected": [],
+      "harness_extra_candidates": [
+        [
+          "allow",
+          "футбол"
+        ]
+      ],
+      "candidate_difference_matches_harness": true,
+      "error": null
+    },
+    {
+      "code": "L02S02",
+      "status": "completed",
+      "topic_id": "math.g4.numbers.division_by_1_2_digit",
+      "extraction_status": "ready",
+      "expected_candidates": [
+        [
+          "add",
+          "астрономия"
+        ],
+        [
+          "remove",
+          "футбол"
+        ]
+      ],
+      "actual_candidates": [
+        [
+          "add",
+          "астрономия"
+        ],
+        [
+          "add",
+          "деление с нулём внутри"
+        ],
+        [
+          "remove",
+          "футбол"
+        ]
+      ],
+      "missing_candidates": [],
+      "extra_candidates": [
+        [
+          "add",
+          "деление с нулём внутри"
+        ]
+      ],
+      "candidate_sets_match": false,
+      "final_preferences_match": true,
+      "final_interests_match": true,
+      "final_avoided_match": true,
+      "competencies_unchanged": true,
+      "completion_idempotent": true,
+      "approval_idempotent": true,
+      "http_200": 4,
+      "expected_messages": 4,
+      "harness_missing_expected": [],
+      "harness_extra_candidates": [
+        [
+          "add",
+          "деление с нулём внутри"
+        ]
+      ],
+      "candidate_difference_matches_harness": true,
+      "error": null
+    },
+    {
+      "code": "L02S03",
+      "status": "completed",
+      "topic_id": "programming.scratch.sequence",
+      "extraction_status": "ready",
+      "expected_candidates": [],
+      "actual_candidates": [],
+      "missing_candidates": [],
+      "extra_candidates": [],
+      "candidate_sets_match": true,
+      "final_preferences_match": true,
+      "final_interests_match": true,
+      "final_avoided_match": true,
+      "competencies_unchanged": true,
+      "completion_idempotent": true,
+      "approval_idempotent": true,
+      "http_200": 4,
+      "expected_messages": 4,
+      "harness_missing_expected": [],
+      "harness_extra_candidates": [],
+      "candidate_difference_matches_harness": true,
+      "error": null
+    },
+    {
+      "code": "L02S04",
+      "status": "completed",
+      "topic_id": "programming.python.output",
+      "extraction_status": "ready",
+      "expected_candidates": [],
+      "actual_candidates": [],
+      "missing_candidates": [],
+      "extra_candidates": [],
+      "candidate_sets_match": true,
+      "final_preferences_match": true,
+      "final_interests_match": true,
+      "final_avoided_match": true,
+      "competencies_unchanged": true,
+      "completion_idempotent": true,
+      "approval_idempotent": true,
+      "http_200": 3,
+      "expected_messages": 4,
+      "harness_missing_expected": [],
+      "harness_extra_candidates": [],
+      "candidate_difference_matches_harness": true,
+      "error": null
+    },
+    {
+      "code": "L03S01",
+      "status": "completed",
+      "topic_id": "math.g4.numbers.division_by_1_2_digit",
+      "extraction_status": "ready",
+      "expected_candidates": [
+        [
+          "add",
+          "шахматы"
+        ]
+      ],
+      "actual_candidates": [
+        [
+          "add",
+          "шахматы"
+        ],
+        [
+          "avoid",
+          "шахматы"
+        ]
+      ],
+      "missing_candidates": [],
+      "extra_candidates": [
+        [
+          "avoid",
+          "шахматы"
+        ]
+      ],
+      "candidate_sets_match": false,
+      "final_preferences_match": true,
+      "final_interests_match": true,
+      "final_avoided_match": true,
+      "competencies_unchanged": true,
+      "completion_idempotent": true,
+      "approval_idempotent": true,
+      "http_200": 3,
+      "expected_messages": 4,
+      "harness_missing_expected": [],
+      "harness_extra_candidates": [
+        [
+          "avoid",
+          "шахматы"
+        ]
+      ],
+      "candidate_difference_matches_harness": true,
+      "error": null
+    },
+    {
+      "code": "L03S02",
+      "status": "completed",
+      "topic_id": "math.g4.fractions.numerator_denominator",
+      "extraction_status": "ready",
+      "expected_candidates": [],
+      "actual_candidates": [],
+      "missing_candidates": [],
+      "extra_candidates": [],
+      "candidate_sets_match": true,
+      "final_preferences_match": true,
+      "final_interests_match": true,
+      "final_avoided_match": true,
+      "competencies_unchanged": true,
+      "completion_idempotent": true,
+      "approval_idempotent": true,
+      "http_200": 4,
+      "expected_messages": 4,
+      "harness_missing_expected": [],
+      "harness_extra_candidates": [],
+      "candidate_difference_matches_harness": true,
+      "error": null
+    },
+    {
+      "code": "L03S03",
+      "status": "completed",
+      "topic_id": "programming.python.output",
+      "extraction_status": "ready",
+      "expected_candidates": [],
+      "actual_candidates": [],
+      "missing_candidates": [],
+      "extra_candidates": [],
+      "candidate_sets_match": true,
+      "final_preferences_match": true,
+      "final_interests_match": true,
+      "final_avoided_match": true,
+      "competencies_unchanged": true,
+      "completion_idempotent": true,
+      "approval_idempotent": true,
+      "http_200": 4,
+      "expected_messages": 4,
+      "harness_missing_expected": [],
+      "harness_extra_candidates": [],
+      "candidate_difference_matches_harness": true,
+      "error": null
+    },
+    {
+      "code": "L03S04",
+      "status": "completed",
+      "topic_id": "programming.scratch.sequence",
+      "extraction_status": "ready",
+      "expected_candidates": [],
+      "actual_candidates": [
+        [
+          "allow",
+          "увлечение из первой встречи"
+        ],
+        [
+          "avoid",
+          "сразу правильный порядок"
+        ],
+        [
+          "avoid",
+          "шахматная игра в scratch"
+        ]
+      ],
+      "missing_candidates": [],
+      "extra_candidates": [
+        [
+          "allow",
+          "увлечение из первой встречи"
+        ],
+        [
+          "avoid",
+          "сразу правильный порядок"
+        ],
+        [
+          "avoid",
+          "шахматная игра в scratch"
+        ]
+      ],
+      "candidate_sets_match": false,
+      "final_preferences_match": true,
+      "final_interests_match": true,
+      "final_avoided_match": true,
+      "competencies_unchanged": true,
+      "completion_idempotent": true,
+      "approval_idempotent": true,
+      "http_200": 2,
+      "expected_messages": 4,
+      "harness_missing_expected": [],
+      "harness_extra_candidates": [
+        [
+          "allow",
+          "увлечение из первой встречи"
+        ],
+        [
+          "avoid",
+          "сразу правильный порядок"
+        ],
+        [
+          "avoid",
+          "шахматная игра в scratch"
+        ]
+      ],
+      "candidate_difference_matches_harness": true,
+      "error": null
+    },
+    {
+      "code": "L04S01",
+      "status": "completed",
+      "topic_id": "programming.scratch.sequence",
+      "extraction_status": "ready",
+      "expected_candidates": [
+        [
+          "add",
+          "minecraft"
+        ]
+      ],
+      "actual_candidates": [
+        [
+          "add",
+          "minecraft"
+        ],
+        [
+          "allow",
+          "minecraft"
+        ]
+      ],
+      "missing_candidates": [],
+      "extra_candidates": [
+        [
+          "allow",
+          "minecraft"
+        ]
+      ],
+      "candidate_sets_match": false,
+      "final_preferences_match": true,
+      "final_interests_match": true,
+      "final_avoided_match": true,
+      "competencies_unchanged": true,
+      "completion_idempotent": true,
+      "approval_idempotent": true,
+      "http_200": 4,
+      "expected_messages": 4,
+      "harness_missing_expected": [],
+      "harness_extra_candidates": [
+        [
+          "allow",
+          "minecraft"
+        ]
+      ],
+      "candidate_difference_matches_harness": true,
+      "error": null
+    },
+    {
+      "code": "L04S02",
+      "status": "completed",
+      "topic_id": "math.g4.numbers.division_by_1_2_digit",
+      "extraction_status": "ready",
+      "expected_candidates": [],
+      "actual_candidates": [],
+      "missing_candidates": [],
+      "extra_candidates": [],
+      "candidate_sets_match": true,
+      "final_preferences_match": true,
+      "final_interests_match": true,
+      "final_avoided_match": true,
+      "competencies_unchanged": true,
+      "completion_idempotent": true,
+      "approval_idempotent": true,
+      "http_200": 3,
+      "expected_messages": 4,
+      "harness_missing_expected": [],
+      "harness_extra_candidates": [],
+      "candidate_difference_matches_harness": true,
+      "error": null
+    },
+    {
+      "code": "L04S03",
+      "status": "completed",
+      "topic_id": "math.g4.fractions.numerator_denominator",
+      "extraction_status": "ready",
+      "expected_candidates": [],
+      "actual_candidates": [
+        [
+          "avoid",
+          "музей поездов"
+        ]
+      ],
+      "missing_candidates": [],
+      "extra_candidates": [
+        [
+          "avoid",
+          "музей поездов"
+        ]
+      ],
+      "candidate_sets_match": false,
+      "final_preferences_match": true,
+      "final_interests_match": true,
+      "final_avoided_match": true,
+      "competencies_unchanged": true,
+      "completion_idempotent": true,
+      "approval_idempotent": true,
+      "http_200": 2,
+      "expected_messages": 4,
+      "harness_missing_expected": [],
+      "harness_extra_candidates": [
+        [
+          "avoid",
+          "музей поездов"
+        ]
+      ],
+      "candidate_difference_matches_harness": true,
+      "error": null
+    },
+    {
+      "code": "L04S04",
+      "status": "completed",
+      "topic_id": "programming.python.output",
+      "extraction_status": "ready",
+      "expected_candidates": [],
+      "actual_candidates": [
+        [
+          "avoid",
+          "любимая игра"
+        ]
+      ],
+      "missing_candidates": [],
+      "extra_candidates": [
+        [
+          "avoid",
+          "любимая игра"
+        ]
+      ],
+      "candidate_sets_match": false,
+      "final_preferences_match": true,
+      "final_interests_match": true,
+      "final_avoided_match": true,
+      "competencies_unchanged": true,
+      "completion_idempotent": true,
+      "approval_idempotent": true,
+      "http_200": 4,
+      "expected_messages": 4,
+      "harness_missing_expected": [],
+      "harness_extra_candidates": [
+        [
+          "avoid",
+          "любимая игра"
+        ]
+      ],
+      "candidate_difference_matches_harness": true,
+      "error": null
+    },
+    {
+      "code": "L05S01",
+      "status": "completed",
+      "topic_id": "math.g4.numbers.division_by_1_2_digit",
+      "extraction_status": "ready",
+      "expected_candidates": [
+        [
+          "add",
+          "рисование"
+        ]
+      ],
+      "actual_candidates": [
+        [
+          "add",
+          "рисование"
+        ]
+      ],
+      "missing_candidates": [],
+      "extra_candidates": [],
+      "candidate_sets_match": true,
+      "final_preferences_match": true,
+      "final_interests_match": true,
+      "final_avoided_match": true,
+      "competencies_unchanged": true,
+      "completion_idempotent": true,
+      "approval_idempotent": true,
+      "http_200": 3,
+      "expected_messages": 4,
+      "harness_missing_expected": [],
+      "harness_extra_candidates": [],
+      "candidate_difference_matches_harness": true,
+      "error": null
+    },
+    {
+      "code": "L05S02",
+      "status": "completed",
+      "topic_id": "math.g4.numbers.division_by_1_2_digit",
+      "extraction_status": "ready",
+      "expected_candidates": [],
+      "actual_candidates": [],
+      "missing_candidates": [],
+      "extra_candidates": [],
+      "candidate_sets_match": true,
+      "final_preferences_match": true,
+      "final_interests_match": true,
+      "final_avoided_match": true,
+      "competencies_unchanged": true,
+      "completion_idempotent": true,
+      "approval_idempotent": true,
+      "http_200": 3,
+      "expected_messages": 4,
+      "harness_missing_expected": [],
+      "harness_extra_candidates": [],
+      "candidate_difference_matches_harness": true,
+      "error": null
+    },
+    {
+      "code": "L05S03",
+      "status": "completed",
+      "topic_id": "math.g4.numbers.division_by_1_2_digit",
+      "extraction_status": "ready",
+      "expected_candidates": [],
+      "actual_candidates": [],
+      "missing_candidates": [],
+      "extra_candidates": [],
+      "candidate_sets_match": true,
+      "final_preferences_match": true,
+      "final_interests_match": true,
+      "final_avoided_match": true,
+      "competencies_unchanged": true,
+      "completion_idempotent": true,
+      "approval_idempotent": true,
+      "http_200": 3,
+      "expected_messages": 4,
+      "harness_missing_expected": [],
+      "harness_extra_candidates": [],
+      "candidate_difference_matches_harness": true,
+      "error": null
+    },
+    {
+      "code": "L05S04",
+      "status": "completed",
+      "topic_id": "programming.python.output",
+      "extraction_status": "ready",
+      "expected_candidates": [],
+      "actual_candidates": [
+        [
+          "add",
+          "рисование программой"
+        ]
+      ],
+      "missing_candidates": [],
+      "extra_candidates": [
+        [
+          "add",
+          "рисование программой"
+        ]
+      ],
+      "candidate_sets_match": false,
+      "final_preferences_match": true,
+      "final_interests_match": true,
+      "final_avoided_match": true,
+      "competencies_unchanged": true,
+      "completion_idempotent": true,
+      "approval_idempotent": true,
+      "http_200": 4,
+      "expected_messages": 4,
+      "harness_missing_expected": [],
+      "harness_extra_candidates": [
+        [
+          "add",
+          "рисование программой"
+        ]
+      ],
+      "candidate_difference_matches_harness": true,
+      "error": null
+    }
+  ],
+  "limits": [
+    "Completed does not mean passed.",
+    "Candidate and state agreement are mechanical, not pedagogical semantic approval.",
+    "Teacher confirmations were simulated against preregistered expectations.",
+    "No model calls, retries, source rewriting or expectation changes are performed by this formatter."
+  ]
+}

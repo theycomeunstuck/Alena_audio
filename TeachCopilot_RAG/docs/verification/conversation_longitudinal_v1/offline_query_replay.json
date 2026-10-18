@@ -1,0 +1,314 @@
+{
+  "created_at": "2026-10-18T00:31:32.485876+00:00",
+  "kind": "offline_query_resolution_replay",
+  "source_run": "C:\\Users\\name\\PycharmProjects\\misc\\teachCopilot\\Alena_audio\\TeachCopilot_RAG\\.local\\conversation_longitudinal_v1\\run01",
+  "scope_policy_version": "teachcopilot-curriculum-and-social-scope-v3",
+  "cases_attempted": 13,
+  "cases_resolved": 13,
+  "fake_http_calls": 13,
+  "preserved_explicit_prior_learner_anchors": 2,
+  "real_network_calls": 0,
+  "new_model_generations": 0,
+  "paid_calls": 0,
+  "network_guard": {
+    "active": true,
+    "blocked_attempts": 0,
+    "targets": [
+      "socket.create_connection",
+      "socket.socket.connect",
+      "socket.socket.connect_ex",
+      "requests.sessions.Session.request"
+    ]
+  },
+  "original_inputs_unchanged": true,
+  "input_sha256": {
+    "technical_diagnosis.json": "9b045315025a09005219928f8bfb466ac18eb4a4ad71d5158b916b12cdf45ed1",
+    "ollama_http.jsonl": "aedc68e59e8aa8b853e8aea9da83b70a2685be263bd884e37e5a04a29724c2ea",
+    "L01S02M1.json": "0e43627621bd6597ea340b6c12e2d23ac9240dc2c3b7a41857c52a93e9753d6c",
+    "L01S03M4.json": "1076dcdbbbb12457d06a013847a237a4a068a1de2b8975bbc48236edc2873149",
+    "L01S04M1.json": "f4b0b69c910849b5399c931fcce8a86a77670b0dc07b854ebaa29f718e7fb4d3",
+    "L02S04M4.json": "a9a5a348461b1aee37035f82e8eea7cee5cff47dccbde55b4ff2b7f185eabc85",
+    "L03S01M4.json": "bac281017caa6d7dce59e0646cd0ba7593d627aeae43900548a8d41b8e29bae6",
+    "L03S04M1.json": "42ad247c78c1ab02cb25872e90bc5576f315ee6427f06b67ca8878ed3f66bd8e",
+    "L03S04M4.json": "dfbb28b8e4c8ea085128959e1024e4f3cc6eadf09fb9435df74385119d3a02e2",
+    "L04S02M1.json": "eee26db6a1ebc8885a089b6c6ea833e1dec13c7556732576a791af4410a2d362",
+    "L04S03M1.json": "ed28325567cfc89222a0baf98d0aa392452ca4845aa966008748efecf34459a9",
+    "L04S03M3.json": "972e32668c9a84e9a2ead5faf232b30e12f41e0cfba52d9bdab6e8d800135ce0",
+    "L05S01M1.json": "4ad424105bd698c932dc5396d766b54e9bf43f204f33f11c3e0ede96df5fc323",
+    "L05S02M1.json": "c270fa838e3e6ca1e5f56bfe0254c9f423d6604c9a767b12f3bfc045bdccc0f4",
+    "L05S03M1.json": "568aeaf8912d68c3c2dd1140eaa9aa20805a8fd4d4ea982229307b903ddf35e8"
+  },
+  "source_sha256": {
+    "scripts/replay_conversation_query_resolution.py": "fce7b4816a37f3191ea507937236e7d82825a624861391c415e75c6533155fdc",
+    "local_app/runtime.py": "dc1647d4af4acad126b3e5126ccb08f90ba180fb6653a31232e8cc1a5600b328"
+  },
+  "limits": [
+    "Query resolution only; retrieval and answer generation were not run.",
+    "The original 66/80 live response count is unchanged.",
+    "No conclusion about teaching-answer correctness follows from this replay."
+  ],
+  "cases": [
+    {
+      "case": "L01S02M1",
+      "original_http_status": 503,
+      "resolution_passed": true,
+      "fake_http_calls": 1,
+      "request_exactly_matches_original": true,
+      "literal_current_message_preserved": true,
+      "current_message_chars": 249,
+      "uses_prior_context": false,
+      "prior_learner_question_index": null,
+      "prior_learner_anchor_preserved": null,
+      "current_message_sha256": "b0a5debbe239ad37e4c10535b4f1715fb829b3703d9900380d10e7eb07e82697",
+      "anchor_content_sha256": null,
+      "decision": {
+        "in_scope": true,
+        "uses_prior_context": false,
+        "search_query": "Сегодня у меня дроби, не деление столбиком. Круг разделён на 8 одинаковых кусочков, закрашены 3. Я написал 3/8, но хочу понять, что здесь значит верхнее число, а что нижнее. Можно без длинной сказки, просто по самому рисунку, я его перед собой вижу.",
+        "query_source": "original_learner_message"
+      }
+    },
+    {
+      "case": "L01S03M4",
+      "original_http_status": 503,
+      "resolution_passed": true,
+      "fake_http_calls": 1,
+      "request_exactly_matches_original": true,
+      "literal_current_message_preserved": true,
+      "current_message_chars": 263,
+      "uses_prior_context": false,
+      "prior_learner_question_index": null,
+      "prior_learner_anchor_preserved": null,
+      "current_message_sha256": "dcdbaf97184717d0e559de85de8ae559e31d96518ad18580361bb10331feedb8",
+      "anchor_content_sha256": null,
+      "decision": {
+        "in_scope": true,
+        "uses_prior_context": false,
+        "search_query": "Запустил первый вариант: спрайт прошёл и сказал «Привет». Потом поменял местами, он поздоровался раньше движения. Получается, команды идут сверху вниз после запуска. На сегодня хватит этих трёх, пожалуйста, без цикла и счётчика, я их ещё не проходил и всё смешаю.",
+        "query_source": "original_learner_message"
+      }
+    },
+    {
+      "case": "L01S04M1",
+      "original_http_status": 503,
+      "resolution_passed": true,
+      "fake_http_calls": 1,
+      "request_exactly_matches_original": true,
+      "literal_current_message_preserved": true,
+      "current_message_chars": 255,
+      "uses_prior_context": false,
+      "prior_learner_question_index": null,
+      "prior_learner_anchor_preserved": null,
+      "current_message_sha256": "fa28bc5d60a580e2ec528232d8e73c746c3781e2172761ae7c5d76b0c3bc2795",
+      "anchor_content_sha256": null,
+      "decision": {
+        "in_scope": true,
+        "uses_prior_context": false,
+        "search_query": "Начали Python. Я помню, что раньше рассказывал тебе про своё увлечение, если помнишь, можешь взять знакомый пример, но обычный тоже подойдёт. Надо вывести на экран слово «Старт». Я написал print(\"Старт\"), ещё не нажимал запуск. Скобки и кавычки обе нужны?",
+        "query_source": "original_learner_message"
+      }
+    },
+    {
+      "case": "L02S04M4",
+      "original_http_status": 503,
+      "resolution_passed": true,
+      "fake_http_calls": 1,
+      "request_exactly_matches_original": true,
+      "literal_current_message_preserved": true,
+      "current_message_chars": 275,
+      "uses_prior_context": false,
+      "prior_learner_question_index": null,
+      "prior_learner_anchor_preserved": null,
+      "current_message_sha256": "bd87673ebde91a4df09573fbbe407a4179102c6dc29cea8804cad15b9793490a",
+      "anchor_content_sha256": null,
+      "decision": {
+        "in_scope": true,
+        "uses_prior_context": false,
+        "search_query": "Добавил ниже print(\"Марс\"), увидел сначала Луна, потом Марс, каждое отдельно. Обе команды запустил сам. Это ещё только вывод текста, я понимаю, что настоящую модель планет мы не сделали. Можешь коротко проверить, правильно ли я объясняю, что print показывает текст на экране?",
+        "query_source": "original_learner_message"
+      }
+    },
+    {
+      "case": "L03S01M4",
+      "original_http_status": 503,
+      "resolution_passed": true,
+      "fake_http_calls": 1,
+      "request_exactly_matches_original": true,
+      "literal_current_message_preserved": true,
+      "current_message_chars": 263,
+      "uses_prior_context": true,
+      "prior_learner_question_index": 4,
+      "prior_learner_anchor_preserved": true,
+      "current_message_sha256": "add1521b10c07dd200af6ccd4ea773bf485fe75ab9486215f3c798de98307c3a",
+      "anchor_content_sha256": "ab7b03b41192c0fa55ca380c9636fca00748f3dacd7fd77a219993daf5c1b9fc",
+      "decision": {
+        "in_scope": true,
+        "uses_prior_context": true,
+        "search_query": "После подсказки дописал 102. Проверил: 102 × 16 = 1632. Значит, если при сносе получается число меньше делителя, разряд в частном не исчезает. Я сам дальше посчитал 32 : 16, но про ноль мне помогли. Давай это так и запомним, без записи, что я сразу сам всё решил.",
+        "query_source": "original_learner_message",
+        "prior_learner_question_index": 4
+      }
+    },
+    {
+      "case": "L03S04M1",
+      "original_http_status": 503,
+      "resolution_passed": true,
+      "fake_http_calls": 1,
+      "request_exactly_matches_original": true,
+      "literal_current_message_preserved": true,
+      "current_message_chars": 263,
+      "uses_prior_context": false,
+      "prior_learner_question_index": null,
+      "prior_learner_anchor_preserved": null,
+      "current_message_sha256": "af458114cbf468c3a63bbbd4283aae68537b435a6618ecd403c3cb4571d7ffb5",
+      "anchor_content_sha256": null,
+      "decision": {
+        "in_scope": true,
+        "uses_prior_context": false,
+        "search_query": "Теперь Scratch. Есть флаг, идти 10 шагов, сказать «Готово». Я хочу, чтобы персонаж сначала сказал, потом пошёл. Расставил флаг, сказать, идти, но ещё не запускал. Можешь не давать сразу правильный порядок, я хочу сверить с тем, что задумал, и потом проверить сам.",
+        "query_source": "original_learner_message"
+      }
+    },
+    {
+      "case": "L03S04M4",
+      "original_http_status": 503,
+      "resolution_passed": true,
+      "fake_http_calls": 1,
+      "request_exactly_matches_original": true,
+      "literal_current_message_preserved": true,
+      "current_message_chars": 268,
+      "uses_prior_context": false,
+      "prior_learner_question_index": null,
+      "prior_learner_anchor_preserved": null,
+      "current_message_sha256": "5c3cf1974bb470be64140a301bbfd8f470c93f5cd8a430d467cf1905657ccc8f",
+      "anchor_content_sha256": null,
+      "decision": {
+        "in_scope": true,
+        "uses_prior_context": false,
+        "search_query": "Проверку на сегодня закончил, три блока работают. Я ещё не умею делать всю шахматную игру в Scratch, это было бы слишком много, не надо мне такой проект сразу. Лучше один новый порядок из трёх или четырёх команд, чтобы я сначала объяснил словами, что должно случиться.",
+        "query_source": "original_learner_message"
+      }
+    },
+    {
+      "case": "L04S02M1",
+      "original_http_status": 503,
+      "resolution_passed": true,
+      "fake_http_calls": 1,
+      "request_exactly_matches_original": true,
+      "literal_current_message_preserved": true,
+      "current_message_chars": 234,
+      "uses_prior_context": false,
+      "prior_learner_question_index": null,
+      "prior_learner_anchor_preserved": null,
+      "current_message_sha256": "864ed6a35be8d4ddf40eddb36d61bcbca2d6e3aa9a3cc1871c67fc303f13d22d",
+      "anchor_content_sha256": null,
+      "decision": {
+        "in_scope": true,
+        "uses_prior_context": false,
+        "search_query": "Теперь деление, у меня 3456 : 12. Хочу сначала сам, не пиши весь ответ сразу. Взял 34, два раза по 12 будет 24, осталось 10, сношу 5 и получаю 105. Пока остановился тут, можно проверить только этот кусок, я ещё не закончил всю работу.",
+        "query_source": "original_learner_message"
+      }
+    },
+    {
+      "case": "L04S03M1",
+      "original_http_status": 503,
+      "resolution_passed": true,
+      "fake_http_calls": 1,
+      "request_exactly_matches_original": true,
+      "literal_current_message_preserved": true,
+      "current_message_chars": 258,
+      "uses_prior_context": false,
+      "prior_learner_question_index": null,
+      "prior_learner_anchor_preserved": null,
+      "current_message_sha256": "d3df9858259d4afd84c8f3eac80d169d1212c0bc9c5cdecc1045efd054a071c0",
+      "anchor_content_sha256": null,
+      "decision": {
+        "in_scope": true,
+        "uses_prior_context": false,
+        "search_query": "На рисунке 12 одинаковых клеток, закрасили 5. Я написал 5/12. Можешь спросить меня про верхнее и нижнее число, но пока не рассказывай про сокращение и сложение дробей. Я хочу только понять, как записать выбранные части одного целого и что эти числа называют.",
+        "query_source": "original_learner_message"
+      }
+    },
+    {
+      "case": "L04S03M3",
+      "original_http_status": 503,
+      "resolution_passed": true,
+      "fake_http_calls": 1,
+      "request_exactly_matches_original": true,
+      "literal_current_message_preserved": true,
+      "current_message_chars": 255,
+      "uses_prior_context": true,
+      "prior_learner_question_index": 0,
+      "prior_learner_anchor_preserved": true,
+      "current_message_sha256": "8928e2f80cd0201291119d53789f32ac506654001d7e75cae33169aef689cec7",
+      "anchor_content_sha256": "d3df9858259d4afd84c8f3eac80d169d1212c0bc9c5cdecc1045efd054a071c0",
+      "decision": {
+        "in_scope": true,
+        "uses_prior_context": true,
+        "search_query": "Пять сверху – числитель, выбрали пять частей. Двенадцать снизу – знаменатель, целое разбили на двенадцать равных частей. Если закрасили ещё одну, я напишу 6/12, потому что целое такое же. Я не смотрю сейчас в тетрадь, объясняю по самому рисунку на листке.",
+        "query_source": "original_learner_message",
+        "prior_learner_question_index": 0
+      }
+    },
+    {
+      "case": "L05S01M1",
+      "original_http_status": 503,
+      "resolution_passed": true,
+      "fake_http_calls": 1,
+      "request_exactly_matches_original": true,
+      "literal_current_message_preserved": true,
+      "current_message_chars": 521,
+      "uses_prior_context": false,
+      "prior_learner_question_index": null,
+      "prior_learner_anchor_preserved": null,
+      "current_message_sha256": "caa83bd03a34406dd5a4a689df25466d6fe250fd6d0351caae5e1cd7be8e07da",
+      "anchor_content_sha256": null,
+      "decision": {
+        "in_scope": true,
+        "uses_prior_context": false,
+        "search_query": "Я люблю рисование, обычно рисую животных, у меня почти целый альбом. А мой брат обожает футбол, я только смотрела, как он играет, это не моё увлечение. Сегодня долго искала тетрадку: положила её под папку, а потом решила, что забыла в школе. Мы даже рюкзак два раза вытряхнули, там нашлась старая засохшая булка, ужас. Теперь всё собрала, можно заниматься. У меня пример 1248 : 12, я пока только записала его столбиком и не закончила. Можешь объяснить самое начало, а не сразу весь ответ, я хочу попробовать считать сама?",
+        "query_source": "original_learner_message"
+      }
+    },
+    {
+      "case": "L05S02M1",
+      "original_http_status": 503,
+      "resolution_passed": true,
+      "fake_http_calls": 1,
+      "request_exactly_matches_original": true,
+      "literal_current_message_preserved": true,
+      "current_message_chars": 517,
+      "uses_prior_context": false,
+      "prior_learner_question_index": null,
+      "prior_learner_anchor_preserved": null,
+      "current_message_sha256": "5bd15a7b7ab4cea539b6167b72dbab55615ce74309247c52eb2cb21e18a123b9",
+      "anchor_content_sha256": null,
+      "decision": {
+        "in_scope": true,
+        "uses_prior_context": false,
+        "search_query": "Теперь надо проверить 1632 : 16. Я записала 12, но когда умножила, получила всего 192, а не 1632. Похоже, где-то потеряла разряд, не понимаю, в каком месте. Пока искала резинку, разобрала весь пенал, а она лежала под линейкой. Решила пока не стирать старое, чтобы было видно, что исправляю. На полях оставлю место для второй попытки, там у меня ещё наклейка мешает, я её в другое место перенесу. Пожалуйста, не называй сразу весь ответ: покажи, как посмотреть на число после первого вычитания, а дальше попробую сама.",
+        "query_source": "original_learner_message"
+      }
+    },
+    {
+      "case": "L05S03M1",
+      "original_http_status": 503,
+      "resolution_passed": true,
+      "fake_http_calls": 1,
+      "request_exactly_matches_original": true,
+      "literal_current_message_preserved": true,
+      "current_message_chars": 540,
+      "uses_prior_context": false,
+      "prior_learner_question_index": null,
+      "prior_learner_anchor_preserved": null,
+      "current_message_sha256": "c09f484414b3fc8a608a99159c4f6e14fc11ab7cc2480beb89eb229891f0e9b5",
+      "anchor_content_sha256": null,
+      "decision": {
+        "in_scope": true,
+        "uses_prior_context": false,
+        "search_query": "Снова деление, пока не меняем тему. Дома в черновике осталось 2352 : 16 = 147, но не помню, кто в тот момент подсказывал и заглядывала ли я в ответ. Мы с мамой несколько примеров вместе смотрели, потом я продолжила одна, где какой уже не различаю. Не хочу просто сказать, что всё сама. Сегодня я ещё до открытия чата отдельно решила на чистом листе 2842 : 14, потом расскажу шаги. Сначала хочу уточнить, можно ли оставить вчерашний результат с неизвестными условиями и отдельно записать сегодняшнюю новую попытку, а не заменять одно другим?",
+        "query_source": "original_learner_message"
+      }
+    }
+  ]
+}

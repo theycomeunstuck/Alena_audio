@@ -1,0 +1,125 @@
+{
+  "causes": {
+    "empty_search_query_after_in_scope_true": 13,
+    "unfinished_inline_code_answer": 1
+  },
+  "errors": [
+    {
+      "case": "L01S02M1",
+      "status": 503,
+      "cause": "empty_search_query_after_in_scope_true"
+    },
+    {
+      "case": "L01S03M4",
+      "status": 503,
+      "cause": "empty_search_query_after_in_scope_true"
+    },
+    {
+      "case": "L01S04M1",
+      "status": 503,
+      "cause": "empty_search_query_after_in_scope_true"
+    },
+    {
+      "case": "L01S04M2",
+      "status": 503,
+      "cause": "unfinished_inline_code_answer"
+    },
+    {
+      "case": "L02S04M4",
+      "status": 503,
+      "cause": "empty_search_query_after_in_scope_true"
+    },
+    {
+      "case": "L03S01M4",
+      "status": 503,
+      "cause": "empty_search_query_after_in_scope_true"
+    },
+    {
+      "case": "L03S04M1",
+      "status": 503,
+      "cause": "empty_search_query_after_in_scope_true"
+    },
+    {
+      "case": "L03S04M4",
+      "status": 503,
+      "cause": "empty_search_query_after_in_scope_true"
+    },
+    {
+      "case": "L04S02M1",
+      "status": 503,
+      "cause": "empty_search_query_after_in_scope_true"
+    },
+    {
+      "case": "L04S03M1",
+      "status": 503,
+      "cause": "empty_search_query_after_in_scope_true"
+    },
+    {
+      "case": "L04S03M3",
+      "status": 503,
+      "cause": "empty_search_query_after_in_scope_true"
+    },
+    {
+      "case": "L05S01M1",
+      "status": 503,
+      "cause": "empty_search_query_after_in_scope_true"
+    },
+    {
+      "case": "L05S02M1",
+      "status": 503,
+      "cause": "empty_search_query_after_in_scope_true"
+    },
+    {
+      "case": "L05S03M1",
+      "status": 503,
+      "cause": "empty_search_query_after_in_scope_true"
+    }
+  ],
+  "replays": [
+    {
+      "case": "L01S01M1",
+      "first_status": 200,
+      "successful_cached_response": true,
+      "first_request_generation_calls": 2,
+      "recorded_chat_calls_for_case": 2,
+      "no_second_generation_observed": true,
+      "replay_http_status": "not_recorded_by_harness"
+    },
+    {
+      "case": "L02S01M1",
+      "first_status": 200,
+      "successful_cached_response": true,
+      "first_request_generation_calls": 2,
+      "recorded_chat_calls_for_case": 2,
+      "no_second_generation_observed": true,
+      "replay_http_status": "not_recorded_by_harness"
+    },
+    {
+      "case": "L03S01M1",
+      "first_status": 200,
+      "successful_cached_response": true,
+      "first_request_generation_calls": 2,
+      "recorded_chat_calls_for_case": 2,
+      "no_second_generation_observed": true,
+      "replay_http_status": "not_recorded_by_harness"
+    },
+    {
+      "case": "L04S01M1",
+      "first_status": 200,
+      "successful_cached_response": true,
+      "first_request_generation_calls": 2,
+      "recorded_chat_calls_for_case": 2,
+      "no_second_generation_observed": true,
+      "replay_http_status": "not_recorded_by_harness"
+    },
+    {
+      "case": "L05S01M1",
+      "first_status": 503,
+      "successful_cached_response": false,
+      "first_request_generation_calls": 1,
+      "recorded_chat_calls_for_case": 1,
+      "no_second_generation_observed": true,
+      "replay_http_status": "not_recorded_by_harness"
+    }
+  ]
+}

@@ -1,0 +1,113 @@
+{
+  "processed_at": "2026-10-18T00:34:28.783963+00:00",
+  "status": "completed_with_documented_limitations",
+  "data_origin": "synthetic_unreviewed",
+  "human_reviewed": false,
+  "report": "docs/CONVERSATION_LONGITUDINAL_RESULTS.md",
+  "original_run_commit": "0842315577a592a8fec619f0f4c65551684c7eee",
+  "query_fix_commit": "62e46328e26aa985aab4a10cd3f806f3e0386b6a",
+  "http_200": 66,
+  "attempted": 80,
+  "http_503": 14,
+  "completed_sessions": 20,
+  "teacher_review": "simulated_by_preregistered_expected_preferences",
+  "semantic_review": "separate_uncalibrated_ai_review_all_80_requests",
+  "academic_answer_correctness": "material_errors_documented_not_passed",
+  "paid_calls": 0,
+  "offline_query_replay_resolved": 13,
+  "new_answers_in_replay": 0,
+  "post_fix_tests": {
+    "application": 384,
+    "skipped": 0,
+    "card_policy": 52
+  },
+  "frozen_research_hashes_unchanged": {
+    "research_memory\\__init__.py": true,
+    "research_memory\\__main__.py": true,
+    "research_memory\\analysis.py": true,
+    "research_memory\\batch.py": true,
+    "research_memory\\clients.py": true,
+    "research_memory\\contracts.py": true,
+    "research_memory\\dataset.py": true,
+    "research_memory\\judge.py": true,
+    "research_memory\\methods.py": true,
+    "research_memory\\reuse.py": true,
+    "research_memory\\runner.py": true,
+    "research_memory\\spiderssense.py": true,
+    "research_memory\\workflow.py": true,
+    "research_memory\\prompts\\action.txt": true,
+    "research_memory\\prompts\\extract.txt": true,
+    "research_memory\\prompts\\judge.txt": true,
+    "research_memory\\prompts\\judge_context.txt": true,
+    "research_memory\\prompts\\judge_context_v3.txt": true,
+    "research_memory\\prompts\\shorten.txt": true,
+    "research_memory\\prompts\\summary.txt": true,
+    "research_memory\\config.json": true,
+    "research_memory\\data\\v4\\calibration.cases.jsonl": true,
+    "research_memory\\data\\v4\\calibration.expected.jsonl": true,
+    "research_memory\\data\\v4\\design.private.json": true,
+    "research_memory\\data\\v4\\gold.test.jsonl": true,
+    "research_memory\\data\\v4\\histories.test.jsonl": true,
+    "research_memory\\data\\v4\\manifest.json": true,
+    "research_memory\\data\\v4\\requests.test.jsonl": true,
+    "research_memory\\data\\v4\\review.selection.json": true
+  },
+  "preregistered_source_hashes_reproduced_from_git_with_checkout_line_endings": {
+    "tests\\fixtures\\conversation_longitudinal_v1.json": {
+      "matched": true,
+      "byte_representation": "windows_checkout_crlf"
+    },
+    "scripts\\run_conversation_longitudinal.py": {
+      "matched": true,
+      "byte_representation": "git_blob"
+    },
+    "local_app\\api.py": {
+      "matched": true,
+      "byte_representation": "windows_checkout_crlf"
+    },
+    "local_app\\runtime.py": {
+      "matched": true,
+      "byte_representation": "git_blob"
+    },
+    "local_app\\rag.py": {
+      "matched": true,
+      "byte_representation": "git_blob"
+    },
+    "local_app\\memory_service.py": {
+      "matched": true,
+      "byte_representation": "git_blob"
+    },
+    "local_app\\memory_store.py": {
+      "matched": true,
+      "byte_representation": "git_blob"
+    },
+    "local_app\\conversation_memory.py": {
+      "matched": true,
+      "byte_representation": "git_blob"
+    },
+    "local_app\\answer_adapter.py": {
+      "matched": true,
+      "byte_representation": "git_blob"
+    },
+    "local_app\\prompts\\conversation_interests.txt": {
+      "matched": true,
+      "byte_representation": "git_blob"
+    }
+  },
+  "original_report_inputs_sha256": {
+    "report.json": "489db5482e8318baea7c1e8d5cc42c8c68ad013f7b127c814841cda9af5b7d7c",
+    "preregistered.json": "3629b6c94abdac05a835ccda9114bd7a657f35b94c25a3dd8d044d4f5e4b758b",
+    "ollama_http.jsonl": "aedc68e59e8aa8b853e8aea9da83b70a2685be263bd884e37e5a04a29724c2ea"
+  },
+  "actual_app_active_jobs_before_restart": [],
+  "source_versions": {
+    "original_scope_policy": "teachcopilot-curriculum-and-social-scope-v2",
+    "post_fix_scope_policy": "teachcopilot-curriculum-and-social-scope-v3"
+  },
+  "limitations": [
+    "scripted learner continues after failed replies",
+    "five learner sequences are not 80 independent observations",
+    "final preference matches depend on simulated teacher selection",
+    "sequential test is not concurrent throughput"
+  ]
+}

@@ -13,6 +13,8 @@ and verification scope they describe.
 | **[MEMORY_RUNBOOK.md](MEMORY_RUNBOOK.md)** | Запуск памяти, сценарии преподавателя и ученика, синтетическое демо и границы проверки. |
 | **[MEMORY_INTEGRATION.md](MEMORY_INTEGRATION.md)** | API, версии источников, подтверждение, очередь и восстановление после сбоев. |
 | **[CONVERSATION_MEMORY.md](CONVERSATION_MEMORY.md)** | Короткий разговор, интересы с цитатами, выбор преподавателя и перенос между темами. |
+| **[CONVERSATION_LONGITUDINAL_RESULTS.md](CONVERSATION_LONGITUDINAL_RESULTS.md)** | Итог 20 сессий: перенос интересов, ошибки объяснений и отдельная проверка исправления. |
+| **[CONVERSATION_LONGITUDINAL_PROTOCOL.md](CONVERSATION_LONGITUDINAL_PROTOCOL.md)** | Заранее зафиксированная процедура последовательных синтетических разговоров. |
 | **[EXTERNAL_ANSWERS.md](EXTERNAL_ANSWERS.md)** | Учебная проекция, локальная проверка приватности и отдельный бюджет внешнего ответа. |
 | **[research_reporting.md](research_reporting.md)** | Воспроизводимый отчёт, зависимые истории и слепой пакет человеческого просмотра. |
 | **[USE_CASES.md](USE_CASES.md)** | Ten realistic fictional end-to-end scenarios and acceptance criteria. |
