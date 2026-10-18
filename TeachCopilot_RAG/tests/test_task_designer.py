@@ -5,6 +5,7 @@ stdlib lexical scan of ``knowledge-data/``.
 """
 import json
 import sys
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -17,9 +18,11 @@ from pipeline.learner_context import (  # noqa: E402
     LearnerContextError,
     load_task_design_context,
 )
-from pipeline.retrieval import retrieve_material  # noqa: E402
+from pipeline.retrieval import Material, retrieve_material  # noqa: E402
 from pipeline.task_designer import (  # noqa: E402
+    TASK_DESIGN_PROMPT_CHAR_LIMIT,
     TaskDesignError,
+    _runtime_designer_prompt,
     build_correction,
     build_task_prompt,
     design_task_card,
@@ -132,6 +135,64 @@ def test_prompt_contains_zone_material_and_explicit_counts():
     assert "ровно 2 ступени подсказок" in prompt
     assert "<curriculum_material>" in prompt
     assert TOPIC in prompt
+    assert "подтверждённых фрагментами" in prompt
+    assert "не повторяют целиком expected_answer" in prompt
+
+
+def test_scratch_prompt_prohibits_invented_blocks_and_defines_custom_block_rule():
+    context = replace(load_task_design_context(LEARNER, TOPIC), topic_id="programming.scratch.sequence")
+    prompt = build_task_prompt(context, [], 1)
+
+    assert "<scratch_rules>" in prompt
+    assert "Поставить ряд" in prompt
+    assert "пользовательским блоком" in prompt
+
+
+def test_real_profile_and_repository_sources_fit_local_prompt_budget():
+    context = load_task_design_context("ivanov-ivan", "math.g4.numbers.division_by_1_2_digit")
+    source = ROOT / "knowledge-data" / "math_g4_division_demo.json"
+    rows = json.loads(source.read_text(encoding="utf-8"))["tasks"][:3]
+    materials = [
+        Material(
+            topic_id=row["topic_id"],
+            topic=row["task_id"],
+            content=row["content"],
+            answer=row["answer"],
+            difficulty=row.get("difficulty"),
+            tags=tuple(row.get("tags", [])),
+            source=source.name,
+        )
+        for row in rows
+    ]
+    system = _runtime_designer_prompt()
+    prompt = build_task_prompt(
+        context, materials, 3, system_prompt_chars=len(system),
+    )
+
+    assert len(prompt) + len(system) <= TASK_DESIGN_PROMPT_CHAR_LIMIT
+    assert prompt.count(source.name) == 3
+    assert "ровно 3 задания" in prompt
+
+
+def test_prompt_drops_oversized_sources_as_whole_sections():
+    context = load_task_design_context("ivanov-ivan", "math.g4.numbers.division_by_1_2_digit")
+    materials = [
+        Material(
+            topic_id=context.topic_id,
+            topic=f"fragment-{number}",
+            content=(f"Фрагмент {number}. " + ("Учебный материал. " * (30 if number == 0 else 150))),
+            answer="",
+            source=f"source-{number}.json",
+        )
+        for number in range(3)
+    ]
+    system = _runtime_designer_prompt()
+    prompt = build_task_prompt(context, materials, 3, system_prompt_chars=len(system))
+
+    assert len(prompt) + len(system) <= TASK_DESIGN_PROMPT_CHAR_LIMIT
+    assert "Фрагмент 0." in prompt
+    assert "Фрагмент 1." not in prompt
+    assert "ровно 3 задания" in prompt
 
 
 # --- generated card -----------------------------------------------------------
@@ -202,6 +263,24 @@ def test_hint_that_gives_away_the_answer_is_flagged():
     card = parse_task_card(reply, context, 3)
 
     assert any("готовый ответ" in warning for warning in card.warnings)
+
+
+def test_formatted_complete_code_solution_in_hint_is_flagged():
+    reply = _model_reply()
+    reply["tasks"][0]["expected_answer"] = "for i in range(10):\n    print(i)"
+    reply["tasks"][0]["hints"][0]["text"] = "Попробуй: `for i in range (10): print (i)`"
+    card = parse_task_card(reply, load_task_design_context(LEARNER, TOPIC), 3)
+
+    assert any("готовый ответ" in warning for warning in card.warnings)
+
+
+def test_hint_with_only_a_partial_number_is_not_flagged_as_full_answer():
+    reply = _model_reply()
+    reply["tasks"][0]["expected_answer"] = "повторить 10 раз и затем проверить результат"
+    reply["tasks"][0]["hints"][0]["text"] = "Сколько раз нужно повторить действие? Начни с числа 10."
+    card = parse_task_card(reply, load_task_design_context(LEARNER, TOPIC), 3)
+
+    assert not any("готовый ответ" in warning for warning in card.warnings)
 
 
 def test_broken_arithmetic_in_the_answer_is_flagged():

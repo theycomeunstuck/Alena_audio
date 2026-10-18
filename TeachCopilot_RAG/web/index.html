@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f3f6f7">
+  <title>TeachCopilot – рабочее место учителя</title>
+  <link rel="stylesheet" href="/assets/app.css">
+  <script src="/assets/app.js" defer></script>
+</head>
+<body>
+  <main id="app" class="app-shell">
+    <section id="login-view" class="login-layout" hidden aria-labelledby="login-title">
+      <div class="login-aside">
+        <a class="brand" href="/" aria-label="TeachCopilot – главная"><span class="brand-mark">Т</span><span>TeachCopilot</span></a>
+        <p class="login-manifesto">У каждого ученика свой следующий шаг.</p>
+        <p class="login-caption">Подготовка занятий начинается с того, что ребёнок уже умеет делать сам.</p>
+        <div class="lesson-sample" aria-hidden="true"><span class="sample-shape">¼</span><span>Математика · 3 класс</span><strong>Части одного целого</strong><span class="sample-rule"></span><small>опора → самостоятельная попытка</small></div>
+      </div>
+      <form id="login-form" class="login-form">
+        <div class="form-kicker">Локальное рабочее место</div>
+        <h1 id="login-title">Войти в класс</h1>
+        <p>Используйте выданную учётную запись учителя или ученика.</p>
+        <label for="email">Электронная почта</label><input id="email" name="email" type="email" autocomplete="username" required>
+        <label for="password">Пароль</label><input id="password" name="password" type="password" autocomplete="current-password" required>
+        <button class="button primary wide" type="submit">Войти</button>
+        <p id="login-error" class="form-error" role="alert" hidden></p>
+        <p class="login-footnote">Данные остаются в локальной учебной системе.</p>
+      </form>
+    </section>
+
+    <section id="workspace" hidden>
+      <header class="topbar">
+        <a class="brand" href="/" aria-label="TeachCopilot – главная"><span class="brand-mark">Т</span><span>TeachCopilot</span></a>
+        <div class="topbar-context"><span class="context-dot"></span><span id="workspace-label">Рабочее место</span></div>
+        <div class="account-area"><span id="account-name"></span><span id="role-label" class="role-label"></span><button id="logout" class="text-button">Выйти</button></div>
+      </header>
+      <nav class="mobile-tabs" aria-label="Разделы рабочего места"><button class="active" data-panel="roster-panel">Ученики</button><button data-panel="learning-panel">Прогресс</button><button data-panel="action-panel">Занятие</button></nav>
+      <div class="workspace-grid">
+        <aside id="roster-panel" class="roster-panel">
+          <div class="roster-heading"><div><span class="section-kicker">Группа</span><h1 id="roster-title">Ученики</h1></div><span id="learner-count" class="count-mark">–</span></div>
+          <label class="search-wrap"><span class="sr-only">Найти ученика</span><span class="search-icon" aria-hidden="true">⌕</span><input id="learner-filter" type="search" placeholder="Найти ученика"></label>
+          <div id="learner-list" class="learner-list" role="list"></div>
+          <p id="roster-empty" class="empty-note" hidden>Ученики пока не назначены. Обратитесь к администратору, чтобы получить доступ.</p>
+          <div class="roster-bottom"><span class="privacy-mark" aria-hidden="true">◉</span><span>Профили доступны только назначенному учителю.</span></div>
+        </aside>
+
+        <section id="learning-panel" class="learning-panel" aria-live="polite">
+          <div id="loading-state" class="state-message"><span class="loader" aria-hidden="true"></span><p>Загружаем учебный профиль…</p></div>
+          <div id="error-state" class="state-message" hidden><div class="state-symbol">!</div><h2>Не удалось открыть профиль</h2><p id="error-text"></p><button id="retry-load" class="button secondary">Повторить</button></div>
+          <div id="empty-profile" class="state-message" hidden><div class="state-symbol">↗</div><h2>Выберите ученика</h2><p>Здесь появятся учебная цель, история попыток и доступные опоры.</p></div>
+          <div id="profile-content" hidden>
+            <div class="profile-heading">
+              <div class="avatar" id="learner-avatar">А</div>
+              <div class="profile-title"><div class="section-kicker" id="profile-grade">УЧЕБНЫЙ ПРОФИЛЬ</div><h1 id="learner-name"></h1><p id="profile-meta"></p></div>
+              <button id="edit-profile" class="icon-button" type="button" aria-label="Редактировать профиль" title="Редактировать профиль" hidden>✎</button>
+            </div>
+            <section class="goal-strip"><div class="goal-icon" aria-hidden="true">◎</div><div><span class="section-kicker">Текущая цель</span><p id="current-goal">Цель ещё не указана</p></div><span class="goal-subject" id="goal-subject"></span></section>
+            <section class="zpd-section" aria-labelledby="zpd-title">
+              <div class="section-head"><div><span class="section-kicker">Карта понимания</span><h2 id="zpd-title">Что получается сейчас</h2></div><button id="zpd-help" class="help-button" type="button" aria-expanded="false" aria-controls="zpd-explainer">Как читать карту?</button></div>
+              <div id="zpd-explainer" class="explainer" hidden>Карта показывает подтверждённые наблюдения учителя. «Пока не получилось с совместной помощью» означает, что в последних сопоставимых парах заданий ученик не справился ни самостоятельно, ни при совместном решении. Это сигнал вернуться к предыдущей теме, а не постоянная оценка способностей. «Нужно проверить» означает, что данных мало, они устарели или расходятся. Если пробовали только наглядную опору, проверьте тему вместе со взрослым.</div>
+              <div class="zone-map" id="zone-map"></div>
+              <div class="map-legend"><span><i class="legend-dot independent"></i> Самостоятельно</span><span><i class="legend-dot supported"></i> С поддержкой</span><span><i class="legend-dot outside"></i> Пока не получилось с совместной помощью</span><span><i class="legend-dot unknown"></i> Нужно проверить</span></div>
+            </section>
+            <section class="history-section" aria-labelledby="history-title"><div class="section-head"><div><span class="section-kicker">Следы обучения</span><h2 id="history-title">Последние наблюдения</h2></div><span id="revision-label" class="revision-label"></span></div><div id="history-list" class="history-list"></div></section>
+            <section id="memory-section" class="history-section" aria-labelledby="memory-title" hidden>
+              <div class="section-head"><div><span class="section-kicker">Основания следующего шага</span><h2 id="memory-title">Память занятий</h2></div><button id="refresh-memory" class="help-button" type="button">Обновить</button></div>
+              <p id="memory-status" class="review-note" role="status"></p><div id="memory-history" class="memory-history"></div>
+            </section>
+          </div>
+        </section>
+
+        <aside id="action-panel" class="action-panel">
+          <div id="teacher-actions" hidden>
+            <div class="action-header"><span class="section-kicker">Следующий шаг</span><h2>Подготовить занятие</h2><p>Выберите тему и соберите материал с учётом текущей цели.</p></div>
+            <section class="next-step-panel" aria-labelledby="next-step-title">
+              <h3 id="next-step-title">Рекомендация по истории занятий</h3>
+              <p class="review-note">Выберите тему ниже. Учитель проверяет рекомендацию перед использованием.</p>
+              <label for="memory-method" class="section-kicker">Способ памяти</label>
+              <select id="memory-method" class="chat-subject"><option value="tail" selected>Последние занятия – рабочий режим</option><option value="profile_only">Только профиль – сравнение</option><option value="summary">Сводка – сравнение</option><option value="structured">Структурированная – сравнение</option></select>
+              <button id="request-next-step" class="button secondary wide" type="button">Предложить следующий шаг</button>
+              <p id="next-step-status" class="review-note" role="status" aria-live="polite"></p>
+              <div id="next-step-result" class="next-step-result" hidden></div>
+            </section>
+            <form id="task-form" class="work-form"><label for="topic-select">Тема</label><select id="topic-select"><option value="">Загрузка тем…</option></select><label for="task-mode">Как подготовить</label><select id="task-mode"><option value="source_template">По учебным материалам</option><option value="generated">Новый черновик с локальной моделью</option></select><label for="task-count">Заданий в черновике</label><select id="task-count"><option value="1" selected>1 задание</option><option value="3">3 задания</option><option value="5">5 заданий</option></select><button id="create-task" class="button primary wide" type="submit">Собрать задания</button></form>
+            <div id="task-result" class="result-block" hidden><div class="result-heading"><h3>Черновик заданий</h3><label class="answer-toggle"><input type="checkbox" id="show-answers"><span>Показать ответы</span></label></div><p class="review-note">Проверьте содержание перед работой с ребёнком.</p><div id="task-cards"></div></div>
+            <div class="divider-label"><span>После занятия</span></div>
+            <form id="observation-form" class="work-form compact-form"><label for="observation-topic">Наблюдение по теме</label><select id="observation-topic"><option value="">Сначала выберите ученика</option></select><label for="observation-task">Задание <span class="optional-label">краткое название</span></label><input id="observation-task" type="text" placeholder="Например: сравнить 1/3 и 1/5" required><label for="assessment-pair">Пара сопоставимых проверок <span class="optional-label">необязательно</span></label><input id="assessment-pair" type="text" placeholder="Например: fractions-01" aria-describedby="assessment-pair-hint"><small id="assessment-pair-hint" class="field-hint">Один ID для двух похожих попыток: сначала без подсказки, затем с помощью. Для следующей пары используйте новый ID.</small><label for="observation-difficulty">Сложность задания</label><select id="observation-difficulty"><option value="easy">Доступное</option><option value="medium" selected>Обычное</option><option value="hard">Повышенное</option></select><label class="check-line"><input id="solved" type="checkbox"><span>Решил задание</span></label><label for="support-level">Какая опора понадобилась?</label><select id="support-level"><option value="independent">Без подсказок</option><option value="hint_question">Наводящий вопрос</option><option value="visual">Наглядная опора</option><option value="joint">Решали вместе</option></select><label for="observation-notes">Заметка учителя <span class="optional-label">необязательно</span></label><textarea id="observation-notes" rows="2" placeholder="Что заметили в ходе работы?"></textarea><button id="save-observation" class="button secondary wide" type="submit">Сохранить наблюдение</button></form>
+            <div class="divider-label"><span>Заметки к занятию</span></div>
+            <form id="lesson-form" class="work-form compact-form"><textarea id="lesson-notes" rows="3" placeholder="Например: сравнивали доли на рисунке, с опорой на полоски ученик объяснил, почему 1/3 больше 1/5."></textarea><button id="preview-lesson" class="button secondary wide" type="submit">Подготовить изменение профиля</button></form>
+            <div id="proposal-result" class="proposal-result" hidden></div>
+          </div>
+          <div id="student-actions" hidden><div class="action-header"><span class="section-kicker">Мой помощник</span><h2>Спросить о задаче</h2><p>Можно попросить объяснить шаг или привести похожий пример.</p></div><label for="chat-subject" class="section-kicker">Предмет</label><select id="chat-subject" class="chat-subject"><option value="math">Математика</option><option value="programming">Программирование</option><option value="python">Python</option><option value="scratch">Scratch</option></select><div class="learning-session-controls"><p id="learning-session-status" class="review-note" role="status">Занятие начнётся с первого вопроса.</p><button id="complete-learning-session" type="button" class="text-button" hidden>Завершить занятие</button></div><div id="chat-log" class="chat-log" aria-live="polite"><div class="chat-bubble assistant">Привет! Расскажи, что разбираете, и я помогу найти следующий шаг.</div></div><form id="chat-form" class="chat-form"><label class="sr-only" for="chat-input">Сообщение помощнику</label><textarea id="chat-input" rows="2" placeholder="Напишите вопрос…" required></textarea><button id="send-chat" class="button primary wide" type="submit">Отправить вопрос</button></form><div id="chat-retry" class="chat-retry" hidden><p id="chat-error" class="form-error" role="alert"></p><button id="retry-chat" class="button secondary wide" type="button">Повторить этот вопрос</button></div></div>
+          <div id="action-empty" class="action-empty"><span class="section-kicker">В работе</span><p>Выберите ученика, чтобы увидеть подходящий следующий шаг.</p></div>
+        </aside>
+      </div>
+      <div id="toast" class="toast" role="status" aria-live="polite"></div>
+      <dialog id="edit-dialog" class="edit-dialog"><form id="edit-form" method="dialog"><div class="dialog-head"><div><span class="section-kicker">Профиль ученика</span><h2>Обновить данные</h2></div><button class="icon-button" value="cancel" aria-label="Закрыть">×</button></div><label for="edit-goal">Текущая цель</label><textarea id="edit-goal" rows="2"></textarea><label for="edit-interests">Интересы <span class="optional-label">через запятую</span></label><input id="edit-interests" type="text"><button id="save-profile" class="button primary wide" type="submit">Сохранить профиль</button></form></dialog>
+    </section>
+  </main>
+</body>
+</html>

@@ -1,0 +1,53 @@
+{
+  "as_of": "2026-10-13",
+  "profiles": [
+    {
+      "learner_id": "demo-luna-03",
+      "topic_id": "math.g3.numbers.multiplication_table.times_table",
+      "confirmed_zone": "mastered",
+      "evidence_status": "confirmed",
+      "paired_tasks": 2,
+      "explanation_ru": "Сначала Луна решала вместе с учителем, затем по наводящему вопросу, а две сопоставимые задачи выполнила самостоятельно."
+    },
+    {
+      "learner_id": "demo-mika-03",
+      "topic_id": "math.g3.numbers.division_with_remainder",
+      "confirmed_zone": "outside",
+      "evidence_status": "confirmed",
+      "paired_tasks": 2,
+      "explanation_ru": "В двух задачах одинаковой сложности Мика пока не справился ни самостоятельно, ни при максимальной помощи – совместном решении с учителем. Сначала стоит вернуться к делению на предметах и проверить необходимые предпосылки."
+    },
+    {
+      "learner_id": "demo-nika-04",
+      "topic_id": "math.g4.fractions.numerator_denominator",
+      "confirmed_zone": "zpd",
+      "evidence_status": "confirmed",
+      "paired_tasks": 2,
+      "explanation_ru": "Ника выполнила обе задачи с наводящим вопросом или рисунком, но пока не решила их самостоятельно."
+    },
+    {
+      "learner_id": "demo-ilya-04",
+      "topic_id": "math.g4.numbers.multidigit_addition_subtraction",
+      "confirmed_zone": "unknown",
+      "evidence_status": "stale",
+      "paired_tasks": 0,
+      "explanation_ru": "Раньше Илья справлялся, но последние сравнимые наблюдения устарели; перед планированием нужно проверить навык снова."
+    },
+    {
+      "learner_id": "demo-rita-04",
+      "topic_id": "math.g4.quantities.area_units",
+      "confirmed_zone": "unknown",
+      "evidence_status": "insufficient",
+      "paired_tasks": 1,
+      "explanation_ru": "Есть только одна пара сопоставимых попыток; данных пока недостаточно, чтобы подтвердить зону."
+    },
+    {
+      "learner_id": "demo-oren-03",
+      "topic_id": "math.g3.numbers.simple_equations",
+      "confirmed_zone": "mastered",
+      "evidence_status": "confirmed",
+      "paired_tasks": 2,
+      "explanation_ru": "Поддержка постепенно сократилась от совместного решения до вопроса-подсказки; обе сопоставимые задачи Орен решил самостоятельно."
+    }
+  ]
+}

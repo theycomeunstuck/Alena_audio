@@ -1,0 +1,718 @@
+{
+  "schema_version": 2,
+  "learner_id": "demo-ilya-04",
+  "pseudonym": "ДЕМО – Илья Орбита",
+  "age_group": "9-10",
+  "grade": "4",
+  "language": "russian",
+  "rag_context": {
+    "current_goal": {
+      "topic_id": "programming.python.variables",
+      "goal": "Отслеживать переменную по строкам: заполнить таблицу значений, затем предсказать вывод двух фрагментов. Успех – два верных прогноза подряд; после первого убрать таблицу. Многозначное сложение проверить заново: данные устарели.",
+      "updated_at": "2026-10-12"
+    },
+    "current_topics": [
+      "math.g4.numbers.multidigit_addition_subtraction",
+      "math.g4.word_problems.multi_step",
+      "programming.python.variables"
+    ],
+    "priority_difficulties": [
+      {
+        "topic_id": "math.g4.word_problems.multi_step",
+        "description": "По наблюдениям: освоение 24%, самостоятельность 23%. Начать с опоры: пронумеровать шаги условия; после точной попытки проверить, можно ли её убрать."
+      },
+      {
+        "topic_id": "programming.python.variables",
+        "description": "По наблюдениям: освоение 68%, самостоятельность 51%. Начать с опоры: записывать значение переменной рядом со строкой; после точной попытки проверить, можно ли её убрать."
+      },
+      {
+        "topic_id": "math.g4.quantities.unit_conversion",
+        "description": "По наблюдениям: освоение 62%, самостоятельность 48%. Начать с опоры: сначала оценить ответ, затем вычислять; после точной попытки проверить, можно ли её убрать."
+      }
+    ],
+    "effective_strategies": [
+      "пронумеровать шаги условия",
+      "записывать значение переменной рядом со строкой",
+      "сначала оценить ответ, затем вычислять"
+    ],
+    "avoid": [
+      "Не убирать опору, пока самостоятельное решение не подтверждено наблюдениями.",
+      "Не считать непроверенную тему неуспехом: сначала провести диагностику."
+    ],
+    "recent_progress": {
+      "date": "2026-10-12",
+      "note": "Читает быстро и может пропустить слово-условие, например «каждый», «осталось» или «всего»."
+    }
+  },
+  "profile": {
+    "explanation_style": "короткие устные шаги, затем нумерованный список",
+    "pace": "быстро начинает, затем делает паузу между этапами",
+    "autonomy_level": "уверен в знакомых правилах, на новой теме просит показать первый шаг",
+    "motivation": "улучшить личный результат и сравнить способы",
+    "prefers_visual": false
+  },
+  "interests": [
+    "спортивная статистика",
+    "модельные ракеты",
+    "загадки"
+  ],
+  "knowledge": [
+    {
+      "topic_id": "math.g4.numbers.multidigit_addition_subtraction",
+      "status": "confident",
+      "notes": "По последнему наблюдению: Решил самостоятельно, проговорил план и проверил ответ."
+    },
+    {
+      "topic_id": "math.g4.word_problems.multi_step",
+      "status": "needs_support",
+      "notes": "По последнему наблюдению: Потребовалось вместе разобрать первый шаг и продолжить с учителем."
+    },
+    {
+      "topic_id": "programming.python.variables",
+      "status": "learning",
+      "notes": "По последнему наблюдению: Решил после одного наводящего вопроса о следующем шаге."
+    },
+    {
+      "topic_id": "math.g4.quantities.unit_conversion",
+      "status": "learning",
+      "notes": "По последнему наблюдению: Решил после одного наводящего вопроса о следующем шаге."
+    },
+    {
+      "topic_id": "math.g4.geometry.angles",
+      "status": "confident",
+      "notes": "По последнему наблюдению: Решил самостоятельно, проговорил план и проверил ответ."
+    },
+    {
+      "topic_id": "programming.scratch.loops",
+      "status": "learning",
+      "notes": "По последнему наблюдению: Решил после одного наводящего вопроса о следующем шаге."
+    },
+    {
+      "topic_id": "programming.scratch.events",
+      "status": "not_started",
+      "notes": "Структурированную проверку этой темы ещё не проводили; навык пока неизвестен."
+    }
+  ],
+  "error_patterns": [
+    {
+      "subject": "math",
+      "topic_id": "math.g4.word_problems.multi_step",
+      "error_tag": "использует первые числа, не проверив, к какому шагу они относятся",
+      "count": 5,
+      "last_seen": "2026-10-12"
+    },
+    {
+      "subject": "programming",
+      "topic_id": "programming.python.variables",
+      "error_tag": "использует переменную, не проследив её последнее значение",
+      "count": 2,
+      "last_seen": "2026-10-12"
+    }
+  ],
+  "mvp": {
+    "story_preferences": [
+      "спортивная статистика",
+      "модельные ракеты"
+    ],
+    "learning_preferences_observed": [
+      "короткие устные шаги, затем нумерованный список",
+      "Читает быстро и может пропустить слово-условие, например «каждый», «осталось» или «всего»."
+    ],
+    "help_strategies": [
+      "пронумеровать шаги условия",
+      "записывать значение переменной рядом со строкой",
+      "сначала оценить ответ, затем вычислять"
+    ],
+    "journal": [
+      {
+        "date": "2026-10-08",
+        "note": "Начали с короткого задания по теме math.g4.numbers.multidigit_addition_subtraction, чтобы увидеть выбранный способ."
+      },
+      {
+        "date": "2026-10-09",
+        "note": "В теме math.g4.word_problems.multi_step помогла опора: пронумеровать шаги условия."
+      },
+      {
+        "date": "2026-10-10",
+        "note": "Для темы programming.python.variables сначала использовали вопрос-подсказку, потом ученик продолжил сам."
+      },
+      {
+        "date": "2026-10-11",
+        "note": "В теме math.g4.quantities.unit_conversion проверили предположение на новом примере и обсудили исправление."
+      },
+      {
+        "date": "2026-10-12",
+        "note": "После задания по теме math.g4.geometry.angles ученик назвал следующий шаг для самостоятельной тренировки."
+      }
+    ],
+    "lessons": [
+      {
+        "date": "2026-10-08",
+        "topic_ids": [
+          "math.g4.numbers.multidigit_addition_subtraction",
+          "math.g4.word_problems.multi_step"
+        ],
+        "minutes": 18,
+        "note": "Разобрали задание по теме math.g4.numbers.multidigit_addition_subtraction: ученик выбрал способ решения и объяснил, почему он подходит."
+      },
+      {
+        "date": "2026-10-09",
+        "topic_ids": [
+          "math.g4.word_problems.multi_step",
+          "programming.python.variables"
+        ],
+        "minutes": 20,
+        "note": "По теме math.g4.word_problems.multi_step сравнили ответ с наглядной моделью; при проверке нашли место возможной ошибки."
+      },
+      {
+        "date": "2026-10-10",
+        "topic_ids": [
+          "programming.python.variables",
+          "math.g4.quantities.unit_conversion"
+        ],
+        "minutes": 22,
+        "note": "В теме programming.python.variables ученик получил одну подсказку и затем самостоятельно продолжил решение."
+      },
+      {
+        "date": "2026-10-11",
+        "topic_ids": [
+          "math.g4.quantities.unit_conversion",
+          "math.g4.geometry.angles"
+        ],
+        "minutes": 24,
+        "note": "По теме math.g4.quantities.unit_conversion выполнили короткую проверку: сначала прогноз, затем запуск или вычисление."
+      },
+      {
+        "date": "2026-10-12",
+        "topic_ids": [
+          "math.g4.geometry.angles",
+          "programming.scratch.loops"
+        ],
+        "minutes": 26,
+        "note": "В теме math.g4.geometry.angles ученик назвал, какая опора помогла и какую часть уже может выполнить сам."
+      }
+    ],
+    "points_ledger": [
+      {
+        "date": "2026-10-08",
+        "points": 3,
+        "reason": "Сформулировал план решения и объяснил первый шаг.",
+        "role": "tutor",
+        "topic_id": "math.g4.numbers.multidigit_addition_subtraction"
+      },
+      {
+        "date": "2026-10-09",
+        "points": 2,
+        "reason": "Проверил ответ по рисунку или обратному действию.",
+        "role": "tutor",
+        "topic_id": "math.g4.word_problems.multi_step"
+      },
+      {
+        "date": "2026-10-10",
+        "points": 4,
+        "reason": "После подсказки сам выбрал следующий шаг.",
+        "role": "tutor",
+        "topic_id": "programming.python.variables"
+      },
+      {
+        "date": "2026-10-11",
+        "points": 3,
+        "reason": "Нашёл и исправил одну ошибку при проверке.",
+        "role": "tutor",
+        "topic_id": "math.g4.quantities.unit_conversion"
+      },
+      {
+        "date": "2026-10-12",
+        "points": 2,
+        "reason": "Сравнил начальную попытку с новым способом.",
+        "role": "tutor",
+        "topic_id": "math.g4.geometry.angles"
+      }
+    ]
+  },
+  "learner_model": {
+    "competencies": [
+      {
+        "topic_id": "math.g4.numbers.multidigit_addition_subtraction",
+        "mastery": 0.94,
+        "confidence": 0.7,
+        "independence": 0.89,
+        "needs_scaffolding": false,
+        "effective_scaffolding": [
+          "Сначала прикинуть ответ, затем выполнить точное вычисление.",
+          "Проверить вычисления отдельно в каждом разряде."
+        ],
+        "recommended_scaffolding": "hint_question",
+        "last_assessed": "2026-08-22",
+        "history": [
+          {
+            "date": "2026-08-19",
+            "mastery": 0.94,
+            "independence": 0.89,
+            "help_level": "hint_question",
+            "support_level": "hint_question",
+            "solved": true,
+            "task_id": "ilya-addition-01",
+            "assessment_pair_id": "ilya-addition-01",
+            "difficulty": "medium",
+            "note": "Раньше Илья справлялся, но последние сравнимые наблюдения устарели; перед планированием нужно проверить навык снова."
+          },
+          {
+            "date": "2026-08-20",
+            "mastery": 0.94,
+            "independence": 0.89,
+            "help_level": "independent",
+            "support_level": "independent",
+            "solved": true,
+            "task_id": "ilya-addition-01",
+            "assessment_pair_id": "ilya-addition-01",
+            "difficulty": "medium",
+            "note": "Раньше Илья справлялся, но последние сравнимые наблюдения устарели; перед планированием нужно проверить навык снова."
+          },
+          {
+            "date": "2026-08-21",
+            "mastery": 0.94,
+            "independence": 0.89,
+            "help_level": "visual",
+            "support_level": "visual",
+            "solved": true,
+            "task_id": "ilya-addition-02",
+            "assessment_pair_id": "ilya-addition-02",
+            "difficulty": "medium",
+            "note": "Раньше Илья справлялся, но последние сравнимые наблюдения устарели; перед планированием нужно проверить навык снова."
+          },
+          {
+            "date": "2026-08-22",
+            "mastery": 0.94,
+            "independence": 0.89,
+            "help_level": "independent",
+            "support_level": "independent",
+            "solved": true,
+            "task_id": "ilya-addition-02",
+            "assessment_pair_id": "ilya-addition-02",
+            "difficulty": "medium",
+            "note": "Раньше Илья справлялся, но последние сравнимые наблюдения устарели; перед планированием нужно проверить навык снова."
+          }
+        ]
+      },
+      {
+        "topic_id": "math.g4.word_problems.multi_step",
+        "mastery": 0.24,
+        "confidence": 0.7,
+        "independence": 0.23,
+        "needs_scaffolding": true,
+        "effective_scaffolding": [
+          "Отметить известные величины и вопрос задачи разными знаками.",
+          "Решать вопросы задачи по порядку и записывать промежуточный ответ."
+        ],
+        "recommended_scaffolding": "hint_question",
+        "last_assessed": "2026-10-11",
+        "history": [
+          {
+            "date": "2026-10-08",
+            "mastery": 0.24,
+            "independence": 0.23,
+            "help_level": "joint",
+            "support_level": "joint",
+            "solved": false,
+            "task_id": "demo-ilya-04-math-g4-word_problems-multi_step-pair01",
+            "assessment_pair_id": "demo-ilya-04-math-g4-word_problems-multi_step-pair01",
+            "difficulty": "medium",
+            "note": "Задача выполнена с опорой; затем проверили тот же тип задания без подсказки."
+          },
+          {
+            "date": "2026-10-09",
+            "mastery": 0.24,
+            "independence": 0.23,
+            "help_level": "independent",
+            "support_level": "independent",
+            "solved": false,
+            "task_id": "demo-ilya-04-math-g4-word_problems-multi_step-pair01",
+            "assessment_pair_id": "demo-ilya-04-math-g4-word_problems-multi_step-pair01",
+            "difficulty": "medium",
+            "note": "Самостоятельная попытка пока не завершена верно."
+          },
+          {
+            "date": "2026-10-10",
+            "mastery": 0.24,
+            "independence": 0.23,
+            "help_level": "joint",
+            "support_level": "joint",
+            "solved": false,
+            "task_id": "demo-ilya-04-math-g4-word_problems-multi_step-pair02",
+            "assessment_pair_id": "demo-ilya-04-math-g4-word_problems-multi_step-pair02",
+            "difficulty": "medium",
+            "note": "Задача выполнена с опорой; затем проверили тот же тип задания без подсказки."
+          },
+          {
+            "date": "2026-10-11",
+            "mastery": 0.24,
+            "independence": 0.23,
+            "help_level": "independent",
+            "support_level": "independent",
+            "solved": false,
+            "task_id": "demo-ilya-04-math-g4-word_problems-multi_step-pair02",
+            "assessment_pair_id": "demo-ilya-04-math-g4-word_problems-multi_step-pair02",
+            "difficulty": "medium",
+            "note": "Самостоятельная попытка пока не завершена верно."
+          }
+        ]
+      },
+      {
+        "topic_id": "programming.python.variables",
+        "mastery": 0.68,
+        "confidence": 0.7,
+        "independence": 0.51,
+        "needs_scaffolding": true,
+        "effective_scaffolding": [
+          "Записывать значение переменной после каждой строки кода."
+        ],
+        "recommended_scaffolding": "hint_question",
+        "last_assessed": "2026-10-11",
+        "history": [
+          {
+            "date": "2026-10-08",
+            "mastery": 0.68,
+            "independence": 0.51,
+            "help_level": "hint_question",
+            "support_level": "hint_question",
+            "solved": true,
+            "task_id": "demo-ilya-04-programming-python-variables-pair01",
+            "assessment_pair_id": "demo-ilya-04-programming-python-variables-pair01",
+            "difficulty": "medium",
+            "note": "Задача выполнена с опорой; затем проверили тот же тип задания без подсказки."
+          },
+          {
+            "date": "2026-10-09",
+            "mastery": 0.68,
+            "independence": 0.51,
+            "help_level": "independent",
+            "support_level": "independent",
+            "solved": false,
+            "task_id": "demo-ilya-04-programming-python-variables-pair01",
+            "assessment_pair_id": "demo-ilya-04-programming-python-variables-pair01",
+            "difficulty": "medium",
+            "note": "Самостоятельная попытка пока не завершена верно."
+          },
+          {
+            "date": "2026-10-10",
+            "mastery": 0.68,
+            "independence": 0.51,
+            "help_level": "hint_question",
+            "support_level": "hint_question",
+            "solved": true,
+            "task_id": "demo-ilya-04-programming-python-variables-pair02",
+            "assessment_pair_id": "demo-ilya-04-programming-python-variables-pair02",
+            "difficulty": "medium",
+            "note": "Задача выполнена с опорой; затем проверили тот же тип задания без подсказки."
+          },
+          {
+            "date": "2026-10-11",
+            "mastery": 0.68,
+            "independence": 0.51,
+            "help_level": "independent",
+            "support_level": "independent",
+            "solved": false,
+            "task_id": "demo-ilya-04-programming-python-variables-pair02",
+            "assessment_pair_id": "demo-ilya-04-programming-python-variables-pair02",
+            "difficulty": "medium",
+            "note": "Самостоятельная попытка пока не завершена верно."
+          }
+        ]
+      },
+      {
+        "topic_id": "math.g4.quantities.unit_conversion",
+        "mastery": 0.62,
+        "confidence": 0.7,
+        "independence": 0.48,
+        "needs_scaffolding": true,
+        "effective_scaffolding": [
+          "записать исходную и нужную единицу",
+          "проверить направление перевода"
+        ],
+        "recommended_scaffolding": "hint_question",
+        "last_assessed": "2026-10-11",
+        "history": [
+          {
+            "date": "2026-10-08",
+            "mastery": 0.62,
+            "independence": 0.48,
+            "help_level": "hint_question",
+            "support_level": "hint_question",
+            "solved": true,
+            "task_id": "demo-ilya-04-math-g4-quantities-unit_conversion-pair01",
+            "assessment_pair_id": "demo-ilya-04-math-g4-quantities-unit_conversion-pair01",
+            "difficulty": "medium",
+            "note": "Задача выполнена с опорой; затем проверили тот же тип задания без подсказки."
+          },
+          {
+            "date": "2026-10-09",
+            "mastery": 0.62,
+            "independence": 0.48,
+            "help_level": "independent",
+            "support_level": "independent",
+            "solved": false,
+            "task_id": "demo-ilya-04-math-g4-quantities-unit_conversion-pair01",
+            "assessment_pair_id": "demo-ilya-04-math-g4-quantities-unit_conversion-pair01",
+            "difficulty": "medium",
+            "note": "Самостоятельная попытка пока не завершена верно."
+          },
+          {
+            "date": "2026-10-10",
+            "mastery": 0.62,
+            "independence": 0.48,
+            "help_level": "hint_question",
+            "support_level": "hint_question",
+            "solved": true,
+            "task_id": "demo-ilya-04-math-g4-quantities-unit_conversion-pair02",
+            "assessment_pair_id": "demo-ilya-04-math-g4-quantities-unit_conversion-pair02",
+            "difficulty": "medium",
+            "note": "Задача выполнена с опорой; затем проверили тот же тип задания без подсказки."
+          },
+          {
+            "date": "2026-10-11",
+            "mastery": 0.62,
+            "independence": 0.48,
+            "help_level": "independent",
+            "support_level": "independent",
+            "solved": false,
+            "task_id": "demo-ilya-04-math-g4-quantities-unit_conversion-pair02",
+            "assessment_pair_id": "demo-ilya-04-math-g4-quantities-unit_conversion-pair02",
+            "difficulty": "medium",
+            "note": "Самостоятельная попытка пока не завершена верно."
+          }
+        ]
+      },
+      {
+        "topic_id": "math.g4.geometry.angles",
+        "mastery": 0.88,
+        "confidence": 0.7,
+        "independence": 0.81,
+        "needs_scaffolding": false,
+        "effective_scaffolding": [
+          "сверить угол с прямым",
+          "подписать вершину и стороны"
+        ],
+        "recommended_scaffolding": "hint_question",
+        "last_assessed": "2026-10-11",
+        "history": [
+          {
+            "date": "2026-10-08",
+            "mastery": 0.88,
+            "independence": 0.81,
+            "help_level": "hint_question",
+            "support_level": "hint_question",
+            "solved": true,
+            "task_id": "demo-ilya-04-math-g4-geometry-angles-pair01",
+            "assessment_pair_id": "demo-ilya-04-math-g4-geometry-angles-pair01",
+            "difficulty": "medium",
+            "note": "Задача выполнена с опорой; затем проверили тот же тип задания без подсказки."
+          },
+          {
+            "date": "2026-10-09",
+            "mastery": 0.88,
+            "independence": 0.81,
+            "help_level": "independent",
+            "support_level": "independent",
+            "solved": true,
+            "task_id": "demo-ilya-04-math-g4-geometry-angles-pair01",
+            "assessment_pair_id": "demo-ilya-04-math-g4-geometry-angles-pair01",
+            "difficulty": "medium",
+            "note": "Решение выполнено самостоятельно."
+          },
+          {
+            "date": "2026-10-10",
+            "mastery": 0.88,
+            "independence": 0.81,
+            "help_level": "hint_question",
+            "support_level": "hint_question",
+            "solved": true,
+            "task_id": "demo-ilya-04-math-g4-geometry-angles-pair02",
+            "assessment_pair_id": "demo-ilya-04-math-g4-geometry-angles-pair02",
+            "difficulty": "medium",
+            "note": "Задача выполнена с опорой; затем проверили тот же тип задания без подсказки."
+          },
+          {
+            "date": "2026-10-11",
+            "mastery": 0.88,
+            "independence": 0.81,
+            "help_level": "independent",
+            "support_level": "independent",
+            "solved": true,
+            "task_id": "demo-ilya-04-math-g4-geometry-angles-pair02",
+            "assessment_pair_id": "demo-ilya-04-math-g4-geometry-angles-pair02",
+            "difficulty": "medium",
+            "note": "Решение выполнено самостоятельно."
+          }
+        ]
+      },
+      {
+        "topic_id": "programming.scratch.loops",
+        "mastery": 0.73,
+        "confidence": 0.7,
+        "independence": 0.61,
+        "needs_scaffolding": true,
+        "effective_scaffolding": [
+          "записать состояние после каждого повтора",
+          "сверить число повторений"
+        ],
+        "recommended_scaffolding": "hint_question",
+        "last_assessed": "2026-10-11",
+        "history": [
+          {
+            "date": "2026-10-08",
+            "mastery": 0.73,
+            "independence": 0.61,
+            "help_level": "hint_question",
+            "support_level": "hint_question",
+            "solved": true,
+            "task_id": "demo-ilya-04-programming-scratch-loops-pair01",
+            "assessment_pair_id": "demo-ilya-04-programming-scratch-loops-pair01",
+            "difficulty": "medium",
+            "note": "Задача выполнена с опорой; затем проверили тот же тип задания без подсказки."
+          },
+          {
+            "date": "2026-10-09",
+            "mastery": 0.73,
+            "independence": 0.61,
+            "help_level": "independent",
+            "support_level": "independent",
+            "solved": false,
+            "task_id": "demo-ilya-04-programming-scratch-loops-pair01",
+            "assessment_pair_id": "demo-ilya-04-programming-scratch-loops-pair01",
+            "difficulty": "medium",
+            "note": "Самостоятельная попытка пока не завершена верно."
+          },
+          {
+            "date": "2026-10-10",
+            "mastery": 0.73,
+            "independence": 0.61,
+            "help_level": "hint_question",
+            "support_level": "hint_question",
+            "solved": true,
+            "task_id": "demo-ilya-04-programming-scratch-loops-pair02",
+            "assessment_pair_id": "demo-ilya-04-programming-scratch-loops-pair02",
+            "difficulty": "medium",
+            "note": "Задача выполнена с опорой; затем проверили тот же тип задания без подсказки."
+          },
+          {
+            "date": "2026-10-11",
+            "mastery": 0.73,
+            "independence": 0.61,
+            "help_level": "independent",
+            "support_level": "independent",
+            "solved": false,
+            "task_id": "demo-ilya-04-programming-scratch-loops-pair02",
+            "assessment_pair_id": "demo-ilya-04-programming-scratch-loops-pair02",
+            "difficulty": "medium",
+            "note": "Самостоятельная попытка пока не завершена верно."
+          }
+        ]
+      }
+    ],
+    "zpd": {
+      "current": [
+        "programming.python.variables",
+        "math.g4.quantities.unit_conversion",
+        "programming.scratch.loops"
+      ],
+      "outside": [
+        "math.g4.word_problems.multi_step"
+      ]
+    },
+    "learning_preferences": {
+      "visual": 0.35,
+      "hands_on": 0.72,
+      "storyline": 0.64,
+      "audio": 0.48,
+      "collaboration": 0.57,
+      "competition": 0.42
+    },
+    "engagement": {
+      "record_type": "synthetic_demo",
+      "strongest_conditions": [
+        "спортивная статистика",
+        "модельные ракеты"
+      ],
+      "reading_note": "Читает быстро и может пропустить слово-условие, например «каждый», «осталось» или «всего».",
+      "preferred_session_minutes": 25
+    },
+    "ai_usage": {
+      "asks_clarifying_questions": false,
+      "uses_hints": true,
+      "copies_code_without_reading": true,
+      "reflection": "Перед изменением кода полезно спросить, что хранит каждая переменная."
+    },
+    "projects": [
+      {
+        "id": "ilya-match-stats",
+        "title": "Табло результатов матча",
+        "description": "Программа на Python хранит счёт команд и печатает короткую сводку после матча.",
+        "status": "building",
+        "skills": [
+          "math.g4.numbers.multidigit_addition_subtraction",
+          "programming.python.variables"
+        ]
+      },
+      {
+        "id": "demo-ilya-04-completed-project",
+        "title": "Завершённый мини-проект: спортивная статистика",
+        "description": "Ученик собрал небольшой результат по теме math.g4.numbers.multidigit_addition_subtraction и показал, как в нём используется навык из темы programming.scratch.loops.",
+        "status": "completed",
+        "skills": [
+          "math.g4.numbers.multidigit_addition_subtraction",
+          "programming.scratch.loops"
+        ],
+        "reflection": "Ученик объяснил один удачный выбор и назвал, что хочет улучшить в следующей версии.",
+        "completed_at": "2026-10-06"
+      }
+    ],
+    "strengths": [
+      "Связывает задания с интересом к теме «спортивная статистика».",
+      "Может назвать способ, который помог решить задачу."
+    ],
+    "support_needs": [
+      "Читает быстро и может пропустить слово-условие, например «каждый», «осталось» или «всего».",
+      "Давать по одной подсказке и отмечать, какой шаг ученик затем выполнил самостоятельно."
+    ],
+    "scaffolding_by_topic": [
+      {
+        "topic_id": "math.g4.word_problems.multi_step",
+        "strategies": [
+          "Отметить известные величины и вопрос задачи разными знаками.",
+          "Решать вопросы задачи по порядку и записывать промежуточный ответ."
+        ]
+      },
+      {
+        "topic_id": "programming.python.variables",
+        "strategies": [
+          "Записывать значение переменной после каждой строки кода."
+        ]
+      },
+      {
+        "topic_id": "math.g4.quantities.unit_conversion",
+        "strategies": [
+          "записать исходную и нужную единицу",
+          "проверить направление перевода"
+        ]
+      },
+      {
+        "topic_id": "programming.scratch.loops",
+        "strategies": [
+          "записать состояние после каждого повтора",
+          "сверить число повторений"
+        ]
+      }
+    ],
+    "gamification": {
+      "xp": 14,
+      "level": 1,
+      "badges": [
+        "ДЕМО – ученик",
+        "Замечает стратегию"
+      ],
+      "missions_completed": 5,
+      "next_mission": "Отслеживать переменную по строкам"
+    }
+  }
+}

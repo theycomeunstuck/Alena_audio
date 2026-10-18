@@ -99,14 +99,14 @@ def collect_material(knowledge_dir: Path, catalog: dict) -> tuple[dict[str, int]
         material[item.topic_id] = material.get(item.topic_id, 0) + 1
 
         expected_grade = catalog[item.topic_id].get("grade")
-        if expected_grade is not None and f".g{expected_grade}." not in item.topic_id:
+        if item.topic_id.startswith('math.') and expected_grade is not None and f".g{expected_grade}." not in item.topic_id:
             grade_mismatch.append((item.topic, item.topic_id, str(expected_grade)))
     return material, unknown, grade_mismatch
 
 
 def build_coverage(knowledge_dir: Path | None = None) -> Coverage:
     tools = load_learner_data_tools()
-    catalog = tools.load_catalog(LEARNER_DATA_DIR / "catalog" / "math_g3_g4.json")
+    catalog = tools.load_catalog(LEARNER_DATA_DIR / "catalog")
     material, unknown, grade_mismatch = collect_material(knowledge_dir or KNOWLEDGE_DIR, catalog)
     return Coverage(
         needed=collect_needed_topics(),
@@ -165,7 +165,7 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         coverage = build_coverage(args.knowledge_dir)
-        catalog = load_learner_data_tools().load_catalog(LEARNER_DATA_DIR / "catalog" / "math_g3_g4.json")
+        catalog = load_learner_data_tools().load_catalog(LEARNER_DATA_DIR / "catalog")
     except Exception as exc:  # noqa: BLE001 - CLI boundary, любая проблема чтения данных
         print(f"Не удалось собрать отчёт: {exc}", file=sys.stderr)
         return 2

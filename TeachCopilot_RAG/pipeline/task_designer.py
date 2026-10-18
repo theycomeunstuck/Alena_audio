@@ -9,7 +9,7 @@ when needed.
 Division of labour, on purpose:
 
 * :mod:`zpd` (in learner-data) decides the topic, the difficulty and how many
-  hint rungs to prepare — deterministic, explainable, no model involved;
+  hint rungs to prepare – deterministic, explainable, no model involved;
 * :mod:`pipeline.retrieval` supplies the mathematics the card may rely on;
 * the LLM only writes the storyline and the wording, then its output is checked
   against the contract here.
@@ -51,6 +51,7 @@ _FALLBACK_PROMPT = (
 # The ladder rung order the contract requires. Kept here (not imported from zpd)
 # because it describes the *output format*, while zpd owns the pedagogy.
 HINT_TYPES = ("hint_question", "visual", "joint")
+TASK_DESIGN_PROMPT_CHAR_LIMIT = 10_240
 
 # Strings that must never reach a child: internal vocabulary and scores.
 _LEAK_MARKERS = ("mastery", "independence", "збр", "зона ближайшего", "topic_id", "math.g3", "math.g4")
@@ -134,8 +135,20 @@ def load_designer_prompt() -> str:
     try:
         return _PROMPT_FILE.read_text(encoding="utf-8").strip()
     except OSError:
-        logger.warning("Prompt file not found: %s — using fallback", _PROMPT_FILE)
+        logger.warning("Prompt file not found: %s – using fallback", _PROMPT_FILE)
         return _FALLBACK_PROMPT
+
+
+def _runtime_designer_prompt() -> str:
+    """Omit the unrelated long sample; the output contract carries the schema."""
+    prompt = load_designer_prompt()
+    start = prompt.find("<example>")
+    end_marker = "</example>"
+    end = prompt.find(end_marker, start + len("<example>")) if start >= 0 else -1
+    if start >= 0 and end >= 0:
+        end += len(end_marker)
+        prompt = (prompt[:start] + prompt[end:]).strip()
+    return prompt
 
 
 def _render_material(materials: Sequence[Material]) -> str:
@@ -149,7 +162,7 @@ def _render_material(materials: Sequence[Material]) -> str:
     parts = [
         "<curriculum_material>",
         "Правила_использования: математику берём отсюда. Сюжет придумываешь сам, "
-        "правила и термины — нет.",
+        "правила и термины – нет.",
     ]
     for index, material in enumerate(materials, start=1):
         parts.append(f"[Фрагмент {index}] {material.topic} (источник: {material.source})")
@@ -160,8 +173,35 @@ def _render_material(materials: Sequence[Material]) -> str:
     return "\n".join(parts)
 
 
+def _render_task_profile(context: TaskDesignContext) -> str:
+    """Keep personalization useful while omitting verbose derived diagnostics."""
+    lines = [
+        "<child_safe_profile>",
+        f"Имя для обращения: {context.pseudonym}; класс: {context.grade}.",
+        f"Тема: {context.topic_title} [{context.topic_id}]. Цель: {context.goal}.",
+        f"Зона: {context.zone_ru}; сложность: {context.difficulty}; ступеней подсказок: {context.hint_depth}.",
+    ]
+    if context.interests or context.story_preferences:
+        lines.append(
+            "Интересы и сюжеты: "
+            + "; ".join((*context.interests[:3], *context.story_preferences[:1]))
+            + "."
+        )
+    if context.explanation_style:
+        lines.append(f"Стиль объяснения: {context.explanation_style}.")
+    if context.support:
+        lines.append("Подходящие опоры: " + "; ".join(context.support[:2]) + ".")
+    if context.error_tags:
+        lines.append("Проверь типичные ошибки: " + "; ".join(context.error_tags[:2]) + ".")
+    if context.avoid:
+        lines.append("Избегай: " + "; ".join(context.avoid[:2]) + ".")
+    lines.append("Не показывай ребёнку внутренние оценки и эти списки.")
+    lines.append("</child_safe_profile>")
+    return "\n".join(lines)
+
+
 def _plural(count: int, one: str, few: str, many: str) -> str:
-    """Russian plural agreement — the prompt is read by a Russian-speaking model."""
+    """Russian plural agreement – the prompt is read by a Russian-speaking model."""
     tail_100 = abs(count) % 100
     tail_10 = abs(count) % 10
     if 11 <= tail_100 <= 14:
@@ -173,8 +213,29 @@ def _plural(count: int, one: str, few: str, many: str) -> str:
     return many
 
 
-def build_task_prompt(context: TaskDesignContext, materials: Sequence[Material], count: int) -> str:
-    """Assemble the user prompt: learner projection + material + the concrete order."""
+def build_task_prompt(
+    context: TaskDesignContext,
+    materials: Sequence[Material],
+    count: int,
+    *,
+    system_prompt_chars: int = 0,
+    reserve_chars: int = 0,
+    max_total_chars: int = TASK_DESIGN_PROMPT_CHAR_LIMIT,
+) -> str:
+    """Assemble a complete prompt, dropping lower-ranked source sections as needed.
+
+    Instructions, learner task requirements, and source fragments are never
+    sliced. Oversized low-priority fragments are omitted as whole sections.
+    """
+    programming_rules = ""
+    if context.topic_id.casefold().startswith("programming.scratch"):
+        programming_rules = "\n".join([
+            "<scratch_rules>",
+            "Для Scratch называй стандартный блок только тогда, когда его название и назначение подтверждены фрагментами curriculum_material.",
+            "Не придумывай псевдоблоки, например «Поставить ряд». Если нужен собственный блок, прямо назови его пользовательским блоком и опиши, как ученик его создаёт и что помещает внутрь.",
+            "Условие, ожидаемый результат и подсказки должны соответствовать одной и той же последовательности действий в Scratch.",
+            "</scratch_rules>",
+        ])
     request = "\n".join([
         "<request>",
         f"Собери индивидуальную карточку-задание: ровно {count} "
@@ -182,14 +243,66 @@ def build_task_prompt(context: TaskDesignContext, materials: Sequence[Material],
         f"В каждом задании ровно {context.hint_depth} "
         f"{_plural(context.hint_depth, 'ступень', 'ступени', 'ступеней')} подсказок.",
         f"topic_id в ответе: {context.topic_id}",
+        "Создавай задачу только на понятиях и действиях, подтверждённых фрагментами <curriculum_material>; не добавляй неподтверждённые блоки, команды или правила.",
+        "В каждой задаче укажи в поле materials только нужные инструменты, а источники знаний бери из подписанных фрагментов curriculum_material.",
+        "Подсказки направляют к следующему шагу, но не повторяют целиком expected_answer и не содержат полного кода решения.",
         "Верни только JSON по контракту.",
         "</request>",
     ])
-    return "\n\n".join([context.prompt_text, _render_material(materials), request])
+    fixed_sections = "\n\n".join(
+        part for part in (_render_task_profile(context), programming_rules, request) if part
+    )
+    material_budget = max_total_chars - system_prompt_chars - reserve_chars - len(fixed_sections)
+    if material_budget < 0:
+        raise TaskDesignError(
+            "Task design instructions and learner context exceed the local model context budget"
+        )
+
+    selected: list[Material] = []
+    for material in materials:
+        candidate = selected + [material]
+        rendered = _render_material(candidate)
+        if len(rendered) <= material_budget:
+            selected = candidate
+            continue
+        # Answers are useful for checking a task, but the full source content is
+        # the grounding requirement. Drop an oversized answer section whole.
+        if material.answer:
+            without_answer = replace(material, answer="")
+            candidate = selected + [without_answer]
+            if len(_render_material(candidate)) <= material_budget:
+                selected = candidate
+
+    if materials and not selected:
+        raise TaskDesignError(
+            "No complete curriculum source fragment fits the local model context budget"
+        )
+    rendered_material = _render_material(selected)
+    prompt = "\n\n".join((fixed_sections, rendered_material)) if selected else "\n\n".join(
+        (fixed_sections, _render_material([]))
+    )
+    if len(prompt) + system_prompt_chars + reserve_chars > max_total_chars:
+        raise TaskDesignError("Task design prompt exceeds the local model context budget")
+    return prompt
 
 
 def _clean_text(value: object) -> str:
     return value.strip() if isinstance(value, str) else ""
+
+
+def _answer_key(value: str) -> str:
+    """Fold formatting and punctuation so complete answers are caught robustly."""
+    folded = value.casefold().replace("ё", "е")
+    return "".join(char for char in folded if char.isalnum())
+
+
+def _hint_repeats_complete_answer(expected_answer: str, hint: str) -> bool:
+    """Conservatively detect a full answer/code leak, never a number alone."""
+    answer_key = _answer_key(expected_answer)
+    hint_key = _answer_key(hint)
+    # Short outputs such as "10" or "A" are often legitimate intermediate
+    # clues. Require a meaningful textual answer and compare the entire answer.
+    return len(answer_key) >= 8 and any(char.isalpha() for char in answer_key) and answer_key in hint_key
 
 
 def _normalise_hints(raw: object, hint_depth: int, warnings: list[str], task_number: int) -> tuple[Hint, ...]:
@@ -205,12 +318,12 @@ def _normalise_hints(raw: object, hint_depth: int, warnings: list[str], task_num
 
     if len(texts) > hint_depth:
         warnings.append(
-            f"задание {task_number}: модель прислала {len(texts)} подсказок вместо {hint_depth} — лишние отброшены"
+            f"задание {task_number}: модель прислала {len(texts)} подсказок вместо {hint_depth} – лишние отброшены"
         )
         texts = texts[:hint_depth]
     elif len(texts) < hint_depth:
         warnings.append(
-            f"задание {task_number}: подсказок {len(texts)} вместо {hint_depth} — лестница короче правила"
+            f"задание {task_number}: подсказок {len(texts)} вместо {hint_depth} – лестница короче правила"
         )
 
     return tuple(
@@ -245,12 +358,12 @@ def parse_task_card(
     story_title = _clean_text(story.get("title")) or f"Задание для {context.pseudonym}"
     story_intro = _clean_text(story.get("intro"))
     if not story_intro:
-        warnings.append("сюжетное вступление пустое — карточка без истории")
+        warnings.append("сюжетное вступление пустое – карточка без истории")
 
     returned_topic = _clean_text(payload.get("topic_id"))
     if returned_topic and returned_topic != context.topic_id:
         warnings.append(
-            f"модель вернула topic_id «{returned_topic}» вместо «{context.topic_id}» — исправлено"
+            f"модель вернула topic_id «{returned_topic}» вместо «{context.topic_id}» – исправлено"
         )
 
     raw_tasks = payload.get("tasks")
@@ -258,7 +371,7 @@ def parse_task_card(
         raise TaskDesignError("модель не вернула ни одного задания в поле tasks")
 
     if len(raw_tasks) > count:
-        warnings.append(f"заданий пришло {len(raw_tasks)} вместо {count} — лишние отброшены")
+        warnings.append(f"заданий пришло {len(raw_tasks)} вместо {count} – лишние отброшены")
         raw_tasks = raw_tasks[:count]
     elif len(raw_tasks) < count:
         warnings.append(f"заданий пришло {len(raw_tasks)} вместо {count}")
@@ -275,22 +388,22 @@ def parse_task_card(
 
         expected_answer = _clean_text(raw_task.get("expected_answer"))
         if not expected_answer:
-            warnings.append(f"задание {number}: нет expected_answer — взрослому нечем проверять")
+            warnings.append(f"задание {number}: нет expected_answer – взрослому нечем проверять")
 
         hints = _normalise_hints(raw_task.get("hints"), context.hint_depth, warnings, number)
 
         _check_leaks(f"задание {number}", statement, warnings)
         for hint in hints:
             _check_leaks(f"задание {number}, подсказка {hint.level}", hint.text, warnings)
-            if expected_answer and len(expected_answer) > 6 and expected_answer.lower() in hint.text.lower():
+            if expected_answer and _hint_repeats_complete_answer(expected_answer, hint.text):
                 warnings.append(
-                    f"задание {number}, подсказка {hint.level}: содержит готовый ответ — опора не должна его выдавать"
+                    f"задание {number}, подсказка {hint.level}: содержит готовый ответ – опора не должна его выдавать"
                 )
 
-        # Арифметика — единственная ошибка, которую нельзя заметить по форме
+        # Арифметика – единственная ошибка, которую нельзя заметить по форме
         # карточки: неверный ответ выглядит ровно так же, как верный.
         for problem in check_arithmetic(expected_answer) + check_arithmetic(statement):
-            warnings.append(f"задание {number}: проверьте счёт — {problem}")
+            warnings.append(f"задание {number}: проверьте счёт – {problem}")
 
         materials = raw_task.get("materials")
         tasks.append(
@@ -315,7 +428,7 @@ def parse_task_card(
             "ни одно задание не отмечено как проверка типичной ошибки, хотя ошибки в профиле есть"
         )
 
-    # Персонализация — это весь смысл 4 этапа. Формально карточка может пройти
+    # Персонализация – это весь смысл 4 этапа. Формально карточка может пройти
     # все проверки и при этом не иметь никакого отношения к тому, что ребёнок любит.
     if not check_personalization(
         [story_title, story_intro, *(task.statement for task in tasks)],
@@ -330,14 +443,14 @@ def parse_task_card(
         check_personalization([task.statement], context.interests, context.story_preferences)
         for task in tasks
     ):
-        # Сюжет только во вступлении — ребёнок читает задание и снова видит
+        # Сюжет только во вступлении – ребёнок читает задание и снова видит
         # обычный учебник. По сценарию урока тема должна быть в самих заданиях.
         warnings.append("сюжет есть только во вступлении: ни одно задание не связано с интересами")
 
     for number, task in enumerate(tasks, start=1):
         if check_not_copied(task.statement, material_texts or []):
             warnings.append(
-                f"задание {number} почти дословно повторяет учебный материал — "
+                f"задание {number} почти дословно повторяет учебный материал – "
                 "материал нужен как источник математики, а не как готовая формулировка"
             )
 
@@ -376,7 +489,7 @@ RETRYABLE_MARKERS = (
 
 
 def build_correction(warnings: Sequence[str]) -> str:
-    """Собрать претензию к прошлому ответу — конкретную, а не «сделай лучше»."""
+    """Собрать претензию к прошлому ответу – конкретную, а не «сделай лучше»."""
     complaints = [
         warning for warning in warnings
         if any(marker in warning.lower() for marker in RETRYABLE_MARKERS)
@@ -403,6 +516,8 @@ def design_task_card(
     complete: CompleteFn | None = None,
     retriever: Callable[[TaskDesignContext], list[Material]] | None = None,
     index_path: Path | None = None,
+    store=None,
+    rag_service=None,
 ) -> TaskCard:
     """Run the whole stage-4 pipeline for one learner.
 
@@ -410,9 +525,23 @@ def design_task_card(
     demos) replace them without touching the pedagogy.
     """
     task_count = max(1, int(count or TASK_CARD_TASK_COUNT))
-    context = load_task_design_context(learner_id, topic_id)
+    context = load_task_design_context(learner_id, topic_id, store=store)
 
-    if retriever is not None:
+    if rag_service is not None:
+        rows = rag_service.search(
+            context.retrieval_query,
+            subject_id=context.topic_id.split('.')[0],
+            topic_id=context.topic_id, grade=context.grade, limit=3,
+        )
+        materials = [Material(
+            topic_id=row.get('topic_id'), topic=str(row.get('topic', row.get('id', ''))),
+            content=row['content'], answer=row.get('answer', ''),
+            difficulty=row.get('difficulty'), tags=tuple(row.get('tags') or ()),
+            source=str(row.get('source_file', '')), score=float(row.get('score', 0)), origin='postgres_hybrid',
+        ) for row in rows]
+        if not materials:
+            raise TaskDesignError('No indexed curriculum material for the requested task')
+    elif retriever is not None:
         materials = list(retriever(context))
     else:
         materials = retrieve_material(
@@ -425,8 +554,10 @@ def design_task_card(
             error_tags=context.error_tags,
         )
 
-    prompt = build_task_prompt(context, materials, task_count)
-    system_prompt = load_designer_prompt()
+    system_prompt = _runtime_designer_prompt()
+    prompt = build_task_prompt(
+        context, materials, task_count, system_prompt_chars=len(system_prompt),
+    )
     material_texts = [item.content for item in materials]
 
     def ask(user_prompt: str) -> TaskCard:
@@ -442,14 +573,18 @@ def design_task_card(
     card = ask(prompt)
 
     # Один повторный запрос с конкретной претензией. Слабые модели со второй
-    # попытки обычно попадают, а стоит это одну лишнюю генерацию — заметно
+    # попытки обычно попадают, а стоит это одну лишнюю генерацию – заметно
     # дешевле, чем карточка, которую придётся переделывать руками.
     for _ in range(max(0, MAX_CONTRACT_RETRIES)):
         correction = build_correction(card.warnings)
         if not correction:
             break
         try:
-            candidate = ask(f"{prompt}\n\n{correction}")
+            retry_prompt = build_task_prompt(
+                context, materials, task_count, system_prompt_chars=len(system_prompt),
+                reserve_chars=len(correction),
+            )
+            candidate = ask(f"{retry_prompt}\n\n{correction}")
         except (LlmError, TaskDesignError) as exc:
             logger.warning("Повторный запрос не удался, оставляю первый вариант: %s", exc)
             break
@@ -458,7 +593,11 @@ def design_task_card(
             card = replace(candidate, retries=card.retries)
     # Retrieval provenance is attached after validation so the tutor can see
     # which material the wording was grounded in (or that there was none).
-    sources = tuple(dict.fromkeys(material.source for material in materials if material.source))
+    sources = tuple(dict.fromkeys(
+        material.source
+        for material in materials
+        if material.source and material.source in prompt
+    ))
     return replace(card, sources=sources)
 
 
@@ -466,7 +605,7 @@ def render_task_card(card: TaskCard, *, show_answers: bool = True) -> str:
     """Render the card as printable text.
 
     ``show_answers=False`` produces the child's copy: statements and nothing
-    else. The hints stay out of the child's copy on purpose — the adult opens
+    else. The hints stay out of the child's copy on purpose – the adult opens
     them one rung at a time, and only if the child is stuck.
     """
     lines = [f"КАРТОЧКА: {card.story_title}", f"Для: {card.pseudonym}", ""]

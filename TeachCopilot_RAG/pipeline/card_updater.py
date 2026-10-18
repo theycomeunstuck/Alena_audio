@@ -139,7 +139,7 @@ def _clean(value: object, limit: int = RAG_TEXT_MAX) -> str:
 
 # --- Roster: what the model is allowed to talk about --------------------------
 
-def build_roster(learner_ids: Sequence[str]) -> tuple[str, dict[str, dict], dict]:
+def build_roster(learner_ids: Sequence[str], *, store=None) -> tuple[str, dict[str, dict], dict]:
     """Render the group roster; also return the loaded cards and the catalog.
 
     The roster is the model's whitelist: every ``topic_id`` and every existing
@@ -153,7 +153,7 @@ def build_roster(learner_ids: Sequence[str]) -> tuple[str, dict[str, dict], dict
     catalog: dict = {}
     parts = ["<roster>"]
     for learner_id in learner_ids:
-        card, catalog = load_validated_card(learner_id)
+        card, catalog = load_validated_card(learner_id, store=store)
         cards[learner_id] = card
 
 
@@ -228,7 +228,7 @@ def _parse_learner_block(block: dict, cards: dict[str, dict], catalog: dict) -> 
     grade_marker = f".g{grade}." if grade else ""
 
     def _wrong_grade(topic_id: str) -> bool:
-        return bool(grade_marker) and grade_marker not in topic_id
+        return topic_id.startswith('math.') and bool(grade_marker) and grade_marker not in topic_id
 
     observations: list[ObservedAttempt] = []
     for raw in block.get("observations") or []:
@@ -300,6 +300,7 @@ def propose_updates(
     *,
     complete: CompleteFn | None = None,
     batch_size: int | None = None,
+    store=None,
 ) -> dict[str, CardUpdateProposal]:
     """Ask the model to split lesson notes into per-learner facts.
 
@@ -322,7 +323,7 @@ def propose_updates(
 
     proposals: dict[str, CardUpdateProposal] = {}
     for batch in batches:
-        roster_text, cards, catalog = build_roster(batch)
+        roster_text, cards, catalog = build_roster(batch, store=store)
         payload = complete_json(
             build_update_prompt(notes, roster_text),
             load_update_prompt(),
@@ -499,7 +500,7 @@ def _apply_error_patterns(card: dict, proposal: CardUpdateProposal, today: str) 
         )
         if existing is None:
             patterns.append({
-                "subject": "math",
+                "subject": topic_id.split('.')[0],
                 "topic_id": topic_id,
                 "error_tag": error_tag,
                 "count": 1,
@@ -802,12 +803,14 @@ def update_from_notes(
     force: bool = False,
     batch_size: int | None = None,
     decide: DecideFn | None = None,
+    store=None,
+    actor_id=None,
 ) -> list[AppliedUpdate]:
     """Full pipeline: notes → proposals → applied updates (optionally written).
 
     ``apply=False`` is the default on purpose: the tutor reads the diff first.
     """
-    proposals = propose_updates(notes, learner_ids, complete=complete, batch_size=batch_size)
+    proposals = propose_updates(notes, learner_ids, complete=complete, batch_size=batch_size, store=store)
     if not proposals:
         return []
 
@@ -818,14 +821,17 @@ def update_from_notes(
             if proposal.is_empty():
                 continue
         try:
-            card, _catalog = load_validated_card(learner_id)
+            card, _catalog = load_validated_card(learner_id, store=store)
         except LearnerContextError as exc:
             raise CardUpdateError(str(exc)) from exc
         result = apply_proposal(
             card, proposal, mode=mode, today=today, confirmed_topics=confirmed_topics, force=force
         )
         if apply and result.changed():
-            write_card(learner_id, result.card)
+            if store is not None:
+                store.save_card(result.card, actor_id=actor_id)
+            else:
+                write_card(learner_id, result.card)
         results.append(result)
     return results
 

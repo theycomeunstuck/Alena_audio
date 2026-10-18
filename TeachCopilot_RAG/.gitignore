@@ -45,3 +45,8 @@ _docs/personal data.txt
 _docs/child profile.txt
 
 _docs\Описание системы_TeachCopilot.docx
+
+# Local database, model runtime and credentials
+.local/
+.local.env
+.venv-local/

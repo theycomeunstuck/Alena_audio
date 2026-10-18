@@ -37,12 +37,28 @@
     "legal_name": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["first_name", "last_name", "patronymic"],
+      "required": [
+        "first_name",
+        "last_name",
+        "patronymic"
+      ],
       "description": "Необязательное ФИО для закрытого педагогического/административного интерфейса. Никогда не передаётся в rag_context или модели.",
       "properties": {
-        "first_name": {"type": "string", "minLength": 1, "maxLength": 80},
-        "last_name": {"type": "string", "minLength": 1, "maxLength": 80},
-        "patronymic": {"type": "string", "maxLength": 80, "description": "Допускаются пустая строка или прочерк."}
+        "first_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "last_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "patronymic": {
+          "type": "string",
+          "maxLength": 80,
+          "description": "Допускаются пустая строка или прочерк."
+        }
       }
     },
     "age_group": {
@@ -52,7 +68,10 @@
     },
     "grade": {
       "type": "string",
-      "enum": ["3", "4"],
+      "enum": [
+        "3",
+        "4"
+      ],
       "description": "Класс обучения ученика."
     },
     "language": {
@@ -76,11 +95,15 @@
         "current_goal": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["topic_id", "goal", "updated_at"],
+          "required": [
+            "topic_id",
+            "goal",
+            "updated_at"
+          ],
           "properties": {
             "topic_id": {
               "type": "string",
-              "pattern": "^math\\.g[34]\\.[a-z_]+(\\.[a-z0-9_]+){0,2}$"
+              "pattern": "^(?:math\\.g[34]\\.[a-z_]+(\\.[a-z0-9_]+){0,2}|programming\\.(?:scratch|python)\\.[a-z_]+(?:\\.[a-z0-9_]+){0,2})$"
             },
             "goal": {
               "type": "string",
@@ -100,7 +123,7 @@
           "uniqueItems": true,
           "items": {
             "type": "string",
-            "pattern": "^math\\.g[34]\\.[a-z_]+(\\.[a-z0-9_]+){0,2}$"
+            "pattern": "^(?:math\\.g[34]\\.[a-z_]+(\\.[a-z0-9_]+){0,2}|programming\\.(?:scratch|python)\\.[a-z_]+(?:\\.[a-z0-9_]+){0,2})$"
           }
         },
         "priority_difficulties": {
@@ -109,11 +132,14 @@
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["topic_id", "description"],
+            "required": [
+              "topic_id",
+              "description"
+            ],
             "properties": {
               "topic_id": {
                 "type": "string",
-                "pattern": "^math\\.g[34]\\.[a-z_]+(\\.[a-z0-9_]+){0,2}$"
+                "pattern": "^(?:math\\.g[34]\\.[a-z_]+(\\.[a-z0-9_]+){0,2}|programming\\.(?:scratch|python)\\.[a-z_]+(?:\\.[a-z0-9_]+){0,2})$"
               },
               "description": {
                 "type": "string",
@@ -126,24 +152,39 @@
         "effective_strategies": {
           "type": "array",
           "maxItems": 3,
-          "items": {"type": "string", "minLength": 1, "maxLength": 280}
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 280
+          }
         },
         "avoid": {
           "type": "array",
           "maxItems": 3,
-          "items": {"type": "string", "minLength": 1, "maxLength": 280}
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 280
+          }
         },
         "recent_progress": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["date", "note"],
+          "required": [
+            "date",
+            "note"
+          ],
           "properties": {
             "date": {
               "type": "string",
               "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
               "format": "date"
             },
-            "note": {"type": "string", "minLength": 1, "maxLength": 280}
+            "note": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 280
+            }
           }
         }
       }
@@ -195,16 +236,24 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["topic_id", "status"],
+        "required": [
+          "topic_id",
+          "status"
+        ],
         "properties": {
           "topic_id": {
             "type": "string",
-            "pattern": "^math\\.g[34]\\.[a-z_]+(\\.[a-z0-9_]+){0,2}$",
+            "pattern": "^(?:math\\.g[34]\\.[a-z_]+(\\.[a-z0-9_]+){0,2}|programming\\.(?:scratch|python)\\.[a-z_]+(?:\\.[a-z0-9_]+){0,2})$",
             "description": "Идентификатор темы из каталога навыков (catalog/math_g3_g4.json)."
           },
           "status": {
             "type": "string",
-            "enum": ["not_started", "learning", "confident", "needs_support"],
+            "enum": [
+              "not_started",
+              "learning",
+              "confident",
+              "needs_support"
+            ],
             "description": "Статус освоения темы. Числовых оценок (score) нет и не будет."
           },
           "notes": {
@@ -220,7 +269,13 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["subject", "topic_id", "error_tag", "count", "last_seen"],
+        "required": [
+          "subject",
+          "topic_id",
+          "error_tag",
+          "count",
+          "last_seen"
+        ],
         "properties": {
           "subject": {
             "type": "string",
@@ -228,7 +283,7 @@
           },
           "topic_id": {
             "type": "string",
-            "pattern": "^math\\.g[34]\\.[a-z_]+(\\.[a-z0-9_]+){0,2}$",
+            "pattern": "^(?:math\\.g[34]\\.[a-z_]+(\\.[a-z0-9_]+){0,2}|programming\\.(?:scratch|python)\\.[a-z_]+(?:\\.[a-z0-9_]+){0,2})$",
             "description": "Идентификатор темы из каталога навыков (catalog/math_g3_g4.json)."
           },
           "error_tag": {
@@ -289,7 +344,10 @@
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["date", "note"],
+            "required": [
+              "date",
+              "note"
+            ],
             "properties": {
               "date": {
                 "type": "string",
@@ -307,11 +365,16 @@
         },
         "points_ledger": {
           "type": "array",
-          "description": "Журнал начислений баллов геймификации. Баланс баллов НИКОГДА не хранится в файле — он всегда вычисляется как сумма по журналу (ledger). Запись только в конец (append-only).",
+          "description": "Журнал начислений баллов геймификации. Баланс баллов НИКОГДА не хранится в файле – он всегда вычисляется как сумма по журналу (ledger). Запись только в конец (append-only).",
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["date", "points", "reason", "role"],
+            "required": [
+              "date",
+              "points",
+              "reason",
+              "role"
+            ],
             "properties": {
               "date": {
                 "type": "string",
@@ -335,8 +398,8 @@
               },
               "topic_id": {
                 "type": "string",
-                "pattern": "^math\\.g[34]\\.[a-z_]+(\\.[a-z0-9_]+){0,2}$",
-                "description": "Необязательная привязка начисления к теме — задел на будущую событийную модель геймификации."
+                "pattern": "^(?:math\\.g[34]\\.[a-z_]+(\\.[a-z0-9_]+){0,2}|programming\\.(?:scratch|python)\\.[a-z_]+(?:\\.[a-z0-9_]+){0,2})$",
+                "description": "Необязательная привязка начисления к теме – задел на будущую событийную модель геймификации."
               }
             }
           }
@@ -362,15 +425,18 @@
       "properties": {
         "competencies": {
           "type": "array",
-          "description": "Карта компетенций — единственный источник правды для ЗБР. Зона выводится из mastery/independence правилом из tools/zpd.py, а не задаётся вручную.",
+          "description": "Карта компетенций – единственный источник правды для ЗБР. Зона выводится из mastery/independence правилом из tools/zpd.py, а не задаётся вручную.",
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["topic_id", "mastery"],
+            "required": [
+              "topic_id",
+              "mastery"
+            ],
             "properties": {
               "topic_id": {
                 "type": "string",
-                "pattern": "^math\\.g[34]\\.[a-z_]+(\\.[a-z0-9_]+){0,2}$",
+                "pattern": "^(?:math\\.g[34]\\.[a-z_]+(\\.[a-z0-9_]+){0,2}|programming\\.(?:scratch|python)\\.[a-z_]+(?:\\.[a-z0-9_]+){0,2})$",
                 "description": "Идентификатор темы из каталога навыков."
               },
               "mastery": {
@@ -397,7 +463,10 @@
               },
               "effective_scaffolding": {
                 "type": "array",
-                "items": {"type": "string", "minLength": 1},
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
                 "description": "Опоры, которые сработали именно на этой теме."
               },
               "recommended_scaffolding": {
@@ -417,15 +486,70 @@
                 "items": {
                   "type": "object",
                   "additionalProperties": false,
-                  "required": ["date"],
+                  "required": [
+                    "date"
+                  ],
                   "properties": {
-                    "date": {"type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$", "format": "date"},
-                    "mastery": {"type": "number", "minimum": 0, "maximum": 1},
-                    "independence": {"type": "number", "minimum": 0, "maximum": 1},
+                    "date": {
+                      "type": "string",
+                      "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                      "format": "date"
+                    },
+                    "mastery": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 1
+                    },
+                    "independence": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 1
+                    },
                     "help_level": {
                       "type": "string",
-                      "enum": ["independent", "hint_question", "visual", "joint"],
+                      "enum": [
+                        "independent",
+                        "hint_question",
+                        "visual",
+                        "joint"
+                      ],
                       "description": "Ступень лестницы подсказок, на которой ребёнок справился."
+                    },
+                    "support_level": {
+                      "type": "string",
+                      "enum": [
+                        "independent",
+                        "hint_question",
+                        "visual",
+                        "joint"
+                      ],
+                      "description": "Exact support level offered during this attempt."
+                    },
+                    "solved": {
+                      "type": "boolean",
+                      "description": "Explicit attempt outcome; support_level records the support offered before stopping."
+                    },
+                    "task_id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    },
+                    "note": {
+                      "type": "string",
+                      "maxLength": 1000
+                    },
+                    "assessment_pair_id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    },
+                    "difficulty": {
+                      "type": "string",
+                      "enum": [
+                        "easy",
+                        "medium",
+                        "hard"
+                      ]
                     }
                   }
                 }
@@ -438,18 +562,50 @@
           "description": "Производная проекция карты компетенций: перезаписывается командой tools/zpd.py --write, вручную не поддерживается.",
           "additionalProperties": false,
           "properties": {
-            "current": {"type": "array", "items": {"type": "string"}},
-            "outside": {"type": "array", "items": {"type": "string"}}
+            "current": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "outside": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
           }
         },
-        "learning_preferences": {"type": "object"},
-        "engagement": {"type": "object"},
-        "ai_usage": {"type": "object"},
-        "projects": {"type": "array"},
-        "strengths": {"type": "array", "items": {"type": "string"}},
-        "support_needs": {"type": "array", "items": {"type": "string"}},
-        "scaffolding_by_topic": {"type": "array"},
-        "gamification": {"type": "object"}
+        "learning_preferences": {
+          "type": "object"
+        },
+        "engagement": {
+          "type": "object"
+        },
+        "ai_usage": {
+          "type": "object"
+        },
+        "projects": {
+          "type": "array"
+        },
+        "strengths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "support_needs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "scaffolding_by_topic": {
+          "type": "array"
+        },
+        "gamification": {
+          "type": "object"
+        }
       }
     }
   }

@@ -143,7 +143,7 @@ def load_group(group_id: str) -> list[str]:
     return list(dict.fromkeys(learner_ids))
 
 
-def load_validated_card(learner_id: str) -> tuple[dict, dict]:
+def load_validated_card(learner_id: str, *, store=None) -> tuple[dict, dict]:
     """Load exactly one card that passed validation, plus the skills catalog.
 
     The ID is checked before a file path is constructed by learner-data's
@@ -156,8 +156,12 @@ def load_validated_card(learner_id: str) -> tuple[dict, dict]:
         raise LearnerContextError("learner_id must use lowercase letters, digits and hyphens")
 
     try:
-        catalog = tools.load_catalog(LEARNER_DATA_DIR / "catalog" / "math_g3_g4.json")
-        card, _had_bom = tools.load_learner(LEARNER_DATA_DIR / "learners", learner_id)
+        if store is not None:
+            catalog = store.catalog()
+            card = store.get_card(learner_id)
+        else:
+            catalog = tools.load_catalog(LEARNER_DATA_DIR / "catalog")
+            card, _had_bom = tools.load_learner(LEARNER_DATA_DIR / "learners", learner_id)
     except FileNotFoundError as exc:
         raise LearnerContextError(f"learner '{learner_id}' was not found") from exc
     except (OSError, UnicodeDecodeError, ValueError) as exc:
@@ -175,10 +179,10 @@ def load_validated_card(learner_id: str) -> tuple[dict, dict]:
     return card, catalog
 
 
-def load_learner_context(learner_id: str) -> LearnerContext:
+def load_learner_context(learner_id: str, *, store=None) -> LearnerContext:
     """Load one validated card and return only its compact chat projection."""
     tools = _load_learner_data_tools()
-    card, catalog = load_validated_card(learner_id)
+    card, catalog = load_validated_card(learner_id, store=store)
 
     rag_context = card["rag_context"]
     topic_ids = tuple(dict.fromkeys([
@@ -295,14 +299,14 @@ def _render_task_design_context(context_fields: dict) -> str:
     return "\n".join(parts)
 
 
-def load_task_design_context(learner_id: str, topic_id: str | None = None) -> TaskDesignContext:
+def load_task_design_context(learner_id: str, topic_id: str | None = None, *, store=None) -> TaskDesignContext:
     """Build the stage-4 projection for one learner and one target topic.
 
     ``topic_id`` is the lesson theme chosen by the tutor. When omitted, the ЗБР
     policy picks the target itself (current goal first, then the zone).
     """
     tools = _load_learner_data_tools()
-    card, catalog = load_validated_card(learner_id)
+    card, catalog = load_validated_card(learner_id, store=store)
     zpd = tools.zpd
 
     if topic_id is not None and topic_id not in catalog:

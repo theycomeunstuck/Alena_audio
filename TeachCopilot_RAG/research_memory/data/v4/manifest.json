@@ -1,0 +1,26 @@
+{
+  "protocol": "heldout-v4",
+  "judge_protocol": "context-v3",
+  "status": "prepared_before_generation",
+  "human_semantic_review": false,
+  "generator_inputs": [
+    "histories.test.jsonl",
+    "requests.test.jsonl"
+  ],
+  "excluded_from_generator": [
+    "gold.test.jsonl",
+    "design.private.json",
+    "calibration.cases.jsonl",
+    "calibration.expected.jsonl",
+    "review.selection.json"
+  ],
+  "sha256": {
+    "histories.test.jsonl": "1a06e11643a9cf4bdb9def37f068dd76c182b5985b02ac9465b936def6a7e0bb",
+    "requests.test.jsonl": "eec575f6b5c278115c1139741d17890e25e5bdcf19e2c0ad6ccc8be940be4af0",
+    "gold.test.jsonl": "b0bc324ce741665e6e6f72d99051e3a31dcd09b59e8362f7e8ad2aacd8eb6358",
+    "design.private.json": "af82fc61d62dd493210cc1877b352ecdcbe97ed454bca442605e787e61122d4f",
+    "calibration.cases.jsonl": "387f70c6002622c770754d947d965a94f65035828205c20b53a84cba913d88a0",
+    "calibration.expected.jsonl": "c8bb65b7fa8260a80c2770edf298c3181d57f62eea0c17d918da16a91ac905bf",
+    "review.selection.json": "cb7f0126efa1683f30aa37bdb3199aed9645f3da3fb3b6622b1f7efd2a6b0e6d"
+  }
+}

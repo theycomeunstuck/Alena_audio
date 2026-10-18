@@ -1,0 +1,710 @@
+{
+  "schema_version": 2,
+  "learner_id": "demo-luna-03",
+  "pseudonym": "ДЕМО – Луна Лис",
+  "age_group": "8-9",
+  "grade": "3",
+  "language": "russian",
+  "rag_context": {
+    "current_goal": {
+      "topic_id": "math.g3.word_problems.one_step",
+      "goal": "Научиться выбирать действие в короткой задаче на один шаг: сначала подчеркнуть вопрос и нарисовать схему, затем решить две новые задачи без подсказки. Успех – оба ответа верны; после точной попытки убрать схему и попросить объяснить выбор действия.",
+      "updated_at": "2026-10-12"
+    },
+    "current_topics": [
+      "math.g3.numbers.multiplication_table.times_table",
+      "math.g3.word_problems.one_step",
+      "programming.scratch.sequence"
+    ],
+    "priority_difficulties": [
+      {
+        "topic_id": "math.g3.word_problems.one_step",
+        "description": "По наблюдениям: освоение 72%, самостоятельность 55%. Начать с опоры: нарисовать равные группы; после точной попытки проверить, можно ли её убрать."
+      },
+      {
+        "topic_id": "math.g3.geometry.area_rectangle",
+        "description": "По наблюдениям: освоение 79%, самостоятельность 62%. Начать с опоры: уточнить, что именно спрашивают; после точной попытки проверить, можно ли её убрать."
+      },
+      {
+        "topic_id": "programming.python.output",
+        "description": "По наблюдениям: освоение 68%, самостоятельность 54%. Начать с опоры: попросить сначала предсказать результат; после точной попытки проверить, можно ли её убрать."
+      }
+    ],
+    "effective_strategies": [
+      "нарисовать равные группы",
+      "уточнить, что именно спрашивают",
+      "попросить сначала предсказать результат"
+    ],
+    "avoid": [
+      "Не убирать опору, пока самостоятельное решение не подтверждено наблюдениями.",
+      "Не считать непроверенную тему неуспехом: сначала провести диагностику."
+    ],
+    "recent_progress": {
+      "date": "2026-10-12",
+      "note": "Короткие задачи читает уверенно; длинное условие полезно перечитать в спокойном темпе."
+    }
+  },
+  "profile": {
+    "explanation_style": "сначала рисунок, затем одно короткое правило",
+    "pace": "ровный темп с паузами на перечитывание",
+    "autonomy_level": "любит сначала попробовать самостоятельно",
+    "motivation": "составить полезный план для истории",
+    "prefers_visual": true
+  },
+  "interests": [
+    "карты космоса",
+    "выпечка",
+    "истории о лисах"
+  ],
+  "knowledge": [
+    {
+      "topic_id": "math.g3.numbers.multiplication_table.times_table",
+      "status": "confident",
+      "notes": "По последнему наблюдению: Решил самостоятельно, проговорил план и проверил ответ."
+    },
+    {
+      "topic_id": "math.g3.word_problems.one_step",
+      "status": "learning",
+      "notes": "По последнему наблюдению: Решил после одного наводящего вопроса о следующем шаге."
+    },
+    {
+      "topic_id": "programming.scratch.sequence",
+      "status": "confident",
+      "notes": "По последнему наблюдению: Решил самостоятельно, проговорил план и проверил ответ."
+    },
+    {
+      "topic_id": "math.g3.numbers.numeration_1000",
+      "status": "confident",
+      "notes": "По последнему наблюдению: Решил после одного наводящего вопроса о следующем шаге."
+    },
+    {
+      "topic_id": "math.g3.geometry.area_rectangle",
+      "status": "learning",
+      "notes": "По последнему наблюдению: Решил, сверяясь с рисунком или наглядной моделью."
+    },
+    {
+      "topic_id": "programming.python.output",
+      "status": "learning",
+      "notes": "По последнему наблюдению: Решил после одного наводящего вопроса о следующем шаге."
+    },
+    {
+      "topic_id": "programming.python.debugging",
+      "status": "not_started",
+      "notes": "Структурированную проверку этой темы ещё не проводили; навык пока неизвестен."
+    }
+  ],
+  "error_patterns": [
+    {
+      "subject": "math",
+      "topic_id": "math.g3.word_problems.one_step",
+      "error_tag": "выбирает действие до того, как определит вопрос задачи",
+      "count": 3,
+      "last_seen": "2026-10-12"
+    },
+    {
+      "subject": "programming",
+      "topic_id": "programming.scratch.sequence",
+      "error_tag": "пропускает один блок, когда пересказывает последовательность",
+      "count": 1,
+      "last_seen": "2026-10-12"
+    }
+  ],
+  "mvp": {
+    "story_preferences": [
+      "карты космоса",
+      "выпечка"
+    ],
+    "learning_preferences_observed": [
+      "сначала рисунок, затем одно короткое правило",
+      "Короткие задачи читает уверенно; длинное условие полезно перечитать в спокойном темпе."
+    ],
+    "help_strategies": [
+      "нарисовать равные группы",
+      "уточнить, что именно спрашивают",
+      "попросить сначала предсказать результат"
+    ],
+    "journal": [
+      {
+        "date": "2026-10-08",
+        "note": "Начали с короткого задания по теме math.g3.numbers.multiplication_table.times_table, чтобы увидеть выбранный способ."
+      },
+      {
+        "date": "2026-10-09",
+        "note": "В теме math.g3.word_problems.one_step помогла опора: нарисовать равные группы."
+      },
+      {
+        "date": "2026-10-10",
+        "note": "Для темы programming.scratch.sequence сначала использовали вопрос-подсказку, потом ученик продолжил сам."
+      },
+      {
+        "date": "2026-10-11",
+        "note": "В теме math.g3.numbers.numeration_1000 проверили предположение на новом примере и обсудили исправление."
+      },
+      {
+        "date": "2026-10-12",
+        "note": "После задания по теме math.g3.geometry.area_rectangle ученик назвал следующий шаг для самостоятельной тренировки."
+      }
+    ],
+    "lessons": [
+      {
+        "date": "2026-10-08",
+        "topic_ids": [
+          "math.g3.numbers.multiplication_table.times_table",
+          "math.g3.word_problems.one_step"
+        ],
+        "minutes": 18,
+        "note": "Разобрали задание по теме math.g3.numbers.multiplication_table.times_table: ученик выбрал способ решения и объяснил, почему он подходит."
+      },
+      {
+        "date": "2026-10-09",
+        "topic_ids": [
+          "math.g3.word_problems.one_step",
+          "programming.scratch.sequence"
+        ],
+        "minutes": 20,
+        "note": "По теме math.g3.word_problems.one_step сравнили ответ с наглядной моделью; при проверке нашли место возможной ошибки."
+      },
+      {
+        "date": "2026-10-10",
+        "topic_ids": [
+          "programming.scratch.sequence",
+          "math.g3.numbers.numeration_1000"
+        ],
+        "minutes": 22,
+        "note": "В теме programming.scratch.sequence ученик получил одну подсказку и затем самостоятельно продолжил решение."
+      },
+      {
+        "date": "2026-10-11",
+        "topic_ids": [
+          "math.g3.numbers.numeration_1000",
+          "math.g3.geometry.area_rectangle"
+        ],
+        "minutes": 24,
+        "note": "По теме math.g3.numbers.numeration_1000 выполнили короткую проверку: сначала прогноз, затем запуск или вычисление."
+      },
+      {
+        "date": "2026-10-12",
+        "topic_ids": [
+          "math.g3.geometry.area_rectangle",
+          "programming.python.output"
+        ],
+        "minutes": 26,
+        "note": "В теме math.g3.geometry.area_rectangle ученик назвал, какая опора помогла и какую часть уже может выполнить сам."
+      }
+    ],
+    "points_ledger": [
+      {
+        "date": "2026-10-08",
+        "points": 3,
+        "reason": "Сформулировал план решения и объяснил первый шаг.",
+        "role": "tutor",
+        "topic_id": "math.g3.numbers.multiplication_table.times_table"
+      },
+      {
+        "date": "2026-10-09",
+        "points": 2,
+        "reason": "Проверил ответ по рисунку или обратному действию.",
+        "role": "tutor",
+        "topic_id": "math.g3.word_problems.one_step"
+      },
+      {
+        "date": "2026-10-10",
+        "points": 4,
+        "reason": "После подсказки сам выбрал следующий шаг.",
+        "role": "tutor",
+        "topic_id": "programming.scratch.sequence"
+      },
+      {
+        "date": "2026-10-11",
+        "points": 3,
+        "reason": "Нашёл и исправил одну ошибку при проверке.",
+        "role": "tutor",
+        "topic_id": "math.g3.numbers.numeration_1000"
+      },
+      {
+        "date": "2026-10-12",
+        "points": 2,
+        "reason": "Сравнил начальную попытку с новым способом.",
+        "role": "tutor",
+        "topic_id": "math.g3.geometry.area_rectangle"
+      }
+    ]
+  },
+  "learner_model": {
+    "competencies": [
+      {
+        "topic_id": "math.g3.numbers.multiplication_table.times_table",
+        "mastery": 0.96,
+        "confidence": 0.87,
+        "independence": 0.91,
+        "needs_scaffolding": false,
+        "effective_scaffolding": [
+          "Нарисовать множители как равные группы предметов.",
+          "Произнести факт умножения и объяснить его рисунком."
+        ],
+        "recommended_scaffolding": "hint_question",
+        "last_assessed": "2026-10-10",
+        "history": [
+          {
+            "date": "2026-10-07",
+            "mastery": 0.96,
+            "independence": 0.91,
+            "help_level": "joint",
+            "support_level": "joint",
+            "solved": true,
+            "task_id": "luna-times-01",
+            "assessment_pair_id": "luna-times-01",
+            "difficulty": "medium",
+            "note": "Сначала Луна решала вместе с учителем, затем по наводящему вопросу, а две сопоставимые задачи выполнила самостоятельно."
+          },
+          {
+            "date": "2026-10-08",
+            "mastery": 0.96,
+            "independence": 0.91,
+            "help_level": "independent",
+            "support_level": "independent",
+            "solved": true,
+            "task_id": "luna-times-01",
+            "assessment_pair_id": "luna-times-01",
+            "difficulty": "medium",
+            "note": "Сначала Луна решала вместе с учителем, затем по наводящему вопросу, а две сопоставимые задачи выполнила самостоятельно."
+          },
+          {
+            "date": "2026-10-09",
+            "mastery": 0.96,
+            "independence": 0.91,
+            "help_level": "hint_question",
+            "support_level": "hint_question",
+            "solved": true,
+            "task_id": "luna-times-02",
+            "assessment_pair_id": "luna-times-02",
+            "difficulty": "medium",
+            "note": "Сначала Луна решала вместе с учителем, затем по наводящему вопросу, а две сопоставимые задачи выполнила самостоятельно."
+          },
+          {
+            "date": "2026-10-10",
+            "mastery": 0.96,
+            "independence": 0.91,
+            "help_level": "independent",
+            "support_level": "independent",
+            "solved": true,
+            "task_id": "luna-times-02",
+            "assessment_pair_id": "luna-times-02",
+            "difficulty": "medium",
+            "note": "Сначала Луна решала вместе с учителем, затем по наводящему вопросу, а две сопоставимые задачи выполнила самостоятельно."
+          }
+        ]
+      },
+      {
+        "topic_id": "math.g3.word_problems.one_step",
+        "mastery": 0.72,
+        "confidence": 0.7,
+        "independence": 0.55,
+        "needs_scaffolding": true,
+        "effective_scaffolding": [
+          "Подчеркнуть вопрос задачи до выбора действия.",
+          "Показать известные и неизвестные величины на полосовой схеме."
+        ],
+        "recommended_scaffolding": "visual",
+        "last_assessed": "2026-10-11",
+        "history": [
+          {
+            "date": "2026-10-08",
+            "mastery": 0.72,
+            "independence": 0.55,
+            "help_level": "hint_question",
+            "support_level": "hint_question",
+            "solved": true,
+            "task_id": "demo-luna-03-math-g3-word_problems-one_step-pair01",
+            "assessment_pair_id": "demo-luna-03-math-g3-word_problems-one_step-pair01",
+            "difficulty": "medium",
+            "note": "Задача выполнена с опорой; затем проверили тот же тип задания без подсказки."
+          },
+          {
+            "date": "2026-10-09",
+            "mastery": 0.72,
+            "independence": 0.55,
+            "help_level": "independent",
+            "support_level": "independent",
+            "solved": false,
+            "task_id": "demo-luna-03-math-g3-word_problems-one_step-pair01",
+            "assessment_pair_id": "demo-luna-03-math-g3-word_problems-one_step-pair01",
+            "difficulty": "medium",
+            "note": "Самостоятельная попытка пока не завершена верно."
+          },
+          {
+            "date": "2026-10-10",
+            "mastery": 0.72,
+            "independence": 0.55,
+            "help_level": "hint_question",
+            "support_level": "hint_question",
+            "solved": true,
+            "task_id": "demo-luna-03-math-g3-word_problems-one_step-pair02",
+            "assessment_pair_id": "demo-luna-03-math-g3-word_problems-one_step-pair02",
+            "difficulty": "medium",
+            "note": "Задача выполнена с опорой; затем проверили тот же тип задания без подсказки."
+          },
+          {
+            "date": "2026-10-11",
+            "mastery": 0.72,
+            "independence": 0.55,
+            "help_level": "independent",
+            "support_level": "independent",
+            "solved": false,
+            "task_id": "demo-luna-03-math-g3-word_problems-one_step-pair02",
+            "assessment_pair_id": "demo-luna-03-math-g3-word_problems-one_step-pair02",
+            "difficulty": "medium",
+            "note": "Самостоятельная попытка пока не завершена верно."
+          }
+        ]
+      },
+      {
+        "topic_id": "programming.scratch.sequence",
+        "mastery": 0.91,
+        "confidence": 0.7,
+        "independence": 0.86,
+        "needs_scaffolding": false,
+        "effective_scaffolding": [
+          "Предсказать действие каждого блока до запуска проекта."
+        ],
+        "recommended_scaffolding": "hint_question",
+        "last_assessed": "2026-10-11",
+        "history": [
+          {
+            "date": "2026-10-08",
+            "mastery": 0.91,
+            "independence": 0.86,
+            "help_level": "hint_question",
+            "support_level": "hint_question",
+            "solved": true,
+            "task_id": "demo-luna-03-programming-scratch-sequence-pair01",
+            "assessment_pair_id": "demo-luna-03-programming-scratch-sequence-pair01",
+            "difficulty": "medium",
+            "note": "Задача выполнена с опорой; затем проверили тот же тип задания без подсказки."
+          },
+          {
+            "date": "2026-10-09",
+            "mastery": 0.91,
+            "independence": 0.86,
+            "help_level": "independent",
+            "support_level": "independent",
+            "solved": true,
+            "task_id": "demo-luna-03-programming-scratch-sequence-pair01",
+            "assessment_pair_id": "demo-luna-03-programming-scratch-sequence-pair01",
+            "difficulty": "medium",
+            "note": "Решение выполнено самостоятельно."
+          },
+          {
+            "date": "2026-10-10",
+            "mastery": 0.91,
+            "independence": 0.86,
+            "help_level": "hint_question",
+            "support_level": "hint_question",
+            "solved": true,
+            "task_id": "demo-luna-03-programming-scratch-sequence-pair02",
+            "assessment_pair_id": "demo-luna-03-programming-scratch-sequence-pair02",
+            "difficulty": "medium",
+            "note": "Задача выполнена с опорой; затем проверили тот же тип задания без подсказки."
+          },
+          {
+            "date": "2026-10-11",
+            "mastery": 0.91,
+            "independence": 0.86,
+            "help_level": "independent",
+            "support_level": "independent",
+            "solved": true,
+            "task_id": "demo-luna-03-programming-scratch-sequence-pair02",
+            "assessment_pair_id": "demo-luna-03-programming-scratch-sequence-pair02",
+            "difficulty": "medium",
+            "note": "Решение выполнено самостоятельно."
+          }
+        ]
+      },
+      {
+        "topic_id": "math.g3.numbers.numeration_1000",
+        "mastery": 0.88,
+        "confidence": 0.7,
+        "independence": 0.82,
+        "needs_scaffolding": false,
+        "effective_scaffolding": [
+          "сгруппировать сотни, десятки и единицы",
+          "проверить разряд по таблице"
+        ],
+        "recommended_scaffolding": "hint_question",
+        "last_assessed": "2026-10-11",
+        "history": [
+          {
+            "date": "2026-10-08",
+            "mastery": 0.88,
+            "independence": 0.82,
+            "help_level": "hint_question",
+            "support_level": "hint_question",
+            "solved": true,
+            "task_id": "demo-luna-03-math-g3-numbers-numeration_1000-pair01",
+            "assessment_pair_id": "demo-luna-03-math-g3-numbers-numeration_1000-pair01",
+            "difficulty": "medium",
+            "note": "Задача выполнена с опорой; затем проверили тот же тип задания без подсказки."
+          },
+          {
+            "date": "2026-10-09",
+            "mastery": 0.88,
+            "independence": 0.82,
+            "help_level": "independent",
+            "support_level": "independent",
+            "solved": true,
+            "task_id": "demo-luna-03-math-g3-numbers-numeration_1000-pair01",
+            "assessment_pair_id": "demo-luna-03-math-g3-numbers-numeration_1000-pair01",
+            "difficulty": "medium",
+            "note": "Решение выполнено самостоятельно."
+          },
+          {
+            "date": "2026-10-10",
+            "mastery": 0.88,
+            "independence": 0.82,
+            "help_level": "hint_question",
+            "support_level": "hint_question",
+            "solved": true,
+            "task_id": "demo-luna-03-math-g3-numbers-numeration_1000-pair02",
+            "assessment_pair_id": "demo-luna-03-math-g3-numbers-numeration_1000-pair02",
+            "difficulty": "medium",
+            "note": "Задача выполнена с опорой; затем проверили тот же тип задания без подсказки."
+          },
+          {
+            "date": "2026-10-11",
+            "mastery": 0.88,
+            "independence": 0.82,
+            "help_level": "independent",
+            "support_level": "independent",
+            "solved": true,
+            "task_id": "demo-luna-03-math-g3-numbers-numeration_1000-pair02",
+            "assessment_pair_id": "demo-luna-03-math-g3-numbers-numeration_1000-pair02",
+            "difficulty": "medium",
+            "note": "Решение выполнено самостоятельно."
+          }
+        ]
+      },
+      {
+        "topic_id": "math.g3.geometry.area_rectangle",
+        "mastery": 0.79,
+        "confidence": 0.7,
+        "independence": 0.62,
+        "needs_scaffolding": true,
+        "effective_scaffolding": [
+          "покрыть прямоугольник квадратами",
+          "сравнить площадь с периметром"
+        ],
+        "recommended_scaffolding": "visual",
+        "last_assessed": "2026-10-11",
+        "history": [
+          {
+            "date": "2026-10-08",
+            "mastery": 0.79,
+            "independence": 0.62,
+            "help_level": "visual",
+            "support_level": "visual",
+            "solved": true,
+            "task_id": "demo-luna-03-math-g3-geometry-area_rectangle-pair01",
+            "assessment_pair_id": "demo-luna-03-math-g3-geometry-area_rectangle-pair01",
+            "difficulty": "medium",
+            "note": "Задача выполнена с опорой; затем проверили тот же тип задания без подсказки."
+          },
+          {
+            "date": "2026-10-09",
+            "mastery": 0.79,
+            "independence": 0.62,
+            "help_level": "independent",
+            "support_level": "independent",
+            "solved": false,
+            "task_id": "demo-luna-03-math-g3-geometry-area_rectangle-pair01",
+            "assessment_pair_id": "demo-luna-03-math-g3-geometry-area_rectangle-pair01",
+            "difficulty": "medium",
+            "note": "Самостоятельная попытка пока не завершена верно."
+          },
+          {
+            "date": "2026-10-10",
+            "mastery": 0.79,
+            "independence": 0.62,
+            "help_level": "visual",
+            "support_level": "visual",
+            "solved": true,
+            "task_id": "demo-luna-03-math-g3-geometry-area_rectangle-pair02",
+            "assessment_pair_id": "demo-luna-03-math-g3-geometry-area_rectangle-pair02",
+            "difficulty": "medium",
+            "note": "Задача выполнена с опорой; затем проверили тот же тип задания без подсказки."
+          },
+          {
+            "date": "2026-10-11",
+            "mastery": 0.79,
+            "independence": 0.62,
+            "help_level": "independent",
+            "support_level": "independent",
+            "solved": false,
+            "task_id": "demo-luna-03-math-g3-geometry-area_rectangle-pair02",
+            "assessment_pair_id": "demo-luna-03-math-g3-geometry-area_rectangle-pair02",
+            "difficulty": "medium",
+            "note": "Самостоятельная попытка пока не завершена верно."
+          }
+        ]
+      },
+      {
+        "topic_id": "programming.python.output",
+        "mastery": 0.68,
+        "confidence": 0.7,
+        "independence": 0.54,
+        "needs_scaffolding": true,
+        "effective_scaffolding": [
+          "прочитать print по частям",
+          "сначала предсказать строку вывода"
+        ],
+        "recommended_scaffolding": "visual",
+        "last_assessed": "2026-10-11",
+        "history": [
+          {
+            "date": "2026-10-08",
+            "mastery": 0.68,
+            "independence": 0.54,
+            "help_level": "hint_question",
+            "support_level": "hint_question",
+            "solved": true,
+            "task_id": "demo-luna-03-programming-python-output-pair01",
+            "assessment_pair_id": "demo-luna-03-programming-python-output-pair01",
+            "difficulty": "medium",
+            "note": "Задача выполнена с опорой; затем проверили тот же тип задания без подсказки."
+          },
+          {
+            "date": "2026-10-09",
+            "mastery": 0.68,
+            "independence": 0.54,
+            "help_level": "independent",
+            "support_level": "independent",
+            "solved": false,
+            "task_id": "demo-luna-03-programming-python-output-pair01",
+            "assessment_pair_id": "demo-luna-03-programming-python-output-pair01",
+            "difficulty": "medium",
+            "note": "Самостоятельная попытка пока не завершена верно."
+          },
+          {
+            "date": "2026-10-10",
+            "mastery": 0.68,
+            "independence": 0.54,
+            "help_level": "hint_question",
+            "support_level": "hint_question",
+            "solved": true,
+            "task_id": "demo-luna-03-programming-python-output-pair02",
+            "assessment_pair_id": "demo-luna-03-programming-python-output-pair02",
+            "difficulty": "medium",
+            "note": "Задача выполнена с опорой; затем проверили тот же тип задания без подсказки."
+          },
+          {
+            "date": "2026-10-11",
+            "mastery": 0.68,
+            "independence": 0.54,
+            "help_level": "independent",
+            "support_level": "independent",
+            "solved": false,
+            "task_id": "demo-luna-03-programming-python-output-pair02",
+            "assessment_pair_id": "demo-luna-03-programming-python-output-pair02",
+            "difficulty": "medium",
+            "note": "Самостоятельная попытка пока не завершена верно."
+          }
+        ]
+      }
+    ],
+    "zpd": {
+      "current": [
+        "math.g3.word_problems.one_step",
+        "math.g3.geometry.area_rectangle",
+        "programming.python.output"
+      ],
+      "outside": []
+    },
+    "learning_preferences": {
+      "visual": 0.88,
+      "hands_on": 0.72,
+      "storyline": 0.64,
+      "audio": 0.48,
+      "collaboration": 0.57,
+      "competition": 0.42
+    },
+    "engagement": {
+      "record_type": "synthetic_demo",
+      "strongest_conditions": [
+        "карты космоса",
+        "выпечка"
+      ],
+      "reading_note": "Короткие задачи читает уверенно; длинное условие полезно перечитать в спокойном темпе.",
+      "preferred_session_minutes": 20
+    },
+    "ai_usage": {
+      "asks_clarifying_questions": true,
+      "uses_hints": true,
+      "copies_code_without_reading": false,
+      "reflection": "После решения объясняет, почему рисунок помог увидеть равные группы."
+    },
+    "projects": [
+      {
+        "id": "luna-space-market",
+        "title": "Табло космического рынка",
+        "description": "В Scratch планеты продают фрукты равными группами; таблица показывает цену нескольких покупок.",
+        "status": "building",
+        "skills": [
+          "math.g3.numbers.multiplication_table.times_table",
+          "programming.scratch.sequence"
+        ]
+      },
+      {
+        "id": "demo-luna-03-completed-project",
+        "title": "Завершённый мини-проект: карты космоса",
+        "description": "Ученик собрал небольшой результат по теме math.g3.numbers.multiplication_table.times_table и показал, как в нём используется навык из темы programming.python.output.",
+        "status": "completed",
+        "skills": [
+          "math.g3.numbers.multiplication_table.times_table",
+          "programming.python.output"
+        ],
+        "reflection": "Ученик объяснил один удачный выбор и назвал, что хочет улучшить в следующей версии.",
+        "completed_at": "2026-10-06"
+      }
+    ],
+    "strengths": [
+      "Связывает задания с интересом к теме «карты космоса».",
+      "Может назвать способ, который помог решить задачу."
+    ],
+    "support_needs": [
+      "Короткие задачи читает уверенно; длинное условие полезно перечитать в спокойном темпе.",
+      "Давать по одной подсказке и отмечать, какой шаг ученик затем выполнил самостоятельно."
+    ],
+    "scaffolding_by_topic": [
+      {
+        "topic_id": "math.g3.word_problems.one_step",
+        "strategies": [
+          "Подчеркнуть вопрос задачи до выбора действия.",
+          "Показать известные и неизвестные величины на полосовой схеме."
+        ]
+      },
+      {
+        "topic_id": "math.g3.geometry.area_rectangle",
+        "strategies": [
+          "покрыть прямоугольник квадратами",
+          "сравнить площадь с периметром"
+        ]
+      },
+      {
+        "topic_id": "programming.python.output",
+        "strategies": [
+          "прочитать print по частям",
+          "сначала предсказать строку вывода"
+        ]
+      }
+    ],
+    "gamification": {
+      "xp": 14,
+      "level": 1,
+      "badges": [
+        "ДЕМО – ученик",
+        "Замечает стратегию"
+      ],
+      "missions_completed": 5,
+      "next_mission": "Научиться выбирать действие в короткой задаче на один шаг"
+    }
+  }
+}

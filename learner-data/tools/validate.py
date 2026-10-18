@@ -101,8 +101,10 @@ def _find_unknown_keys(obj: dict, allowed: set[str], file: str, json_path: str) 
 
 # --- catalog validation -----------------------------------------------------
 
-CATALOG_TOP_KEYS = {"schema_version", "subject", "grades", "topics"}
-CATALOG_TOPIC_KEYS = {"id", "title_ru", "synonyms", "parent", "grade", "deprecated"}
+CATALOG_REQUIRED_KEYS = {"schema_version", "subject", "grades", "topics"}
+CATALOG_TOP_KEYS = CATALOG_REQUIRED_KEYS | {"curriculum_id", "source", "source_url"}
+CATALOG_TOPIC_REQUIRED_KEYS = {"id", "title_ru", "synonyms", "parent", "grade", "deprecated"}
+CATALOG_TOPIC_KEYS = CATALOG_TOPIC_REQUIRED_KEYS | {"subject_id", "curriculum_id", "prerequisites", "source_url"}
 
 
 def validate_catalog(catalog_data: object, catalog_file: str) -> tuple[list[Finding], dict]:
@@ -116,7 +118,7 @@ def validate_catalog(catalog_data: object, catalog_file: str) -> tuple[list[Find
 
     findings.extend(_find_unknown_keys(catalog_data, CATALOG_TOP_KEYS, catalog_file, ""))
 
-    for required_key in CATALOG_TOP_KEYS:
+    for required_key in CATALOG_REQUIRED_KEYS:
         if required_key not in catalog_data:
             findings.append(_err(catalog_file, f"/{required_key}", f'отсутствует обязательный ключ "{required_key}"'))
 
@@ -135,7 +137,7 @@ def validate_catalog(catalog_data: object, catalog_file: str) -> tuple[list[Find
             continue
 
         findings.extend(_find_unknown_keys(entry, CATALOG_TOPIC_KEYS, catalog_file, json_path))
-        for required_key in CATALOG_TOPIC_KEYS:
+        for required_key in CATALOG_TOPIC_REQUIRED_KEYS:
             if required_key not in entry:
                 findings.append(_err(catalog_file, f"{json_path}/{required_key}", f'отсутствует обязательное поле "{required_key}"'))
 
@@ -160,7 +162,7 @@ def validate_catalog(catalog_data: object, catalog_file: str) -> tuple[list[Find
             findings.append(_err(catalog_file, f"{json_path}/title_ru", 'поле "title_ru" должно быть непустой строкой'))
 
         grade = entry.get("grade")
-        if not isinstance(grade, int) or isinstance(grade, bool):
+        if (grade is not None or str(topic_id).startswith('math.')) and (not isinstance(grade, int) or isinstance(grade, bool)):
             findings.append(_err(catalog_file, f"{json_path}/grade", 'поле "grade" должно быть целым числом'))
 
         deprecated = entry.get("deprecated")
@@ -194,7 +196,7 @@ def validate_catalog(catalog_data: object, catalog_file: str) -> tuple[list[Find
             findings.append(_err(catalog_file, f"{json_path}/parent", f'parent "{parent}" не найден в каталоге'))
 
         grade = entry.get("grade")
-        if isinstance(grade, int) and not isinstance(grade, bool):
+        if topic_id.startswith('math.') and isinstance(grade, int) and not isinstance(grade, bool):
             expected_grade_segment = f"g{grade}"
             actual_grade_segment = segments[1] if len(segments) > 1 else ""
             if actual_grade_segment != expected_grade_segment:
@@ -246,7 +248,10 @@ COMPETENCY_ITEM_KEYS = {
 }
 COMPETENCY_REQUIRED_KEYS = ("topic_id", "mastery")
 COMPETENCY_UNIT_KEYS = ("mastery", "confidence", "independence")
-COMPETENCY_HISTORY_KEYS = {"date", "mastery", "independence", "help_level"}
+COMPETENCY_HISTORY_KEYS = {
+    "date", "mastery", "independence", "help_level", "support_level",
+    "solved", "task_id", "assessment_pair_id", "difficulty", "note",
+}
 RAG_TEXT_MAX = 280
 LEGAL_NAME_KEYS = {"first_name", "last_name", "patronymic"}
 
@@ -461,6 +466,31 @@ def _validate_competencies(competencies: list, catalog: dict, filename: str) -> 
                         findings.append(
                             _err(filename, f"{entry_path}/help_level", f'неизвестный уровень помощи "{help_key}"; допустимы: {allowed}')
                         )
+                    support_key = entry.get("support_level")
+                    if "support_level" in entry and (
+                        not isinstance(support_key, str) or support_key not in zpd.HELP_BY_KEY
+                    ):
+                        findings.append(_err(filename, f"{entry_path}/support_level", "invalid support level"))
+                    if "solved" in entry and not _is_bool(entry.get("solved")):
+                        findings.append(_err(filename, f"{entry_path}/solved", "solved must be a boolean"))
+                    if "task_id" in entry and (
+                        not isinstance(entry.get("task_id"), str)
+                        or not entry["task_id"]
+                        or len(entry["task_id"]) > 200
+                    ):
+                        findings.append(_err(filename, f"{entry_path}/task_id", "task_id must contain 1 to 200 characters"))
+                    if "assessment_pair_id" in entry and (
+                        not isinstance(entry.get("assessment_pair_id"), str)
+                        or not entry["assessment_pair_id"]
+                        or len(entry["assessment_pair_id"]) > 200
+                    ):
+                        findings.append(_err(filename, f"{entry_path}/assessment_pair_id", "assessment_pair_id must contain 1 to 200 characters"))
+                    if "difficulty" in entry and entry.get("difficulty") not in {"easy", "medium", "hard"}:
+                        findings.append(_err(filename, f"{entry_path}/difficulty", "difficulty must be easy, medium, or hard"))
+                    if "note" in entry and (
+                        not isinstance(entry.get("note"), str) or len(entry["note"]) > 1000
+                    ):
+                        findings.append(_err(filename, f"{entry_path}/note", "note must be a string of at most 1000 characters"))
 
     return findings
 

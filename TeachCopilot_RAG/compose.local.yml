@@ -1,0 +1,21 @@
+services:
+  database:
+    image: pgvector/pgvector:0.8.7-pg18
+    container_name: teachcopilot_local_db
+    environment:
+      POSTGRES_USER: teachcopilot
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .local.env}
+      POSTGRES_DB: teachcopilot_local
+      PGDATA: /var/lib/postgresql/18/docker
+    ports:
+      - "127.0.0.1:5434:5432"
+    volumes:
+      - local_database:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U teachcopilot -d teachcopilot_local"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+volumes:
+  local_database:

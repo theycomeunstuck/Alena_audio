@@ -1,0 +1,1 @@
+"""Local TeachCopilot application services."""

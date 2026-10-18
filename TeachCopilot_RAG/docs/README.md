@@ -1,22 +1,31 @@
-# 📚 TeachCopilot — Documentation
+# 📚 TeachCopilot – Documentation
 
-> Current direction: JSON-first learner data. The learner profile source of
-> truth is `../learner-data/`; PostgreSQL/pgvector documents describe a legacy
-> retrieval implementation, not the active storage decision.
+> Актуальный локальный контур: PostgreSQL/pgvector, Ollama и API с аккаунтами. См. [гайд по локальной БД и RAG](LOCAL_DATABASE_RAG.md) для текущих команд, измерений и схемы.
+> Старые JSON-first и legacy pipeline материалы ниже сохранены как архивные справки.
 
-This folder is the documentation hub. Everything here was **verified against a
-running instance** (Postgres + pgvector, embedding model, proxy) — the commands
-below actually work.
+This folder is the documentation hub; individual documents record the version
+and verification scope they describe.
 
 | Doc | What's inside |
 |-----|---------------|
+| **[LOCAL_SCHEMA.md](LOCAL_SCHEMA.md)** | Entity groups, foreign keys and database relationships. |
+| **[USER_GUIDE.md](USER_GUIDE.md)** | Local teacher and student workflows, privacy boundaries and operating limits. |
+| **[MEMORY_RUNBOOK.md](MEMORY_RUNBOOK.md)** | Запуск памяти, сценарии преподавателя и ученика, синтетическое демо и границы проверки. |
+| **[MEMORY_INTEGRATION.md](MEMORY_INTEGRATION.md)** | API, версии источников, подтверждение, очередь и восстановление после сбоев. |
+| **[CONVERSATION_MEMORY.md](CONVERSATION_MEMORY.md)** | Короткий разговор, интересы с цитатами, выбор преподавателя и перенос между темами. |
+| **[EXTERNAL_ANSWERS.md](EXTERNAL_ANSWERS.md)** | Учебная проекция, локальная проверка приватности и отдельный бюджет внешнего ответа. |
+| **[research_reporting.md](research_reporting.md)** | Воспроизводимый отчёт, зависимые истории и слепой пакет человеческого просмотра. |
+| **[USE_CASES.md](USE_CASES.md)** | Ten realistic fictional end-to-end scenarios and acceptance criteria. |
+| **[ZPD_POLICY.md](ZPD_POLICY.md)** | Evidence-informed policy for interpreting the zone of proximal development. |
+| **[LOCAL_VERIFICATION_2026_10_13.md](LOCAL_VERIFICATION_2026_10_13.md)** | Test scope, model comparisons and known limits as of 13 October 2026. |
+| **[LOCAL_DATABASE_RAG.md](LOCAL_DATABASE_RAG.md)** | Current local database, import, backup, accounts, RAG and measured results. |
 | **[SERVER_CHECKLIST.md](SERVER_CHECKLIST.md)** | Что проверить на сервере: сервер, эндпоинты, pgvector, локальная модель. |
 | **[HOWTO.md](HOWTO.md)** | Инструкция «урок за уроком»: какие команды запускать до занятия, после и для отчёта. |
 | **[ZPD_STAGE4.md](ZPD_STAGE4.md)** | 4 этап ЗБР: правила, устройство, контракты индивидуальных карточек-заданий. |
 | **[../../HANDOFF.md](../../HANDOFF.md)** | Передача дел: что не проверено, открытые вопросы, принятые решения, следующие шаги. |
-| **[LEARNER_DATA_USAGE.md](LEARNER_DATA_USAGE.md)** | Current JSON-first flow, commands, examples and sample output. |
+| **[LEARNER_DATA_USAGE.md](LEARNER_DATA_USAGE.md)** | Archived JSON-first flow, commands, examples and sample output. |
 | **[../knowledge-data/README.md](../knowledge-data/README.md)** | Add JSON learning material, build the local vector index and search it. |
-| **[SETUP.md](SETUP.md)** | Legacy pgvector setup; do not use for the current JSON-only phase. |
+| **[SETUP.md](SETUP.md)** | Legacy setup guide; compare with the current local database guide before use. |
 | **[RAG_RUNBOOK.md](RAG_RUNBOOK.md)** | Known-good local runbook and verified RAG startup path. |
 | **[CONFIGURATION.md](CONFIGURATION.md)** | Every environment variable, its default, and CPU vs production notes. |
 | **[API.md](API.md)** | HTTP endpoints, the OpenAI-compatible contract, and Open WebUI integration. |
@@ -29,7 +38,7 @@ below actually work.
 
 ---
 
-## Current JSON-first scope
+## Archived JSON-first scope
 
 1. `learner-data/learners/*.json` is the source of truth for learner cards.
 2. `build_context.py <learner_id>` renders the safe, compact projection for an
@@ -43,18 +52,18 @@ below actually work.
 A child (or a teacher/parent) chats in Open WebUI. In the legacy path, before the message reaches the
 LLM, TeachCopilot:
 
-1. **Identifies the speaker** — maps the Open WebUI user to a child profile (or an
+1. **Identifies the speaker** – maps the Open WebUI user to a child profile (or an
    adult/teacher), see [`SPEAKER_MODE`](CONFIGURATION.md).
-2. **Personalizes** — pulls the child's name, grade, learning level, difficulties,
+2. **Personalizes** – pulls the child's name, grade, learning level, difficulties,
    interests and error patterns from Postgres and injects them into the system
    prompt.
-3. **Grounds with RAG** — embeds the question and retrieves the most relevant
+3. **Grounds with RAG** – embeds the question and retrieves the most relevant
    lesson fragments from a pgvector knowledge base (cosine similarity).
-4. **Adapts over time** — every _N_ messages a separate Profile-Agent LLM assesses
+4. **Adapts over time** – every _N_ messages a separate Profile-Agent LLM assesses
    understanding and nudges the child's mastery scores.
 
 Retrieved fragments are always presented as **optional context** ("use only if
-relevant; do not invent facts") — never as the sole source of truth.
+relevant; do not invent facts") – never as the sole source of truth.
 
 ---
 
@@ -92,10 +101,10 @@ relevant; do not invent facts") — never as the sole source of truth.
 
 **Two ways to connect Open WebUI** (pick one):
 
-- **A — Filter Function** (`pipeline/filter_function.py`): pasted into Open WebUI
+- **A – Filter Function** (`pipeline/filter_function.py`): pasted into Open WebUI
   → Workspace → Functions. `inlet()` personalizes the request; `outlet()` updates
   the profile. See [`FILTER_INSTALL.md`](../FILTER_INSTALL.md).
-- **B — Connection / proxy** (`server.py`): Open WebUI points at this service as an
+- **B – Connection / proxy** (`server.py`): Open WebUI points at this service as an
   OpenAI-compatible endpoint. It injects the RAG system message and forwards to the
   upstream LLM. See [API.md](API.md).
 
@@ -135,9 +144,11 @@ Full walkthrough → **[SETUP.md](SETUP.md)** and **[RAG_RUNBOOK.md](RAG_RUNBOOK
 
 | Aspect | Value |
 |--------|-------|
-| Default embedding model | `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` (384-dim, good for Russian) — downloaded on first use (~470 MB) |
+| Default embedding model | `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` (384-dim, good for Russian) – downloaded on first use (~470 MB) |
 | Default device | **CPU** (`TEACHCOPILOT_RUNTIME_PROFILE=cpu_debug`) |
 | Vector search | pgvector cosine, `score = 1 - (embedding <=> query)`, `RAG_MIN_SCORE` cutoff, top-`RAG_TOP_K` |
-| Streaming to Open WebUI | **OFF by default** — full JSON responses only (see [STREAMING_DIAGNOSIS.md](STREAMING_DIAGNOSIS.md)) |
+| Streaming to Open WebUI | **OFF by default** – full JSON responses only (see [STREAMING_DIAGNOSIS.md](STREAMING_DIAGNOSIS.md)) |
 | `reasoning_content` | Stripped from responses before returning to Open WebUI |
 | Proxy model id | Advertised as `teachcopilot-rag`; the real upstream model is set by `CHAT_MODEL` |
+
+- [Расширенная приёмка: интерфейс, демо-профили и ЗБР](EXTENDED_VERIFICATION_2026_10_13.md)

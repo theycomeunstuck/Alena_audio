@@ -1,0 +1,719 @@
+{
+  "schema_version": 2,
+  "learner_id": "demo-nika-04",
+  "pseudonym": "ДЕМО – Ника Комета",
+  "age_group": "9-10",
+  "grade": "4",
+  "language": "russian",
+  "rag_context": {
+    "current_goal": {
+      "topic_id": "math.g4.fractions.numerator_denominator",
+      "goal": "Определять целое перед записью числителя и знаменателя: сначала подписать целое на рисунке, затем самостоятельно разобрать две полоски. Успех – обе записи верны без вопроса-подсказки; после первой точной попытки убрать подписи.",
+      "updated_at": "2026-10-12"
+    },
+    "current_topics": [
+      "math.g4.fractions.numerator_denominator",
+      "programming.scratch.conditions",
+      "programming.python.output"
+    ],
+    "priority_difficulties": [
+      {
+        "topic_id": "math.g4.fractions.numerator_denominator",
+        "description": "По наблюдениям: освоение 91%, самостоятельность 58%. Начать с опоры: сначала отметить целое; после точной попытки проверить, можно ли её убрать."
+      },
+      {
+        "topic_id": "programming.scratch.conditions",
+        "description": "По наблюдениям: освоение 64%, самостоятельность 49%. Начать с опоры: проверить оба исхода условия; после точной попытки проверить, можно ли её убрать."
+      },
+      {
+        "topic_id": "math.g4.fractions.comparing_same_denominator",
+        "description": "По наблюдениям: освоение 83%, самостоятельность 68%. Начать с опоры: попросить объяснить пример своими словами; после точной попытки проверить, можно ли её убрать."
+      }
+    ],
+    "effective_strategies": [
+      "сначала отметить целое",
+      "проверить оба исхода условия",
+      "попросить объяснить пример своими словами"
+    ],
+    "avoid": [
+      "Не убирать опору, пока самостоятельное решение не подтверждено наблюдениями.",
+      "Не считать непроверенную тему неуспехом: сначала провести диагностику."
+    ],
+    "recent_progress": {
+      "date": "2026-10-12",
+      "note": "Текст по возрасту читает уверенно; схема помогает отделить новые слова от вычислений."
+    }
+  },
+  "profile": {
+    "explanation_style": "разобранный пример с подписями и просьбой объяснить метод своими словами",
+    "pace": "внимательный, с паузой для проверки",
+    "autonomy_level": "после первого примера обычно работает сама",
+    "motivation": "решить головоломку и научить другого способу",
+    "prefers_visual": true
+  },
+  "interests": [
+    "графические романы",
+    "аквариумы",
+    "головоломки"
+  ],
+  "knowledge": [
+    {
+      "topic_id": "math.g4.fractions.numerator_denominator",
+      "status": "learning",
+      "notes": "По последнему наблюдению: Решил после одного наводящего вопроса о следующем шаге."
+    },
+    {
+      "topic_id": "programming.scratch.conditions",
+      "status": "learning",
+      "notes": "По последнему наблюдению: Решил после одного наводящего вопроса о следующем шаге."
+    },
+    {
+      "topic_id": "programming.python.output",
+      "status": "confident",
+      "notes": "По последнему наблюдению: Решил самостоятельно, проговорил план и проверил ответ."
+    },
+    {
+      "topic_id": "math.g4.geometry.angles",
+      "status": "confident",
+      "notes": "По последнему наблюдению: Решил самостоятельно, проговорил план и проверил ответ."
+    },
+    {
+      "topic_id": "math.g4.fractions.comparing_same_denominator",
+      "status": "learning",
+      "notes": "По последнему наблюдению: Решил после одного наводящего вопроса о следующем шаге."
+    },
+    {
+      "topic_id": "programming.python.conditions",
+      "status": "learning",
+      "notes": "По последнему наблюдению: Решил после одного наводящего вопроса о следующем шаге."
+    },
+    {
+      "topic_id": "math.g4.data.bar_charts",
+      "status": "not_started",
+      "notes": "Структурированную проверку этой темы ещё не проводили; навык пока неизвестен."
+    }
+  ],
+  "error_patterns": [
+    {
+      "subject": "math",
+      "topic_id": "math.g4.fractions.numerator_denominator",
+      "error_tag": "называет знаменатель до того, как определит целое",
+      "count": 3,
+      "last_seen": "2026-10-12"
+    },
+    {
+      "subject": "programming",
+      "topic_id": "programming.scratch.conditions",
+      "error_tag": "проверяет только истинную ветку условия",
+      "count": 2,
+      "last_seen": "2026-10-12"
+    }
+  ],
+  "mvp": {
+    "story_preferences": [
+      "графические романы",
+      "аквариумы"
+    ],
+    "learning_preferences_observed": [
+      "разобранный пример с подписями и просьбой объяснить метод своими словами",
+      "Текст по возрасту читает уверенно; схема помогает отделить новые слова от вычислений."
+    ],
+    "help_strategies": [
+      "сначала отметить целое",
+      "проверить оба исхода условия",
+      "попросить объяснить пример своими словами"
+    ],
+    "journal": [
+      {
+        "date": "2026-10-08",
+        "note": "Начали с короткого задания по теме math.g4.fractions.numerator_denominator, чтобы увидеть выбранный способ."
+      },
+      {
+        "date": "2026-10-09",
+        "note": "В теме programming.scratch.conditions помогла опора: сначала отметить целое."
+      },
+      {
+        "date": "2026-10-10",
+        "note": "Для темы programming.python.output сначала использовали вопрос-подсказку, потом ученик продолжил сам."
+      },
+      {
+        "date": "2026-10-11",
+        "note": "В теме math.g4.geometry.angles проверили предположение на новом примере и обсудили исправление."
+      },
+      {
+        "date": "2026-10-12",
+        "note": "После задания по теме math.g4.fractions.comparing_same_denominator ученик назвал следующий шаг для самостоятельной тренировки."
+      }
+    ],
+    "lessons": [
+      {
+        "date": "2026-10-08",
+        "topic_ids": [
+          "math.g4.fractions.numerator_denominator",
+          "programming.scratch.conditions"
+        ],
+        "minutes": 18,
+        "note": "Разобрали задание по теме math.g4.fractions.numerator_denominator: ученик выбрал способ решения и объяснил, почему он подходит."
+      },
+      {
+        "date": "2026-10-09",
+        "topic_ids": [
+          "programming.scratch.conditions",
+          "programming.python.output"
+        ],
+        "minutes": 20,
+        "note": "По теме programming.scratch.conditions сравнили ответ с наглядной моделью; при проверке нашли место возможной ошибки."
+      },
+      {
+        "date": "2026-10-10",
+        "topic_ids": [
+          "programming.python.output",
+          "math.g4.geometry.angles"
+        ],
+        "minutes": 22,
+        "note": "В теме programming.python.output ученик получил одну подсказку и затем самостоятельно продолжил решение."
+      },
+      {
+        "date": "2026-10-11",
+        "topic_ids": [
+          "math.g4.geometry.angles",
+          "math.g4.fractions.comparing_same_denominator"
+        ],
+        "minutes": 24,
+        "note": "По теме math.g4.geometry.angles выполнили короткую проверку: сначала прогноз, затем запуск или вычисление."
+      },
+      {
+        "date": "2026-10-12",
+        "topic_ids": [
+          "math.g4.fractions.comparing_same_denominator",
+          "programming.python.conditions"
+        ],
+        "minutes": 26,
+        "note": "В теме math.g4.fractions.comparing_same_denominator ученик назвал, какая опора помогла и какую часть уже может выполнить сам."
+      }
+    ],
+    "points_ledger": [
+      {
+        "date": "2026-10-08",
+        "points": 3,
+        "reason": "Сформулировал план решения и объяснил первый шаг.",
+        "role": "tutor",
+        "topic_id": "math.g4.fractions.numerator_denominator"
+      },
+      {
+        "date": "2026-10-09",
+        "points": 2,
+        "reason": "Проверил ответ по рисунку или обратному действию.",
+        "role": "tutor",
+        "topic_id": "programming.scratch.conditions"
+      },
+      {
+        "date": "2026-10-10",
+        "points": 4,
+        "reason": "После подсказки сам выбрал следующий шаг.",
+        "role": "tutor",
+        "topic_id": "programming.python.output"
+      },
+      {
+        "date": "2026-10-11",
+        "points": 3,
+        "reason": "Нашёл и исправил одну ошибку при проверке.",
+        "role": "tutor",
+        "topic_id": "math.g4.geometry.angles"
+      },
+      {
+        "date": "2026-10-12",
+        "points": 2,
+        "reason": "Сравнил начальную попытку с новым способом.",
+        "role": "tutor",
+        "topic_id": "math.g4.fractions.comparing_same_denominator"
+      }
+    ]
+  },
+  "learner_model": {
+    "competencies": [
+      {
+        "topic_id": "math.g4.fractions.numerator_denominator",
+        "mastery": 0.91,
+        "confidence": 0.7,
+        "independence": 0.58,
+        "needs_scaffolding": true,
+        "effective_scaffolding": [
+          "Сначала отметить целое, затем закрасить его части.",
+          "Назвать числитель и знаменатель по рисунку целого."
+        ],
+        "recommended_scaffolding": "visual",
+        "last_assessed": "2026-10-11",
+        "history": [
+          {
+            "date": "2026-10-08",
+            "mastery": 0.91,
+            "independence": 0.58,
+            "help_level": "hint_question",
+            "support_level": "hint_question",
+            "solved": true,
+            "task_id": "nika-fraction-01",
+            "assessment_pair_id": "nika-fraction-01",
+            "difficulty": "medium",
+            "note": "Ника выполнила обе задачи с наводящим вопросом или рисунком, но пока не решила их самостоятельно."
+          },
+          {
+            "date": "2026-10-09",
+            "mastery": 0.91,
+            "independence": 0.58,
+            "help_level": "independent",
+            "support_level": "independent",
+            "solved": false,
+            "task_id": "nika-fraction-01",
+            "assessment_pair_id": "nika-fraction-01",
+            "difficulty": "medium",
+            "note": "Ника выполнила обе задачи с наводящим вопросом или рисунком, но пока не решила их самостоятельно."
+          },
+          {
+            "date": "2026-10-10",
+            "mastery": 0.91,
+            "independence": 0.58,
+            "help_level": "visual",
+            "support_level": "visual",
+            "solved": true,
+            "task_id": "nika-fraction-02",
+            "assessment_pair_id": "nika-fraction-02",
+            "difficulty": "medium",
+            "note": "Ника выполнила обе задачи с наводящим вопросом или рисунком, но пока не решила их самостоятельно."
+          },
+          {
+            "date": "2026-10-11",
+            "mastery": 0.91,
+            "independence": 0.58,
+            "help_level": "independent",
+            "support_level": "independent",
+            "solved": false,
+            "task_id": "nika-fraction-02",
+            "assessment_pair_id": "nika-fraction-02",
+            "difficulty": "medium",
+            "note": "Ника выполнила обе задачи с наводящим вопросом или рисунком, но пока не решила их самостоятельно."
+          }
+        ]
+      },
+      {
+        "topic_id": "programming.scratch.conditions",
+        "mastery": 0.64,
+        "confidence": 0.7,
+        "independence": 0.49,
+        "needs_scaffolding": true,
+        "effective_scaffolding": [
+          "Проверить условие на конкретном примере из жизни.",
+          "Проверить, что происходит при истинном и ложном условии."
+        ],
+        "recommended_scaffolding": "visual",
+        "last_assessed": "2026-10-11",
+        "history": [
+          {
+            "date": "2026-10-08",
+            "mastery": 0.64,
+            "independence": 0.49,
+            "help_level": "hint_question",
+            "support_level": "hint_question",
+            "solved": true,
+            "task_id": "demo-nika-04-programming-scratch-conditions-pair01",
+            "assessment_pair_id": "demo-nika-04-programming-scratch-conditions-pair01",
+            "difficulty": "medium",
+            "note": "Задача выполнена с опорой; затем проверили тот же тип задания без подсказки."
+          },
+          {
+            "date": "2026-10-09",
+            "mastery": 0.64,
+            "independence": 0.49,
+            "help_level": "independent",
+            "support_level": "independent",
+            "solved": false,
+            "task_id": "demo-nika-04-programming-scratch-conditions-pair01",
+            "assessment_pair_id": "demo-nika-04-programming-scratch-conditions-pair01",
+            "difficulty": "medium",
+            "note": "Самостоятельная попытка пока не завершена верно."
+          },
+          {
+            "date": "2026-10-10",
+            "mastery": 0.64,
+            "independence": 0.49,
+            "help_level": "hint_question",
+            "support_level": "hint_question",
+            "solved": true,
+            "task_id": "demo-nika-04-programming-scratch-conditions-pair02",
+            "assessment_pair_id": "demo-nika-04-programming-scratch-conditions-pair02",
+            "difficulty": "medium",
+            "note": "Задача выполнена с опорой; затем проверили тот же тип задания без подсказки."
+          },
+          {
+            "date": "2026-10-11",
+            "mastery": 0.64,
+            "independence": 0.49,
+            "help_level": "independent",
+            "support_level": "independent",
+            "solved": false,
+            "task_id": "demo-nika-04-programming-scratch-conditions-pair02",
+            "assessment_pair_id": "demo-nika-04-programming-scratch-conditions-pair02",
+            "difficulty": "medium",
+            "note": "Самостоятельная попытка пока не завершена верно."
+          }
+        ]
+      },
+      {
+        "topic_id": "programming.python.output",
+        "mastery": 0.92,
+        "confidence": 0.7,
+        "independence": 0.84,
+        "needs_scaffolding": false,
+        "effective_scaffolding": [
+          "Предсказать строку вывода до запуска программы."
+        ],
+        "recommended_scaffolding": "hint_question",
+        "last_assessed": "2026-10-11",
+        "history": [
+          {
+            "date": "2026-10-08",
+            "mastery": 0.92,
+            "independence": 0.84,
+            "help_level": "hint_question",
+            "support_level": "hint_question",
+            "solved": true,
+            "task_id": "demo-nika-04-programming-python-output-pair01",
+            "assessment_pair_id": "demo-nika-04-programming-python-output-pair01",
+            "difficulty": "medium",
+            "note": "Задача выполнена с опорой; затем проверили тот же тип задания без подсказки."
+          },
+          {
+            "date": "2026-10-09",
+            "mastery": 0.92,
+            "independence": 0.84,
+            "help_level": "independent",
+            "support_level": "independent",
+            "solved": true,
+            "task_id": "demo-nika-04-programming-python-output-pair01",
+            "assessment_pair_id": "demo-nika-04-programming-python-output-pair01",
+            "difficulty": "medium",
+            "note": "Решение выполнено самостоятельно."
+          },
+          {
+            "date": "2026-10-10",
+            "mastery": 0.92,
+            "independence": 0.84,
+            "help_level": "hint_question",
+            "support_level": "hint_question",
+            "solved": true,
+            "task_id": "demo-nika-04-programming-python-output-pair02",
+            "assessment_pair_id": "demo-nika-04-programming-python-output-pair02",
+            "difficulty": "medium",
+            "note": "Задача выполнена с опорой; затем проверили тот же тип задания без подсказки."
+          },
+          {
+            "date": "2026-10-11",
+            "mastery": 0.92,
+            "independence": 0.84,
+            "help_level": "independent",
+            "support_level": "independent",
+            "solved": true,
+            "task_id": "demo-nika-04-programming-python-output-pair02",
+            "assessment_pair_id": "demo-nika-04-programming-python-output-pair02",
+            "difficulty": "medium",
+            "note": "Решение выполнено самостоятельно."
+          }
+        ]
+      },
+      {
+        "topic_id": "math.g4.geometry.angles",
+        "mastery": 0.87,
+        "confidence": 0.7,
+        "independence": 0.82,
+        "needs_scaffolding": false,
+        "effective_scaffolding": [
+          "сравнить угол с прямым углом",
+          "отметить вершину угла"
+        ],
+        "recommended_scaffolding": "hint_question",
+        "last_assessed": "2026-10-11",
+        "history": [
+          {
+            "date": "2026-10-08",
+            "mastery": 0.87,
+            "independence": 0.82,
+            "help_level": "hint_question",
+            "support_level": "hint_question",
+            "solved": true,
+            "task_id": "demo-nika-04-math-g4-geometry-angles-pair01",
+            "assessment_pair_id": "demo-nika-04-math-g4-geometry-angles-pair01",
+            "difficulty": "medium",
+            "note": "Задача выполнена с опорой; затем проверили тот же тип задания без подсказки."
+          },
+          {
+            "date": "2026-10-09",
+            "mastery": 0.87,
+            "independence": 0.82,
+            "help_level": "independent",
+            "support_level": "independent",
+            "solved": true,
+            "task_id": "demo-nika-04-math-g4-geometry-angles-pair01",
+            "assessment_pair_id": "demo-nika-04-math-g4-geometry-angles-pair01",
+            "difficulty": "medium",
+            "note": "Решение выполнено самостоятельно."
+          },
+          {
+            "date": "2026-10-10",
+            "mastery": 0.87,
+            "independence": 0.82,
+            "help_level": "hint_question",
+            "support_level": "hint_question",
+            "solved": true,
+            "task_id": "demo-nika-04-math-g4-geometry-angles-pair02",
+            "assessment_pair_id": "demo-nika-04-math-g4-geometry-angles-pair02",
+            "difficulty": "medium",
+            "note": "Задача выполнена с опорой; затем проверили тот же тип задания без подсказки."
+          },
+          {
+            "date": "2026-10-11",
+            "mastery": 0.87,
+            "independence": 0.82,
+            "help_level": "independent",
+            "support_level": "independent",
+            "solved": true,
+            "task_id": "demo-nika-04-math-g4-geometry-angles-pair02",
+            "assessment_pair_id": "demo-nika-04-math-g4-geometry-angles-pair02",
+            "difficulty": "medium",
+            "note": "Решение выполнено самостоятельно."
+          }
+        ]
+      },
+      {
+        "topic_id": "math.g4.fractions.comparing_same_denominator",
+        "mastery": 0.83,
+        "confidence": 0.7,
+        "independence": 0.68,
+        "needs_scaffolding": true,
+        "effective_scaffolding": [
+          "сравнить закрашенные части целого",
+          "проверить, что знаменатели равны"
+        ],
+        "recommended_scaffolding": "visual",
+        "last_assessed": "2026-10-11",
+        "history": [
+          {
+            "date": "2026-10-08",
+            "mastery": 0.83,
+            "independence": 0.68,
+            "help_level": "hint_question",
+            "support_level": "hint_question",
+            "solved": true,
+            "task_id": "demo-nika-04-math-g4-fractions-comparing_same_denominator-pair01",
+            "assessment_pair_id": "demo-nika-04-math-g4-fractions-comparing_same_denominator-pair01",
+            "difficulty": "medium",
+            "note": "Задача выполнена с опорой; затем проверили тот же тип задания без подсказки."
+          },
+          {
+            "date": "2026-10-09",
+            "mastery": 0.83,
+            "independence": 0.68,
+            "help_level": "independent",
+            "support_level": "independent",
+            "solved": false,
+            "task_id": "demo-nika-04-math-g4-fractions-comparing_same_denominator-pair01",
+            "assessment_pair_id": "demo-nika-04-math-g4-fractions-comparing_same_denominator-pair01",
+            "difficulty": "medium",
+            "note": "Самостоятельная попытка пока не завершена верно."
+          },
+          {
+            "date": "2026-10-10",
+            "mastery": 0.83,
+            "independence": 0.68,
+            "help_level": "hint_question",
+            "support_level": "hint_question",
+            "solved": true,
+            "task_id": "demo-nika-04-math-g4-fractions-comparing_same_denominator-pair02",
+            "assessment_pair_id": "demo-nika-04-math-g4-fractions-comparing_same_denominator-pair02",
+            "difficulty": "medium",
+            "note": "Задача выполнена с опорой; затем проверили тот же тип задания без подсказки."
+          },
+          {
+            "date": "2026-10-11",
+            "mastery": 0.83,
+            "independence": 0.68,
+            "help_level": "independent",
+            "support_level": "independent",
+            "solved": false,
+            "task_id": "demo-nika-04-math-g4-fractions-comparing_same_denominator-pair02",
+            "assessment_pair_id": "demo-nika-04-math-g4-fractions-comparing_same_denominator-pair02",
+            "difficulty": "medium",
+            "note": "Самостоятельная попытка пока не завершена верно."
+          }
+        ]
+      },
+      {
+        "topic_id": "programming.python.conditions",
+        "mastery": 0.71,
+        "confidence": 0.7,
+        "independence": 0.59,
+        "needs_scaffolding": true,
+        "effective_scaffolding": [
+          "проверить истинный и ложный случаи",
+          "прочитать условие вслух"
+        ],
+        "recommended_scaffolding": "visual",
+        "last_assessed": "2026-10-11",
+        "history": [
+          {
+            "date": "2026-10-08",
+            "mastery": 0.71,
+            "independence": 0.59,
+            "help_level": "hint_question",
+            "support_level": "hint_question",
+            "solved": true,
+            "task_id": "demo-nika-04-programming-python-conditions-pair01",
+            "assessment_pair_id": "demo-nika-04-programming-python-conditions-pair01",
+            "difficulty": "medium",
+            "note": "Задача выполнена с опорой; затем проверили тот же тип задания без подсказки."
+          },
+          {
+            "date": "2026-10-09",
+            "mastery": 0.71,
+            "independence": 0.59,
+            "help_level": "independent",
+            "support_level": "independent",
+            "solved": false,
+            "task_id": "demo-nika-04-programming-python-conditions-pair01",
+            "assessment_pair_id": "demo-nika-04-programming-python-conditions-pair01",
+            "difficulty": "medium",
+            "note": "Самостоятельная попытка пока не завершена верно."
+          },
+          {
+            "date": "2026-10-10",
+            "mastery": 0.71,
+            "independence": 0.59,
+            "help_level": "hint_question",
+            "support_level": "hint_question",
+            "solved": true,
+            "task_id": "demo-nika-04-programming-python-conditions-pair02",
+            "assessment_pair_id": "demo-nika-04-programming-python-conditions-pair02",
+            "difficulty": "medium",
+            "note": "Задача выполнена с опорой; затем проверили тот же тип задания без подсказки."
+          },
+          {
+            "date": "2026-10-11",
+            "mastery": 0.71,
+            "independence": 0.59,
+            "help_level": "independent",
+            "support_level": "independent",
+            "solved": false,
+            "task_id": "demo-nika-04-programming-python-conditions-pair02",
+            "assessment_pair_id": "demo-nika-04-programming-python-conditions-pair02",
+            "difficulty": "medium",
+            "note": "Самостоятельная попытка пока не завершена верно."
+          }
+        ]
+      }
+    ],
+    "zpd": {
+      "current": [
+        "math.g4.fractions.numerator_denominator",
+        "programming.scratch.conditions",
+        "math.g4.fractions.comparing_same_denominator",
+        "programming.python.conditions"
+      ],
+      "outside": []
+    },
+    "learning_preferences": {
+      "visual": 0.88,
+      "hands_on": 0.72,
+      "storyline": 0.64,
+      "audio": 0.48,
+      "collaboration": 0.57,
+      "competition": 0.42
+    },
+    "engagement": {
+      "record_type": "synthetic_demo",
+      "strongest_conditions": [
+        "графические романы",
+        "аквариумы"
+      ],
+      "reading_note": "Текст по возрасту читает уверенно; схема помогает отделить новые слова от вычислений.",
+      "preferred_session_minutes": 25
+    },
+    "ai_usage": {
+      "asks_clarifying_questions": true,
+      "uses_hints": true,
+      "copies_code_without_reading": false,
+      "reflection": "Сравнивает прогноз с результатом и замечает, когда они не совпали."
+    },
+    "projects": [
+      {
+        "id": "nika-aquarium-guide",
+        "title": "Справочник обитателей аквариума",
+        "description": "Интерактивный стенд печатает короткий факт о выбранной рыбе и проверяет оба исхода выбора.",
+        "status": "testing",
+        "skills": [
+          "math.g4.fractions.numerator_denominator",
+          "programming.scratch.conditions",
+          "programming.python.output"
+        ]
+      },
+      {
+        "id": "demo-nika-04-completed-project",
+        "title": "Завершённый мини-проект: графические романы",
+        "description": "Ученик собрал небольшой результат по теме math.g4.fractions.numerator_denominator и показал, как в нём используется навык из темы programming.python.conditions.",
+        "status": "completed",
+        "skills": [
+          "math.g4.fractions.numerator_denominator",
+          "programming.python.conditions"
+        ],
+        "reflection": "Ученик объяснил один удачный выбор и назвал, что хочет улучшить в следующей версии.",
+        "completed_at": "2026-10-06"
+      }
+    ],
+    "strengths": [
+      "Связывает задания с интересом к теме «графические романы».",
+      "Может назвать способ, который помог решить задачу."
+    ],
+    "support_needs": [
+      "Текст по возрасту читает уверенно; схема помогает отделить новые слова от вычислений.",
+      "Давать по одной подсказке и отмечать, какой шаг ученик затем выполнил самостоятельно."
+    ],
+    "scaffolding_by_topic": [
+      {
+        "topic_id": "math.g4.fractions.numerator_denominator",
+        "strategies": [
+          "Сначала отметить целое, затем закрасить его части.",
+          "Назвать числитель и знаменатель по рисунку целого."
+        ]
+      },
+      {
+        "topic_id": "programming.scratch.conditions",
+        "strategies": [
+          "Проверить условие на конкретном примере из жизни.",
+          "Проверить, что происходит при истинном и ложном условии."
+        ]
+      },
+      {
+        "topic_id": "math.g4.fractions.comparing_same_denominator",
+        "strategies": [
+          "сравнить закрашенные части целого",
+          "проверить, что знаменатели равны"
+        ]
+      },
+      {
+        "topic_id": "programming.python.conditions",
+        "strategies": [
+          "проверить истинный и ложный случаи",
+          "прочитать условие вслух"
+        ]
+      }
+    ],
+    "gamification": {
+      "xp": 14,
+      "level": 1,
+      "badges": [
+        "ДЕМО – ученик",
+        "Замечает стратегию"
+      ],
+      "missions_completed": 5,
+      "next_mission": "Определять целое перед записью числителя и знаменателя"
+    }
+  }
+}

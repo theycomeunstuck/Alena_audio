@@ -1,0 +1,783 @@
+{
+  "schema_version": 2,
+  "learner_id": "demo-oren-03",
+  "pseudonym": "ДЕМО – Орен Карта",
+  "age_group": "8-9",
+  "grade": "3",
+  "language": "russian",
+  "rag_context": {
+    "current_goal": {
+      "topic_id": "math.g3.numbers.multiplication_table.division_from_table",
+      "goal": "Связывать деление с известным умножением: решить два новых примера по треугольнику фактов, затем убрать схему. Успех – верно назвать делимое и делитель в обоих примерах. Уравнения Орен уже решает самостоятельно, деление пока – с подсказкой.",
+      "updated_at": "2026-10-12"
+    },
+    "current_topics": [
+      "math.g3.numbers.simple_equations",
+      "math.g3.numbers.multiplication_table.division_from_table",
+      "programming.scratch.events"
+    ],
+    "priority_difficulties": [
+      {
+        "topic_id": "math.g3.numbers.multiplication_table.division_from_table",
+        "description": "По наблюдениям: освоение 82%, самостоятельность 74%. Начать с опоры: использовать треугольник связанных фактов; после точной попытки проверить, можно ли её убрать."
+      },
+      {
+        "topic_id": "programming.python.loops",
+        "description": "По наблюдениям: освоение 71%, самостоятельность 57%. Начать с опоры: отметить событие, которое запускает скрипт; после точной попытки проверить, можно ли её убрать."
+      },
+      {
+        "topic_id": "math.g3.quantities.time",
+        "description": "По наблюдениям: освоение 78%, самостоятельность 64%. Начать с опоры: записывать отдельную строку для каждого прохода цикла; после точной попытки проверить, можно ли её убрать."
+      }
+    ],
+    "effective_strategies": [
+      "использовать треугольник связанных фактов",
+      "отметить событие, которое запускает скрипт",
+      "записывать отдельную строку для каждого прохода цикла"
+    ],
+    "avoid": [
+      "Не убирать опору, пока самостоятельное решение не подтверждено наблюдениями.",
+      "Не считать непроверенную тему неуспехом: сначала провести диагностику."
+    ],
+    "recent_progress": {
+      "date": "2026-10-12",
+      "note": "Уверенно работает с картами и таблицами; в задаче полезно сначала выделить вопрос."
+    }
+  },
+  "profile": {
+    "explanation_style": "сначала карта или таблица, затем устное объяснение",
+    "pace": "ровный и последовательный",
+    "autonomy_level": "составляет план и просит проверить его в конце",
+    "motivation": "найти короткий маршрут и объяснить выбор",
+    "prefers_visual": true
+  },
+  "interests": [
+    "карты города",
+    "расписания поездов",
+    "настольные игры"
+  ],
+  "knowledge": [
+    {
+      "topic_id": "math.g3.numbers.simple_equations",
+      "status": "confident",
+      "notes": "По последнему наблюдению: Решил самостоятельно, проговорил план и проверил ответ."
+    },
+    {
+      "topic_id": "math.g3.numbers.multiplication_table.division_from_table",
+      "status": "learning",
+      "notes": "По последнему наблюдению: Решил после одного наводящего вопроса о следующем шаге."
+    },
+    {
+      "topic_id": "programming.scratch.events",
+      "status": "confident",
+      "notes": "По последнему наблюдению: Решил самостоятельно, проговорил план и проверил ответ."
+    },
+    {
+      "topic_id": "programming.python.loops",
+      "status": "learning",
+      "notes": "По последнему наблюдению: Решил после одного наводящего вопроса о следующем шаге."
+    },
+    {
+      "topic_id": "math.g3.data.reading_tables",
+      "status": "confident",
+      "notes": "По последнему наблюдению: Решил самостоятельно, проговорил план и проверил ответ."
+    },
+    {
+      "topic_id": "math.g3.quantities.time",
+      "status": "learning",
+      "notes": "По последнему наблюдению: Решил после одного наводящего вопроса о следующем шаге."
+    },
+    {
+      "topic_id": "programming.python.variables",
+      "status": "learning",
+      "notes": "По последнему наблюдению: Решил после одного наводящего вопроса о следующем шаге."
+    },
+    {
+      "topic_id": "math.g3.word_problems.two_step",
+      "status": "not_started",
+      "notes": "Структурированную проверку этой темы ещё не проводили; навык пока неизвестен."
+    }
+  ],
+  "error_patterns": [
+    {
+      "subject": "math",
+      "topic_id": "math.g3.numbers.multiplication_table.division_from_table",
+      "error_tag": "читает связанный факт в обратном направлении",
+      "count": 2,
+      "last_seen": "2026-10-12"
+    },
+    {
+      "subject": "programming",
+      "topic_id": "programming.python.loops",
+      "error_tag": "считает начальное значение дополнительным проходом цикла",
+      "count": 2,
+      "last_seen": "2026-10-12"
+    }
+  ],
+  "mvp": {
+    "story_preferences": [
+      "карты города",
+      "расписания поездов"
+    ],
+    "learning_preferences_observed": [
+      "сначала карта или таблица, затем устное объяснение",
+      "Уверенно работает с картами и таблицами; в задаче полезно сначала выделить вопрос."
+    ],
+    "help_strategies": [
+      "использовать треугольник связанных фактов",
+      "отметить событие, которое запускает скрипт",
+      "записывать отдельную строку для каждого прохода цикла"
+    ],
+    "journal": [
+      {
+        "date": "2026-10-08",
+        "note": "Начали с короткого задания по теме math.g3.numbers.simple_equations, чтобы увидеть выбранный способ."
+      },
+      {
+        "date": "2026-10-09",
+        "note": "В теме math.g3.numbers.multiplication_table.division_from_table помогла опора: использовать треугольник связанных фактов."
+      },
+      {
+        "date": "2026-10-10",
+        "note": "Для темы programming.scratch.events сначала использовали вопрос-подсказку, потом ученик продолжил сам."
+      },
+      {
+        "date": "2026-10-11",
+        "note": "В теме programming.python.loops проверили предположение на новом примере и обсудили исправление."
+      },
+      {
+        "date": "2026-10-12",
+        "note": "После задания по теме math.g3.data.reading_tables ученик назвал следующий шаг для самостоятельной тренировки."
+      }
+    ],
+    "lessons": [
+      {
+        "date": "2026-10-08",
+        "topic_ids": [
+          "math.g3.numbers.simple_equations",
+          "math.g3.numbers.multiplication_table.division_from_table"
+        ],
+        "minutes": 18,
+        "note": "Разобрали задание по теме math.g3.numbers.simple_equations: ученик выбрал способ решения и объяснил, почему он подходит."
+      },
+      {
+        "date": "2026-10-09",
+        "topic_ids": [
+          "math.g3.numbers.multiplication_table.division_from_table",
+          "programming.scratch.events"
+        ],
+        "minutes": 20,
+        "note": "По теме math.g3.numbers.multiplication_table.division_from_table сравнили ответ с наглядной моделью; при проверке нашли место возможной ошибки."
+      },
+      {
+        "date": "2026-10-10",
+        "topic_ids": [
+          "programming.scratch.events",
+          "programming.python.loops"
+        ],
+        "minutes": 22,
+        "note": "В теме programming.scratch.events ученик получил одну подсказку и затем самостоятельно продолжил решение."
+      },
+      {
+        "date": "2026-10-11",
+        "topic_ids": [
+          "programming.python.loops",
+          "math.g3.data.reading_tables"
+        ],
+        "minutes": 24,
+        "note": "По теме programming.python.loops выполнили короткую проверку: сначала прогноз, затем запуск или вычисление."
+      },
+      {
+        "date": "2026-10-12",
+        "topic_ids": [
+          "math.g3.data.reading_tables",
+          "math.g3.quantities.time"
+        ],
+        "minutes": 26,
+        "note": "В теме math.g3.data.reading_tables ученик назвал, какая опора помогла и какую часть уже может выполнить сам."
+      }
+    ],
+    "points_ledger": [
+      {
+        "date": "2026-10-08",
+        "points": 3,
+        "reason": "Сформулировал план решения и объяснил первый шаг.",
+        "role": "tutor",
+        "topic_id": "math.g3.numbers.simple_equations"
+      },
+      {
+        "date": "2026-10-09",
+        "points": 2,
+        "reason": "Проверил ответ по рисунку или обратному действию.",
+        "role": "tutor",
+        "topic_id": "math.g3.numbers.multiplication_table.division_from_table"
+      },
+      {
+        "date": "2026-10-10",
+        "points": 4,
+        "reason": "После подсказки сам выбрал следующий шаг.",
+        "role": "tutor",
+        "topic_id": "programming.scratch.events"
+      },
+      {
+        "date": "2026-10-11",
+        "points": 3,
+        "reason": "Нашёл и исправил одну ошибку при проверке.",
+        "role": "tutor",
+        "topic_id": "programming.python.loops"
+      },
+      {
+        "date": "2026-10-12",
+        "points": 2,
+        "reason": "Сравнил начальную попытку с новым способом.",
+        "role": "tutor",
+        "topic_id": "math.g3.data.reading_tables"
+      }
+    ]
+  },
+  "learner_model": {
+    "competencies": [
+      {
+        "topic_id": "math.g3.numbers.simple_equations",
+        "mastery": 0.93,
+        "confidence": 0.87,
+        "independence": 0.88,
+        "needs_scaffolding": false,
+        "effective_scaffolding": [
+          "Показать равенство как две одинаковые части на рисунке.",
+          "Подставить найденное число и проверить равенство."
+        ],
+        "recommended_scaffolding": "hint_question",
+        "last_assessed": "2026-10-10",
+        "history": [
+          {
+            "date": "2026-10-07",
+            "mastery": 0.93,
+            "independence": 0.88,
+            "help_level": "joint",
+            "support_level": "joint",
+            "solved": true,
+            "task_id": "oren-equation-01",
+            "assessment_pair_id": "oren-equation-01",
+            "difficulty": "medium",
+            "note": "Поддержка постепенно сократилась от совместного решения до вопроса-подсказки; обе сопоставимые задачи Орен решил самостоятельно."
+          },
+          {
+            "date": "2026-10-08",
+            "mastery": 0.93,
+            "independence": 0.88,
+            "help_level": "independent",
+            "support_level": "independent",
+            "solved": true,
+            "task_id": "oren-equation-01",
+            "assessment_pair_id": "oren-equation-01",
+            "difficulty": "medium",
+            "note": "Поддержка постепенно сократилась от совместного решения до вопроса-подсказки; обе сопоставимые задачи Орен решил самостоятельно."
+          },
+          {
+            "date": "2026-10-09",
+            "mastery": 0.93,
+            "independence": 0.88,
+            "help_level": "hint_question",
+            "support_level": "hint_question",
+            "solved": true,
+            "task_id": "oren-equation-02",
+            "assessment_pair_id": "oren-equation-02",
+            "difficulty": "medium",
+            "note": "Поддержка постепенно сократилась от совместного решения до вопроса-подсказки; обе сопоставимые задачи Орен решил самостоятельно."
+          },
+          {
+            "date": "2026-10-10",
+            "mastery": 0.93,
+            "independence": 0.88,
+            "help_level": "independent",
+            "support_level": "independent",
+            "solved": true,
+            "task_id": "oren-equation-02",
+            "assessment_pair_id": "oren-equation-02",
+            "difficulty": "medium",
+            "note": "Поддержка постепенно сократилась от совместного решения до вопроса-подсказки; обе сопоставимые задачи Орен решил самостоятельно."
+          }
+        ]
+      },
+      {
+        "topic_id": "math.g3.numbers.multiplication_table.division_from_table",
+        "mastery": 0.82,
+        "confidence": 0.7,
+        "independence": 0.74,
+        "needs_scaffolding": true,
+        "effective_scaffolding": [
+          "Записать умножение и связанные с ним примеры деления."
+        ],
+        "recommended_scaffolding": "visual",
+        "last_assessed": "2026-10-11",
+        "history": [
+          {
+            "date": "2026-10-08",
+            "mastery": 0.82,
+            "independence": 0.74,
+            "help_level": "hint_question",
+            "support_level": "hint_question",
+            "solved": true,
+            "task_id": "demo-oren-03-math-g3-numbers-multiplication_table-division_from_table-pair01",
+            "assessment_pair_id": "demo-oren-03-math-g3-numbers-multiplication_table-division_from_table-pair01",
+            "difficulty": "medium",
+            "note": "Задача выполнена с опорой; затем проверили тот же тип задания без подсказки."
+          },
+          {
+            "date": "2026-10-09",
+            "mastery": 0.82,
+            "independence": 0.74,
+            "help_level": "independent",
+            "support_level": "independent",
+            "solved": false,
+            "task_id": "demo-oren-03-math-g3-numbers-multiplication_table-division_from_table-pair01",
+            "assessment_pair_id": "demo-oren-03-math-g3-numbers-multiplication_table-division_from_table-pair01",
+            "difficulty": "medium",
+            "note": "Самостоятельная попытка пока не завершена верно."
+          },
+          {
+            "date": "2026-10-10",
+            "mastery": 0.82,
+            "independence": 0.74,
+            "help_level": "hint_question",
+            "support_level": "hint_question",
+            "solved": true,
+            "task_id": "demo-oren-03-math-g3-numbers-multiplication_table-division_from_table-pair02",
+            "assessment_pair_id": "demo-oren-03-math-g3-numbers-multiplication_table-division_from_table-pair02",
+            "difficulty": "medium",
+            "note": "Задача выполнена с опорой; затем проверили тот же тип задания без подсказки."
+          },
+          {
+            "date": "2026-10-11",
+            "mastery": 0.82,
+            "independence": 0.74,
+            "help_level": "independent",
+            "support_level": "independent",
+            "solved": false,
+            "task_id": "demo-oren-03-math-g3-numbers-multiplication_table-division_from_table-pair02",
+            "assessment_pair_id": "demo-oren-03-math-g3-numbers-multiplication_table-division_from_table-pair02",
+            "difficulty": "medium",
+            "note": "Самостоятельная попытка пока не завершена верно."
+          }
+        ]
+      },
+      {
+        "topic_id": "programming.scratch.events",
+        "mastery": 0.9,
+        "confidence": 0.7,
+        "independence": 0.85,
+        "needs_scaffolding": false,
+        "effective_scaffolding": [
+          "Назвать событие, которое запускает скрипт."
+        ],
+        "recommended_scaffolding": "hint_question",
+        "last_assessed": "2026-10-11",
+        "history": [
+          {
+            "date": "2026-10-08",
+            "mastery": 0.9,
+            "independence": 0.85,
+            "help_level": "hint_question",
+            "support_level": "hint_question",
+            "solved": true,
+            "task_id": "demo-oren-03-programming-scratch-events-pair01",
+            "assessment_pair_id": "demo-oren-03-programming-scratch-events-pair01",
+            "difficulty": "medium",
+            "note": "Задача выполнена с опорой; затем проверили тот же тип задания без подсказки."
+          },
+          {
+            "date": "2026-10-09",
+            "mastery": 0.9,
+            "independence": 0.85,
+            "help_level": "independent",
+            "support_level": "independent",
+            "solved": true,
+            "task_id": "demo-oren-03-programming-scratch-events-pair01",
+            "assessment_pair_id": "demo-oren-03-programming-scratch-events-pair01",
+            "difficulty": "medium",
+            "note": "Решение выполнено самостоятельно."
+          },
+          {
+            "date": "2026-10-10",
+            "mastery": 0.9,
+            "independence": 0.85,
+            "help_level": "hint_question",
+            "support_level": "hint_question",
+            "solved": true,
+            "task_id": "demo-oren-03-programming-scratch-events-pair02",
+            "assessment_pair_id": "demo-oren-03-programming-scratch-events-pair02",
+            "difficulty": "medium",
+            "note": "Задача выполнена с опорой; затем проверили тот же тип задания без подсказки."
+          },
+          {
+            "date": "2026-10-11",
+            "mastery": 0.9,
+            "independence": 0.85,
+            "help_level": "independent",
+            "support_level": "independent",
+            "solved": true,
+            "task_id": "demo-oren-03-programming-scratch-events-pair02",
+            "assessment_pair_id": "demo-oren-03-programming-scratch-events-pair02",
+            "difficulty": "medium",
+            "note": "Решение выполнено самостоятельно."
+          }
+        ]
+      },
+      {
+        "topic_id": "programming.python.loops",
+        "mastery": 0.71,
+        "confidence": 0.7,
+        "independence": 0.57,
+        "needs_scaffolding": true,
+        "effective_scaffolding": [
+          "Проследить один проход цикла перед прогнозом общего результата."
+        ],
+        "recommended_scaffolding": "visual",
+        "last_assessed": "2026-10-11",
+        "history": [
+          {
+            "date": "2026-10-08",
+            "mastery": 0.71,
+            "independence": 0.57,
+            "help_level": "hint_question",
+            "support_level": "hint_question",
+            "solved": true,
+            "task_id": "demo-oren-03-programming-python-loops-pair01",
+            "assessment_pair_id": "demo-oren-03-programming-python-loops-pair01",
+            "difficulty": "medium",
+            "note": "Задача выполнена с опорой; затем проверили тот же тип задания без подсказки."
+          },
+          {
+            "date": "2026-10-09",
+            "mastery": 0.71,
+            "independence": 0.57,
+            "help_level": "independent",
+            "support_level": "independent",
+            "solved": false,
+            "task_id": "demo-oren-03-programming-python-loops-pair01",
+            "assessment_pair_id": "demo-oren-03-programming-python-loops-pair01",
+            "difficulty": "medium",
+            "note": "Самостоятельная попытка пока не завершена верно."
+          },
+          {
+            "date": "2026-10-10",
+            "mastery": 0.71,
+            "independence": 0.57,
+            "help_level": "hint_question",
+            "support_level": "hint_question",
+            "solved": true,
+            "task_id": "demo-oren-03-programming-python-loops-pair02",
+            "assessment_pair_id": "demo-oren-03-programming-python-loops-pair02",
+            "difficulty": "medium",
+            "note": "Задача выполнена с опорой; затем проверили тот же тип задания без подсказки."
+          },
+          {
+            "date": "2026-10-11",
+            "mastery": 0.71,
+            "independence": 0.57,
+            "help_level": "independent",
+            "support_level": "independent",
+            "solved": false,
+            "task_id": "demo-oren-03-programming-python-loops-pair02",
+            "assessment_pair_id": "demo-oren-03-programming-python-loops-pair02",
+            "difficulty": "medium",
+            "note": "Самостоятельная попытка пока не завершена верно."
+          }
+        ]
+      },
+      {
+        "topic_id": "math.g3.data.reading_tables",
+        "mastery": 0.91,
+        "confidence": 0.7,
+        "independence": 0.87,
+        "needs_scaffolding": false,
+        "effective_scaffolding": [
+          "найти заголовок нужного столбца",
+          "сверить единицы в таблице"
+        ],
+        "recommended_scaffolding": "hint_question",
+        "last_assessed": "2026-10-11",
+        "history": [
+          {
+            "date": "2026-10-08",
+            "mastery": 0.91,
+            "independence": 0.87,
+            "help_level": "hint_question",
+            "support_level": "hint_question",
+            "solved": true,
+            "task_id": "demo-oren-03-math-g3-data-reading_tables-pair01",
+            "assessment_pair_id": "demo-oren-03-math-g3-data-reading_tables-pair01",
+            "difficulty": "medium",
+            "note": "Задача выполнена с опорой; затем проверили тот же тип задания без подсказки."
+          },
+          {
+            "date": "2026-10-09",
+            "mastery": 0.91,
+            "independence": 0.87,
+            "help_level": "independent",
+            "support_level": "independent",
+            "solved": true,
+            "task_id": "demo-oren-03-math-g3-data-reading_tables-pair01",
+            "assessment_pair_id": "demo-oren-03-math-g3-data-reading_tables-pair01",
+            "difficulty": "medium",
+            "note": "Решение выполнено самостоятельно."
+          },
+          {
+            "date": "2026-10-10",
+            "mastery": 0.91,
+            "independence": 0.87,
+            "help_level": "hint_question",
+            "support_level": "hint_question",
+            "solved": true,
+            "task_id": "demo-oren-03-math-g3-data-reading_tables-pair02",
+            "assessment_pair_id": "demo-oren-03-math-g3-data-reading_tables-pair02",
+            "difficulty": "medium",
+            "note": "Задача выполнена с опорой; затем проверили тот же тип задания без подсказки."
+          },
+          {
+            "date": "2026-10-11",
+            "mastery": 0.91,
+            "independence": 0.87,
+            "help_level": "independent",
+            "support_level": "independent",
+            "solved": true,
+            "task_id": "demo-oren-03-math-g3-data-reading_tables-pair02",
+            "assessment_pair_id": "demo-oren-03-math-g3-data-reading_tables-pair02",
+            "difficulty": "medium",
+            "note": "Решение выполнено самостоятельно."
+          }
+        ]
+      },
+      {
+        "topic_id": "math.g3.quantities.time",
+        "mastery": 0.78,
+        "confidence": 0.7,
+        "independence": 0.64,
+        "needs_scaffolding": true,
+        "effective_scaffolding": [
+          "разложить время на часы и минуты",
+          "проверить переход через час"
+        ],
+        "recommended_scaffolding": "visual",
+        "last_assessed": "2026-10-11",
+        "history": [
+          {
+            "date": "2026-10-08",
+            "mastery": 0.78,
+            "independence": 0.64,
+            "help_level": "hint_question",
+            "support_level": "hint_question",
+            "solved": true,
+            "task_id": "demo-oren-03-math-g3-quantities-time-pair01",
+            "assessment_pair_id": "demo-oren-03-math-g3-quantities-time-pair01",
+            "difficulty": "medium",
+            "note": "Задача выполнена с опорой; затем проверили тот же тип задания без подсказки."
+          },
+          {
+            "date": "2026-10-09",
+            "mastery": 0.78,
+            "independence": 0.64,
+            "help_level": "independent",
+            "support_level": "independent",
+            "solved": false,
+            "task_id": "demo-oren-03-math-g3-quantities-time-pair01",
+            "assessment_pair_id": "demo-oren-03-math-g3-quantities-time-pair01",
+            "difficulty": "medium",
+            "note": "Самостоятельная попытка пока не завершена верно."
+          },
+          {
+            "date": "2026-10-10",
+            "mastery": 0.78,
+            "independence": 0.64,
+            "help_level": "hint_question",
+            "support_level": "hint_question",
+            "solved": true,
+            "task_id": "demo-oren-03-math-g3-quantities-time-pair02",
+            "assessment_pair_id": "demo-oren-03-math-g3-quantities-time-pair02",
+            "difficulty": "medium",
+            "note": "Задача выполнена с опорой; затем проверили тот же тип задания без подсказки."
+          },
+          {
+            "date": "2026-10-11",
+            "mastery": 0.78,
+            "independence": 0.64,
+            "help_level": "independent",
+            "support_level": "independent",
+            "solved": false,
+            "task_id": "demo-oren-03-math-g3-quantities-time-pair02",
+            "assessment_pair_id": "demo-oren-03-math-g3-quantities-time-pair02",
+            "difficulty": "medium",
+            "note": "Самостоятельная попытка пока не завершена верно."
+          }
+        ]
+      },
+      {
+        "topic_id": "programming.python.variables",
+        "mastery": 0.69,
+        "confidence": 0.7,
+        "independence": 0.56,
+        "needs_scaffolding": true,
+        "effective_scaffolding": [
+          "вести таблицу значения переменной",
+          "проверить обновление после строки"
+        ],
+        "recommended_scaffolding": "visual",
+        "last_assessed": "2026-10-11",
+        "history": [
+          {
+            "date": "2026-10-08",
+            "mastery": 0.69,
+            "independence": 0.56,
+            "help_level": "hint_question",
+            "support_level": "hint_question",
+            "solved": true,
+            "task_id": "demo-oren-03-programming-python-variables-pair01",
+            "assessment_pair_id": "demo-oren-03-programming-python-variables-pair01",
+            "difficulty": "medium",
+            "note": "Задача выполнена с опорой; затем проверили тот же тип задания без подсказки."
+          },
+          {
+            "date": "2026-10-09",
+            "mastery": 0.69,
+            "independence": 0.56,
+            "help_level": "independent",
+            "support_level": "independent",
+            "solved": false,
+            "task_id": "demo-oren-03-programming-python-variables-pair01",
+            "assessment_pair_id": "demo-oren-03-programming-python-variables-pair01",
+            "difficulty": "medium",
+            "note": "Самостоятельная попытка пока не завершена верно."
+          },
+          {
+            "date": "2026-10-10",
+            "mastery": 0.69,
+            "independence": 0.56,
+            "help_level": "hint_question",
+            "support_level": "hint_question",
+            "solved": true,
+            "task_id": "demo-oren-03-programming-python-variables-pair02",
+            "assessment_pair_id": "demo-oren-03-programming-python-variables-pair02",
+            "difficulty": "medium",
+            "note": "Задача выполнена с опорой; затем проверили тот же тип задания без подсказки."
+          },
+          {
+            "date": "2026-10-11",
+            "mastery": 0.69,
+            "independence": 0.56,
+            "help_level": "independent",
+            "support_level": "independent",
+            "solved": false,
+            "task_id": "demo-oren-03-programming-python-variables-pair02",
+            "assessment_pair_id": "demo-oren-03-programming-python-variables-pair02",
+            "difficulty": "medium",
+            "note": "Самостоятельная попытка пока не завершена верно."
+          }
+        ]
+      }
+    ],
+    "zpd": {
+      "current": [
+        "math.g3.numbers.multiplication_table.division_from_table",
+        "programming.python.loops",
+        "math.g3.quantities.time",
+        "programming.python.variables"
+      ],
+      "outside": []
+    },
+    "learning_preferences": {
+      "visual": 0.88,
+      "hands_on": 0.72,
+      "storyline": 0.64,
+      "audio": 0.48,
+      "collaboration": 0.57,
+      "competition": 0.42
+    },
+    "engagement": {
+      "record_type": "synthetic_demo",
+      "strongest_conditions": [
+        "карты города",
+        "расписания поездов"
+      ],
+      "reading_note": "Уверенно работает с картами и таблицами; в задаче полезно сначала выделить вопрос.",
+      "preferred_session_minutes": 20
+    },
+    "ai_usage": {
+      "asks_clarifying_questions": true,
+      "uses_hints": false,
+      "copies_code_without_reading": false,
+      "reflection": "После совместного разбора простого уравнения теперь объясняет самостоятельное решение подстановкой."
+    },
+    "projects": [
+      {
+        "id": "oren-route-map",
+        "title": "Помощник для поездки на поезде",
+        "description": "Карта в Scratch и сводка в Python сравнивают остановки и время в пути.",
+        "status": "building",
+        "skills": [
+          "math.g3.numbers.simple_equations",
+          "programming.scratch.events",
+          "programming.python.loops"
+        ]
+      },
+      {
+        "id": "demo-oren-03-completed-project",
+        "title": "Завершённый мини-проект: карты города",
+        "description": "Ученик собрал небольшой результат по теме math.g3.numbers.simple_equations и показал, как в нём используется навык из темы programming.python.variables.",
+        "status": "completed",
+        "skills": [
+          "math.g3.numbers.simple_equations",
+          "programming.python.variables"
+        ],
+        "reflection": "Ученик объяснил один удачный выбор и назвал, что хочет улучшить в следующей версии.",
+        "completed_at": "2026-10-06"
+      }
+    ],
+    "strengths": [
+      "Связывает задания с интересом к теме «карты города».",
+      "Может назвать способ, который помог решить задачу."
+    ],
+    "support_needs": [
+      "Уверенно работает с картами и таблицами; в задаче полезно сначала выделить вопрос.",
+      "Давать по одной подсказке и отмечать, какой шаг ученик затем выполнил самостоятельно."
+    ],
+    "scaffolding_by_topic": [
+      {
+        "topic_id": "math.g3.numbers.multiplication_table.division_from_table",
+        "strategies": [
+          "Записать умножение и связанные с ним примеры деления."
+        ]
+      },
+      {
+        "topic_id": "programming.python.loops",
+        "strategies": [
+          "Проследить один проход цикла перед прогнозом общего результата."
+        ]
+      },
+      {
+        "topic_id": "math.g3.quantities.time",
+        "strategies": [
+          "разложить время на часы и минуты",
+          "проверить переход через час"
+        ]
+      },
+      {
+        "topic_id": "programming.python.variables",
+        "strategies": [
+          "вести таблицу значения переменной",
+          "проверить обновление после строки"
+        ]
+      }
+    ],
+    "gamification": {
+      "xp": 14,
+      "level": 1,
+      "badges": [
+        "ДЕМО – ученик",
+        "Замечает стратегию"
+      ],
+      "missions_completed": 5,
+      "next_mission": "Связывать деление с известным умножением"
+    }
+  }
+}

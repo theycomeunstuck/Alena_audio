@@ -1,0 +1,20 @@
+{
+  "selection_origin": "preselected before generation",
+  "human_semantic_review": false,
+  "seed": 20261017,
+  "expected_answers": 20,
+  "methods": [
+    "profile_only",
+    "tail",
+    "summary",
+    "structured"
+  ],
+  "requests": [
+    "t02-q01",
+    "t04-q01",
+    "t07-q01",
+    "t10-q01",
+    "t12-q01"
+  ],
+  "disputes": "all generation failures, judge errors, uncertain verdicts and factual critical_error findings"
+}

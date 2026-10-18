@@ -23,10 +23,11 @@ CLI: ``python learner-data/tools/zpd.py <learner_id> [--format text|json]``
 from __future__ import annotations
 
 import argparse
+import copy
 import datetime
 import json
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 if __package__ in (None, ""):
@@ -93,6 +94,11 @@ def status_conflicts(zone: str, status: object) -> bool:
 MASTERED_MASTERY = 0.85
 MASTERED_INDEPENDENCE = 0.80
 OUTSIDE_MASTERY = 0.30
+
+# The ZPD needs a comparison between independent performance and performance
+# with assistance. These are product evidence requirements, not research-derived
+# diagnostic cutoffs.
+MIN_PAIRED_TASKS = 2
 
 # Weight of one fresh observation in the mastery/independence EMA. 0.4 means a
 # single lesson can move mastery noticeably but cannot overwrite the history.
@@ -200,6 +206,7 @@ class ZoneVerdict:
     difficulty: str          # "easy" | "medium" | "hard" — matches the task bank
     recommended_support: str | None
     last_assessed: str | None = None
+    evidence: dict | None = None
 
     def label_ru(self) -> str:
         return ZONE_LABELS_RU.get(self.zone, self.zone)
@@ -240,18 +247,11 @@ def _clamp_unit(value: float) -> float:
 
 
 def classify(competency: object) -> ZoneVerdict:
-    """Decide the zone of one competency-map entry.
+    """Return the backward-compatible planning zone from the score map.
 
-    Rules (deliberately explainable to a tutor):
-
-    * no usable ``mastery`` → ``unknown``: guessing a zone from nothing is worse
-      than admitting the topic was never assessed;
-    * ``mastery >= 0.85`` **and** the child works unaided (``independence >=
-      0.80`` when recorded, and ``needs_scaffolding`` is not set) → ``mastered``;
-    * ``mastery < 0.30`` → ``outside``: the gap is too wide for one lesson, the
-      prerequisite topic comes first;
-    * everything in between → ``zpd``. High mastery with low independence stays
-      in the zone: "can do it with help, not yet alone" *is* the zone.
+    This is a provisional planning projection. Use :func:`zone_report` for a
+    strict evidence-backed verdict; a missing independence score is never read
+    as evidence of independent work.
     """
     if not isinstance(competency, dict):
         raise ZpdPolicyError("запись карты компетенций должна быть объектом")
@@ -269,79 +269,206 @@ def classify(competency: object) -> ZoneVerdict:
     last_assessed = competency.get("last_assessed")
     last_assessed = last_assessed if isinstance(last_assessed, str) and last_assessed else None
 
+    evidence = competency_evidence(competency)
     if mastery is None:
-        return ZoneVerdict(
-            topic_id=topic_id,
-            zone=ZONE_UNKNOWN,
-            reason="нет оценки mastery — тему ещё не диагностировали",
-            mastery=None,
-            independence=independence,
-            needs_scaffolding=True,
-            hint_depth=len(OFFERABLE_HELP),
-            difficulty="easy",
-            recommended_support=support,
-            last_assessed=last_assessed,
-        )
-
-    works_alone = independence is None or independence >= MASTERED_INDEPENDENCE
-    if mastery >= MASTERED_MASTERY and works_alone and not needs_scaffolding_flag:
-        return ZoneVerdict(
-            topic_id=topic_id,
-            zone=ZONE_MASTERED,
-            reason=(
-                f"mastery {mastery:.2f} >= {MASTERED_MASTERY} и ребёнок работает без опор"
-                " — опоры снимаем, тему можно закреплять в фоне"
-            ),
-            mastery=mastery,
-            independence=independence,
-            needs_scaffolding=False,
-            hint_depth=1,
-            difficulty="hard",
-            recommended_support=support,
-            last_assessed=last_assessed,
-        )
-
-    if mastery < OUTSIDE_MASTERY:
-        return ZoneVerdict(
-            topic_id=topic_id,
-            zone=ZONE_OUTSIDE,
-            reason=(
-                f"mastery {mastery:.2f} < {OUTSIDE_MASTERY} — разрыв слишком велик,"
-                " сначала предыдущая тема"
-            ),
-            mastery=mastery,
-            independence=independence,
-            needs_scaffolding=True,
-            hint_depth=len(OFFERABLE_HELP),
-            difficulty="easy",
-            recommended_support=support,
-            last_assessed=last_assessed,
-        )
-
-    if mastery >= MASTERED_MASTERY:
-        reason = (
-            f"mastery {mastery:.2f} высокая, но самостоятельность"
-            f" {'не подтверждена' if independence is None else f'{independence:.2f} < {MASTERED_INDEPENDENCE}'}"
-            " — делает с опорой, значит это ЗБР"
-        )
+        zone = ZONE_UNKNOWN
+        reason = "нет оценки освоения; сначала нужно провести оценивание"
+    elif mastery >= MASTERED_MASTERY and independence is None:
+        zone = ZONE_UNKNOWN
+        reason = "самостоятельность не записана; высокий балл освоения не подтверждает работу без помощи"
+    elif mastery >= MASTERED_MASTERY and independence >= MASTERED_INDEPENDENCE and not needs_scaffolding_flag:
+        zone = ZONE_MASTERED
+        reason = f"в карте высокие оценки (освоение {mastery:.2f}, самостоятельность {independence:.2f}); предварительная зона планирования"
+    elif mastery < OUTSIDE_MASTERY:
+        zone = ZONE_OUTSIDE
+        reason = f"оценка освоения низкая ({mastery:.2f}); повтор предыдущей темы пока только предположение, нужна проверка наблюдениями"
     else:
-        reason = (
-            f"mastery {mastery:.2f} между {OUTSIDE_MASTERY} и {MASTERED_MASTERY}"
-            " — сегодня делает вместе со взрослым, завтра сам"
-        )
+        zone = ZONE_ZPD
+        independence_text = "не записана" if independence is None else f"{independence:.2f}"
+        reason = f"оценки предполагают пользу опоры (освоение {mastery:.2f}, самостоятельность {independence_text}); предварительная зона планирования"
 
     return ZoneVerdict(
         topic_id=topic_id,
-        zone=ZONE_ZPD,
+        zone=zone,
         reason=reason,
         mastery=mastery,
         independence=independence,
-        needs_scaffolding=True,
-        hint_depth=2 if mastery >= 0.60 else len(OFFERABLE_HELP),
-        difficulty="medium" if mastery >= 0.60 else "easy",
+        needs_scaffolding=zone != ZONE_MASTERED,
+        hint_depth=(1 if mastery is not None and mastery >= MASTERED_MASTERY
+                    else 2 if mastery is not None and mastery >= 0.60 else len(OFFERABLE_HELP)),
+        difficulty="hard" if zone == ZONE_MASTERED else "medium" if zone == ZONE_ZPD else "easy",
         recommended_support=support,
         last_assessed=last_assessed,
+        evidence=evidence,
     )
+
+
+def competency_evidence(competency: dict, today: str | None = None) -> dict:
+    """Summarize support-level outcomes from the retained history window.
+
+    Legacy history entries with a ``help_level`` but no ``solved`` field mean
+    success, matching the original schema description that the child "справился"
+    at that rung. New entries always store the outcome explicitly.
+    """
+    counts = {
+        "independent": {"attempts": 0, "successes": 0},
+        "assisted": {"attempts": 0, "successes": 0},
+    }
+    help_levels: dict[str, int] = {}
+    explicit_counts = {
+        "independent": {"attempts": 0, "successes": 0},
+        "assisted": {"attempts": 0, "successes": 0},
+    }
+    legacy_observations = 0
+    pair_groups: dict[tuple[str, str | None], dict[str, list[tuple[str, int, bool]]]] = {}
+    now = datetime.date.fromisoformat(today) if today else datetime.date.today()
+    history = competency.get("history") if isinstance(competency, dict) else None
+    for event_index, item in enumerate(history if isinstance(history, list) else []):
+        if not isinstance(item, dict):
+            continue
+        level = item.get("support_level")
+        if level in ("independent", "hint_question", "visual", "joint"):
+            bucket = "independent" if level == "independent" else "assisted"
+        else:
+            level = item.get("help_level")
+            if level not in HELP_BY_KEY:
+                continue
+            bucket = "independent" if level == "independent" else "assisted"
+        solved = item.get("solved", True)
+        if type(solved) is not bool:
+            continue
+        counts[bucket]["attempts"] += 1
+        counts[bucket]["successes"] += int(solved)
+        help_levels[level] = help_levels.get(level, 0) + 1
+        if "solved" not in item or "support_level" not in item:
+            legacy_observations += 1
+            continue
+        explicit_counts[bucket]["attempts"] += 1
+        explicit_counts[bucket]["successes"] += int(solved)
+        pair_id = item.get("assessment_pair_id") or item.get("task_id")
+        if not isinstance(pair_id, str) or not pair_id.strip():
+            continue
+        event_date = item.get("date")
+        try:
+            parsed_date = datetime.date.fromisoformat(event_date)
+        except (TypeError, ValueError):
+            continue
+        age = (now - parsed_date).days
+        if age < 0 or age > STALE_AFTER_DAYS:
+            continue
+        difficulty = item.get("difficulty")
+        if difficulty not in (None, "easy", "medium", "hard"):
+            continue
+        pair_key = (pair_id, difficulty)
+        pair_groups.setdefault(pair_key, {}).setdefault(level, []).append(
+            (event_date, event_index, solved)
+        )
+
+    independent_count = counts["independent"]["attempts"]
+    assisted_count = counts["assisted"]["attempts"]
+    paired = {"independent": {"attempts": 0, "successes": 0},
+              "assisted": {"attempts": 0, "successes": 0}}
+    pair_records: list[tuple[tuple[str, int], dict[str, Any]]] = []
+    for support_pair in pair_groups.values():
+        outcomes: dict[str, Any] = {}
+        latest_events = []
+        rung_outcomes: dict[str, bool] = {}
+        for level, observations in support_pair.items():
+            event_date, event_index, solved = max(
+                observations, key=lambda value: (value[0], value[1])
+            )
+            rung_outcomes[level] = solved
+            latest_events.append((event_date, event_index))
+        if "independent" not in rung_outcomes:
+            continue
+        assisted_rungs = [level for level in rung_outcomes if level != "independent"]
+        if not assisted_rungs:
+            continue
+        highest_assisted = max(assisted_rungs, key=lambda level: HELP_BY_KEY[level].level)
+        outcomes["independent"] = rung_outcomes["independent"]
+        outcomes["assisted"] = rung_outcomes[highest_assisted]
+        outcomes["assisted_level"] = highest_assisted
+        outcomes["joint_failed"] = (
+            rung_outcomes.get("joint") is False
+            and all(not rung_outcomes[level] for level in assisted_rungs)
+        )
+        for bucket in ("independent", "assisted"):
+            paired[bucket]["attempts"] += 1
+            paired[bucket]["successes"] += int(outcomes[bucket])
+        pair_records.append((max(latest_events), outcomes))
+    pair_records.sort(key=lambda value: value[0])
+    paired_tasks = len(pair_records)
+    decision_records = pair_records[-MIN_PAIRED_TASKS:]
+    decision = {
+        "independent": {"attempts": 0, "successes": 0},
+        "assisted": {"attempts": 0, "successes": 0},
+        "highest_assisted_levels": {},
+        "joint_failures": 0,
+    }
+    for _date, outcomes in decision_records:
+        for bucket in ("independent", "assisted"):
+            decision[bucket]["attempts"] += 1
+            decision[bucket]["successes"] += int(outcomes[bucket])
+        level = outcomes["assisted_level"]
+        decision["highest_assisted_levels"][level] = (
+            decision["highest_assisted_levels"].get(level, 0) + 1
+        )
+        decision["joint_failures"] += int(outcomes["joint_failed"])
+    sufficient = paired_tasks >= MIN_PAIRED_TASKS
+    recent_date = None
+    if isinstance(competency, dict):
+        recent_date = competency.get("last_assessed")
+    age = days_since(recent_date, today)
+    return {
+        **counts,
+        "explicit": explicit_counts,
+        "paired": {"tasks": paired_tasks, **paired,
+                   "decision_window": {"tasks": len(decision_records), **decision}},
+        "paired_observations": paired_tasks,
+        "sufficient": sufficient,
+        "confidence": "sufficient" if sufficient else "insufficient",
+        "help_levels": help_levels,
+        "legacy_observations": legacy_observations,
+        "last_assessed": recent_date if isinstance(recent_date, str) else None,
+        "stale_days": age,
+        "stale": age is not None and age > STALE_AFTER_DAYS,
+    }
+
+
+def confirmed_zone(competency: dict, today: str | None = None) -> dict:
+    """Return a strict, recent zone decision with an explicit evidence trail."""
+    evidence = competency_evidence(competency, today)
+    if evidence["stale"]:
+        zone, reason, status = ZONE_UNKNOWN, "наблюдения устарели; перед выводом зоны нужно повторное оценивание", "stale"
+    elif not evidence["sufficient"]:
+        zone, reason, status = ZONE_UNKNOWN, (
+            "недостаточно сопоставимых пар наблюдений; нужны как минимум "
+            f"{MIN_PAIRED_TASKS} пары заданий с попытками самостоятельно и с помощью"
+        ), "insufficient"
+    elif evidence["paired"]["decision_window"]["independent"]["successes"] == MIN_PAIRED_TASKS:
+        zone, reason, status = ZONE_MASTERED, "в обеих последних сопоставимых задачах ученик справился самостоятельно", "confirmed"
+    elif evidence["paired"]["decision_window"]["assisted"]["successes"] == MIN_PAIRED_TASKS:
+        zone, reason, status = ZONE_ZPD, "в обеих последних задачах помощь привела к успеху, самостоятельные попытки ещё не всегда успешны", "confirmed"
+    elif (
+        evidence["paired"]["decision_window"]["independent"]["successes"] == 0
+        and evidence["paired"]["decision_window"]["assisted"]["successes"] == 0
+        and evidence["paired"]["decision_window"]["joint_failures"] == MIN_PAIRED_TASKS
+    ):
+        zone, reason, status = ZONE_OUTSIDE, (
+            "в обеих последних сопоставимых задачах не получилось самостоятельно и при совместном решении со взрослым; "
+            "это описывает только эти попытки"
+        ), "confirmed"
+    elif (
+        evidence["paired"]["decision_window"]["independent"]["successes"] == 0
+        and evidence["paired"]["decision_window"]["assisted"]["successes"] == 0
+    ):
+        zone, reason, status = ZONE_UNKNOWN, (
+            "в последних парных задачах попытки не удались, но совместное решение со взрослым ещё не проверено "
+            "в обеих парах; добавьте попытку с этой помощью"
+        ), "inconclusive"
+    else:
+        zone, reason, status = ZONE_UNKNOWN, "результаты последних сопоставимых задач различаются; нужно ещё одно наблюдение", "inconclusive"
+    return {"zone": zone, "reason": reason, "evidence_status": status, "evidence": evidence}
 
 
 def classify_card(card: dict) -> list[ZoneVerdict]:
@@ -480,20 +607,95 @@ def select_target(card: dict, topic_id: str | None = None) -> ZoneVerdict | None
     if topic_id:
         found = by_topic.get(topic_id)
         if found is not None:
-            return found
+            return _task_selection_verdict(card, found)
         # Requested topic is not in the competence map yet: it has never been
         # assessed, so treat it as unknown rather than silently retargeting.
-        return classify({"topic_id": topic_id})
+        return _task_selection_verdict(card, classify({"topic_id": topic_id}))
 
     goal_topic = ((card.get("rag_context") or {}).get("current_goal") or {}).get("topic_id")
     if isinstance(goal_topic, str) and goal_topic:
         found = by_topic.get(goal_topic)
-        return found if found is not None else classify({"topic_id": goal_topic})
+        found = found if found is not None else classify({"topic_id": goal_topic})
+        return _task_selection_verdict(card, found)
 
     for verdict in verdicts:
         if verdict.zone == ZONE_ZPD:
-            return verdict
-    return verdicts[0] if verdicts else None
+            return _task_selection_verdict(card, verdict)
+    return _task_selection_verdict(card, verdicts[0]) if verdicts else None
+
+
+def _task_selection_verdict(card: dict, planning: ZoneVerdict) -> ZoneVerdict:
+    """Prefer a strict recent evidence result when choosing the task level.
+
+    The numeric classifier remains the compatibility planning projection. Cards
+    with only legacy observations continue to use that provisional projection.
+    Once any explicit outcomes exist, insufficient or mixed evidence schedules
+    an easy diagnostic task instead of presenting an unverified zone as settled.
+    """
+    model = card.get("learner_model") if isinstance(card, dict) else None
+    competencies = model.get("competencies") if isinstance(model, dict) else None
+    competency = next(
+        (
+            item for item in competencies or []
+            if isinstance(item, dict) and item.get("topic_id") == planning.topic_id
+        ),
+        None,
+    )
+    if competency is None:
+        return planning
+    evidence = competency_evidence(competency)
+    explicit = evidence["explicit"]["independent"]["attempts"] + evidence["explicit"]["assisted"]["attempts"]
+    if explicit == 0:
+        return planning
+
+    confirmed = confirmed_zone(competency)
+    support_evidence = {
+        "planning": planning.evidence,
+        "confirmed_zone": confirmed["zone"],
+        "evidence_status": confirmed["evidence_status"],
+        "confirmed": confirmed["evidence"],
+    }
+    if confirmed["evidence_status"] != "confirmed":
+        return replace(
+            planning,
+            zone=ZONE_UNKNOWN,
+            reason=(
+                "Подтверждённая зона пока не установлена; для задания выбран короткий "
+                f"диагностический шаг. {confirmed['reason']}"
+            ),
+            needs_scaffolding=True,
+            hint_depth=len(OFFERABLE_HELP),
+            difficulty="easy",
+            evidence=support_evidence,
+        )
+
+    zone = confirmed["zone"]
+    if zone == ZONE_MASTERED:
+        difficulty = "hard"
+        hint_depth = 1
+        needs_scaffolding = False
+    elif zone == ZONE_ZPD:
+        difficulty = "medium"
+        levels = confirmed["evidence"]["paired"]["decision_window"]["highest_assisted_levels"]
+        hint_depth = max(
+            (HELP_BY_KEY[level].level for level, count in levels.items() if count),
+            default=1,
+        )
+        needs_scaffolding = True
+    else:
+        difficulty = "easy"
+        hint_depth = len(OFFERABLE_HELP)
+        needs_scaffolding = True
+
+    return replace(
+        planning,
+        zone=zone,
+        reason=f"Уровень задания выбран по подтверждённым парным наблюдениям. {confirmed['reason']}",
+        needs_scaffolding=needs_scaffolding,
+        hint_depth=hint_depth,
+        difficulty=difficulty,
+        evidence=support_evidence,
+    )
 
 
 # --- Observation → numbers --------------------------------------------------
@@ -507,6 +709,9 @@ class Observation:
     solved: bool
     date: str
     note: str = ""
+    task_id: str | None = None
+    assessment_pair_id: str | None = None
+    difficulty: str | None = None
 
     def credit(self) -> float:
         return credit_for(self.help_key, self.solved)
@@ -587,12 +792,106 @@ def update_competency(
         "mastery": mastery,
         "independence": independence,
         "help_level": help_level(observation.help_key).key,
+        "support_level": help_level(observation.help_key).key,
+        "solved": observation.solved,
     })
+    if observation.task_id:
+        history[-1]["task_id"] = observation.task_id
+    if observation.assessment_pair_id:
+        history[-1]["assessment_pair_id"] = observation.assessment_pair_id
+    if observation.difficulty:
+        history[-1]["difficulty"] = observation.difficulty
+    if observation.note:
+        history[-1]["note"] = observation.note
     if history_limit > 0:
         history = history[-history_limit:]
     updated["history"] = history
 
     return updated
+
+
+def record_observation(
+    card: dict,
+    *,
+    topic_id: str,
+    support_level: str,
+    solved: bool,
+    observed_on: str | None = None,
+    task_id: str | None = None,
+    assessment_pair_id: str | None = None,
+    difficulty: str | None = None,
+    notes: str | None = None,
+) -> dict:
+    """Append one explicit observation and return a validated-shape card copy.
+
+    ``support_level`` is one of the existing hint rungs. Outcome is independent
+    from support, so a failed unaided attempt differs from failure after help.
+    This helper never accepts model-proposed mastery or zone labels.
+    """
+    if not isinstance(card, dict):
+        raise ZpdPolicyError("card must be an object")
+    if not isinstance(topic_id, str) or not topic_id.strip():
+        raise ZpdPolicyError("topic_id is required")
+    if support_level not in HELP_BY_KEY:
+        raise ZpdPolicyError(f"unknown support_level: {support_level!r}")
+    if type(solved) is not bool:
+        raise ZpdPolicyError("solved must be a boolean")
+    date = observed_on or datetime.date.today().isoformat()
+    try:
+        parsed_date = datetime.date.fromisoformat(date)
+    except (TypeError, ValueError) as exc:
+        raise ZpdPolicyError("observed_on must be an ISO date") from exc
+    if parsed_date > datetime.date.today():
+        raise ZpdPolicyError("observed_on cannot be in the future")
+    if task_id is not None and (not isinstance(task_id, str) or not task_id.strip() or len(task_id) > 200):
+        raise ZpdPolicyError("task_id must contain 1 to 200 characters")
+    if assessment_pair_id is not None and (
+        not isinstance(assessment_pair_id, str) or not assessment_pair_id.strip() or len(assessment_pair_id) > 200
+    ):
+        raise ZpdPolicyError("assessment_pair_id must contain 1 to 200 characters")
+    if difficulty is not None and difficulty not in {"easy", "medium", "hard"}:
+        raise ZpdPolicyError("difficulty must be easy, medium, or hard")
+    if notes is not None and (not isinstance(notes, str) or len(notes) > 1000):
+        raise ZpdPolicyError("notes must be a string of at most 1000 characters")
+
+    result = copy.deepcopy(card)
+    model = result.setdefault("learner_model", {})
+    if not isinstance(model, dict):
+        raise ZpdPolicyError("learner_model must be an object")
+    competencies = model.setdefault("competencies", [])
+    if not isinstance(competencies, list):
+        raise ZpdPolicyError("learner_model.competencies must be a list")
+    matches = [i for i, item in enumerate(competencies)
+               if isinstance(item, dict) and item.get("topic_id") == topic_id]
+    if len(matches) > 1:
+        raise ZpdPolicyError(f"duplicate competency for topic_id: {topic_id}")
+    before = competencies[matches[0]] if matches else None
+    updated = update_competency(
+        before,
+        Observation(topic_id, support_level, solved, date, notes or "", task_id,
+                    assessment_pair_id, difficulty),
+    )
+    if matches:
+        competencies[matches[0]] = updated
+    else:
+        competencies.append(updated)
+
+    model["zpd"] = derive_zpd(result)
+    knowledge = result.setdefault("knowledge", [])
+    if isinstance(knowledge, list):
+        by_topic = {item.get("topic_id"): item for item in knowledge if isinstance(item, dict)}
+        for verdict in classify_card(result):
+            status = STATUS_BY_ZONE.get(verdict.zone)
+            if status is None:
+                continue
+            entry = by_topic.get(verdict.topic_id)
+            if entry is None:
+                entry = {"topic_id": verdict.topic_id, "status": status}
+                knowledge.append(entry)
+                by_topic[verdict.topic_id] = entry
+            elif status_conflicts(verdict.zone, entry.get("status")):
+                entry["status"] = status
+    return result
 
 
 def explain_update(before: dict | None, after: dict) -> str:
@@ -616,12 +915,22 @@ def zone_report(card: dict, catalog: dict | None = None, today: str | None = Non
     """Serialisable zone table for one card (used by the CLI and the RAG service)."""
     catalog = catalog or {}
     rows = []
+    competencies = ((card.get("learner_model") or {}).get("competencies") or [])
+    by_topic = {
+        item.get("topic_id"): item for item in competencies if isinstance(item, dict)
+    }
     for verdict in classify_card(card):
         entry = catalog.get(verdict.topic_id) or {}
+        verified = confirmed_zone(by_topic.get(verdict.topic_id) or {}, today)
         rows.append({
             "topic_id": verdict.topic_id,
             "title_ru": entry.get("title_ru", verdict.topic_id),
             "zone": verdict.zone,
+            "planning_zone": verdict.zone,
+            "confirmed_zone": verified["zone"],
+            "evidence_status": verified["evidence_status"],
+            "confirmed_reason": verified["reason"],
+            "evidence": verified["evidence"],
             "zone_ru": verdict.label_ru(),
             "mastery": verdict.mastery,
             "independence": verdict.independence,

@@ -1,0 +1,33 @@
+{
+  "version": "conversation-interests-v1",
+  "data_origin": "synthetic_unreviewed",
+  "assessment": "Expectations fixed before local generation; semantic assessment by assistant, not calibrated or human-reviewed.",
+  "cases": [
+    {"case_id": "P01", "sources": [
+      {"source_id": "p01-s1", "author_role": "student", "content": "Я люблю Minecraft, особенно строить железнодорожные станции. А как проверить 1248 : 12?"}
+    ], "expected": {"operations": ["add"], "concepts": ["Minecraft"], "forbidden": ["освоил деление", "железнодорожный инженер"]}},
+    {"case_id": "P02", "sources": [
+      {"source_id": "p02-s1", "author_role": "student", "content": "Вчера впервые поиграл в шахматы в гостях. Пока не знаю, понравилось ли. Вернёмся к примеру."}
+    ], "expected": {"operations": [], "concepts": [], "forbidden": ["любит шахматы"]}},
+    {"case_id": "P03", "sources": [
+      {"source_id": "p03-s1", "author_role": "student", "content": "Мой друг обожает футбол. А я люблю рисовать драконов, у меня целый альбом с ними."}
+    ], "expected": {"operations": ["add"], "concepts": ["рисование драконов"], "forbidden": ["любит футбол"]}},
+    {"case_id": "P04", "sources": [
+      {"source_id": "p04-s1", "author_role": "student", "content": "Раньше любил футбол, а теперь совсем им не интересуюсь. Зато теперь люблю астрономию."}
+    ], "expected": {"operations": ["remove", "add"], "concepts": ["футбол", "астрономия"], "forbidden": ["любит футбол сейчас"]}},
+    {"case_id": "P05", "sources": [
+      {"source_id": "p05-s1", "author_role": "student", "content": "Мне нравится Minecraft, но задачи про него не хочу. В задачах давай без этой игры."}
+    ], "expected": {"operations": ["add", "avoid"], "concepts": ["Minecraft", "Minecraft"], "forbidden": ["remove Minecraft", "больше не любит Minecraft"]}},
+    {"case_id": "P06", "sources": [
+      {"source_id": "p06-s1", "author_role": "assistant", "content": "Наверное, ты любишь динозавров и отлично решаешь примеры."},
+      {"source_id": "p06-s2", "author_role": "teacher", "content": "Друг ребёнка любит динозавров."},
+      {"source_id": "p06-s3", "author_role": "student", "content": "Я этого про себя не говорил. Лучше разберём текущую задачу."}
+    ], "expected": {"operations": [], "concepts": [], "forbidden": ["любит динозавров", "отлично решает примеры"]}},
+    {"case_id": "P07", "sources": [
+      {"source_id": "p07-s1", "author_role": "student", "content": "Я раньше просил не давать задачи про Minecraft. Теперь передумал: можно снова задачи про Minecraft."}
+    ], "expected": {"operations": ["allow"], "concepts": ["Minecraft"], "forbidden": ["новая учебная компетенция"]}},
+    {"case_id": "P08", "sources": [
+      {"source_id": "p08-s1", "author_role": "student", "content": "Меня зовут Ирина Соколова, я учусь в школе 190. Люблю шахматы. Мой телефон +7 999 123 45 67."}
+    ], "expected": {"operations": ["add"], "concepts": ["шахматы"], "forbidden": ["идентификатор в названии интереса", "семейные сведения", "школа как увлечение"]}}
+  ]
+}

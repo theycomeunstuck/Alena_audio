@@ -14,7 +14,7 @@ from pathlib import Path
 # --- Regexes / constants (single source of truth for validate.py and build_context.py) ---
 
 LEARNER_ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
-TOPIC_ID_RE = re.compile(r"^math\.g[34]\.[a-z_]+(\.[a-z0-9_]+){0,2}$")
+TOPIC_ID_RE = re.compile(r"^(?:math\.g[34]\.[a-z_]+(\.[a-z0-9_]+){0,2}|programming\.(?:scratch|python)\.[a-z_]+(?:\.[a-z0-9_]+){0,2})$")
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 KNOWLEDGE_STATUSES = ("not_started", "learning", "confident", "needs_support")
@@ -67,6 +67,15 @@ def load_catalog(path: Path) -> dict:
     validate.py's job; this is just the load-and-index convenience used by
     both validate.py and build_context.py.
     """
+    if path.is_dir():
+        catalog = {}
+        for source in sorted(path.glob('*.json')):
+            entries = load_catalog(source)
+            duplicate = set(catalog) & set(entries)
+            if duplicate:
+                raise ValueError(f'Duplicate curriculum identifiers: {sorted(duplicate)}')
+            catalog.update(entries)
+        return catalog
     data, _had_bom = load_json(path)
     topics = data.get("topics", []) if isinstance(data, dict) else []
     catalog: dict = {}

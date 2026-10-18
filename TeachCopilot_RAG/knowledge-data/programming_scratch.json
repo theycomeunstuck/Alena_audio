@@ -1,0 +1,392 @@
+{
+  "subject_id": "programming",
+  "curriculum_id": "programming-foundations-v1",
+  "source_id": "scratch-official",
+  "source_url": "https://scratch.mit.edu/educators/",
+  "tasks": [
+    {
+      "task_id": "scratch-sequence-01",
+      "topic_id": "programming.scratch.sequence",
+      "subject_id": "programming",
+      "curriculum_id": "programming-foundations-v1",
+      "grade": 3,
+      "difficulty": "easy",
+      "content": "Поставь блок движения, затем поворота. Блоки Scratch выполняются сверху вниз.",
+      "answer": "Сначала выполни движение, затем поворот: порядок блоков задаёт порядок действий спрайта.",
+      "hints": [
+        "Найди два блока действия.",
+        "Помни, что скрипт идёт сверху вниз.",
+        "Помести движение выше поворота и проверь."
+      ],
+      "tags": [
+        "Scratch",
+        "sequence",
+        "последовательность команд"
+      ],
+      "source_id": "scratch-official-educators",
+      "source_url": "https://scratch.mit.edu/educators/",
+      "references": [
+        {
+          "title": "Scratch for Educators",
+          "url": "https://scratch.mit.edu/educators/"
+        },
+        {
+          "title": "Scratch Ideas",
+          "url": "https://scratch.mit.edu/ideas/"
+        }
+      ]
+    },
+    {
+      "task_id": "scratch-sequence-02",
+      "topic_id": "programming.scratch.sequence",
+      "subject_id": "programming",
+      "curriculum_id": "programming-foundations-v1",
+      "grade": 3,
+      "difficulty": "medium",
+      "content": "Поставь блок движения, затем поворота. Блоки Scratch выполняются сверху вниз. Дай объяснение и проверь результат на небольшом примере.",
+      "answer": "Сначала выполни движение, затем поворот: порядок блоков задаёт порядок действий спрайта.",
+      "hints": [
+        "Найди два блока действия.",
+        "Помни, что скрипт идёт сверху вниз.",
+        "Помести движение выше поворота и проверь."
+      ],
+      "tags": [
+        "Scratch",
+        "sequence",
+        "последовательность команд"
+      ],
+      "source_id": "scratch-official-educators",
+      "source_url": "https://scratch.mit.edu/educators/",
+      "references": [
+        {
+          "title": "Scratch for Educators",
+          "url": "https://scratch.mit.edu/educators/"
+        },
+        {
+          "title": "Scratch Ideas",
+          "url": "https://scratch.mit.edu/ideas/"
+        }
+      ]
+    },
+    {
+      "task_id": "scratch-events-01",
+      "topic_id": "programming.scratch.events",
+      "subject_id": "programming",
+      "curriculum_id": "programming-foundations-v1",
+      "grade": 3,
+      "difficulty": "easy",
+      "content": "Запусти скрипт нажатием на зелёный флаг. Какое событие начинает выполнение?",
+      "answer": "Блок события зелёного флага запускает расположенный под ним скрипт.",
+      "hints": [
+        "Найди блок начала.",
+        "Выбери событие зелёного флага или клавиши.",
+        "Подсоедини к нему команды и проверь запуск."
+      ],
+      "tags": [
+        "Scratch",
+        "events",
+        "события запуска"
+      ],
+      "source_id": "scratch-official-educators",
+      "source_url": "https://scratch.mit.edu/educators/",
+      "references": [
+        {
+          "title": "Scratch for Educators",
+          "url": "https://scratch.mit.edu/educators/"
+        },
+        {
+          "title": "Scratch Ideas",
+          "url": "https://scratch.mit.edu/ideas/"
+        }
+      ]
+    },
+    {
+      "task_id": "scratch-events-02",
+      "topic_id": "programming.scratch.events",
+      "subject_id": "programming",
+      "curriculum_id": "programming-foundations-v1",
+      "grade": 3,
+      "difficulty": "medium",
+      "content": "Запусти скрипт нажатием на зелёный флаг. Какое событие начинает выполнение? Дай объяснение и проверь результат на небольшом примере.",
+      "answer": "Блок события зелёного флага запускает расположенный под ним скрипт.",
+      "hints": [
+        "Найди блок начала.",
+        "Выбери событие зелёного флага или клавиши.",
+        "Подсоедини к нему команды и проверь запуск."
+      ],
+      "tags": [
+        "Scratch",
+        "events",
+        "события запуска"
+      ],
+      "source_id": "scratch-official-educators",
+      "source_url": "https://scratch.mit.edu/educators/",
+      "references": [
+        {
+          "title": "Scratch for Educators",
+          "url": "https://scratch.mit.edu/educators/"
+        },
+        {
+          "title": "Scratch Ideas",
+          "url": "https://scratch.mit.edu/ideas/"
+        }
+      ]
+    },
+    {
+      "task_id": "scratch-loops-01",
+      "topic_id": "programming.scratch.loops",
+      "subject_id": "programming",
+      "curriculum_id": "programming-foundations-v1",
+      "grade": 3,
+      "difficulty": "easy",
+      "content": "Повтори движение 10 раз блоком повторения. Как избежать десяти одинаковых блоков?",
+      "answer": "Помести блок движения внутрь цикла с числом повторений 10.",
+      "hints": [
+        "Какую команду нужно повторять?",
+        "Вмести её в блок цикла.",
+        "Задай число повторов и проверь."
+      ],
+      "tags": [
+        "Scratch",
+        "loops",
+        "циклы повторения"
+      ],
+      "source_id": "scratch-official-educators",
+      "source_url": "https://scratch.mit.edu/educators/",
+      "references": [
+        {
+          "title": "Scratch for Educators",
+          "url": "https://scratch.mit.edu/educators/"
+        },
+        {
+          "title": "Scratch Ideas",
+          "url": "https://scratch.mit.edu/ideas/"
+        }
+      ]
+    },
+    {
+      "task_id": "scratch-loops-02",
+      "topic_id": "programming.scratch.loops",
+      "subject_id": "programming",
+      "curriculum_id": "programming-foundations-v1",
+      "grade": 3,
+      "difficulty": "medium",
+      "content": "Повтори движение 10 раз блоком повторения. Как избежать десяти одинаковых блоков? Дай объяснение и проверь результат на небольшом примере.",
+      "answer": "Помести блок движения внутрь цикла с числом повторений 10.",
+      "hints": [
+        "Какую команду нужно повторять?",
+        "Вмести её в блок цикла.",
+        "Задай число повторов и проверь."
+      ],
+      "tags": [
+        "Scratch",
+        "loops",
+        "циклы повторения"
+      ],
+      "source_id": "scratch-official-educators",
+      "source_url": "https://scratch.mit.edu/educators/",
+      "references": [
+        {
+          "title": "Scratch for Educators",
+          "url": "https://scratch.mit.edu/educators/"
+        },
+        {
+          "title": "Scratch Ideas",
+          "url": "https://scratch.mit.edu/ideas/"
+        }
+      ]
+    },
+    {
+      "task_id": "scratch-conditions-01",
+      "topic_id": "programming.scratch.conditions",
+      "subject_id": "programming",
+      "curriculum_id": "programming-foundations-v1",
+      "grade": 4,
+      "difficulty": "easy",
+      "content": "Если спрайт касается края, то он должен отскочить. Как выразить проверку?",
+      "answer": "Используй блок если с условием касания края и командой отскока внутри.",
+      "hints": [
+        "Найди блок если.",
+        "Помести в соответствующее окно проверку.",
+        "Соедини условие с действием и проверь оба случая."
+      ],
+      "tags": [
+        "Scratch",
+        "conditions",
+        "условия"
+      ],
+      "source_id": "scratch-official-educators",
+      "source_url": "https://scratch.mit.edu/educators/",
+      "references": [
+        {
+          "title": "Scratch for Educators",
+          "url": "https://scratch.mit.edu/educators/"
+        },
+        {
+          "title": "Scratch Ideas",
+          "url": "https://scratch.mit.edu/ideas/"
+        }
+      ]
+    },
+    {
+      "task_id": "scratch-conditions-02",
+      "topic_id": "programming.scratch.conditions",
+      "subject_id": "programming",
+      "curriculum_id": "programming-foundations-v1",
+      "grade": 4,
+      "difficulty": "medium",
+      "content": "Если спрайт касается края, то он должен отскочить. Как выразить проверку? Дай объяснение и проверь результат на небольшом примере.",
+      "answer": "Используй блок если с условием касания края и командой отскока внутри.",
+      "hints": [
+        "Найди блок если.",
+        "Помести в соответствующее окно проверку.",
+        "Соедини условие с действием и проверь оба случая."
+      ],
+      "tags": [
+        "Scratch",
+        "conditions",
+        "условия"
+      ],
+      "source_id": "scratch-official-educators",
+      "source_url": "https://scratch.mit.edu/educators/",
+      "references": [
+        {
+          "title": "Scratch for Educators",
+          "url": "https://scratch.mit.edu/educators/"
+        },
+        {
+          "title": "Scratch Ideas",
+          "url": "https://scratch.mit.edu/ideas/"
+        }
+      ]
+    },
+    {
+      "task_id": "scratch-variables-01",
+      "topic_id": "programming.scratch.variables",
+      "subject_id": "programming",
+      "curriculum_id": "programming-foundations-v1",
+      "grade": 4,
+      "difficulty": "easy",
+      "content": "Создай переменную счёт и увеличивай её на один при сборе предмета.",
+      "answer": "Создай переменную счёт, установи её в 0 при старте и меняй на 1 после сбора предмета.",
+      "hints": [
+        "Что нужно запомнить между командами?",
+        "Создай переменную и обнули её перед стартом.",
+        "При событии сбора измени её на 1."
+      ],
+      "tags": [
+        "Scratch",
+        "variables",
+        "переменные и счёт"
+      ],
+      "source_id": "scratch-official-educators",
+      "source_url": "https://scratch.mit.edu/educators/",
+      "references": [
+        {
+          "title": "Scratch for Educators",
+          "url": "https://scratch.mit.edu/educators/"
+        },
+        {
+          "title": "Scratch Ideas",
+          "url": "https://scratch.mit.edu/ideas/"
+        }
+      ]
+    },
+    {
+      "task_id": "scratch-variables-02",
+      "topic_id": "programming.scratch.variables",
+      "subject_id": "programming",
+      "curriculum_id": "programming-foundations-v1",
+      "grade": 4,
+      "difficulty": "medium",
+      "content": "Создай переменную счёт и увеличивай её на один при сборе предмета. Дай объяснение и проверь результат на небольшом примере.",
+      "answer": "Создай переменную счёт, установи её в 0 при старте и меняй на 1 после сбора предмета.",
+      "hints": [
+        "Что нужно запомнить между командами?",
+        "Создай переменную и обнули её перед стартом.",
+        "При событии сбора измени её на 1."
+      ],
+      "tags": [
+        "Scratch",
+        "variables",
+        "переменные и счёт"
+      ],
+      "source_id": "scratch-official-educators",
+      "source_url": "https://scratch.mit.edu/educators/",
+      "references": [
+        {
+          "title": "Scratch for Educators",
+          "url": "https://scratch.mit.edu/educators/"
+        },
+        {
+          "title": "Scratch Ideas",
+          "url": "https://scratch.mit.edu/ideas/"
+        }
+      ]
+    },
+    {
+      "task_id": "scratch-debugging-01",
+      "topic_id": "programming.scratch.debugging",
+      "subject_id": "programming",
+      "curriculum_id": "programming-foundations-v1",
+      "grade": 4,
+      "difficulty": "easy",
+      "content": "Спрайт движется дважды. Проверь последовательность блоков и найди лишнюю команду движения.",
+      "answer": "Проверь скрипт сверху вниз, удали повторную команду движения и снова запусти проект.",
+      "hints": [
+        "Воспроизведи ошибку.",
+        "Проверь команды движения подряд.",
+        "Исправь одну команду и запусти снова."
+      ],
+      "tags": [
+        "Scratch",
+        "debugging",
+        "отладка проекта"
+      ],
+      "source_id": "scratch-official-educators",
+      "source_url": "https://scratch.mit.edu/educators/",
+      "references": [
+        {
+          "title": "Scratch for Educators",
+          "url": "https://scratch.mit.edu/educators/"
+        },
+        {
+          "title": "Scratch Ideas",
+          "url": "https://scratch.mit.edu/ideas/"
+        }
+      ]
+    },
+    {
+      "task_id": "scratch-debugging-02",
+      "topic_id": "programming.scratch.debugging",
+      "subject_id": "programming",
+      "curriculum_id": "programming-foundations-v1",
+      "grade": 4,
+      "difficulty": "medium",
+      "content": "Спрайт движется дважды. Проверь последовательность блоков и найди лишнюю команду движения. Дай объяснение и проверь результат на небольшом примере.",
+      "answer": "Проверь скрипт сверху вниз, удали повторную команду движения и снова запусти проект.",
+      "hints": [
+        "Воспроизведи ошибку.",
+        "Проверь команды движения подряд.",
+        "Исправь одну команду и запусти снова."
+      ],
+      "tags": [
+        "Scratch",
+        "debugging",
+        "отладка проекта"
+      ],
+      "source_id": "scratch-official-educators",
+      "source_url": "https://scratch.mit.edu/educators/",
+      "references": [
+        {
+          "title": "Scratch for Educators",
+          "url": "https://scratch.mit.edu/educators/"
+        },
+        {
+          "title": "Scratch Ideas",
+          "url": "https://scratch.mit.edu/ideas/"
+        }
+      ]
+    }
+  ]
+}

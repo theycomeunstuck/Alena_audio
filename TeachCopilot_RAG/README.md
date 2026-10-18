@@ -1,19 +1,23 @@
-# TeachCopilot — AI Tutor Pipeline
+# TeachCopilot – AI Tutor Pipeline
+
+Текущий локальный контур: PostgreSQL/pgvector, Ollama и API с аккаунтами. Команды, результаты измерений и границы проверки описаны в [руководстве по локальной БД и RAG](docs/LOCAL_DATABASE_RAG.md). JSON-first и старые pipeline инструкции ниже являются архивом.
 
 AI-powered tutoring system for children aged 7-12. Voice-first architecture:
 child speaks, Whisper transcribes, pipeline personalizes the LLM response,
 TTS speaks back.
 
-> **Текущий режим: JSON-first RAG, без PostgreSQL.** Карточки учеников лежат
-> в `../learner-data/learners/*.json`, учебные материалы — в
-> `knowledge-data/*.json`, а локальный векторный индекс — в `.local-rag/*.json`
+> Пользовательские материалы для текущего локального контура: [руководство](docs/USER_GUIDE.md), [сценарии использования](docs/USE_CASES.md), [локальная БД и RAG](docs/LOCAL_DATABASE_RAG.md), [схема](docs/LOCAL_SCHEMA.md), [политика ЗБР](docs/ZPD_POLICY.md).
+
+> **Архивный режим: JSON-first RAG, без PostgreSQL.** Карточки учеников лежат
+> в `../learner-data/learners/*.json`, учебные материалы – в
+> `knowledge-data/*.json`, а локальный векторный индекс – в `.local-rag/*.json`
 > (генерируется и не коммитится).
 
-## Быстрый старт: JSON RAG
+## Архив: быстрый старт JSON RAG
 
 ### 1. Посмотреть безопасный контекст ученика
 
-Карточка ученика — отдельный JSON-файл, например
+Карточка ученика – отдельный JSON-файл, например
 `../learner-data/learners/ivanov-ivan.json`:
 
 ```json
@@ -60,7 +64,7 @@ cd ..
 python learner-data/tools/build_context.py ivanov-ivan
 ```
 
-Пример результата — именно это передаётся модели:
+Пример результата – именно это передаётся модели:
 
 ```text
 <child_safe_profile>
@@ -70,9 +74,9 @@ python learner-data/tools/build_context.py ivanov-ivan
 </child_safe_profile>
 
 <learner_rag_context>
-Текущая_цель: Деление на однозначное и двузначное число [math.g4.numbers.division_by_1_2_digit] — закрепить деление столбиком с проверкой нулей и остатка
+Текущая_цель: Деление на однозначное и двузначное число [math.g4.numbers.division_by_1_2_digit] – закрепить деление столбиком с проверкой нулей и остатка
 Приоритетные_трудности:
-- Деление на однозначное и двузначное число [math.g4.numbers.division_by_1_2_digit] — теряет ноль в частном
+- Деление на однозначное и двузначное число [math.g4.numbers.division_by_1_2_digit] – теряет ноль в частном
 Как_помогать:
 - проговорить план решения вслух
 </learner_rag_context>
@@ -80,7 +84,7 @@ python learner-data/tools/build_context.py ivanov-ivan
 <learner_personalization>
 Интересы: футбол, конструкторы Lego, динозавры
 Западающие_темы:
-- Деление на однозначное и двузначное число [...] — деление столбиком даётся тяжело
+- Деление на однозначное и двузначное число [...] – деление столбиком даётся тяжело
 Баллы_за_прогресс: 42
 ЗБР_сейчас:
 - Деление на однозначное и двузначное число [...]
@@ -181,7 +185,7 @@ compact context + учебные фрагменты + вопрос → LLM
 Полный manual по данным, приватности и JSON RAG:
 [`../learner-data/MANUAL.md`](../learner-data/MANUAL.md).
 
-> 📚 **New here? Start with [`docs/`](docs/README.md)** — a verified, task-oriented
+> 📚 **New here? Start with [`docs/`](docs/README.md)** – a verified, task-oriented
 > guide: [Setup](docs/SETUP.md) · [Configuration](docs/CONFIGURATION.md) ·
 > [API & Open WebUI](docs/API.md) · [Troubleshooting](docs/TROUBLESHOOTING.md).
 
@@ -430,8 +434,8 @@ events (
 
 ### Indexes
 
-- `knowledge_base_embedding_idx` — IVFFlat on `embedding` column (cosine, lists=100)
-- `events_child_id_idx` — on `(child_id, created_at DESC)` for analytics queries
+- `knowledge_base_embedding_idx` – IVFFlat on `embedding` column (cosine, lists=100)
+- `events_child_id_idx` – on `(child_id, created_at DESC)` for analytics queries
 
 ### Applying Schema
 
@@ -518,7 +522,7 @@ uv run python scripts/ingest.py --mode pdf \
   --pages 1-50
 ```
 
-All modes support **deduplication** — re-running updates existing rows, does not create duplicates.
+All modes support **deduplication** – re-running updates existing rows, does not create duplicates.
 
 ### RAG Configuration
 
@@ -538,15 +542,15 @@ Single source of truth for all settings. Reads `.env` via python-dotenv.
 
 ### db.py
 
-- `get_connection()` — Returns psycopg2 connection with RealDictCursor (named fields)
-- `get_child_full_profile(child_id)` — JOINs `children` + `child_profiles` + `child_knowledge` + `child_interests` + `error_patterns`, returns dict with all profile data, knowledge, interests, and error patterns
-- `insert_test_child()` — Creates test child "Misha" with 3 knowledge records, 3 interests, 2 error patterns
+- `get_connection()` – Returns psycopg2 connection with RealDictCursor (named fields)
+- `get_child_full_profile(child_id)` – JOINs `children` + `child_profiles` + `child_knowledge` + `child_interests` + `error_patterns`, returns dict with all profile data, knowledge, interests, and error patterns
+- `insert_test_child()` – Creates test child "Misha" with 3 knowledge records, 3 interests, 2 error patterns
 
 ### rag.py
 
-- `_get_model()` — Lazy-loads embedding model (multilingual preferred, English fallback)
-- `embed_text(text)` — Encodes text to 384d vector
-- `search_knowledge(query, subject=None, difficulty=None, tags=None, limit=None)` — Cosine similarity search via pgvector with optional filters by subject, difficulty, tags (PostgreSQL array overlap), and a runtime top-k limit.
+- `_get_model()` – Lazy-loads embedding model (multilingual preferred, English fallback)
+- `embed_text(text)` – Encodes text to 384d vector
+- `search_knowledge(query, subject=None, difficulty=None, tags=None, limit=None)` – Cosine similarity search via pgvector with optional filters by subject, difficulty, tags (PostgreSQL array overlap), and a runtime top-k limit.
 
 ### prompt_builder.py
 
@@ -554,32 +558,32 @@ Loads base prompt from `prompts/system_prompt.txt` (592 lines of pedagogical ins
 
 `build_system_prompt()` assembles:
 1. Base pedagogical prompt
-2. `<child_safe_profile>` — name, age (safe for child to see)
-3. `<child_learning_profile>` — learning preferences, interests, speed, knowledge state grouped by status
-4. `<error_patterns>` — recurring mistakes sorted by frequency
-5. `<relevant_material>` — RAG results including image descriptions from PDF pages
+2. `<child_safe_profile>` – name, age (safe for child to see)
+3. `<child_learning_profile>` – learning preferences, interests, speed, knowledge state grouped by status
+4. `<error_patterns>` – recurring mistakes sorted by frequency
+5. `<relevant_material>` – RAG results including image descriptions from PDF pages
 
 ### filter_function.py
 
 Open WebUI Filter with two hooks:
 
-**`inlet(body, user)`** — before LLM:
+**`inlet(body, user)`** – before LLM:
 1. Extracts child_id from `[child_id:UUID]` message prefix (testing) or `user_mappings` table (production)
 2. Falls back to `DEFAULT_CHILD_ID`
 3. Loads profile, runs RAG search, builds system prompt
 4. Injects system message into conversation
 
-**`outlet(body, user)`** — after LLM response:
+**`outlet(body, user)`** – after LLM response:
 1. Counts user messages
 2. Every 5 messages triggers Profile Agent
 3. Logs events to database
 4. Never blocks the response
 
-Speaker detection is currently **disabled** (Phase 2) — all users are treated as children. Re-enable by searching for `# SPEAKER_DETECT` comments.
+Speaker detection is currently **disabled** (Phase 2) – all users are treated as children. Re-enable by searching for `# SPEAKER_DETECT` comments.
 
 ### event_logger.py
 
-`log_event(child_id, event_type, payload)` — Inserts JSONB event into `events` table. Never raises exceptions.
+`log_event(child_id, event_type, payload)` – Inserts JSONB event into `events` table. Never raises exceptions.
 
 ---
 
@@ -682,11 +686,11 @@ PDF file
 
 It exposes:
 
-- `GET /health` — health check
-- `GET /profile` — returns the default or requested child profile
-- `POST /rag/search` — direct RAG search endpoint
-- `POST /v1/chat/completions` — OpenAI-compatible chat endpoint
-- `GET /v1/models` — OpenAI-compatible models endpoint
+- `GET /health` – health check
+- `GET /profile` – returns the default or requested child profile
+- `POST /rag/search` – direct RAG search endpoint
+- `POST /v1/chat/completions` – OpenAI-compatible chat endpoint
+- `GET /v1/models` – OpenAI-compatible models endpoint
 
 The chat endpoint:
 
@@ -944,7 +948,7 @@ uv run uvicorn server:app --host 0.0.0.0 --port 8099
 ### UUID Compatibility
 
 The database uses standard UUID with dashes: `00000000-0000-0000-0000-000000000001`.
-`user_mappings.user_id` is TEXT — any format works (hex without dashes, UUID with dashes, etc.).
+`user_mappings.user_id` is TEXT – any format works (hex without dashes, UUID with dashes, etc.).
 For example, `uuid.uuid4().hex` format `8b2a57080ca0410e8e00e1d3d68ee246` is accepted.
 
 ---

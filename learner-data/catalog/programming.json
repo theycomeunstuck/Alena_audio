@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "subject_id": "programming",
+  "curriculum_id": "programming-foundations-v1",
+  "grades": [3, 4, null],
+  "description": "Seed curriculum for Scratch first, then Python. IDs are stable competency identifiers; grade is a separate optional audience hint.",
+  "topics": [
+    {"id":"programming.scratch.sequence","title_ru":"Последовательность команд в Scratch","synonyms":["алгоритм по шагам","порядок блоков Scratch"],"parent":null,"grade":3,"deprecated":false},
+    {"id":"programming.scratch.events","title_ru":"События и запуск в Scratch","synonyms":["флаг запуска","событийные блоки Scratch"],"parent":null,"grade":3,"deprecated":false},
+    {"id":"programming.scratch.loops","title_ru":"Циклы и повторение в Scratch","synonyms":["повторить блоки","repeat Scratch"],"parent":null,"grade":3,"deprecated":false},
+    {"id":"programming.scratch.conditions","title_ru":"Условия в Scratch","synonyms":["если то","if Scratch","проверка условия"],"parent":null,"grade":4,"deprecated":false},
+    {"id":"programming.scratch.variables","title_ru":"Переменные и счёт в Scratch","synonyms":["очки","счётчик Scratch","изменить переменную"],"parent":null,"grade":4,"deprecated":false},
+    {"id":"programming.scratch.debugging","title_ru":"Поиск ошибок в Scratch","synonyms":["отладка Scratch","почему спрайт делает лишнее"],"parent":null,"grade":4,"deprecated":false},
+    {"id":"programming.python.output","title_ru":"Вывод данных в Python","synonyms":["print","показать текст в Python"],"parent":null,"grade":null,"deprecated":false},
+    {"id":"programming.python.variables","title_ru":"Переменные и типы значений в Python","synonyms":["присваивание","имя переменной","число и строка"],"parent":null,"grade":null,"deprecated":false},
+    {"id":"programming.python.conditions","title_ru":"Условия if в Python","synonyms":["ветвление","сравнение в Python"],"parent":null,"grade":null,"deprecated":false},
+    {"id":"programming.python.loops","title_ru":"Циклы в Python","synonyms":["for range","повторение команд Python"],"parent":null,"grade":null,"deprecated":false},
+    {"id":"programming.python.lists","title_ru":"Списки в Python","synonyms":["индекс списка","элементы списка"],"parent":null,"grade":null,"deprecated":false},
+    {"id":"programming.python.debugging","title_ru":"Чтение ошибок и отладка Python","synonyms":["SyntaxError","NameError","исправить ошибку кода"],"parent":null,"grade":null,"deprecated":false}
+  ],
+  "references": [
+    {"source_id":"scratch-official-educators","url":"https://scratch.mit.edu/educators/","title":"Scratch for Educators"},
+    {"source_id":"scratch-official-ideas","url":"https://scratch.mit.edu/ideas/","title":"Scratch Ideas"},
+    {"source_id":"python-official-tutorial","url":"https://docs.python.org/3/tutorial/","title":"The Python Tutorial"},
+    {"source_id":"python-official-control-flow","url":"https://docs.python.org/3/tutorial/controlflow.html","title":"More Control Flow Tools"},
+    {"source_id":"python-official-data-structures","url":"https://docs.python.org/3/tutorial/datastructures.html","title":"Data Structures"},
+    {"source_id":"python-official-errors","url":"https://docs.python.org/3/tutorial/errors.html","title":"Errors and Exceptions"}
+  ]
+}

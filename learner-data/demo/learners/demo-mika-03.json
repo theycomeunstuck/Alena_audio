@@ -1,0 +1,718 @@
+{
+  "schema_version": 2,
+  "learner_id": "demo-mika-03",
+  "pseudonym": "ДЕМО – Мика Сосна",
+  "age_group": "8-9",
+  "grade": "3",
+  "language": "russian",
+  "rag_context": {
+    "current_goal": {
+      "topic_id": "programming.scratch.loops",
+      "goal": "Предсказывать итог короткого цикла: сначала пройти один повтор наглядно, затем проверить два сценария с разным числом повторов. Успех – оба прогноза верны; после первой точной попытки убрать счётчик-подсказку.",
+      "updated_at": "2026-10-12"
+    },
+    "current_topics": [
+      "math.g3.geometry.perimeter_polygon",
+      "math.g3.numbers.division_with_remainder",
+      "programming.scratch.loops"
+    ],
+    "priority_difficulties": [
+      {
+        "topic_id": "math.g3.numbers.division_with_remainder",
+        "description": "По наблюдениям: освоение 24%, самостоятельность 19%. Начать с опоры: сначала разложить предметы на равные группы; после точной попытки проверить, можно ли её убрать."
+      },
+      {
+        "topic_id": "programming.scratch.loops",
+        "description": "По наблюдениям: освоение 69%, самостоятельность 55%. Начать с опоры: попросить показать один повтор; после точной попытки проверить, можно ли её убрать."
+      },
+      {
+        "topic_id": "math.g3.word_problems.one_step",
+        "description": "По наблюдениям: освоение 61%, самостоятельность 48%. Начать с опоры: сравнить результат до и после цикла; после точной попытки проверить, можно ли её убрать."
+      }
+    ],
+    "effective_strategies": [
+      "сначала разложить предметы на равные группы",
+      "попросить показать один повтор",
+      "сравнить результат до и после цикла"
+    ],
+    "avoid": [
+      "Не убирать опору, пока самостоятельное решение не подтверждено наблюдениями.",
+      "Не считать непроверенную тему неуспехом: сначала провести диагностику."
+    ],
+    "recent_progress": {
+      "date": "2026-10-12",
+      "note": "Короткие инструкции понимает; новые слова сравнения лучше объяснить на конкретном примере."
+    }
+  },
+  "profile": {
+    "explanation_style": "сначала действие с предметами, затем короткий рисунок",
+    "pace": "быстро на знакомом материале, медленнее при новых словах",
+    "autonomy_level": "начинает сам и просит проверить ход решения",
+    "motivation": "спроектировать маршрут, который работает",
+    "prefers_visual": true
+  },
+  "interests": [
+    "скейт-парки",
+    "конструкторы",
+    "погода"
+  ],
+  "knowledge": [
+    {
+      "topic_id": "math.g3.geometry.perimeter_polygon",
+      "status": "confident",
+      "notes": "По последнему наблюдению: Решил самостоятельно, проговорил план и проверил ответ."
+    },
+    {
+      "topic_id": "math.g3.numbers.division_with_remainder",
+      "status": "needs_support",
+      "notes": "По последнему наблюдению: Потребовалось вместе разобрать первый шаг и продолжить с учителем."
+    },
+    {
+      "topic_id": "programming.scratch.loops",
+      "status": "learning",
+      "notes": "По последнему наблюдению: Решил после одного наводящего вопроса о следующем шаге."
+    },
+    {
+      "topic_id": "math.g3.word_problems.one_step",
+      "status": "learning",
+      "notes": "По последнему наблюдению: Решил после одного наводящего вопроса о следующем шаге."
+    },
+    {
+      "topic_id": "programming.scratch.sequence",
+      "status": "confident",
+      "notes": "По последнему наблюдению: Решил самостоятельно, проговорил план и проверил ответ."
+    },
+    {
+      "topic_id": "programming.python.output",
+      "status": "learning",
+      "notes": "По последнему наблюдению: Решил после одного наводящего вопроса о следующем шаге."
+    },
+    {
+      "topic_id": "programming.python.variables",
+      "status": "not_started",
+      "notes": "Структурированную проверку этой темы ещё не проводили; навык пока неизвестен."
+    }
+  ],
+  "error_patterns": [
+    {
+      "subject": "math",
+      "topic_id": "math.g3.numbers.division_with_remainder",
+      "error_tag": "считает остаток ещё одной полной группой",
+      "count": 4,
+      "last_seen": "2026-10-12"
+    },
+    {
+      "subject": "programming",
+      "topic_id": "programming.scratch.loops",
+      "error_tag": "считает стартовый блок повторяемым действием",
+      "count": 2,
+      "last_seen": "2026-10-12"
+    }
+  ],
+  "mvp": {
+    "story_preferences": [
+      "скейт-парки",
+      "конструкторы"
+    ],
+    "learning_preferences_observed": [
+      "сначала действие с предметами, затем короткий рисунок",
+      "Короткие инструкции понимает; новые слова сравнения лучше объяснить на конкретном примере."
+    ],
+    "help_strategies": [
+      "сначала разложить предметы на равные группы",
+      "попросить показать один повтор",
+      "сравнить результат до и после цикла"
+    ],
+    "journal": [
+      {
+        "date": "2026-10-08",
+        "note": "Начали с короткого задания по теме math.g3.geometry.perimeter_polygon, чтобы увидеть выбранный способ."
+      },
+      {
+        "date": "2026-10-09",
+        "note": "В теме math.g3.numbers.division_with_remainder помогла опора: сначала разложить предметы на равные группы."
+      },
+      {
+        "date": "2026-10-10",
+        "note": "Для темы programming.scratch.loops сначала использовали вопрос-подсказку, потом ученик продолжил сам."
+      },
+      {
+        "date": "2026-10-11",
+        "note": "В теме math.g3.word_problems.one_step проверили предположение на новом примере и обсудили исправление."
+      },
+      {
+        "date": "2026-10-12",
+        "note": "После задания по теме programming.scratch.sequence ученик назвал следующий шаг для самостоятельной тренировки."
+      }
+    ],
+    "lessons": [
+      {
+        "date": "2026-10-08",
+        "topic_ids": [
+          "math.g3.geometry.perimeter_polygon",
+          "math.g3.numbers.division_with_remainder"
+        ],
+        "minutes": 18,
+        "note": "Разобрали задание по теме math.g3.geometry.perimeter_polygon: ученик выбрал способ решения и объяснил, почему он подходит."
+      },
+      {
+        "date": "2026-10-09",
+        "topic_ids": [
+          "math.g3.numbers.division_with_remainder",
+          "programming.scratch.loops"
+        ],
+        "minutes": 20,
+        "note": "По теме math.g3.numbers.division_with_remainder сравнили ответ с наглядной моделью; при проверке нашли место возможной ошибки."
+      },
+      {
+        "date": "2026-10-10",
+        "topic_ids": [
+          "programming.scratch.loops",
+          "math.g3.word_problems.one_step"
+        ],
+        "minutes": 22,
+        "note": "В теме programming.scratch.loops ученик получил одну подсказку и затем самостоятельно продолжил решение."
+      },
+      {
+        "date": "2026-10-11",
+        "topic_ids": [
+          "math.g3.word_problems.one_step",
+          "programming.scratch.sequence"
+        ],
+        "minutes": 24,
+        "note": "По теме math.g3.word_problems.one_step выполнили короткую проверку: сначала прогноз, затем запуск или вычисление."
+      },
+      {
+        "date": "2026-10-12",
+        "topic_ids": [
+          "programming.scratch.sequence",
+          "programming.python.output"
+        ],
+        "minutes": 26,
+        "note": "В теме programming.scratch.sequence ученик назвал, какая опора помогла и какую часть уже может выполнить сам."
+      }
+    ],
+    "points_ledger": [
+      {
+        "date": "2026-10-08",
+        "points": 3,
+        "reason": "Сформулировал план решения и объяснил первый шаг.",
+        "role": "tutor",
+        "topic_id": "math.g3.geometry.perimeter_polygon"
+      },
+      {
+        "date": "2026-10-09",
+        "points": 2,
+        "reason": "Проверил ответ по рисунку или обратному действию.",
+        "role": "tutor",
+        "topic_id": "math.g3.numbers.division_with_remainder"
+      },
+      {
+        "date": "2026-10-10",
+        "points": 4,
+        "reason": "После подсказки сам выбрал следующий шаг.",
+        "role": "tutor",
+        "topic_id": "programming.scratch.loops"
+      },
+      {
+        "date": "2026-10-11",
+        "points": 3,
+        "reason": "Нашёл и исправил одну ошибку при проверке.",
+        "role": "tutor",
+        "topic_id": "math.g3.word_problems.one_step"
+      },
+      {
+        "date": "2026-10-12",
+        "points": 2,
+        "reason": "Сравнил начальную попытку с новым способом.",
+        "role": "tutor",
+        "topic_id": "programming.scratch.sequence"
+      }
+    ]
+  },
+  "learner_model": {
+    "competencies": [
+      {
+        "topic_id": "math.g3.geometry.perimeter_polygon",
+        "mastery": 0.93,
+        "confidence": 0.7,
+        "independence": 0.88,
+        "needs_scaffolding": false,
+        "effective_scaffolding": [
+          "Обвести внешний контур и посчитать каждую сторону один раз.",
+          "Подписать длину каждой стороны, не повторяя её."
+        ],
+        "recommended_scaffolding": "hint_question",
+        "last_assessed": "2026-10-11",
+        "history": [
+          {
+            "date": "2026-10-08",
+            "mastery": 0.93,
+            "independence": 0.88,
+            "help_level": "hint_question",
+            "support_level": "hint_question",
+            "solved": true,
+            "task_id": "demo-mika-03-math-g3-geometry-perimeter_polygon-pair01",
+            "assessment_pair_id": "demo-mika-03-math-g3-geometry-perimeter_polygon-pair01",
+            "difficulty": "medium",
+            "note": "Задача выполнена с опорой; затем проверили тот же тип задания без подсказки."
+          },
+          {
+            "date": "2026-10-09",
+            "mastery": 0.93,
+            "independence": 0.88,
+            "help_level": "independent",
+            "support_level": "independent",
+            "solved": true,
+            "task_id": "demo-mika-03-math-g3-geometry-perimeter_polygon-pair01",
+            "assessment_pair_id": "demo-mika-03-math-g3-geometry-perimeter_polygon-pair01",
+            "difficulty": "medium",
+            "note": "Решение выполнено самостоятельно."
+          },
+          {
+            "date": "2026-10-10",
+            "mastery": 0.93,
+            "independence": 0.88,
+            "help_level": "hint_question",
+            "support_level": "hint_question",
+            "solved": true,
+            "task_id": "demo-mika-03-math-g3-geometry-perimeter_polygon-pair02",
+            "assessment_pair_id": "demo-mika-03-math-g3-geometry-perimeter_polygon-pair02",
+            "difficulty": "medium",
+            "note": "Задача выполнена с опорой; затем проверили тот же тип задания без подсказки."
+          },
+          {
+            "date": "2026-10-11",
+            "mastery": 0.93,
+            "independence": 0.88,
+            "help_level": "independent",
+            "support_level": "independent",
+            "solved": true,
+            "task_id": "demo-mika-03-math-g3-geometry-perimeter_polygon-pair02",
+            "assessment_pair_id": "demo-mika-03-math-g3-geometry-perimeter_polygon-pair02",
+            "difficulty": "medium",
+            "note": "Решение выполнено самостоятельно."
+          }
+        ]
+      },
+      {
+        "topic_id": "math.g3.numbers.division_with_remainder",
+        "mastery": 0.24,
+        "confidence": 0.7,
+        "independence": 0.19,
+        "needs_scaffolding": true,
+        "effective_scaffolding": [
+          "Разложить предметы на равные группы и отдельно оставить остаток.",
+          "Проверить, сколько предметов осталось после деления на группы."
+        ],
+        "recommended_scaffolding": "visual",
+        "last_assessed": "2026-10-11",
+        "history": [
+          {
+            "date": "2026-10-08",
+            "mastery": 0.24,
+            "independence": 0.19,
+            "help_level": "joint",
+            "support_level": "joint",
+            "solved": false,
+            "task_id": "mika-remainder-01",
+            "assessment_pair_id": "mika-remainder-01",
+            "difficulty": "medium",
+            "note": "В двух задачах одинаковой сложности Мика пока не справился ни самостоятельно, ни при максимальной помощи – совместном решении с учителем. Сначала стоит вернуться к делению на предметах и проверить необходимые предпосылки."
+          },
+          {
+            "date": "2026-10-09",
+            "mastery": 0.24,
+            "independence": 0.19,
+            "help_level": "independent",
+            "support_level": "independent",
+            "solved": false,
+            "task_id": "mika-remainder-01",
+            "assessment_pair_id": "mika-remainder-01",
+            "difficulty": "medium",
+            "note": "В двух задачах одинаковой сложности Мика пока не справился ни самостоятельно, ни при максимальной помощи – совместном решении с учителем. Сначала стоит вернуться к делению на предметах и проверить необходимые предпосылки."
+          },
+          {
+            "date": "2026-10-10",
+            "mastery": 0.24,
+            "independence": 0.19,
+            "help_level": "joint",
+            "support_level": "joint",
+            "solved": false,
+            "task_id": "mika-remainder-02",
+            "assessment_pair_id": "mika-remainder-02",
+            "difficulty": "medium",
+            "note": "В двух задачах одинаковой сложности Мика пока не справился ни самостоятельно, ни при максимальной помощи – совместном решении с учителем. Сначала стоит вернуться к делению на предметах и проверить необходимые предпосылки."
+          },
+          {
+            "date": "2026-10-11",
+            "mastery": 0.24,
+            "independence": 0.19,
+            "help_level": "independent",
+            "support_level": "independent",
+            "solved": false,
+            "task_id": "mika-remainder-02",
+            "assessment_pair_id": "mika-remainder-02",
+            "difficulty": "medium",
+            "note": "В двух задачах одинаковой сложности Мика пока не справился ни самостоятельно, ни при максимальной помощи – совместном решении с учителем. Сначала стоит вернуться к делению на предметах и проверить необходимые предпосылки."
+          }
+        ]
+      },
+      {
+        "topic_id": "programming.scratch.loops",
+        "mastery": 0.69,
+        "confidence": 0.7,
+        "independence": 0.55,
+        "needs_scaffolding": true,
+        "effective_scaffolding": [
+          "Предсказать результат одного повтора цикла, затем следующего."
+        ],
+        "recommended_scaffolding": "visual",
+        "last_assessed": "2026-10-11",
+        "history": [
+          {
+            "date": "2026-10-08",
+            "mastery": 0.69,
+            "independence": 0.55,
+            "help_level": "hint_question",
+            "support_level": "hint_question",
+            "solved": true,
+            "task_id": "demo-mika-03-programming-scratch-loops-pair01",
+            "assessment_pair_id": "demo-mika-03-programming-scratch-loops-pair01",
+            "difficulty": "medium",
+            "note": "Задача выполнена с опорой; затем проверили тот же тип задания без подсказки."
+          },
+          {
+            "date": "2026-10-09",
+            "mastery": 0.69,
+            "independence": 0.55,
+            "help_level": "independent",
+            "support_level": "independent",
+            "solved": false,
+            "task_id": "demo-mika-03-programming-scratch-loops-pair01",
+            "assessment_pair_id": "demo-mika-03-programming-scratch-loops-pair01",
+            "difficulty": "medium",
+            "note": "Самостоятельная попытка пока не завершена верно."
+          },
+          {
+            "date": "2026-10-10",
+            "mastery": 0.69,
+            "independence": 0.55,
+            "help_level": "hint_question",
+            "support_level": "hint_question",
+            "solved": true,
+            "task_id": "demo-mika-03-programming-scratch-loops-pair02",
+            "assessment_pair_id": "demo-mika-03-programming-scratch-loops-pair02",
+            "difficulty": "medium",
+            "note": "Задача выполнена с опорой; затем проверили тот же тип задания без подсказки."
+          },
+          {
+            "date": "2026-10-11",
+            "mastery": 0.69,
+            "independence": 0.55,
+            "help_level": "independent",
+            "support_level": "independent",
+            "solved": false,
+            "task_id": "demo-mika-03-programming-scratch-loops-pair02",
+            "assessment_pair_id": "demo-mika-03-programming-scratch-loops-pair02",
+            "difficulty": "medium",
+            "note": "Самостоятельная попытка пока не завершена верно."
+          }
+        ]
+      },
+      {
+        "topic_id": "math.g3.word_problems.one_step",
+        "mastery": 0.61,
+        "confidence": 0.7,
+        "independence": 0.48,
+        "needs_scaffolding": true,
+        "effective_scaffolding": [
+          "подчеркнуть вопрос",
+          "показать данные на схеме"
+        ],
+        "recommended_scaffolding": "visual",
+        "last_assessed": "2026-10-11",
+        "history": [
+          {
+            "date": "2026-10-08",
+            "mastery": 0.61,
+            "independence": 0.48,
+            "help_level": "hint_question",
+            "support_level": "hint_question",
+            "solved": true,
+            "task_id": "demo-mika-03-math-g3-word_problems-one_step-pair01",
+            "assessment_pair_id": "demo-mika-03-math-g3-word_problems-one_step-pair01",
+            "difficulty": "medium",
+            "note": "Задача выполнена с опорой; затем проверили тот же тип задания без подсказки."
+          },
+          {
+            "date": "2026-10-09",
+            "mastery": 0.61,
+            "independence": 0.48,
+            "help_level": "independent",
+            "support_level": "independent",
+            "solved": false,
+            "task_id": "demo-mika-03-math-g3-word_problems-one_step-pair01",
+            "assessment_pair_id": "demo-mika-03-math-g3-word_problems-one_step-pair01",
+            "difficulty": "medium",
+            "note": "Самостоятельная попытка пока не завершена верно."
+          },
+          {
+            "date": "2026-10-10",
+            "mastery": 0.61,
+            "independence": 0.48,
+            "help_level": "hint_question",
+            "support_level": "hint_question",
+            "solved": true,
+            "task_id": "demo-mika-03-math-g3-word_problems-one_step-pair02",
+            "assessment_pair_id": "demo-mika-03-math-g3-word_problems-one_step-pair02",
+            "difficulty": "medium",
+            "note": "Задача выполнена с опорой; затем проверили тот же тип задания без подсказки."
+          },
+          {
+            "date": "2026-10-11",
+            "mastery": 0.61,
+            "independence": 0.48,
+            "help_level": "independent",
+            "support_level": "independent",
+            "solved": false,
+            "task_id": "demo-mika-03-math-g3-word_problems-one_step-pair02",
+            "assessment_pair_id": "demo-mika-03-math-g3-word_problems-one_step-pair02",
+            "difficulty": "medium",
+            "note": "Самостоятельная попытка пока не завершена верно."
+          }
+        ]
+      },
+      {
+        "topic_id": "programming.scratch.sequence",
+        "mastery": 0.91,
+        "confidence": 0.7,
+        "independence": 0.83,
+        "needs_scaffolding": false,
+        "effective_scaffolding": [
+          "проговорить блоки по порядку",
+          "проверить стартовый блок"
+        ],
+        "recommended_scaffolding": "hint_question",
+        "last_assessed": "2026-10-11",
+        "history": [
+          {
+            "date": "2026-10-08",
+            "mastery": 0.91,
+            "independence": 0.83,
+            "help_level": "hint_question",
+            "support_level": "hint_question",
+            "solved": true,
+            "task_id": "demo-mika-03-programming-scratch-sequence-pair01",
+            "assessment_pair_id": "demo-mika-03-programming-scratch-sequence-pair01",
+            "difficulty": "medium",
+            "note": "Задача выполнена с опорой; затем проверили тот же тип задания без подсказки."
+          },
+          {
+            "date": "2026-10-09",
+            "mastery": 0.91,
+            "independence": 0.83,
+            "help_level": "independent",
+            "support_level": "independent",
+            "solved": true,
+            "task_id": "demo-mika-03-programming-scratch-sequence-pair01",
+            "assessment_pair_id": "demo-mika-03-programming-scratch-sequence-pair01",
+            "difficulty": "medium",
+            "note": "Решение выполнено самостоятельно."
+          },
+          {
+            "date": "2026-10-10",
+            "mastery": 0.91,
+            "independence": 0.83,
+            "help_level": "hint_question",
+            "support_level": "hint_question",
+            "solved": true,
+            "task_id": "demo-mika-03-programming-scratch-sequence-pair02",
+            "assessment_pair_id": "demo-mika-03-programming-scratch-sequence-pair02",
+            "difficulty": "medium",
+            "note": "Задача выполнена с опорой; затем проверили тот же тип задания без подсказки."
+          },
+          {
+            "date": "2026-10-11",
+            "mastery": 0.91,
+            "independence": 0.83,
+            "help_level": "independent",
+            "support_level": "independent",
+            "solved": true,
+            "task_id": "demo-mika-03-programming-scratch-sequence-pair02",
+            "assessment_pair_id": "demo-mika-03-programming-scratch-sequence-pair02",
+            "difficulty": "medium",
+            "note": "Решение выполнено самостоятельно."
+          }
+        ]
+      },
+      {
+        "topic_id": "programming.python.output",
+        "mastery": 0.66,
+        "confidence": 0.7,
+        "independence": 0.52,
+        "needs_scaffolding": true,
+        "effective_scaffolding": [
+          "отследить значение в кавычках",
+          "прочитать вывод до запуска"
+        ],
+        "recommended_scaffolding": "visual",
+        "last_assessed": "2026-10-11",
+        "history": [
+          {
+            "date": "2026-10-08",
+            "mastery": 0.66,
+            "independence": 0.52,
+            "help_level": "hint_question",
+            "support_level": "hint_question",
+            "solved": true,
+            "task_id": "demo-mika-03-programming-python-output-pair01",
+            "assessment_pair_id": "demo-mika-03-programming-python-output-pair01",
+            "difficulty": "medium",
+            "note": "Задача выполнена с опорой; затем проверили тот же тип задания без подсказки."
+          },
+          {
+            "date": "2026-10-09",
+            "mastery": 0.66,
+            "independence": 0.52,
+            "help_level": "independent",
+            "support_level": "independent",
+            "solved": false,
+            "task_id": "demo-mika-03-programming-python-output-pair01",
+            "assessment_pair_id": "demo-mika-03-programming-python-output-pair01",
+            "difficulty": "medium",
+            "note": "Самостоятельная попытка пока не завершена верно."
+          },
+          {
+            "date": "2026-10-10",
+            "mastery": 0.66,
+            "independence": 0.52,
+            "help_level": "hint_question",
+            "support_level": "hint_question",
+            "solved": true,
+            "task_id": "demo-mika-03-programming-python-output-pair02",
+            "assessment_pair_id": "demo-mika-03-programming-python-output-pair02",
+            "difficulty": "medium",
+            "note": "Задача выполнена с опорой; затем проверили тот же тип задания без подсказки."
+          },
+          {
+            "date": "2026-10-11",
+            "mastery": 0.66,
+            "independence": 0.52,
+            "help_level": "independent",
+            "support_level": "independent",
+            "solved": false,
+            "task_id": "demo-mika-03-programming-python-output-pair02",
+            "assessment_pair_id": "demo-mika-03-programming-python-output-pair02",
+            "difficulty": "medium",
+            "note": "Самостоятельная попытка пока не завершена верно."
+          }
+        ]
+      }
+    ],
+    "zpd": {
+      "current": [
+        "programming.scratch.loops",
+        "math.g3.word_problems.one_step",
+        "programming.python.output"
+      ],
+      "outside": [
+        "math.g3.numbers.division_with_remainder"
+      ]
+    },
+    "learning_preferences": {
+      "visual": 0.88,
+      "hands_on": 0.72,
+      "storyline": 0.64,
+      "audio": 0.48,
+      "collaboration": 0.57,
+      "competition": 0.42
+    },
+    "engagement": {
+      "record_type": "synthetic_demo",
+      "strongest_conditions": [
+        "скейт-парки",
+        "конструкторы"
+      ],
+      "reading_note": "Короткие инструкции понимает; новые слова сравнения лучше объяснить на конкретном примере.",
+      "preferred_session_minutes": 20
+    },
+    "ai_usage": {
+      "asks_clarifying_questions": false,
+      "uses_hints": true,
+      "copies_code_without_reading": false,
+      "reflection": "Видимый цикл проб и проверки помогает сохранять интерес к задаче."
+    },
+    "projects": [
+      {
+        "id": "mika-skate-route",
+        "title": "Маршрут по скейт-парку",
+        "description": "Персонаж в Scratch проезжает серию рамп и поворотов; Мика проверяет порядок блоков и число повторов.",
+        "status": "planning",
+        "skills": [
+          "math.g3.geometry.perimeter_polygon",
+          "programming.scratch.loops"
+        ]
+      },
+      {
+        "id": "demo-mika-03-completed-project",
+        "title": "Завершённый мини-проект: скейт-парки",
+        "description": "Ученик собрал небольшой результат по теме math.g3.geometry.perimeter_polygon и показал, как в нём используется навык из темы programming.python.output.",
+        "status": "completed",
+        "skills": [
+          "math.g3.geometry.perimeter_polygon",
+          "programming.python.output"
+        ],
+        "reflection": "Ученик объяснил один удачный выбор и назвал, что хочет улучшить в следующей версии.",
+        "completed_at": "2026-10-06"
+      }
+    ],
+    "strengths": [
+      "Связывает задания с интересом к теме «скейт-парки».",
+      "Может назвать способ, который помог решить задачу."
+    ],
+    "support_needs": [
+      "Короткие инструкции понимает; новые слова сравнения лучше объяснить на конкретном примере.",
+      "Давать по одной подсказке и отмечать, какой шаг ученик затем выполнил самостоятельно."
+    ],
+    "scaffolding_by_topic": [
+      {
+        "topic_id": "math.g3.numbers.division_with_remainder",
+        "strategies": [
+          "Разложить предметы на равные группы и отдельно оставить остаток.",
+          "Проверить, сколько предметов осталось после деления на группы."
+        ]
+      },
+      {
+        "topic_id": "programming.scratch.loops",
+        "strategies": [
+          "Предсказать результат одного повтора цикла, затем следующего."
+        ]
+      },
+      {
+        "topic_id": "math.g3.word_problems.one_step",
+        "strategies": [
+          "подчеркнуть вопрос",
+          "показать данные на схеме"
+        ]
+      },
+      {
+        "topic_id": "programming.python.output",
+        "strategies": [
+          "отследить значение в кавычках",
+          "прочитать вывод до запуска"
+        ]
+      }
+    ],
+    "gamification": {
+      "xp": 14,
+      "level": 1,
+      "badges": [
+        "ДЕМО – ученик",
+        "Замечает стратегию"
+      ],
+      "missions_completed": 5,
+      "next_mission": "Предсказывать итог короткого цикла"
+    }
+  }
+}

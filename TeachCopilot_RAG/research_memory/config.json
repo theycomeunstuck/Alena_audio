@@ -1,0 +1,9 @@
+{
+  "protocol_version": "final-v4-source-corrections",
+  "model": "gemma4:12b",
+  "base_url": "http://127.0.0.1:11435",
+  "timeout_seconds": 180,
+  "context_tokens": 8192,
+  "max_output_tokens": 1536,
+  "budget_chars": 4000
+}

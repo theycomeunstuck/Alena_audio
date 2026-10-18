@@ -1,0 +1,392 @@
+{
+  "subject_id": "programming",
+  "curriculum_id": "programming-foundations-v1",
+  "source_id": "python-official",
+  "source_url": "https://docs.python.org/3/tutorial/",
+  "tasks": [
+    {
+      "task_id": "python-output-01",
+      "topic_id": "programming.python.output",
+      "subject_id": "programming",
+      "curriculum_id": "programming-foundations-v1",
+      "grade": null,
+      "difficulty": "easy",
+      "content": "Как вывести текст Привет, мир! в Python? Используй функцию print.",
+      "answer": "Вызов print(\"Привет, мир!\") выводит указанную строку на экран.",
+      "hints": [
+        "Какая функция выводит текст?",
+        "Передай ей строку.",
+        "Вызови print(\"Привет, мир!\")."
+      ],
+      "tags": [
+        "Python",
+        "output",
+        "вывод print"
+      ],
+      "source_id": "python-official-tutorial",
+      "source_url": "https://docs.python.org/3/tutorial/",
+      "references": [
+        {
+          "title": "The Python Tutorial",
+          "url": "https://docs.python.org/3/tutorial/"
+        },
+        {
+          "title": "Official topic reference",
+          "url": "https://docs.python.org/3/tutorial/inputoutput.html"
+        }
+      ]
+    },
+    {
+      "task_id": "python-output-02",
+      "topic_id": "programming.python.output",
+      "subject_id": "programming",
+      "curriculum_id": "programming-foundations-v1",
+      "grade": null,
+      "difficulty": "medium",
+      "content": "Как вывести текст Привет, мир! в Python? Используй функцию print. Дай объяснение и проверь результат на небольшом примере.",
+      "answer": "Вызов print(\"Привет, мир!\") выводит указанную строку на экран.",
+      "hints": [
+        "Какая функция выводит текст?",
+        "Передай ей строку.",
+        "Вызови print(\"Привет, мир!\")."
+      ],
+      "tags": [
+        "Python",
+        "output",
+        "вывод print"
+      ],
+      "source_id": "python-official-tutorial",
+      "source_url": "https://docs.python.org/3/tutorial/",
+      "references": [
+        {
+          "title": "The Python Tutorial",
+          "url": "https://docs.python.org/3/tutorial/"
+        },
+        {
+          "title": "Official topic reference",
+          "url": "https://docs.python.org/3/tutorial/inputoutput.html"
+        }
+      ]
+    },
+    {
+      "task_id": "python-variables-01",
+      "topic_id": "programming.python.variables",
+      "subject_id": "programming",
+      "curriculum_id": "programming-foundations-v1",
+      "grade": null,
+      "difficulty": "easy",
+      "content": "Сохрани число 12 в переменную age с помощью присваивания.",
+      "answer": "Запись age = 12 связывает имя age с целым числом 12.",
+      "hints": [
+        "Какое имя будешь использовать?",
+        "Запиши присваивание в форме name = value.",
+        "Напиши age = 12 и выведи age."
+      ],
+      "tags": [
+        "Python",
+        "variables",
+        "переменные"
+      ],
+      "source_id": "python-official-tutorial",
+      "source_url": "https://docs.python.org/3/tutorial/",
+      "references": [
+        {
+          "title": "The Python Tutorial",
+          "url": "https://docs.python.org/3/tutorial/"
+        },
+        {
+          "title": "Official topic reference",
+          "url": "https://docs.python.org/3/tutorial/introduction.html"
+        }
+      ]
+    },
+    {
+      "task_id": "python-variables-02",
+      "topic_id": "programming.python.variables",
+      "subject_id": "programming",
+      "curriculum_id": "programming-foundations-v1",
+      "grade": null,
+      "difficulty": "medium",
+      "content": "Сохрани число 12 в переменную age с помощью присваивания. Дай объяснение и проверь результат на небольшом примере.",
+      "answer": "Запись age = 12 связывает имя age с целым числом 12.",
+      "hints": [
+        "Какое имя будешь использовать?",
+        "Запиши присваивание в форме name = value.",
+        "Напиши age = 12 и выведи age."
+      ],
+      "tags": [
+        "Python",
+        "variables",
+        "переменные"
+      ],
+      "source_id": "python-official-tutorial",
+      "source_url": "https://docs.python.org/3/tutorial/",
+      "references": [
+        {
+          "title": "The Python Tutorial",
+          "url": "https://docs.python.org/3/tutorial/"
+        },
+        {
+          "title": "Official topic reference",
+          "url": "https://docs.python.org/3/tutorial/introduction.html"
+        }
+      ]
+    },
+    {
+      "task_id": "python-conditions-01",
+      "topic_id": "programming.python.conditions",
+      "subject_id": "programming",
+      "curriculum_id": "programming-foundations-v1",
+      "grade": null,
+      "difficulty": "easy",
+      "content": "Напиши проверку if age >= 18 и действие для истинного условия.",
+      "answer": "Используй if age >= 18: и отступ перед командой внутри условия.",
+      "hints": [
+        "Какую проверку нужно сделать?",
+        "Запиши её после if.",
+        "Добавь двоеточие и действие с отступом."
+      ],
+      "tags": [
+        "Python",
+        "conditions",
+        "условия if"
+      ],
+      "source_id": "python-official-tutorial",
+      "source_url": "https://docs.python.org/3/tutorial/",
+      "references": [
+        {
+          "title": "The Python Tutorial",
+          "url": "https://docs.python.org/3/tutorial/"
+        },
+        {
+          "title": "Official topic reference",
+          "url": "https://docs.python.org/3/tutorial/controlflow.html"
+        }
+      ]
+    },
+    {
+      "task_id": "python-conditions-02",
+      "topic_id": "programming.python.conditions",
+      "subject_id": "programming",
+      "curriculum_id": "programming-foundations-v1",
+      "grade": null,
+      "difficulty": "medium",
+      "content": "Напиши проверку if age >= 18 и действие для истинного условия. Дай объяснение и проверь результат на небольшом примере.",
+      "answer": "Используй if age >= 18: и отступ перед командой внутри условия.",
+      "hints": [
+        "Какую проверку нужно сделать?",
+        "Запиши её после if.",
+        "Добавь двоеточие и действие с отступом."
+      ],
+      "tags": [
+        "Python",
+        "conditions",
+        "условия if"
+      ],
+      "source_id": "python-official-tutorial",
+      "source_url": "https://docs.python.org/3/tutorial/",
+      "references": [
+        {
+          "title": "The Python Tutorial",
+          "url": "https://docs.python.org/3/tutorial/"
+        },
+        {
+          "title": "Official topic reference",
+          "url": "https://docs.python.org/3/tutorial/controlflow.html"
+        }
+      ]
+    },
+    {
+      "task_id": "python-loops-01",
+      "topic_id": "programming.python.loops",
+      "subject_id": "programming",
+      "curriculum_id": "programming-foundations-v1",
+      "grade": null,
+      "difficulty": "easy",
+      "content": "Выведи числа от 0 до 4 с помощью for и range(5).",
+      "answer": "Цикл for i in range(5): перебирает значения от 0 до 4.",
+      "hints": [
+        "Какое действие повторяется?",
+        "Используй for i in range(n).",
+        "Помести команду внутрь цикла и проверь range."
+      ],
+      "tags": [
+        "Python",
+        "loops",
+        "циклы for range"
+      ],
+      "source_id": "python-official-tutorial",
+      "source_url": "https://docs.python.org/3/tutorial/",
+      "references": [
+        {
+          "title": "The Python Tutorial",
+          "url": "https://docs.python.org/3/tutorial/"
+        },
+        {
+          "title": "Official topic reference",
+          "url": "https://docs.python.org/3/tutorial/controlflow.html"
+        }
+      ]
+    },
+    {
+      "task_id": "python-loops-02",
+      "topic_id": "programming.python.loops",
+      "subject_id": "programming",
+      "curriculum_id": "programming-foundations-v1",
+      "grade": null,
+      "difficulty": "medium",
+      "content": "Выведи числа от 0 до 4 с помощью for и range(5). Дай объяснение и проверь результат на небольшом примере.",
+      "answer": "Цикл for i in range(5): перебирает значения от 0 до 4.",
+      "hints": [
+        "Какое действие повторяется?",
+        "Используй for i in range(n).",
+        "Помести команду внутрь цикла и проверь range."
+      ],
+      "tags": [
+        "Python",
+        "loops",
+        "циклы for range"
+      ],
+      "source_id": "python-official-tutorial",
+      "source_url": "https://docs.python.org/3/tutorial/",
+      "references": [
+        {
+          "title": "The Python Tutorial",
+          "url": "https://docs.python.org/3/tutorial/"
+        },
+        {
+          "title": "Official topic reference",
+          "url": "https://docs.python.org/3/tutorial/controlflow.html"
+        }
+      ]
+    },
+    {
+      "task_id": "python-lists-01",
+      "topic_id": "programming.python.lists",
+      "subject_id": "programming",
+      "curriculum_id": "programming-foundations-v1",
+      "grade": null,
+      "difficulty": "easy",
+      "content": "Создай список цветов и добавь в его конец новый элемент методом append.",
+      "answer": "Список можно создать как colors = [\"red\", \"blue\"], а элемент добавить colors.append(\"green\").",
+      "hints": [
+        "Как объединить несколько элементов?",
+        "Запиши их в квадратных скобках.",
+        "Для добавления вызови append."
+      ],
+      "tags": [
+        "Python",
+        "lists",
+        "списки"
+      ],
+      "source_id": "python-official-tutorial",
+      "source_url": "https://docs.python.org/3/tutorial/",
+      "references": [
+        {
+          "title": "The Python Tutorial",
+          "url": "https://docs.python.org/3/tutorial/"
+        },
+        {
+          "title": "Official topic reference",
+          "url": "https://docs.python.org/3/tutorial/datastructures.html"
+        }
+      ]
+    },
+    {
+      "task_id": "python-lists-02",
+      "topic_id": "programming.python.lists",
+      "subject_id": "programming",
+      "curriculum_id": "programming-foundations-v1",
+      "grade": null,
+      "difficulty": "medium",
+      "content": "Создай список цветов и добавь в его конец новый элемент методом append. Дай объяснение и проверь результат на небольшом примере.",
+      "answer": "Список можно создать как colors = [\"red\", \"blue\"], а элемент добавить colors.append(\"green\").",
+      "hints": [
+        "Как объединить несколько элементов?",
+        "Запиши их в квадратных скобках.",
+        "Для добавления вызови append."
+      ],
+      "tags": [
+        "Python",
+        "lists",
+        "списки"
+      ],
+      "source_id": "python-official-tutorial",
+      "source_url": "https://docs.python.org/3/tutorial/",
+      "references": [
+        {
+          "title": "The Python Tutorial",
+          "url": "https://docs.python.org/3/tutorial/"
+        },
+        {
+          "title": "Official topic reference",
+          "url": "https://docs.python.org/3/tutorial/datastructures.html"
+        }
+      ]
+    },
+    {
+      "task_id": "python-debugging-01",
+      "topic_id": "programming.python.debugging",
+      "subject_id": "programming",
+      "curriculum_id": "programming-foundations-v1",
+      "grade": null,
+      "difficulty": "easy",
+      "content": "Почему NameError сообщает, что имя переменной не найдено?",
+      "answer": "Проверь написание имени и присваивание до использования. NameError означает, что имя не определено в текущем месте.",
+      "hints": [
+        "Прочитай тип ошибки.",
+        "Проверь написание имени и отступы.",
+        "Исправь одну ошибку и повтори запуск."
+      ],
+      "tags": [
+        "Python",
+        "debugging",
+        "отладка Python"
+      ],
+      "source_id": "python-official-tutorial",
+      "source_url": "https://docs.python.org/3/tutorial/",
+      "references": [
+        {
+          "title": "The Python Tutorial",
+          "url": "https://docs.python.org/3/tutorial/"
+        },
+        {
+          "title": "Official topic reference",
+          "url": "https://docs.python.org/3/tutorial/errors.html"
+        }
+      ]
+    },
+    {
+      "task_id": "python-debugging-02",
+      "topic_id": "programming.python.debugging",
+      "subject_id": "programming",
+      "curriculum_id": "programming-foundations-v1",
+      "grade": null,
+      "difficulty": "medium",
+      "content": "Почему NameError сообщает, что имя переменной не найдено? Дай объяснение и проверь результат на небольшом примере.",
+      "answer": "Проверь написание имени и присваивание до использования. NameError означает, что имя не определено в текущем месте.",
+      "hints": [
+        "Прочитай тип ошибки.",
+        "Проверь написание имени и отступы.",
+        "Исправь одну ошибку и повтори запуск."
+      ],
+      "tags": [
+        "Python",
+        "debugging",
+        "отладка Python"
+      ],
+      "source_id": "python-official-tutorial",
+      "source_url": "https://docs.python.org/3/tutorial/",
+      "references": [
+        {
+          "title": "The Python Tutorial",
+          "url": "https://docs.python.org/3/tutorial/"
+        },
+        {
+          "title": "Official topic reference",
+          "url": "https://docs.python.org/3/tutorial/errors.html"
+        }
+      ]
+    }
+  ]
+}

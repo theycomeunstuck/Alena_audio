@@ -1,0 +1,16 @@
+{
+  "model": "openai/gpt-6.1-sol",
+  "input_usd_per_million": "0.5",
+  "output_usd_per_million": "3",
+  "pricing_verified": true,
+  "pricing_source": "https://spiderssense.com/v1/models",
+  "ledger_path": ".local/research_memory/spiderssense_pilot_budget.sqlite3",
+  "max_cost_usd": "4",
+  "max_calls": 100,
+  "max_output_tokens": 8192,
+  "token_field": "max_completion_tokens",
+  "reasoning_effort": "medium",
+  "timeout": 180,
+  "key_file": ".local/research_memory/spiderssense.key",
+  "use_json_schema": false
+}
