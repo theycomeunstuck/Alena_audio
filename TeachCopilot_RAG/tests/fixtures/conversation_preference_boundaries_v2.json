@@ -1,0 +1,356 @@
+{
+  "version": "conversation-preference-boundaries-v2",
+  "data_origin": "synthetic_unreviewed",
+  "purpose": "Проверка границ долговременных предпочтений. Набор создан после анализа первого продольного прогона, но не копирует его истории.",
+  "generator_input_fields": ["sources"],
+  "private_evaluation_fields": ["case_id", "split", "boundary_type", "polarity", "expected_pairs", "allowed_additional_pairs", "expected_ordered_operations", "explanation"],
+  "evaluation_rules": {
+    "pair_matching": "Операция и каноническое название образуют пару. Повтор той же пары из другого источника не считается новой парой; порядок и происхождение проверяются отдельно.",
+    "additional_pairs": "Любая пара сверх expected_pairs должна буквально присутствовать в allowed_additional_pairs; пустой список означает, что дополнительные пары недопустимы.",
+    "source_order": "Источники перечислены в порядке произнесения. Для противоположных операций одного предпочтения требуется сохранить этот порядок. Операции разных типов в одной реплике могут идти в любом порядке, если результат одинаков.",
+    "semantic_review": "Ожидания составлены автоматически и не проверены человеком. Совпадение с ними не означает подтверждённую содержательную правильность.",
+    "privacy": "Генератор получает только sources; остальные поля, включая названия типов, варианты названий, ожидаемые операции и объяснения, ему не передаются."
+  },
+  "canonical_aliases": {
+    "парусный спорт": ["парусный спорт", "увлечение парусным спортом"],
+    "радиолюбительство": ["радиолюбительство", "занятия радиолюбительством", "сборка радиоприёмников", "сборка простых приёмников"],
+    "геометрия": ["геометрия", "изучение геометрии"],
+    "вышивание": ["вышивание", "вышивка", "вышивание узоров", "вышивка узоров"],
+    "подводные пещеры": ["подводные пещеры", "сюжеты про подводные пещеры"],
+    "пчеловодство": ["пчеловодство", "занятия пчеловодством"],
+    "запуск воздушных змеев": ["запуск воздушных змеев", "воздушные змеи"],
+    "роботы": ["роботы", "сюжеты про роботов"],
+    "лабиринты": ["лабиринты", "сюжеты про лабиринты"],
+    "выжигание по дереву": ["выжигание по дереву", "выжигание"],
+    "батик": ["батик", "роспись ткани в технике батик", "роспись ткани"],
+    "спортивное ориентирование": ["спортивное ориентирование", "занятия спортивным ориентированием"],
+    "мозаика": ["мозаика", "составление мозаики", "создание мозаики", "мозаичные картины"],
+    "коллекционирование марок": ["коллекционирование марок", "собирание марок", "филателия", "марки", "коллекция марок"],
+    "переплёт книг": ["переплёт книг", "переплет книг", "занятия переплётом книг", "переплётное дело", "книжный переплёт"],
+    "дирижабли": ["дирижабли", "сюжеты про дирижабли"],
+    "бадминтон": ["бадминтон", "игра в бадминтон"]
+  },
+  "cases": [
+    {
+      "case_id": "PB-D01",
+      "split": "dev",
+      "boundary_type": "temporary_scope",
+      "polarity": "negative",
+      "sources": [
+        {"source_id": "PB-D01-S1", "author_role": "student", "content": "Только сегодня давай без задач про парусные лодки: я тороплюсь и хочу обычные числа. Это просьба на этот урок, не постоянный запрет. Завтра такие сюжеты снова допустимы. Помоги проверить 56 + 27."}
+      ],
+      "expected_pairs": [],
+      "allowed_additional_pairs": [],
+      "expected_ordered_operations": [],
+      "explanation": "Указана граница одного урока. Нет ни заявления об увлечении, ни изменения долговременного запрета; слово «допустимы» также не отменяет существующий запрет, которого в истории нет."
+    },
+    {
+      "case_id": "PB-D02",
+      "split": "dev",
+      "boundary_type": "learning_limit",
+      "polarity": "negative",
+      "sources": [
+        {"source_id": "PB-D02-S1", "author_role": "student", "content": "Условия if мы ещё не проходили. Покажи для этого задания программу без условий, только последовательность команд. Я говорю о том, что пока изучил, а не о своём увлечении или постоянном запрете."}
+      ],
+      "expected_pairs": [],
+      "allowed_additional_pairs": [],
+      "expected_ordered_operations": [],
+      "explanation": "Текущая граница изученного относится к учебному состоянию. Она не является интересом и не запрещает использовать условия в будущем."
+    },
+    {
+      "case_id": "PB-D03",
+      "split": "dev",
+      "boundary_type": "ordinary_study_request",
+      "polarity": "negative",
+      "sources": [
+        {"source_id": "PB-D03-S1", "author_role": "student", "content": "Объясни, как найти периметр прямоугольника со сторонами 7 и 4 сантиметра. Это домашнее задание на завтра. Покажи одну проверку, чтобы я понял порядок действий."}
+      ],
+      "expected_pairs": [],
+      "allowed_additional_pairs": [],
+      "expected_ordered_operations": [],
+      "explanation": "Просьба выполнить учебное задание не доказывает устойчивый интерес к периметрам, прямоугольникам или геометрии."
+    },
+    {
+      "case_id": "PB-D04",
+      "split": "dev",
+      "boundary_type": "other_person_interest",
+      "polarity": "positive",
+      "sources": [
+        {"source_id": "PB-D04-S1", "author_role": "student", "content": "Сестра увлекается керамикой, не я. А моё собственное увлечение – вышивание: уже второй год вышиваю узоры по выходным. Запомни именно вышивание как мой интерес."}
+      ],
+      "expected_pairs": [{"operation": "add", "interest": "вышивание"}],
+      "allowed_additional_pairs": [],
+      "expected_ordered_operations": [{"operation": "add", "interest": "вышивание", "source_id": "PB-D04-S1"}],
+      "explanation": "Есть прямое подтверждение собственного устойчивого интереса. Керамика явно приписана другому человеку; её нельзя добавлять или объявлять запрещённой."
+    },
+    {
+      "case_id": "PB-D05",
+      "split": "dev",
+      "boundary_type": "stable_avoid",
+      "polarity": "positive",
+      "sources": [
+        {"source_id": "PB-D05-S1", "author_role": "student", "content": "Запомни для всех наших будущих занятий: не используй сюжеты про подводные пещеры в задачах и объяснениях. Это постоянная просьба, а не только на сегодня. Про моё хобби я сейчас ничего не сообщаю."}
+      ],
+      "expected_pairs": [{"operation": "avoid", "interest": "подводные пещеры"}],
+      "allowed_additional_pairs": [],
+      "expected_ordered_operations": [{"operation": "avoid", "interest": "подводные пещеры", "source_id": "PB-D05-S1"}],
+      "explanation": "Прямой долговременный запрет на учебный сюжет даёт avoid. Оснований для add или remove нет."
+    },
+    {
+      "case_id": "PB-D06",
+      "split": "dev",
+      "boundary_type": "add_and_avoid",
+      "polarity": "positive",
+      "sources": [
+        {"source_id": "PB-D06-S1", "author_role": "student", "content": "Моё любимое занятие – пчеловодство, я регулярно помогаю на пасеке и хочу сохранить это в своих интересах. Однако на всех учебных занятиях прошу не использовать сюжеты про пчеловодство: отдыхать от них мне тоже нужно. Этот запрет на примеры постоянный."}
+      ],
+      "expected_pairs": [{"operation": "add", "interest": "пчеловодство"}, {"operation": "avoid", "interest": "пчеловодство"}],
+      "allowed_additional_pairs": [],
+      "expected_ordered_operations": [{"operation": "add", "interest": "пчеловодство", "source_id": "PB-D06-S1"}, {"operation": "avoid", "interest": "пчеловодство", "source_id": "PB-D06-S1"}],
+      "explanation": "Реальное увлечение совместимо с постоянным запретом использовать его в уроках. Запрет не означает утрату интереса, поэтому remove недопустим."
+    },
+    {
+      "case_id": "PB-D07",
+      "split": "dev",
+      "boundary_type": "allow_after_ban",
+      "polarity": "negative",
+      "sources": [
+        {"source_id": "PB-D07-S1", "author_role": "student", "content": "Сохрани постоянное правило для наших уроков: не использовать сюжеты про роботов."},
+        {"source_id": "PB-D07-S2", "author_role": "student", "content": "Только сегодня для одного примера разрешаю робота. Постоянное правило не отменяю: после этого примера запрет на сюжеты про роботов остаётся в силе."}
+      ],
+      "expected_pairs": [{"operation": "avoid", "interest": "роботы"}],
+      "allowed_additional_pairs": [],
+      "expected_ordered_operations": [{"operation": "avoid", "interest": "роботы", "source_id": "PB-D07-S1"}],
+      "explanation": "Вторая реплика разрешает разовое исключение и прямо сохраняет общий запрет. Долговременная операция allow была бы искажением."
+    },
+    {
+      "case_id": "PB-D08",
+      "split": "dev",
+      "boundary_type": "interest_change",
+      "polarity": "negative",
+      "sources": [
+        {"source_id": "PB-D08-S1", "author_role": "student", "content": "Мой товарищ перестал заниматься гончарным делом и теперь увлекается аквариумистикой. Это перемены у него, не у меня. Я просто передал новость; мои интересы из этого рассказа не меняй."}
+      ],
+      "expected_pairs": [],
+      "allowed_additional_pairs": [],
+      "expected_ordered_operations": [],
+      "explanation": "Глаголы прекращения и начала занятия относятся к товарищу. Нельзя выполнять remove или add в карточке говорящего."
+    },
+    {
+      "case_id": "PB-D09",
+      "split": "dev",
+      "boundary_type": "conditional_permission",
+      "polarity": "negative",
+      "sources": [
+        {"source_id": "PB-D09-S1", "author_role": "student", "content": "Если для одного примера пригодится серфинг, можешь его упомянуть. Я серфингом не увлекаюсь и раньше не запрещал такие примеры. Это условное разрешение на один пример, не мой новый интерес и не изменение постоянного правила."}
+      ],
+      "expected_pairs": [],
+      "allowed_additional_pairs": [],
+      "expected_ordered_operations": [],
+      "explanation": "Условная допустимость единичного сюжета не сообщает интерес и не снимает прежний долговременный запрет."
+    },
+    {
+      "case_id": "PB-D10",
+      "split": "dev",
+      "boundary_type": "one_off_event",
+      "polarity": "positive",
+      "sources": [
+        {"source_id": "PB-D10-S1", "author_role": "student", "content": "Сегодня впервые сходил на картинг с классом. Это разовая экскурсия, не новое увлечение. Моё постоянное хобби – мозаика: я каждую неделю составляю картинки из маленьких кусочков и хочу добавить мозаику в мои интересы."}
+      ],
+      "expected_pairs": [{"operation": "add", "interest": "мозаика"}],
+      "allowed_additional_pairs": [],
+      "expected_ordered_operations": [{"operation": "add", "interest": "мозаика", "source_id": "PB-D10-S1"}],
+      "explanation": "Однократное событие отделено от явно названного регулярного хобби. Добавляется только мозаика; картинг не запрещён."
+    },
+    {
+      "case_id": "PB-D11",
+      "split": "dev",
+      "boundary_type": "generic_prior_interest",
+      "polarity": "negative",
+      "sources": [
+        {"source_id": "PB-D11-S1", "author_role": "student", "content": "Моё постоянное увлечение – коллекционирование марок. Уже давно собираю альбомы и хочу, чтобы ты запомнил этот интерес."},
+        {"source_id": "PB-D11-S2", "author_role": "student", "content": "Для следующего примера можно вспомнить увлечение из первой встречи. Так я ссылаюсь на уже названное занятие, а не называю новое хобби."}
+      ],
+      "expected_pairs": [{"operation": "add", "interest": "коллекционирование марок"}],
+      "allowed_additional_pairs": [],
+      "expected_ordered_operations": [{"operation": "add", "interest": "коллекционирование марок", "source_id": "PB-D11-S1"}],
+      "explanation": "Названное в первом источнике хобби сохраняется. Фраза «увлечение из первой встречи» не является самостоятельным названием нового интереса. Повтор add с каноническим названием не считается дополнительной парой."
+    },
+    {
+      "case_id": "PB-D12",
+      "split": "dev",
+      "boundary_type": "operation_order",
+      "polarity": "negative",
+      "sources": [
+        {"source_id": "PB-D12-S1", "author_role": "student", "content": "Установи постоянное правило: не используй сюжеты про дирижабли на наших занятиях."},
+        {"source_id": "PB-D12-S2", "author_role": "student", "content": "Отменяю прежний постоянный запрет на дирижабли. Теперь такие сюжеты можно использовать и в будущих уроках."},
+        {"source_id": "PB-D12-S3", "author_role": "student", "content": "Я передумал ещё раз: снова устанавливаю постоянный запрет на сюжеты про дирижабли. Последнее правило действует на все будущие занятия; увлечением дирижабли я не называл."}
+      ],
+      "expected_pairs": [{"operation": "avoid", "interest": "дирижабли"}, {"operation": "allow", "interest": "дирижабли"}],
+      "allowed_additional_pairs": [],
+      "expected_ordered_operations": [{"operation": "avoid", "interest": "дирижабли", "source_id": "PB-D12-S1"}, {"operation": "allow", "interest": "дирижабли", "source_id": "PB-D12-S2"}, {"operation": "avoid", "interest": "дирижабли", "source_id": "PB-D12-S3"}],
+      "explanation": "Сохраняются все три явно произнесённых изменения в порядке источников. Итоговый запрет действует. Одна пара avoid встречается в двух разных источниках и не должна быть удалена при проверке порядка."
+    },
+    {
+      "case_id": "PB-H01",
+      "split": "heldout",
+      "boundary_type": "temporary_scope",
+      "polarity": "positive",
+      "sources": [
+        {"source_id": "PB-H01-S1", "author_role": "student", "content": "Моё увлечение – парусный спорт: несколько лет занимаюсь им и хочу сохранить его среди своих интересов. Но именно сегодня без задач про парусный спорт, пожалуйста. Завтра снова можно; постоянного запрета я не ввожу."}
+      ],
+      "expected_pairs": [{"operation": "add", "interest": "парусный спорт"}],
+      "allowed_additional_pairs": [],
+      "expected_ordered_operations": [{"operation": "add", "interest": "парусный спорт", "source_id": "PB-H01-S1"}],
+      "explanation": "Устойчивое увлечение подтверждено отдельно от временной просьбы. Добавляется интерес, но ни avoid, ни allow не вводятся."
+    },
+    {
+      "case_id": "PB-H02",
+      "split": "heldout",
+      "boundary_type": "learning_limit",
+      "polarity": "positive",
+      "sources": [
+        {"source_id": "PB-H02-S1", "author_role": "student", "content": "Мне нравится радиолюбительство: уже год собираю простые приёмники в кружке, это моё постоянное хобби. В программе пока не используй функции, мы их ещё не проходили. Ограничение про функции относится только к нынешнему уровню уроков, а не к моим интересам."}
+      ],
+      "expected_pairs": [{"operation": "add", "interest": "радиолюбительство"}],
+      "allowed_additional_pairs": [],
+      "expected_ordered_operations": [{"operation": "add", "interest": "радиолюбительство", "source_id": "PB-H02-S1"}],
+      "explanation": "Хобби прямо названо. Функции и программы не добавляются как интерес и не становятся постоянным запретом."
+    },
+    {
+      "case_id": "PB-H03",
+      "split": "heldout",
+      "boundary_type": "ordinary_study_request",
+      "polarity": "positive",
+      "sources": [
+        {"source_id": "PB-H03-S1", "author_role": "student", "content": "Объясни площадь треугольника. И отдельно запомни: я люблю геометрию, не только ради домашнего задания; уже много месяцев сам читаю про фигуры и решаю дополнительные задачи для удовольствия. Это мой устойчивый интерес."}
+      ],
+      "expected_pairs": [{"operation": "add", "interest": "геометрия"}],
+      "allowed_additional_pairs": [],
+      "expected_ordered_operations": [{"operation": "add", "interest": "геометрия", "source_id": "PB-H03-S1"}],
+      "explanation": "Интерес следует из отдельного заявления о добровольных регулярных занятиях. Сам учебный вопрос не даёт оснований создавать ещё интересы «площадь» или «треугольники»."
+    },
+    {
+      "case_id": "PB-H04",
+      "split": "heldout",
+      "boundary_type": "other_person_interest",
+      "polarity": "negative",
+      "sources": [
+        {"source_id": "PB-H04-S1", "author_role": "student", "content": "Мой друг постоянно играет в настольный теннис и любит его. Это его увлечение, а не моё. Я просто пересказываю его новость, поэтому не записывай настольный теннис в мои интересы. Постоянный запрет на такие сюжеты я тоже не прошу."}
+      ],
+      "expected_pairs": [],
+      "allowed_additional_pairs": [],
+      "expected_ordered_operations": [],
+      "explanation": "Отрицание авторства интереса не равно утрате ранее своего увлечения или запрету учебного сюжета. Не нужны add, remove или avoid."
+    },
+    {
+      "case_id": "PB-H05",
+      "split": "heldout",
+      "boundary_type": "stable_avoid",
+      "polarity": "negative",
+      "sources": [
+        {"source_id": "PB-H05-S1", "author_role": "student", "content": "Сейчас отложим пример про старинные замки, я не успеваю его дочитать. Только этот пример и только сейчас; не считай это постоянным запретом. Старинные замки своим увлечением я тоже не называл."}
+      ],
+      "expected_pairs": [],
+      "allowed_additional_pairs": [],
+      "expected_ordered_operations": [],
+      "explanation": "Отказ от одного длинного примера ограничен текущим моментом. Он не даёт долговременного предпочтения."
+    },
+    {
+      "case_id": "PB-H06",
+      "split": "heldout",
+      "boundary_type": "add_and_avoid",
+      "polarity": "negative",
+      "sources": [
+        {"source_id": "PB-H06-S1", "author_role": "student", "content": "Моё постоянное хобби – запуск воздушных змеев: занимаюсь этим каждые выходные и хочу сохранить интерес. Но в текущем упражнении давай без воздушных змеев, оно и так длинное. Эта просьба не действует на следующие уроки и не отменяет хобби."}
+      ],
+      "expected_pairs": [{"operation": "add", "interest": "запуск воздушных змеев"}],
+      "allowed_additional_pairs": [],
+      "expected_ordered_operations": [{"operation": "add", "interest": "запуск воздушных змеев", "source_id": "PB-H06-S1"}],
+      "explanation": "Подтверждённый интерес добавляется. Временный отказ от сюжета не создаёт вторую операцию avoid и не позволяет remove."
+    },
+    {
+      "case_id": "PB-H07",
+      "split": "heldout",
+      "boundary_type": "allow_after_ban",
+      "polarity": "positive",
+      "sources": [
+        {"source_id": "PB-H07-S1", "author_role": "student", "content": "У меня постоянная просьба: на всех уроках не использовать сюжеты про лабиринты. Запомни этот запрет."},
+        {"source_id": "PB-H07-S2", "author_role": "student", "content": "Отменяю прежний постоянный запрет на лабиринты. Такие сюжеты можно использовать и сейчас, и в будущих занятиях. Это отмена запрета, а не заявление, что лабиринты стали моим хобби."}
+      ],
+      "expected_pairs": [{"operation": "avoid", "interest": "лабиринты"}, {"operation": "allow", "interest": "лабиринты"}],
+      "allowed_additional_pairs": [],
+      "expected_ordered_operations": [{"operation": "avoid", "interest": "лабиринты", "source_id": "PB-H07-S1"}, {"operation": "allow", "interest": "лабиринты", "source_id": "PB-H07-S2"}],
+      "explanation": "Вторая реплика явно снимает запрет для будущих уроков. История сохраняет и введение, и отмену запрета; add не требуется."
+    },
+    {
+      "case_id": "PB-H08",
+      "split": "heldout",
+      "boundary_type": "interest_change",
+      "polarity": "positive",
+      "sources": [
+        {"source_id": "PB-H08-S1", "author_role": "student", "content": "Моё постоянное увлечение – выжигание по дереву. Занимаюсь им по выходным, сохрани это в моих интересах."},
+        {"source_id": "PB-H08-S2", "author_role": "student", "content": "Выжигание по дереву мне больше не интересно, я перестал им заниматься. Убери выжигание по дереву из моих текущих интересов."},
+        {"source_id": "PB-H08-S3", "author_role": "student", "content": "Теперь моё постоянное увлечение – батик, роспись ткани. Уже несколько месяцев занимаюсь им регулярно. Добавь батик в мои интересы."}
+      ],
+      "expected_pairs": [{"operation": "add", "interest": "выжигание по дереву"}, {"operation": "remove", "interest": "выжигание по дереву"}, {"operation": "add", "interest": "батик"}],
+      "allowed_additional_pairs": [],
+      "expected_ordered_operations": [{"operation": "add", "interest": "выжигание по дереву", "source_id": "PB-H08-S1"}, {"operation": "remove", "interest": "выжигание по дереву", "source_id": "PB-H08-S2"}, {"operation": "add", "interest": "батик", "source_id": "PB-H08-S3"}],
+      "explanation": "Зафиксирован собственный прежний интерес, его явное прекращение и новый устойчивый интерес. Нельзя сохранить старый интерес как текущий или представить батик как случайное событие."
+    },
+    {
+      "case_id": "PB-H09",
+      "split": "heldout",
+      "boundary_type": "conditional_permission",
+      "polarity": "positive",
+      "sources": [
+        {"source_id": "PB-H09-S1", "author_role": "student", "content": "Моё устойчивое увлечение – спортивное ориентирование, уже два года хожу в секцию. Сохрани этот интерес. Если для объяснения расстояний это поможет, можно взять один пример про спортивное ориентирование. Раньше такие сюжеты я не запрещал."}
+      ],
+      "expected_pairs": [{"operation": "add", "interest": "спортивное ориентирование"}],
+      "allowed_additional_pairs": [],
+      "expected_ordered_operations": [{"operation": "add", "interest": "спортивное ориентирование", "source_id": "PB-H09-S1"}],
+      "explanation": "Условное разрешение само по себе не является allow. Интерес добавляется по отдельному прямому заявлению о регулярном собственном увлечении."
+    },
+    {
+      "case_id": "PB-H10",
+      "split": "heldout",
+      "boundary_type": "one_off_event",
+      "polarity": "negative",
+      "sources": [
+        {"source_id": "PB-H10-S1", "author_role": "student", "content": "Вчера классом сходили на завод стеклянных фигурок. Я один раз посмотрел, как делают вазу. Это просто рассказ о вчерашней экскурсии, не моё увлечение. Из этого рассказа не нужно вводить ни интерес, ни запрет на сюжеты."}
+      ],
+      "expected_pairs": [],
+      "allowed_additional_pairs": [],
+      "expected_ordered_operations": [],
+      "explanation": "Однократное посещение и пересказ события не доказывают устойчивый интерес к стеклу, вазам или производству и не запрещают их использовать."
+    },
+    {
+      "case_id": "PB-H11",
+      "split": "heldout",
+      "boundary_type": "generic_prior_interest",
+      "polarity": "positive",
+      "sources": [
+        {"source_id": "PB-H11-S1", "author_role": "student", "content": "У меня есть постоянное любимое занятие, но название скажу позже. Пока не угадывай, что это."},
+        {"source_id": "PB-H11-S2", "author_role": "student", "content": "Теперь уточню: то самое увлечение, о котором я говорил, – переплёт книг. Я каждую неделю делаю переплёты дома и хочу сохранить переплёт книг как свой интерес."}
+      ],
+      "expected_pairs": [{"operation": "add", "interest": "переплёт книг"}],
+      "allowed_additional_pairs": [],
+      "expected_ordered_operations": [{"operation": "add", "interest": "переплёт книг", "source_id": "PB-H11-S2"}],
+      "explanation": "Неопределённая ссылка из первого источника не создаёт название. Второй источник явно раскрывает устойчивое занятие, и только он служит основанием для названного интереса."
+    },
+    {
+      "case_id": "PB-H12",
+      "split": "heldout",
+      "boundary_type": "operation_order",
+      "polarity": "positive",
+      "sources": [
+        {"source_id": "PB-H12-S1", "author_role": "student", "content": "Бадминтон – моё постоянное хобби, я играю каждую неделю. Добавь его в мои интересы. Одновременно установи постоянный запрет: не используй бадминтон как сюжет учебных задач."},
+        {"source_id": "PB-H12-S2", "author_role": "student", "content": "Отменяю прежний постоянный запрет на сюжеты про бадминтон. Теперь такие задачи можно использовать и на будущих уроках. Сам интерес к бадминтону у меня сохраняется."}
+      ],
+      "expected_pairs": [{"operation": "add", "interest": "бадминтон"}, {"operation": "avoid", "interest": "бадминтон"}, {"operation": "allow", "interest": "бадминтон"}],
+      "allowed_additional_pairs": [],
+      "expected_ordered_operations": [{"operation": "add", "interest": "бадминтон", "source_id": "PB-H12-S1"}, {"operation": "avoid", "interest": "бадминтон", "source_id": "PB-H12-S1"}, {"operation": "allow", "interest": "бадминтон", "source_id": "PB-H12-S2"}],
+      "explanation": "Сначала интерес и запрет совместимы, затем запрет снят отдельной репликой. Итог – интерес сохранён, запрета нет. Позднее allow не заменяет первоначальное add и не означает remove."
+    }
+  ]
+}
