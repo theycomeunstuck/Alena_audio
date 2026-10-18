@@ -246,6 +246,14 @@ class RagService:
                     resolved_query = (
                         f"{resolved_query.strip()}\nEarlier learner question: {previous_question}"
                     )
+                if not resolution['uses_prior_context']:
+                    from local_app.learning_tools import verified_learning_response
+                    verified = verified_learning_response(latest_query, subject_id,
+                                                          previous_messages=history[:latest_user_index])
+                    if verified is not None:
+                        if query_resolution:
+                            verified['query_resolution'] = query_resolution
+                        return verified
                 sources = self.search(
                     resolved_query.strip(), subject_id, topic_id, grade, limit, _scope_checked=True
                 )

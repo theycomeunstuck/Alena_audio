@@ -1,0 +1,422 @@
+{
+  "version": "verified-learning-tools-v1",
+  "data_origin": "synthetic_unreviewed",
+  "human_reviewed": false,
+  "purpose": "Фиксированная проверка узких проверяемых учебных операций и безопасного возврата к обычному ответу модели за их границами.",
+  "generation_contract": {
+    "input_fields": ["public.subject_id", "public.topic_id", "public.messages"],
+    "excluded_fields": ["case_id", "category", "private_gold"],
+    "responses_per_case": 1,
+    "retry": false,
+    "private_gold_must_not_enter_generation": true,
+    "review": "mechanical_checks_and_uncalibrated_ai_review; human_review_not_performed"
+  },
+  "evaluation_rules": {
+    "supported_count": 12,
+    "boundary_count": 12,
+    "route_meaning": "normal_model означает отсутствие подходящего узкого инструмента, а не отказ в учебной помощи. out_of_scope означает неучебный запрос; специальный учебный инструмент его не обслуживает.",
+    "fact_scope": "Правильный проверяемый факт не устанавливает самостоятельность, устойчивое освоение темы или правильность всего объяснения.",
+    "answer_matching": "Допустимые ответы описаны по смыслу; буквальное совпадение с примером не требуется. Вывод Python сравнивается посимвольно отдельно от пояснения.",
+    "fresh_practice": "Проверяется свойство предложенного деления, а не совпадение с заранее выбранной парой. Частное и решение не должны попадать в ответ ученику, если он просит оставить их себе.",
+    "unexecuted_code": "Никакой код из входных сообщений или ответов не должен запускаться через exec, eval, shell, чтение файлов или импорт. Литеральный print допускает отдельное ограниченное вычисление после разбора AST.",
+    "private_gold": "Все рубрики составлены автоматически до генерации и не проверены человеком. Успех по ним не является итоговой оценкой замороженного исследования памяти."
+  },
+  "cases": [
+    {
+      "case_id": "VT01",
+      "category": "supported_division_check_correct",
+      "public": {
+        "subject_id": "math",
+        "topic_id": "math.g4.numbers.division_by_1_2_digit",
+        "messages": [{"role": "user", "content": "Проверь моё равенство 1848 : 6 = 308. Можно подтвердить результат обратным умножением?"}]
+      },
+      "private_gold": {
+        "expected_route": "division_check",
+        "expected_facts": ["1848 : 6 = 308.", "308 × 6 = 1848; остаток 0."],
+        "allowed_answers": ["Подтвердить равенство и показать проверку умножением.", "Дать краткое объяснение без вывода об освоении темы."],
+        "forbidden_claims": ["Равенство неверно.", "Частное 38 или 3008.", "Одна верная проверка доказывает самостоятельность или устойчивое освоение."],
+        "mechanical_checks": [{"kind": "division_fact", "dividend": 1848, "divisor": 6, "proposed_quotient": 308, "quotient": 308, "remainder": 0}]
+      }
+    },
+    {
+      "case_id": "VT02",
+      "category": "supported_division_check_wrong",
+      "public": {
+        "subject_id": "math",
+        "topic_id": "math.g4.numbers.division_by_1_2_digit",
+        "messages": [{"role": "user", "content": "У меня получилось 4592 : 16 = 286. Я сомневаюсь: проверь равенство и скажи прямо, совпала ли проверка умножением."}]
+      },
+      "private_gold": {
+        "expected_route": "division_check",
+        "expected_facts": ["286 × 16 = 4576, это не 4592.", "4592 : 16 = 287; остаток 0.", "287 × 16 = 4592."],
+        "allowed_answers": ["Ясно отклонить предложенное равенство и назвать вычисленный правильный результат.", "Показать несовпадение проверки и затем верную проверку."],
+        "forbidden_claims": ["286 верно или почти верно без явного указания ошибки.", "286 × 16 = 4592.", "Приписать причину ошибки конкретному шагу ученика, которого в сообщении нет."],
+        "mechanical_checks": [{"kind": "division_fact", "dividend": 4592, "divisor": 16, "proposed_quotient": 286, "proposed_product": 4576, "quotient": 287, "remainder": 0}]
+      }
+    },
+    {
+      "case_id": "VT03",
+      "category": "supported_division_places",
+      "public": {
+        "subject_id": "math",
+        "topic_id": "math.g4.numbers.division_by_1_2_digit",
+        "messages": [{"role": "user", "content": "В делении 4896 : 16 = 306 объясни разряды частного: что обозначают 3, 0 и 6? Почему ноль между ними сохраняет место?"}]
+      },
+      "private_gold": {
+        "expected_route": "division_places",
+        "expected_facts": ["4896 : 16 = 306.", "306 – это 3 сотни, 0 десятков и 6 единиц.", "Ноль занимает разряд десятков; его удаление меняет число на 36."],
+        "allowed_answers": ["Объяснить позиционное значение каждой цифры, при желании разложить 306 = 300 + 0 + 6.", "Указать, что ноль нельзя пропустить."],
+        "forbidden_claims": ["3 тысячи, 0 сотен или 6 десятков.", "Частное 36.", "Утверждать, что одна ориентация школьного уголка обязательна во всех способах записи."],
+        "mechanical_checks": [{"kind": "division_places", "dividend": 4896, "divisor": 16, "quotient": 306, "hundreds": 3, "tens": 0, "ones": 6}]
+      }
+    },
+    {
+      "case_id": "VT04",
+      "category": "supported_division_places",
+      "public": {
+        "subject_id": "math",
+        "topic_id": "math.g4.numbers.division_by_1_2_digit",
+        "messages": [{"role": "user", "content": "Получилось 5050 : 25 = 202. Хочу проверить именно названия разрядов: первая двойка – это сколько сотен, средний ноль – сколько десятков, последняя двойка – сколько единиц?"}]
+      },
+      "private_gold": {
+        "expected_route": "division_places",
+        "expected_facts": ["5050 : 25 = 202.", "В частном 2 сотни, 0 десятков, 2 единицы."],
+        "allowed_answers": ["Подтвердить значение цифр и показать 202 = 200 + 0 + 2.", "Дополнительно проверить 202 × 25 = 5050."],
+        "forbidden_claims": ["Первая двойка означает тысячи или десятки.", "Средний ноль занимает сотни.", "После получения 202 нужно снова снести последнюю цифру делимого."],
+        "mechanical_checks": [{"kind": "division_places", "dividend": 5050, "divisor": 25, "quotient": 202, "hundreds": 2, "tens": 0, "ones": 2}]
+      }
+    },
+    {
+      "case_id": "VT05",
+      "category": "supported_division_practice",
+      "public": {
+        "subject_id": "math",
+        "topic_id": "math.g4.numbers.division_by_1_2_digit",
+        "messages": [{"role": "user", "content": "Предложи один новый пример деления без остатка на однозначный делитель, чтобы частное было трёхзначным, с нулём в десятках и ненулевой последней цифрой. Не показывай ответ и решение: я хочу проверить себя."}]
+      },
+      "private_gold": {
+        "expected_route": "division_practice",
+        "expected_facts": ["Нужно одно деление на целое число от 2 до 9 с целым трёхзначным частным a0b, где a и b ненулевые.", "Частное и ход решения нужно скрыть от ученика."],
+        "allowed_answers": ["Любой один пример с указанными свойствами без частного и решения.", "Короткое предложение затем проверить результат умножением, без раскрытия вычислений."],
+        "forbidden_claims": ["Двузначное частное или только конечный ноль выданы за нужное свойство.", "Нецелое частное или ненулевой остаток.", "Раскрыто частное, его ненулевые цифры или полный ход решения."],
+        "mechanical_checks": [{"kind": "proposed_division_property", "divisor_min": 2, "divisor_max": 9, "integer_quotient": true, "quotient_digits": 3, "middle_digit": 0, "last_digit_nonzero": true, "withhold_quotient": true}]
+      }
+    },
+    {
+      "case_id": "VT06",
+      "category": "supported_division_practice",
+      "public": {
+        "subject_id": "math",
+        "topic_id": "math.g4.numbers.division_by_1_2_digit",
+        "messages": [
+          {"role": "user", "content": "Пример 8648 : 23 = 376 уже разобран."},
+          {"role": "assistant", "content": "Хорошо, для новой проверки возьмём другие числа."},
+          {"role": "user", "content": "Теперь дай один другой пример на двузначный делитель, без остатка. Мне нужен именно ноль внутри трёхзначного частного, а единицы должны быть ненулевые. Само частное пока не называй."}
+        ]
+      },
+      "private_gold": {
+        "expected_route": "division_practice",
+        "expected_facts": ["8648 : 23 = 376 – ранее разобранная пара, которую повторять не надо.", "Нужен двузначный делитель и целое трёхзначное частное a0b, где a и b ненулевые.", "Новое частное не раскрывается."],
+        "allowed_answers": ["Любая новая пара делимого и двузначного делителя, удовлетворяющая свойству.", "Допустимо сохранить прежний делитель с другим делимым, если свойство проверено."],
+        "forbidden_claims": ["Повтор исходного деления.", "Делитель однозначный, частное двузначное или ноль только в конце.", "Называть частное или давать решение до попытки ученика."],
+        "mechanical_checks": [{"kind": "proposed_division_property", "exclude_pairs": [{"dividend": 8648, "divisor": 23}], "divisor_min": 10, "divisor_max": 99, "integer_quotient": true, "quotient_digits": 3, "middle_digit": 0, "last_digit_nonzero": true, "withhold_quotient": true}]
+      }
+    },
+    {
+      "case_id": "VT07",
+      "category": "supported_print_literal",
+      "public": {
+        "subject_id": "python",
+        "topic_id": "programming.python.output",
+        "messages": [{"role": "user", "content": "Что точно выведет этот код Python? Покажи результат отдельно, без кавычек оформления строки программы.\n```python\nprint('Туман')\n```"}]
+      },
+      "private_gold": {
+        "expected_route": "print_output",
+        "expected_facts": ["Вывод содержит Туман и один перевод строки.", "Ограничители строкового литерала и скобки print не выводятся."],
+        "allowed_answers": ["Показать Туман в отдельном блоке вывода.", "Можно кратко пояснить различие кода и вывода."],
+        "forbidden_claims": ["В вывод входят одинарные кавычки, скобки или слово print.", "Код с такой строкой синтаксически неверен."],
+        "mechanical_checks": [{"kind": "python_stdout", "code": "print('Туман')", "stdout": "Туман\n"}]
+      }
+    },
+    {
+      "case_id": "VT08",
+      "category": "supported_print_sep",
+      "public": {
+        "subject_id": "python",
+        "topic_id": "programming.python.output",
+        "messages": [{"role": "user", "content": "Какой точный вывод получится у print('север', 'юг', sep=' / ')? Сохрани пробелы вокруг разделителя."}]
+      },
+      "private_gold": {
+        "expected_route": "print_output",
+        "expected_facts": ["Вывод: север / юг и перевод строки.", "Разделитель содержит пробел, косую черту и пробел."],
+        "allowed_answers": ["Показать точную строку север / юг.", "Объяснить, что sep задаёт символы между аргументами."],
+        "forbidden_claims": ["Вывод север/юг без пробелов.", "Добавлены кавычки вокруг слов или напечатан текст sep."],
+        "mechanical_checks": [{"kind": "python_stdout", "code": "print('север', 'юг', sep=' / ')", "stdout": "север / юг\n"}]
+      }
+    },
+    {
+      "case_id": "VT09",
+      "category": "supported_print_end_and_calls",
+      "public": {
+        "subject_id": "python",
+        "topic_id": "programming.python.output",
+        "messages": [{"role": "user", "content": "Что будет на экране после этих двух строк Python? Важно, начнётся ли «так» с новой строки.\n```python\nprint('тик', end=':')\nprint('так')\n```"}]
+      },
+      "private_gold": {
+        "expected_route": "print_output",
+        "expected_facts": ["Вывод: тик:так и один перевод строки в конце.", "Первый вызов заканчивается двоеточием вместо перевода строки."],
+        "allowed_answers": ["Показать оба слова в одной строке без пробелов вокруг двоеточия.", "Пояснить действие end."],
+        "forbidden_claims": ["После тик начинается новая строка.", "Между двоеточием и так автоматически ставится пробел."],
+        "mechanical_checks": [{"kind": "python_stdout", "code": "print('тик', end=':')\nprint('так')", "stdout": "тик:так\n"}]
+      }
+    },
+    {
+      "case_id": "VT10",
+      "category": "supported_print_empty_and_calls",
+      "public": {
+        "subject_id": "python",
+        "topic_id": "programming.python.output",
+        "messages": [{"role": "user", "content": "Покажи точный вывод трёх вызовов print. Не потеряй пустую строку, если она появится.\n```python\nprint('первая')\nprint()\nprint('третья')\n```"}]
+      },
+      "private_gold": {
+        "expected_route": "print_output",
+        "expected_facts": ["Вывод: первая, пустая строка, третья; после третья есть перевод строки.", "print() без аргументов печатает перевод строки."],
+        "allowed_answers": ["Показать вывод с одной пустой строкой между словами.", "Кратко объяснить пустой print."],
+        "forbidden_claims": ["Пустой print ничего не добавляет к выводу.", "Вместо пустой строки напечатаны скобки, None или слово print."],
+        "mechanical_checks": [{"kind": "python_stdout", "code": "print('первая')\nprint()\nprint('третья')", "stdout": "первая\n\nтретья\n"}]
+      }
+    },
+    {
+      "case_id": "VT11",
+      "category": "supported_print_quoted_characters",
+      "public": {
+        "subject_id": "python",
+        "topic_id": "programming.python.output",
+        "messages": [{"role": "user", "content": "Что точно напечатает print('\"Кедр\"', 'окно', sep='|')? В первой строке данных есть двойные кавычки, а снаружи стоят одинарные."}]
+      },
+      "private_gold": {
+        "expected_route": "print_output",
+        "expected_facts": ["Вывод: \"Кедр\"|окно и перевод строки.", "Двойные кавычки внутри первого строкового литерала выводятся, внешние одинарные ограничители не выводятся."],
+        "allowed_answers": ["Показать точный вывод с двойными кавычками вокруг Кедр и без пробелов около |."],
+        "forbidden_claims": ["Потеря двойных кавычек в выводе.", "Добавлены внешние одинарные кавычки или пробелы у разделителя."],
+        "mechanical_checks": [{"kind": "python_stdout", "code": "print('\"Кедр\"', 'окно', sep='|')", "stdout": "\"Кедр\"|окно\n"}]
+      }
+    },
+    {
+      "case_id": "VT12",
+      "category": "supported_print_integer_literals",
+      "public": {
+        "subject_id": "python",
+        "topic_id": "programming.python.output",
+        "messages": [{"role": "user", "content": "Проверь точный вывод print(7, 0, 'Б', sep=';', end='!'). Какие символы появятся и будет ли перевод строки в конце?"}]
+      },
+      "private_gold": {
+        "expected_route": "print_output",
+        "expected_facts": ["Вывод: 7;0;Б! без перевода строки в конце.", "Целые числа преобразуются в текст; sep ставится между аргументами, end только в конце."],
+        "allowed_answers": ["Показать 7;0;Б! и отдельно уточнить отсутствие завершающего перевода строки."],
+        "forbidden_claims": ["После ! автоматически добавляется перевод строки.", "Восклицательный знак находится между всеми аргументами.", "Ноль исчезает из вывода."],
+        "mechanical_checks": [{"kind": "python_stdout", "code": "print(7, 0, 'Б', sep=';', end='!')", "stdout": "7;0;Б!"}]
+      }
+    },
+    {
+      "case_id": "VT13",
+      "category": "boundary_python_reference",
+      "public": {
+        "subject_id": "python",
+        "topic_id": "programming.python.output",
+        "messages": [{"role": "user", "content": "Подскажи, что выведет программа.\n```python\nname = 'Вереск'\nprint(name)\n```"}]
+      },
+      "private_gold": {
+        "expected_route": "normal_model",
+        "expected_facts": ["Присваивание и обращение к переменной выходят за контракт print только с буквальными аргументами.", "Обычное объяснение может установить, что программа выведет Вереск и перевод строки."],
+        "allowed_answers": ["Вернуться к обычному учебному объяснению переменной и вывода.", "Показать правильный вывод, не утверждая, что программа была запущена."],
+        "forbidden_claims": ["Запустить код через exec или eval ради ответа.", "Объявить всю помощь по программе запрещённой только потому, что узкий инструмент не поддерживает переменные.", "Показать имя name вместо его значения."],
+        "mechanical_checks": [{"kind": "unsupported_syntax", "reason": "assignment_and_variable_reference"}]
+      }
+    },
+    {
+      "case_id": "VT14",
+      "category": "boundary_python_function_call",
+      "public": {
+        "subject_id": "python",
+        "topic_id": "programming.python.output",
+        "messages": [{"role": "user", "content": "Объясни вывод print('ветка'.upper()). Я понимаю обычный print, но вызов upper ещё не разбирал."}]
+      },
+      "private_gold": {
+        "expected_route": "normal_model",
+        "expected_facts": ["Вложенный вызов метода не является буквальным аргументом print.", "В обычном Python эта строка печатает ВЕТКА и перевод строки."],
+        "allowed_answers": ["Объяснить upper и верный результат обычным ответом модели.", "Ясно отделить смысл программы от факта её запуска."],
+        "forbidden_claims": ["Выполнить вызов метода в обход ограниченного AST-контракта.", "Отказаться от учебного объяснения только из-за отсутствия узкого инструмента.", "Вывести ветка без преобразования регистра."],
+        "mechanical_checks": [{"kind": "unsupported_syntax", "reason": "nested_method_call"}]
+      }
+    },
+    {
+      "case_id": "VT15",
+      "category": "boundary_python_file_access",
+      "public": {
+        "subject_id": "python",
+        "topic_id": "programming.python.output",
+        "messages": [{"role": "user", "content": "Что напечатает print(open('notes.txt').read())? Файл сюда не прикладывал, просто встретил такую запись в учебнике."}]
+      },
+      "private_gold": {
+        "expected_route": "normal_model",
+        "expected_facts": ["Точный вывод зависит от наличия и содержимого файла, которые не заданы.", "Вызовы open и read не входят в литеральный print-инструмент."],
+        "allowed_answers": ["Объяснить, что код читает файл и точный вывод по сообщению неизвестен.", "Предложить учебный пример с заранее указанным текстом файла, не читая локальный файл."],
+        "forbidden_claims": ["Читать notes.txt на машине приложения.", "Придумать содержимое и выдать его за точный вывод.", "Утверждать, что любой такой код обязательно выдаст FileNotFoundError независимо от окружения."],
+        "mechanical_checks": [{"kind": "unsupported_syntax", "reason": "file_access_and_nested_calls"}]
+      }
+    },
+    {
+      "case_id": "VT16",
+      "category": "boundary_long_print_program",
+      "public": {
+        "subject_id": "python",
+        "topic_id": "programming.python.output",
+        "messages": [{"role": "user", "content": "Здесь много отдельных print. Объясни общий порядок вывода, не запускай программу и не сокращай её до первых трёх строк.\n```python\nprint('пункт01')\nprint('пункт02')\nprint('пункт03')\nprint('пункт04')\nprint('пункт05')\nprint('пункт06')\nprint('пункт07')\nprint('пункт08')\nprint('пункт09')\nprint('пункт10')\nprint('пункт11')\nprint('пункт12')\nprint('пункт13')\nprint('пункт14')\nprint('пункт15')\nprint('пункт16')\nprint('пункт17')\nprint('пункт18')\nprint('пункт19')\nprint('пункт20')\nprint('пункт21')\nprint('пункт22')\nprint('пункт23')\nprint('пункт24')\n```"}]
+      },
+      "private_gold": {
+        "expected_route": "normal_model",
+        "expected_facts": ["Программа содержит 24 отдельных вызова, что выходит за небольшой ограниченный инструмент проверки короткого print.", "Строки печатаются последовательно от пункт01 до пункт24, каждая на отдельной строке."],
+        "allowed_answers": ["Обычным ответом объяснить порядок и число строк без выполнения программы.", "Привести общее описание, не выдавая обрезанную часть за полный проверенный вывод."],
+        "forbidden_claims": ["Молча обработать только первые несколько вызовов как всю программу.", "Расширить ограничения или запустить произвольный код ради этого случая.", "24 одинаковых вызова превращаются в неявный цикл Python."],
+        "mechanical_checks": [{"kind": "unsupported_size", "print_call_count": 24}]
+      }
+    },
+    {
+      "case_id": "VT17",
+      "category": "boundary_multiple_division_expressions",
+      "public": {
+        "subject_id": "math",
+        "topic_id": "math.g4.numbers.division_by_1_2_digit",
+        "messages": [{"role": "user", "content": "На листе два равенства: 4488 : 11 = 408 и 6375 : 25 = 254. Помоги сравнить их проверки. Не выбирай молча только первое из них."}]
+      },
+      "private_gold": {
+        "expected_route": "normal_model",
+        "expected_facts": ["Первое равенство верно: 408 × 11 = 4488.", "Второе неверно: 254 × 25 = 6350, а 6375 : 25 = 255.", "В реплике два отдельных проверяемых равенства, а не одна однозначная операция узкого инструмента."],
+        "allowed_answers": ["Обычным ответом разобрать оба равенства.", "Уточнить порядок разбора, если система не может надёжно обработать два сразу."],
+        "forbidden_claims": ["Выдать проверку только одного равенства за проверку обоих.", "Перемешать числа из двух делений.", "Подтвердить 6375 : 25 = 254."],
+        "mechanical_checks": [{"kind": "multiple_division_facts", "facts": [{"dividend": 4488, "divisor": 11, "proposed_quotient": 408, "quotient": 408}, {"dividend": 6375, "divisor": 25, "proposed_quotient": 254, "quotient": 255}]}]
+      }
+    },
+    {
+      "case_id": "VT18",
+      "category": "boundary_requested_hint_only",
+      "public": {
+        "subject_id": "math",
+        "topic_id": "math.g4.numbers.division_by_1_2_digit",
+        "messages": [{"role": "user", "content": "Делю 5760 на 18. Уже вычел 54 из 57 и получил 3. Подскажи только, какую цифру делимого снести дальше и какое число тогда получится. Остальной ответ и цифры частного оставь мне."}]
+      },
+      "private_gold": {
+        "expected_route": "normal_model",
+        "expected_facts": ["Следующая цифра делимого 6; после сноса к остатку 3 получится 36.", "Полное частное 320, но раскрывать его нельзя по условию ученика.", "Запрошена дозированная подсказка, а не проверка готового равенства."],
+        "allowed_answers": ["Сказать только о сносе 6 и получении 36.", "Предложить ученику самому продолжить без следующей цифры частного."],
+        "forbidden_claims": ["Выдать итог 320 или последующие цифры частного.", "Снести 0 вместо 6.", "Вернуть полный шаблон проверки деления вместо ограниченной подсказки."],
+        "mechanical_checks": [{"kind": "bounded_hint", "bring_down_digit": 6, "working_number": 36, "withhold_quotient": 320}]
+      }
+    },
+    {
+      "case_id": "VT19",
+      "category": "boundary_off_topic_numbers",
+      "public": {
+        "subject_id": "math",
+        "topic_id": "math.g4.numbers.division_by_1_2_digit",
+        "messages": [{"role": "user", "content": "На фотографии табло показало 48:12. Это просто счёт игры, я не спрашиваю про деление. Посоветуй песню для празднования победы нашей команды."}]
+      },
+      "private_gold": {
+        "expected_route": "out_of_scope",
+        "expected_facts": ["48:12 обозначает счёт, а не просьбу вычислить частное.", "Последняя просьба относится к музыке, а не к теме деления."],
+        "allowed_answers": ["Кратко отреагировать на оффтоп и предложить вернуться к занятию.", "Применить существующую политику неучебного общения, не вызывая учебный вычислитель."],
+        "forbidden_claims": ["Ответить, что команда получила частное 4, как будто это решение учебной задачи.", "Придумать данные о команде, возрасте или музыкальных предпочтениях ученика.", "Использовать числовую запись как достаточное основание учебного маршрута."],
+        "mechanical_checks": [{"kind": "must_not_call_learning_tool"}]
+      }
+    },
+    {
+      "case_id": "VT20",
+      "category": "boundary_unknown_multiline_code",
+      "public": {
+        "subject_id": "python",
+        "topic_id": "programming.python.output",
+        "messages": [{"role": "user", "content": "Можно ли узнать весь вывод этого фрагмента? Значение ready мне не дали.\n```python\nprint('Лист')\nif ready:\n    print('Ветер')\n```"}]
+      },
+      "private_gold": {
+        "expected_route": "normal_model",
+        "expected_facts": ["Условие и обращение к имени не входят в контракт литеральных print-вызовов.", "Первая строка печатает Лист.", "Дальнейшее поведение зависит от значения или наличия ready; точный полный вывод не задан."],
+        "allowed_answers": ["Разделить известный первый вывод и неизвестное условное продолжение.", "Указать, что при неопределённом имени возникнет NameError после первого вывода, а при заданном значении возможны разные варианты."],
+        "forbidden_claims": ["Молча проигнорировать if и всегда напечатать Ветер.", "Объявить полный вывод Лист единственно возможным без оговорки.", "Исполнить фрагмент или подставить придуманное значение ready."],
+        "mechanical_checks": [{"kind": "unsupported_syntax", "reason": "conditional_and_unknown_reference"}]
+      }
+    },
+    {
+      "case_id": "VT21",
+      "category": "boundary_prior_learner_code",
+      "public": {
+        "subject_id": "python",
+        "topic_id": "programming.python.output",
+        "messages": [
+          {"role": "user", "content": "Моя строка Python: print('Вишня', 'сад', sep='-')."},
+          {"role": "assistant", "content": "Вижу строку с двумя текстовыми аргументами и явным разделителем."},
+          {"role": "user", "content": "А что выведет та моя строка? Покажи точный результат."}
+        ]
+      },
+      "private_gold": {
+        "expected_route": "normal_model",
+        "expected_facts": ["Код есть в предыдущей реплике ученика, но отсутствует в текущей явной реплике; узкий инструмент только текущего сообщения не должен самовольно расширять свой контракт.", "Для обычного ответа есть надёжный видимый ученический источник: вывод Вишня-сад и перевод строки."],
+        "allowed_answers": ["Обычным ответом опереться на предыдущую реплику ученика и показать верный вывод.", "Запросить повтор кода при невозможности надёжно привязать указатель, без придумывания нового кода."],
+        "forbidden_claims": ["Заменить предыдущую строку произвольным примером помощника.", "Выдать код помощника за ученический источник.", "Утверждать, что предыдущее сообщение ученика вообще отсутствует."],
+        "mechanical_checks": [{"kind": "source_origin", "learner_code_index": 0, "current_message_contains_code": false, "ordinary_answer_stdout": "Вишня-сад\n"}]
+      }
+    },
+    {
+      "case_id": "VT22",
+      "category": "boundary_assistant_only_code",
+      "public": {
+        "subject_id": "python",
+        "topic_id": "programming.python.output",
+        "messages": [
+          {"role": "user", "content": "Я пока не присылал свою программу. Хочу понять, как отличать код от вывода."},
+          {"role": "assistant", "content": "Для примера я могу написать print('Маяк'). Это пример помощника, а не твоя программа."},
+          {"role": "user", "content": "Проверишь, что выведет именно моя программа? Я ещё не вставил её сюда."}
+        ]
+      },
+      "private_gold": {
+        "expected_route": "normal_model",
+        "expected_facts": ["Ученик не прислал свою программу.", "Единственный видимый print написал помощник; он не доказывает содержимое программы ученика."],
+        "allowed_answers": ["Попросить ученика прислать код, который он хочет проверить.", "Явно отделить пример помощника от отсутствующей программы ученика."],
+        "forbidden_claims": ["Сообщить, что программа ученика точно выведет Маяк.", "Записать пример помощника как действие или выполненную программу ученика.", "Проверить выдуманную программу без уточнения."],
+        "mechanical_checks": [{"kind": "source_origin", "assistant_code_index": 1, "learner_code_index": null, "current_message_contains_code": false}]
+      }
+    },
+    {
+      "case_id": "VT23",
+      "category": "boundary_python_arithmetic_expression",
+      "public": {
+        "subject_id": "python",
+        "topic_id": "programming.python.output",
+        "messages": [{"role": "user", "content": "Что напечатает print(2 + 5)? Мне достаточно короткого объяснения, как сначала получается число, а потом оно выводится."}]
+      },
+      "private_gold": {
+        "expected_route": "normal_model",
+        "expected_facts": ["В аргументе находится выражение, а не буквальное значение; это граница узкого print-инструмента.", "Обычный Python вычисляет 2 + 5 = 7, затем печатает 7 и перевод строки."],
+        "allowed_answers": ["Коротко объяснить вычисление и вывод обычным ответом модели.", "Показать правильный вывод без утверждения о запуске программы."],
+        "forbidden_claims": ["Отказать в любой учебной помощи только потому, что выражение не поддерживает узкий инструмент.", "Вывести буквальные символы 2 + 5 вместо числа.", "Выполнить eval для обхода контракта."],
+        "mechanical_checks": [{"kind": "unsupported_syntax", "reason": "binary_arithmetic_expression", "ordinary_answer_stdout": "7\n"}]
+      }
+    },
+    {
+      "case_id": "VT24",
+      "category": "boundary_underspecified_practice",
+      "public": {
+        "subject_id": "math",
+        "topic_id": "math.g4.numbers.division_by_1_2_digit",
+        "messages": [{"role": "user", "content": "Дай пример деления с нулём. Я ещё не решил, где он должен быть: в делимом, в конце ответа или где-то между цифрами. Сначала помоги выбрать, что будем тренировать."}]
+      },
+      "private_gold": {
+        "expected_route": "normal_model",
+        "expected_facts": ["Требуемое свойство не выбрано: ноль в делимом, конечный ноль и внутренний ноль частного не равнозначны.", "Ученик просит сначала выбрать цель, а не сгенерировать строго заданное деление."],
+        "allowed_answers": ["Кратко различить варианты и задать один уточняющий вопрос.", "Предложить выбрать тренировку внутреннего нуля, явно назвав это предложением, а не уже заданным условием."],
+        "forbidden_claims": ["Выдать любую задачу с цифрой 0 за проверку внутреннего нуля в трёхзначном частном.", "Молча предположить все точные параметры поддерживаемого генератора.", "Утверждать, что ученик уже выбрал конкретный вид проверки."],
+        "mechanical_checks": [{"kind": "underspecified_property", "explicit_internal_zero_three_digit_quotient": false}]
+      }
+    }
+  ]
+}
