@@ -1,0 +1,235 @@
+{
+  "created_at": "2026-10-18T12:22:54.000005+00:00",
+  "kind": "completed_application_stage_with_negative_new_wording_coverage",
+  "app_code_commit": "c1cd84a1963fd14f89ab45cfd77bbc45733b02e7",
+  "human_reviewed": false,
+  "informal_ai_reviews_are_not_the_formal_calibrated_judge": true,
+  "batches": {
+    "run01": {
+      "status": "completed",
+      "label": "verified-tools-v1",
+      "created_at": "2026-10-18T12:02:53.539269+00:00",
+      "completed_at": "2026-10-18T12:04:06.294831+00:00",
+      "technical_summary": {
+        "denominator": 24,
+        "recorded_case_outcomes": 24,
+        "technical_responses_returned": 23,
+        "error_outcomes": 1,
+        "not_attempted_outcomes": 0,
+        "deterministic_responses": 0,
+        "deterministic_responses_with_zero_answer_generations": 0,
+        "mechanical_route_matches": 11,
+        "failures_remain_in_denominator": true,
+        "technical_ok_and_route_match_do_not_establish_semantic_correctness": true
+      },
+      "actual_generation_tokens": {
+        "input_tokens": 26696,
+        "output_tokens": 5659,
+        "calls_with_both_counts": 46,
+        "generation_calls": 46,
+        "counts_are_partial_if_calls_with_both_counts_below_generation_calls": true
+      },
+      "generation_http_elapsed_seconds": 66.81427530013025,
+      "data_integrity": {
+        "model_identity_unchanged": true,
+        "end_model_identity": "gemma4:12b@6114515d63c17436a7c0417d82820ac65ad643e2806c5a3c89cb62846436ed0b",
+        "public_materials_unchanged": true,
+        "start_public_materials_sha256": "b9bf788751b67db49517c5c3c3ed5d118bd0c79aa937add3818c9679702fc9d1",
+        "end_public_materials_sha256": "b9bf788751b67db49517c5c3c3ed5d118bd0c79aa937add3818c9679702fc9d1"
+      },
+      "commit": "7b8c3a744d75b4b25d6b14af066f8fd5017aa21e",
+      "source_integrity_unchanged": true,
+      "report_sha256": "f9dbaa11756cef577f8e83f84373b1ba5cbd5b564b7a6f11af62ddcc7400becb"
+    },
+    "smoke01": {
+      "status": "completed",
+      "label": "verified-tools-v1.1-smoke",
+      "created_at": "2026-10-18T12:15:40.475310+00:00",
+      "completed_at": "2026-10-18T12:16:18.297857+00:00",
+      "technical_summary": {
+        "denominator": 8,
+        "recorded_case_outcomes": 8,
+        "technical_responses_returned": 8,
+        "error_outcomes": 0,
+        "not_attempted_outcomes": 0,
+        "deterministic_responses": 0,
+        "deterministic_responses_with_zero_answer_generations": 0,
+        "mechanical_route_matches": 0,
+        "failures_remain_in_denominator": true,
+        "technical_ok_and_route_match_do_not_establish_semantic_correctness": true
+      },
+      "actual_generation_tokens": {
+        "input_tokens": 9091,
+        "output_tokens": 2473,
+        "calls_with_both_counts": 16,
+        "generation_calls": 16,
+        "counts_are_partial_if_calls_with_both_counts_below_generation_calls": true
+      },
+      "generation_http_elapsed_seconds": 33.896903499844484,
+      "data_integrity": {
+        "model_identity_unchanged": true,
+        "end_model_identity": "gemma4:12b@6114515d63c17436a7c0417d82820ac65ad643e2806c5a3c89cb62846436ed0b",
+        "public_materials_unchanged": true,
+        "start_public_materials_sha256": "b9bf788751b67db49517c5c3c3ed5d118bd0c79aa937add3818c9679702fc9d1",
+        "end_public_materials_sha256": "b9bf788751b67db49517c5c3c3ed5d118bd0c79aa937add3818c9679702fc9d1"
+      },
+      "commit": "c1cd84a1963fd14f89ab45cfd77bbc45733b02e7",
+      "source_integrity_unchanged": true,
+      "report_sha256": "d614d7491782d71d6fc3c50712670071faba729a0cb2a29fc8a115101254a454"
+    },
+    "replay01": {
+      "kind": "selector_only_not_new_live_run",
+      "status": "completed",
+      "summary": {
+        "denominator": 24,
+        "recorded_case_outcomes": 24,
+        "eligible_cases": 22,
+        "not_eligible_cases": 2,
+        "selector_errors": 0,
+        "selected_tools": 12,
+        "route_matches_fixed_expectation": 23,
+        "supported_route_matches": 12,
+        "supported_denominator": 12,
+        "boundary_route_matches": 11,
+        "boundary_denominator": 12,
+        "historical_live_errors_still_errors": 1,
+        "selector_route_match_is_not_a_new_live_success": true
+      },
+      "selector_version": "verified-learning-v1.1",
+      "current_git_commit": "c1cd84a1963fd14f89ab45cfd77bbc45733b02e7",
+      "local_model_calls": 0,
+      "paid_provider_calls": 0,
+      "counts_are_offline_zeros_not_measured_live_usage_or_latency": true,
+      "report_sha256": "f79672cd31adf7a8d6584f28d8d4d217ad95d429a42acf634c33f6f9e8ea87ab"
+    }
+  },
+  "informal_ai_reviews": {
+    "review01": {
+      "human_reviewed": false,
+      "reviewer_calibrated": false,
+      "summary": {
+        "denominator": 24,
+        "responses_present": 23,
+        "missing_responses": 1,
+        "substantial_factual_error_yes": 4,
+        "substantial_factual_error_no": 18,
+        "substantial_factual_error_uncertain": 1,
+        "substantial_factual_error_not_assessed": 1,
+        "useful": 15,
+        "partial": 5,
+        "not_useful": 3,
+        "usefulness_not_assessed": 1,
+        "error_cases_stay_in_denominator": true,
+        "labels_are_informal_ai_judgments_not_measured_ground_truth": true
+      },
+      "review_sha256": "a38c6c6cad5e41ed0b0398874960fce066589634a7a94c64450de27a473dd18d"
+    },
+    "smoke_review01": {
+      "human_reviewed": false,
+      "reviewer_calibrated": false,
+      "summary": {
+        "denominator": 8,
+        "responses_present": 8,
+        "missing_responses": 0,
+        "substantial_factual_error_yes": 2,
+        "substantial_factual_error_no": 6,
+        "substantial_factual_error_uncertain": 0,
+        "useful": 6,
+        "partial": 0,
+        "not_useful": 2,
+        "observed_deterministic_responses": 0,
+        "route_matches_fixed_expectation": 0,
+        "all_saved_scope_decisions_in_scope": true,
+        "all_saved_scope_decisions_uses_prior_context_false": true,
+        "live_generation_calls": 16,
+        "live_scope_resolution_calls": 8,
+        "live_answer_generation_calls": 8,
+        "live_embedding_calls": 8,
+        "selector_failures_are_not_content_failure_labels": true
+      },
+      "review_sha256": "c25e7d91fabdbf41957312458c9fb09953ff3003e92e78a561e9d6f984e2dca8"
+    }
+  },
+  "application_checks": {
+    "created_at": "2026-10-18T12:13:36.923486+00:00",
+    "ui_requested": true,
+    "checks": [
+      {
+        "name": "pytest",
+        "passed": true,
+        "exit_code": 0,
+        "log": ".local\\verification\\pytest.log",
+        "passed_tests": 627,
+        "skipped_tests": 0
+      },
+      {
+        "name": "learner-policy",
+        "passed": true,
+        "exit_code": 0,
+        "log": ".local\\verification\\learner-policy.log",
+        "tests": 52
+      }
+    ],
+    "passed": true
+  },
+  "readiness": {
+    "status": "ready",
+    "database": "ok",
+    "schema_version": 11,
+    "index": {
+      "embedding_model": "bge-m3",
+      "dimension": 1024,
+      "total": 147,
+      "indexed": 147,
+      "ready": true,
+      "embedding_model_identity": "bge-m3:latest@7907646426070047a77226ac3e684fbbe8410524f7b4a74d02837e43f2146bab@recipe=269bda234d703b088f748f6e2e68687de148258c776da902d257e232589e83c3",
+      "embedding_prompt_recipe": "raw-query-v1",
+      "embedding_prompt_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "models": {
+      "ready": true,
+      "models": [
+        {
+          "name": "bge-m3:latest",
+          "digest": "7907646426070047a77226ac3e684fbbe8410524f7b4a74d02837e43f2146bab"
+        },
+        {
+          "name": "gemma4:12b",
+          "digest": "6114515d63c17436a7c0417d82820ac65ad643e2806c5a3c89cb62846436ed0b"
+        }
+      ],
+      "local_only": true
+    },
+    "checked_at": "2026-10-18T12:18:42.908205+00:00",
+    "processes": {
+      "worker_pid": 16632,
+      "api_pid": 25604,
+      "active_jobs_before_restart": 0
+    }
+  },
+  "frozen_research_files_unchanged": 29,
+  "previous_archives_unchanged": {
+    "conversation_longitudinal_v1_20261018.zip": {
+      "expected": "f83f58291a976a8372ec8ca7b5f1403f8c883b24ad428da83c08118b731db622",
+      "actual": "f83f58291a976a8372ec8ca7b5f1403f8c883b24ad428da83c08118b731db622",
+      "unchanged": true
+    },
+    "conversation_boundaries_v2_20261018.zip": {
+      "expected": "856f58c6a446f127d450bb6ee3be6d989aaa16a82730ecf9270a62ea1d28b5b0",
+      "actual": "856f58c6a446f127d450bb6ee3be6d989aaa16a82730ecf9270a62ea1d28b5b0",
+      "unchanged": true
+    }
+  },
+  "new_paid_provider_calls": 0,
+  "cumulative_paid_usd": "1.2405025",
+  "remaining_from_four_usd": "2.7594975",
+  "release_decision": "Verified arithmetic/print tools and bounded selector retained; no claim of improved general learning-chat accuracy. Zero of eight expected new-wording routes matched; no further tuning on these eight.",
+  "formal_memory_result": "not_assessed_after_prior_23_of_24_calibration_failure",
+  "default_memory_method": "tail",
+  "teacher_confirmation_preserved": true,
+  "artifacts": {
+    "archive": "nirs/artifacts/verified_learning_tools_v1_20261018.zip",
+    "processing": ".local/verified_learning_tools_v1/PROCESSING.json",
+    "sha256_is_recorded_after_packaging_not_in_this_self_containing_document": true
+  }
+}
