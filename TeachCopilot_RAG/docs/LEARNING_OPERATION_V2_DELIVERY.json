@@ -1,0 +1,52 @@
+{
+  "status": "packaged_verified",
+  "completed_at": "2026-10-18T17:35:23.565218+00:00",
+  "archive": "C:\\Users\\name\\PycharmProjects\\misc\\teachCopilot\\nirs\\artifacts\\learning_operations_v2_20261019.zip",
+  "sha256": "dd6cfd22378d90e99ea5cf05463bf3c864121f52ead88a814a69732a8428a1c5",
+  "archive_bytes": 438232,
+  "manifest": "C:\\Users\\name\\PycharmProjects\\misc\\teachCopilot\\Alena_audio\\TeachCopilot_RAG\\.local\\learning_operations_v2\\MANIFEST.json",
+  "manifest_sha256": "b5843c6ec5a2c5634ad21f0eb603e59beb0458560d01ba7961cf4d1a5e0d3752",
+  "manifest_files": 87,
+  "zip_crc_passed": true,
+  "all_manifest_entry_sha256_crc32_size_readbacks_passed": true,
+  "whole_archive_sha256_read_twice": true,
+  "original_artifact_sha256_unchanged": true,
+  "verified_before_exclusive_archive_publication": true,
+  "source_commits": {
+    "runtime": "ce3b1a4cb0f295881a73fd104990daacd05da6cd",
+    "selected_release": "73049daff23252f00ccd97bc359d4e049c2d0908"
+  },
+  "documents_commit": "70724691d765ecf18024cd26803f247503e6bf1d",
+  "fixture_serialization": {
+    "frozen_source_sha256": "200cb84d919ec1179218c28b59b426cbe1aebf01c1c997c1d2d279c7a33e2224",
+    "archived_snapshot_byte_sha256": {
+      "preflight01": "e890e1735ee8c786bd7adf7e96f0a6fb8440f69eb808e0af348fd31844f9b577",
+      "run01": "e890e1735ee8c786bd7adf7e96f0a6fb8440f69eb808e0af348fd31844f9b577"
+    },
+    "archived_snapshots_equal_frozen_json": true,
+    "note": "Archived fixtures are write_json serializations of the frozen JSON value; indentation and platform line endings need not preserve source bytes."
+  },
+  "runtime_source_line_ending_equivalences": [
+    {
+      "path": "local_app/rag.py",
+      "run": "preflight01",
+      "git_blob_sha256": "bfff4032dc597549b30c265b5708f4bfac13ee6955dc84f5e3c9386ab1edbcab",
+      "frozen_worktree_sha256": "43f52130a1829589cdacc2ca8f30c60aaeaff008cfdd35e8ea7b659e3088f73f",
+      "matching_git_blob_line_endings": "CRLF",
+      "archive_retains_original_git_blob_bytes": true
+    },
+    {
+      "path": "local_app/rag.py",
+      "run": "run01",
+      "git_blob_sha256": "bfff4032dc597549b30c265b5708f4bfac13ee6955dc84f5e3c9386ab1edbcab",
+      "frozen_worktree_sha256": "43f52130a1829589cdacc2ca8f30c60aaeaff008cfdd35e8ea7b659e3088f73f",
+      "matching_git_blob_line_endings": "CRLF",
+      "archive_retains_original_git_blob_bytes": true
+    }
+  ],
+  "paid_provider_calls_during_packaging": 0,
+  "model_calls_during_packaging": 0,
+  "human_reviewed": false,
+  "semantic_assessment": "not_human_reviewed",
+  "technical_status_is_not_semantic_assessment": true
+}
