@@ -5,7 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from scripts.run_verified_learning_tools_v1 import fixture_cases, mechanical_diagnostic
+from scripts.run_verified_learning_tools_v1 import fixture_cases, fixture_path, mechanical_diagnostic
+from scripts.replay_verified_tool_selection import validate_saved_resolution
 
 
 FIXTURE = Path(__file__).parent / "fixtures" / "verified_learning_tools_v1.json"
@@ -80,3 +81,37 @@ def test_unsupported_boundary_has_no_automatic_semantic_grade():
     diagnostic = mechanical_diagnostic(actual, {"in_scope": True}, gold, COUNTS)
     assert not diagnostic["route_matches_fixed_expectation"]
     assert diagnostic["checks"][0]["automatically_assessed"] is False
+
+
+def test_explicit_eight_case_fixture_is_strict_and_project_relative():
+    fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
+    fixture["cases"] = fixture["cases"][:8]
+    assert len(fixture_cases(fixture, 8)) == 8
+    with pytest.raises(ValueError, match="exactly 24"):
+        fixture_cases(fixture)
+    with pytest.raises(ValueError, match="8 or 24"):
+        fixture_cases(fixture, 7)
+    assert fixture_path(Path("tests/fixtures/verified_learning_tools_v1.json")) == FIXTURE.resolve()
+    with pytest.raises(ValueError, match="project-relative"):
+        fixture_path(FIXTURE.resolve())
+    with pytest.raises(ValueError, match="inside the project"):
+        fixture_path(Path("../fixture.json"))
+
+
+def test_saved_scope_replay_requires_an_actual_learner_anchor_before_selection():
+    public = {"subject_id": "python", "topic_id": "programming.python.output", "messages": [
+        {"role": "user", "content": "What is print output?"},
+        {"role": "assistant", "content": "Assistant-only code is not learner evidence."},
+        {"role": "user", "content": "Please return to my question."},
+    ]}
+    decision = {"in_scope": True, "uses_prior_context": True,
+                "search_query": "literal print output", "prior_learner_question_index": 0}
+    assert validate_saved_resolution(decision, public) == decision
+    decision["prior_learner_question_index"] = 1
+    with pytest.raises(ValueError, match="visible_prior_learner"):
+        validate_saved_resolution(decision, public)
+    del decision["prior_learner_question_index"]
+    with pytest.raises(ValueError, match="explicit_learner_anchor"):
+        validate_saved_resolution(decision, public)
+    with pytest.raises(ValueError, match="absent_or_malformed"):
+        validate_saved_resolution(None, public)

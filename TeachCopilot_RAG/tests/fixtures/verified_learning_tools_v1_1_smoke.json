@@ -1,0 +1,153 @@
+{
+  "version": "verified-learning-tools-v1.1-smoke",
+  "data_origin": "synthetic_unreviewed",
+  "human_reviewed": false,
+  "purpose": "Восемь новых случаев для одного полного локального прохода после ограниченного исправления разбора формулировок. Результат не используется для следующей настройки.",
+  "generation_contract": {
+    "input_fields": ["public.subject_id", "public.topic_id", "public.messages"],
+    "excluded_fields": ["case_id", "category", "private_gold"],
+    "responses_per_case": 1,
+    "retry": false,
+    "private_gold_must_not_enter_generation": true,
+    "further_changes_based_on_generated_answers": false,
+    "review": "mechanical_checks_and_uncalibrated_ai_review; human_review_not_performed"
+  },
+  "evaluation_rules": {
+    "supported_count": 8,
+    "boundary_count": 0,
+    "routes": "По два случая division_check, division_places, division_practice и print_output.",
+    "private_gold": "Закрытые факты, варианты ответа и ограничения не передаются классификатору, генератору и маршрутизатору.",
+    "fresh_practice": "Принимается любая предложенная пара с заданными свойствами. Частное и решение остаются скрытыми от ученика.",
+    "result_scope": "Проход проверяет интеграцию узких операций на новых формулировках; он не измеряет общую полезность учителя и не заменяет прежний набор границ."
+  },
+  "cases": [
+    {
+      "case_id": "VTS01",
+      "category": "fresh_division_check_correct",
+      "public": {
+        "subject_id": "math",
+        "topic_id": "math.g4.numbers.division_by_1_2_digit",
+        "messages": [{"role": "user", "content": "Пожалуйста, проверь, верно ли я записал: 6327 : 9 = 703. Покажи короткую проверку умножением."}]
+      },
+      "private_gold": {
+        "expected_route": "division_check",
+        "expected_facts": ["6327 : 9 = 703, остаток 0.", "703 × 9 = 6327."],
+        "allowed_answers": ["Подтвердить равенство и показать верное обратное умножение.", "Дать короткий проверяемый ответ без оценки освоения."],
+        "forbidden_claims": ["Предложенное равенство неверно.", "Частное 73 или 7003.", "По одному равенству установить самостоятельность ученика."],
+        "mechanical_checks": [{"kind": "division_fact", "dividend": 6327, "divisor": 9, "proposed_quotient": 703, "quotient": 703, "remainder": 0}]
+      }
+    },
+    {
+      "case_id": "VTS02",
+      "category": "fresh_division_check_wrong",
+      "public": {
+        "subject_id": "math",
+        "topic_id": "math.g4.numbers.division_by_1_2_digit",
+        "messages": [{"role": "user", "content": "Будь добр, проверь равенство 7644 : 12 = 636. Если я ошибся, скажи это явно и напиши верное частное с проверкой."}]
+      },
+      "private_gold": {
+        "expected_route": "division_check",
+        "expected_facts": ["636 × 12 = 7632, поэтому предложенное равенство неверно.", "7644 : 12 = 637, остаток 0.", "637 × 12 = 7644."],
+        "allowed_answers": ["Ясно исправить 636 на 637 и показать правильную проверку.", "Дополнительно показать несовпадение произведения ошибочного частного с делимым."],
+        "forbidden_claims": ["Подтвердить 636 или оставить неясным, было ли равенство верно.", "636 × 12 = 7644.", "Придумать конкретный неверный промежуточный шаг ученика."],
+        "mechanical_checks": [{"kind": "division_fact", "dividend": 7644, "divisor": 12, "proposed_quotient": 636, "proposed_product": 7632, "quotient": 637, "remainder": 0}]
+      }
+    },
+    {
+      "case_id": "VTS03",
+      "category": "fresh_division_places",
+      "public": {
+        "subject_id": "math",
+        "topic_id": "math.g4.numbers.division_by_1_2_digit",
+        "messages": [{"role": "user", "content": "Объясни, пожалуйста, разряды частного в равенстве 6936 : 17 = 408. Что здесь означает каждая цифра: сотни, десятки и единицы?"}]
+      },
+      "private_gold": {
+        "expected_route": "division_places",
+        "expected_facts": ["6936 : 17 = 408.", "В частном 4 сотни, 0 десятков и 8 единиц.", "408 = 400 + 0 + 8."],
+        "allowed_answers": ["Верно назвать разряды и пояснить, что ноль занимает место десятков.", "При желании добавить 408 × 17 = 6936."],
+        "forbidden_claims": ["4 тысячи, 0 сотен или 8 десятков.", "Ноль можно удалить и получить то же число.", "Приписать обязательное расположение записи на листе."],
+        "mechanical_checks": [{"kind": "division_places", "dividend": 6936, "divisor": 17, "quotient": 408, "remainder": 0, "hundreds": 4, "tens": 0, "ones": 8}]
+      }
+    },
+    {
+      "case_id": "VTS04",
+      "category": "fresh_division_places",
+      "public": {
+        "subject_id": "math",
+        "topic_id": "math.g4.numbers.division_by_1_2_digit",
+        "messages": [{"role": "user", "content": "Можно пояснить разряды результата 9393 : 31 = 303? Хочу разобраться, где в этом частном сотни, десятки и единицы, а не просто услышать ответ."}]
+      },
+      "private_gold": {
+        "expected_route": "division_places",
+        "expected_facts": ["9393 : 31 = 303.", "Первая 3 означает 3 сотни, ноль – 0 десятков, последняя 3 – 3 единицы."],
+        "allowed_answers": ["Связать каждую цифру с её позиционным значением.", "Дополнительно разложить 303 на 300 + 0 + 3."],
+        "forbidden_claims": ["Первая 3 означает тысячи или десятки.", "Обе тройки означают одинаковый разряд.", "Частное 33."],
+        "mechanical_checks": [{"kind": "division_places", "dividend": 9393, "divisor": 31, "quotient": 303, "remainder": 0, "hundreds": 3, "tens": 0, "ones": 3}]
+      }
+    },
+    {
+      "case_id": "VTS05",
+      "category": "fresh_division_practice_one_digit",
+      "public": {
+        "subject_id": "math",
+        "topic_id": "math.g4.numbers.division_by_1_2_digit",
+        "messages": [{"role": "user", "content": "Подбери, пожалуйста, один новый пример деления без остатка на однозначный делитель. Частное должно быть трёхзначным: ноль в середине и ненулевая цифра единиц. Не сообщай само частное и решение, я посчитаю."}]
+      },
+      "private_gold": {
+        "expected_route": "division_practice",
+        "expected_facts": ["Нужна одна пара с делителем от 2 до 9 и целым трёхзначным частным a0b, где a и b ненулевые.", "Частное и решение не сообщаются ученику."],
+        "allowed_answers": ["Предложить любой один пример с требуемым проверенным свойством без ответа.", "Кратко предложить ученику потом прислать своё вычисление."],
+        "forbidden_claims": ["Частное двузначное либо имеет ноль только в конце.", "Делитель двузначный, есть остаток или частное нецелое.", "Раскрыть частное, его ненулевые цифры или решение."],
+        "mechanical_checks": [{"kind": "proposed_division_property", "divisor_min": 2, "divisor_max": 9, "integer_quotient": true, "quotient_digits": 3, "middle_digit": 0, "last_digit_nonzero": true, "withhold_quotient": true}]
+      }
+    },
+    {
+      "case_id": "VTS06",
+      "category": "fresh_division_practice_two_digit",
+      "public": {
+        "subject_id": "math",
+        "topic_id": "math.g4.numbers.division_by_1_2_digit",
+        "messages": [{"role": "user", "content": "Не мог бы ты предложить один другой пример деления на двузначный делитель? Нужен целый трёхзначный результат с нулём внутри, но не в конце, и без остатка. Ответ пока не показывай: сначала попробую сам."}]
+      },
+      "private_gold": {
+        "expected_route": "division_practice",
+        "expected_facts": ["Нужен двузначный делитель, целое трёхзначное частное a0b с ненулевыми a и b и нулевым остатком.", "Частное и решение должны остаться скрытыми."],
+        "allowed_answers": ["Любой один пример с требуемыми свойствами, без названного частного.", "Допустим короткий совет прислать результат после самостоятельной попытки."],
+        "forbidden_claims": ["Однозначный делитель.", "Двузначное частное, ноль только в конце, нецелое деление или остаток.", "Показать ответ или ход решения."],
+        "mechanical_checks": [{"kind": "proposed_division_property", "divisor_min": 10, "divisor_max": 99, "integer_quotient": true, "quotient_digits": 3, "middle_digit": 0, "last_digit_nonzero": true, "withhold_quotient": true}]
+      }
+    },
+    {
+      "case_id": "VTS07",
+      "category": "fresh_print_escaped_quotes",
+      "public": {
+        "subject_id": "python",
+        "topic_id": "programming.python.output",
+        "messages": [{"role": "user", "content": "Пожалуйста, покажи точный вывод этой строки Python. Какие кавычки действительно появятся?\n```python\nprint('Он сказал: \\'ура\\'')\n```"}]
+      },
+      "private_gold": {
+        "expected_route": "print_output",
+        "expected_facts": ["Вывод: Он сказал: 'ура' и один перевод строки.", "Обратные косые черты экранируют кавычки в коде и сами не печатаются."],
+        "allowed_answers": ["Показать точный текст с одинарными кавычками вокруг ура.", "Кратко отделить экранирующие символы записи от содержимого строки."],
+        "forbidden_claims": ["В выводе присутствуют обратные косые черты.", "Кавычки вокруг ура пропадают.", "Внешние ограничивающие кавычки литерала выводятся дополнительно."],
+        "mechanical_checks": [{"kind": "python_stdout", "code": "print('Он сказал: \\'ура\\'')", "stdout": "Он сказал: 'ура'\n"}]
+      }
+    },
+    {
+      "case_id": "VTS08",
+      "category": "fresh_print_sep_end",
+      "public": {
+        "subject_id": "python",
+        "topic_id": "programming.python.output",
+        "messages": [{"role": "user", "content": "Можешь сказать, что выведет print('Роса', 'блестит', sep='::', end='?')? Нужен точный текст и уточнение, заканчивается ли он переводом строки."}]
+      },
+      "private_gold": {
+        "expected_route": "print_output",
+        "expected_facts": ["Вывод: Роса::блестит? без завершающего перевода строки.", "sep стоит между аргументами, end – после последнего."],
+        "allowed_answers": ["Показать Роса::блестит? без добавленных пробелов и отметить отсутствие перевода строки."],
+        "forbidden_claims": ["После вопросительного знака автоматически печатается перевод строки.", "Между словами добавляются пробелы.", "Параметры sep и end печатаются буквально."],
+        "mechanical_checks": [{"kind": "python_stdout", "code": "print('Роса', 'блестит', sep='::', end='?')", "stdout": "Роса::блестит?"}]
+      }
+    }
+  ]
+}

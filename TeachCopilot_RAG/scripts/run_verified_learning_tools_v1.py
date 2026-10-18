@@ -60,9 +60,9 @@ def git_commit() -> str:
                           capture_output=True, text=True, timeout=10).stdout.strip()
 
 
-def source_hashes() -> dict[str, str]:
+def source_hashes(fixture_name: str | Path = FIXTURE) -> dict[str, str]:
     paths = {
-        ROOT / FIXTURE, Path(__file__).resolve(),
+        ROOT / fixture_name, Path(__file__).resolve(),
         ROOT / "scripts/verify_memory.py",
         *ROOT.glob("local_app/**/*.py"),
         *ROOT.glob("local_app/prompts/**/*"),
@@ -74,10 +74,22 @@ def source_hashes() -> dict[str, str]:
             for path in sorted(paths) if path.is_file()}
 
 
-def fixture_cases(fixture: object) -> list[tuple[dict, dict]]:
+def fixture_path(value: Path) -> Path:
+    """Accept only an existing project-relative JSON file inside this project."""
+    if value.is_absolute():
+        raise ValueError("fixture must be a project-relative JSON path")
+    path = (ROOT / value).resolve()
+    if not path.is_relative_to(ROOT) or not path.is_file() or path.suffix.casefold() != ".json":
+        raise ValueError("fixture must resolve to an existing JSON file inside the project")
+    return path
+
+
+def fixture_cases(fixture: object, expected_count: int = EXPECTED_CASES) -> list[tuple[dict, dict]]:
+    if expected_count not in {8, 24}:
+        raise ValueError("expected case count must be 8 or 24")
     cases = fixture.get("cases") if isinstance(fixture, dict) else None
-    if not isinstance(cases, list) or len(cases) != EXPECTED_CASES:
-        raise ValueError("fixture must contain exactly 24 case objects")
+    if not isinstance(cases, list) or len(cases) != expected_count:
+        raise ValueError(f"fixture must contain exactly {expected_count} case objects")
     prepared = []
     identifiers = set()
     for case in cases:
@@ -229,6 +241,11 @@ def run(args: argparse.Namespace) -> dict:
     from local_app.store import Store
     from scripts.verify_memory import require_local_dsn
 
+    selected_fixture = fixture_path(Path(getattr(args, "fixture", FIXTURE)))
+    fixture_name = selected_fixture.relative_to(ROOT).as_posix()
+    expected_count = getattr(args, "expected_cases", EXPECTED_CASES)
+    if expected_count not in {8, 24}:
+        raise ValueError("expected case count must be 8 or 24")
     out = args.output_dir.resolve()
     out.mkdir(parents=True, exist_ok=False)
     started = time.monotonic()
@@ -247,7 +264,7 @@ def run(args: argparse.Namespace) -> dict:
         "data_origin": "synthetic_unreviewed", "human_reviewed": False,
         "semantic_assessment": "not_human_reviewed", "paid_provider_calls": 0,
         "external_provider_disabled": True, "preflight_only": args.preflight_only,
-        "expected_cases": EXPECTED_CASES, "attempts_per_case": 1,
+        "expected_cases": expected_count, "fixture_path": fixture_name, "attempts_per_case": 1,
         "max_generation_calls": MAX_GENERATION_CALLS, "max_elapsed_seconds": MAX_SECONDS,
         "max_request_timeout_seconds": MAX_REQUEST_SECONDS, "results": [],
         "technical_ok_does_not_mean_task_correct": True,
@@ -266,7 +283,7 @@ def run(args: argparse.Namespace) -> dict:
         return hashlib.sha256(encoded).hexdigest()
 
     def assert_unchanged() -> None:
-        if initial_hashes != source_hashes():
+        if initial_hashes != source_hashes(fixture_name):
             raise SourceIntegrityError("source_or_fixture_changed_during_fixed_batch")
         if initial_commit != git_commit():
             raise SourceIntegrityError("git_head_changed_during_fixed_batch")
@@ -348,15 +365,15 @@ def run(args: argparse.Namespace) -> dict:
         write_json(out / "report.json", report)
         write_json(out / "PROCESSING.json", {
             "status": report["status"], "label": args.label, "updated_at": utc_now(),
-            "recorded_cases": len(report["results"]), "expected_cases": EXPECTED_CASES,
+            "recorded_cases": len(report["results"]), "expected_cases": expected_count,
             "semantic_assessment": "not_human_reviewed", "paid_provider_calls": 0, **counters,
         })
 
     try:
-        initial_hashes = source_hashes()
+        initial_hashes = source_hashes(fixture_name)
         initial_commit = git_commit()
-        fixture = json.loads((ROOT / FIXTURE).read_text(encoding="utf-8"))
-        prepared = fixture_cases(fixture)
+        fixture = json.loads(selected_fixture.read_text(encoding="utf-8"))
+        prepared = fixture_cases(fixture, expected_count)
         settings = replace(Settings.from_env(), request_timeout=MAX_REQUEST_SECONDS)
         if settings.chat_model != "gemma4:12b" or settings.context_tokens != 8192:
             raise ValueError("batch requires preregistered gemma4:12b and 8192-token context")
@@ -373,7 +390,8 @@ def run(args: argparse.Namespace) -> dict:
         preregistered = {
             "kind": "finite_application_learning_tool_batch_not_memory_method_comparison",
             "created_at": utc_now(), "label": args.label, "git_commit": initial_commit,
-            "fixture": fixture, "sha256": initial_hashes, "public_materials_sha256": initial_corpus,
+            "fixture": fixture, "fixture_path": fixture_name, "expected_cases": expected_count,
+            "sha256": initial_hashes, "public_materials_sha256": initial_corpus,
             "model_identity": model_identity, "model_manifest": runtime.manifest(),
             "temperature": 0, "seed": 42, "think": False,
             "max_generation_calls": MAX_GENERATION_CALLS, "max_elapsed_seconds": MAX_SECONDS,
@@ -386,7 +404,7 @@ def run(args: argparse.Namespace) -> dict:
             "technical_ok_does_not_mean_task_correct": True,
         }
         write_json(out / "preregistered.json", preregistered)
-        write_json(out / Path(FIXTURE).name, fixture)
+        write_json(out / selected_fixture.name, fixture)
         report["index_status"] = service.status()
         if not report["index_status"]["ready"]:
             raise RuntimeError("real local material embedding index is not ready")
@@ -456,7 +474,7 @@ def run(args: argparse.Namespace) -> dict:
     finally:
         if initial_hashes is not None:
             try:
-                final_hashes = source_hashes()
+                final_hashes = source_hashes(fixture_name)
                 changed = sorted(name for name in set(initial_hashes) | set(final_hashes)
                                  if initial_hashes.get(name) != final_hashes.get(name))
                 final_commit = git_commit()
@@ -484,7 +502,7 @@ def run(args: argparse.Namespace) -> dict:
         rows = report["results"]
         deterministic = [row for row in rows if (row.get("response", {}).get("answer_routing") or {}).get("backend") == "deterministic_local"]
         report["technical_summary"] = {
-            "denominator": EXPECTED_CASES, "recorded_case_outcomes": len(rows),
+            "denominator": expected_count, "recorded_case_outcomes": len(rows),
             "technical_responses_returned": sum(row["status"] == "ok" for row in rows),
             "error_outcomes": sum(row["status"] == "error" for row in rows),
             "not_attempted_outcomes": sum(row["status"].startswith("not_attempted") for row in rows),
@@ -511,6 +529,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output-dir", type=Path, required=True, help="New output directory; existing paths are refused")
     parser.add_argument("--label", default="verified-tools-v1", help="Immutable run label")
+    parser.add_argument("--fixture", type=Path, default=Path(FIXTURE), help="Project-relative JSON fixture; public fields only reach generation")
+    parser.add_argument("--expected-cases", type=int, choices=(8, 24), default=EXPECTED_CASES, help="Exact fixed case count, without padding or repetition")
     parser.add_argument("--preflight-only", action="store_true", help="Check inputs, local digests and index with no generation")
     args = parser.parse_args()
     report = run(args)

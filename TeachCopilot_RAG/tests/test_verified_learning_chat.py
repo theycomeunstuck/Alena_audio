@@ -72,6 +72,9 @@ def test_new_practice_has_the_requested_zero_without_revealing_the_quotient(zero
     'Проверь -(120 : 12).',
     'Проверь 120 : 12 = 10,5.',
     'Проверь 120 : 12 = 10000000.',
+    'Проверь 120 : 12 · π.',
+    'Проверь 120 : 12 % 3.',
+    'Проверь 120 : 12 ∑.',
 ])
 def test_compound_or_unsupported_equality_is_not_silently_shortened(message):
     session = CurriculumSession(
@@ -123,3 +126,43 @@ def test_another_practice_does_not_repeat_the_visible_previous_exercise():
                              {'role': 'user', 'content': message}], subject_id='math')
     assert first['learning_tool']['facts'] != second['learning_tool']['facts']
     assert set(second['learning_tool']['facts']) == {'dividend', 'divisor'}
+
+
+@pytest.mark.parametrize('message,operation', [
+    ('Проверь моё равенство 2464 : 8 = 308. Можно подтвердить результат обратным умножением?', 'division_check'),
+    ('У меня получилось 2464 : 8 = 307. Я сомневаюсь: проверь равенство и скажи прямо, совпала ли проверка умножением.', 'division_check'),
+    ('В делении 2464 : 8 = 308 объясни разряды частного: что обозначают 3, 0 и 8? Почему ноль между ними сохраняет место?', 'division_places'),
+    ('Получилось 4848 : 24 = 202. Хочу проверить именно названия разрядов: первая двойка – это сколько сотен, средний ноль – сколько десятков, последняя двойка – сколько единиц?', 'division_places'),
+    ('Предложи один новый пример деления без остатка на однозначный делитель, чтобы частное было трёхзначным, с нулём в десятках и ненулевой последней цифрой. Не показывай ответ и решение: я хочу проверить себя.', 'division_practice'),
+    ('Теперь дай один другой пример на двузначный делитель, без остатка. Мне нужен именно ноль внутри трёхзначного частного, а единицы должны быть ненулевые. Само частное пока не называй.', 'division_practice'),
+])
+def test_ordinary_complete_questions_use_the_verified_operation(message, operation):
+    session = LocalSession(json.dumps({'in_scope': True, 'uses_prior_context': False, 'search_query': message}))
+    result = RagService(NoMaterials(), OllamaRuntime(Settings(), session=session), Settings()).answer(
+        [{'role': 'user', 'content': message}], subject_id='math')
+    assert result['learning_tool']['operation'] == operation
+    assert len(session.requests) == 1
+
+
+def test_explicit_current_operands_are_verified_after_a_valid_prior_anchor():
+    session = LocalSession(json.dumps({'in_scope': True, 'uses_prior_context': True,
+                                      'prior_learner_question_index': 0, 'search_query': 'Проверка деления'}))
+    result = RagService(NoMaterials(), OllamaRuntime(Settings(), session=session), Settings()).answer([
+        {'role': 'user', 'content': 'Раньше я решал 120 : 12.'},
+        {'role': 'assistant', 'content': 'Можно проверить другой пример.'},
+        {'role': 'user', 'content': 'Проверь 2464 : 8 = 308.'},
+    ], subject_id='math')
+    assert result['learning_tool']['facts']['dividend'] == 2464
+    assert result['learning_tool']['memory_used'] is False
+
+
+def test_verified_operation_does_not_bypass_invalid_assistant_anchor():
+    from local_app.runtime import IncompleteCompletionError
+    session = LocalSession(json.dumps({'in_scope': True, 'uses_prior_context': True,
+                                      'prior_learner_question_index': 1, 'search_query': 'Проверка деления'}))
+    with pytest.raises(IncompleteCompletionError, match='invalid (?:prior )?learner question'):
+        RagService(NoMaterials(), OllamaRuntime(Settings(), session=session), Settings()).answer([
+            {'role': 'user', 'content': 'Раньше я решал 120 : 12.'},
+            {'role': 'assistant', 'content': 'А теперь 2464 : 8.'},
+            {'role': 'user', 'content': 'Проверь 2464 : 8 = 308.'},
+        ], subject_id='math')

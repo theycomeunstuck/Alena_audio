@@ -15,14 +15,29 @@ MAX_STDOUT_CHARACTERS = 8192
 MAX_PLAIN_QUESTION_CHARACTERS = 800
 
 
-_QUESTION_PHRASE = re.compile(
-    r"(?:что (?:выведет|напечатает)(?: (?:этот код|код|эта программа|программа|этот вызов|вызов))?"
-    r"|что будет напечатано"
-    r"|какой (?:(?:будет|получится) )?(?:точный )?вывод(?: (?:у этого кода|этого кода|программы|у программы|кода))?"
-    r"|(?:покажи|покажите|проверь|проверьте|определи|определите) (?:точный )?вывод(?: (?:этого кода|программы|кода))?"
-    r"|точный вывод|в python)",
-    re.IGNORECASE,
-)
+_OUTPUT_WRAPPER_WORDS = frozenset("""
+    что какой какие точно точный точного выведет напечатает напечатано будет
+    будут получится получатся результат вывод вывода результатом код кода
+    этот этого этих эта программы программа программой вызов вызова вызовов
+    print python у для в на экране после с и а ли есть стоит стоят
+    покажи покажите проверь проверьте определи определите скажи скажите
+    поясни поясните объясни объясните отдельно важно вокруг разделитель
+    разделителя разделители разделителем сохрани сохраните пробел пробелы
+    пробелов пустая пустую пустые пустых строка строку строки строк строке
+    строках строками новой новые новая новую первой последней последнего
+    последний символ символы символа символов появится появятся перевод
+    перевода переводы конце конца финальный начнется начинается закончится
+    заканчивается данные данных снаружи внутри внешние внешних внутренние внутренних
+    двойные двойных одинарные одинарных кавычки кавычек кавычками оформления
+    одного двух трех четырех пяти шести семи восьми один два три четыре
+    пять шесть семь восемь 1 2 3 4 5 6 7 8
+""".split())
+_SAFE_FORMATTING_QUALIFIERS = tuple(re.compile(pattern) for pattern in (
+    r"\bбез (?:внешних )?кавычек(?: оформления строки программы)?\b",
+    r"\bне потеряй пустую строку(?:\s*,?\s*если она появится)?\b",
+    r"\bне добавляй внешние кавычки\b",
+    r"\bне убирай пробелы\b",
+))
 _FENCE_LINE = re.compile(r" {0,3}(`{3,}|~{3,})([^\r\n]*)[\r\n]*\Z")
 
 
@@ -30,9 +45,16 @@ class UnsupportedPythonExample(ValueError):
     """Пример не принадлежит поддерживаемому подмножеству Python."""
 
 
+def _require_unicode_scalars(value: str) -> None:
+    if any(0xD800 <= ord(character) <= 0xDFFF for character in value):
+        raise UnsupportedPythonExample("Пример содержит неподдерживаемые суррогатные символы Unicode.")
+
+
 def _literal(node: ast.AST):
     if not isinstance(node, ast.Constant) or type(node.value) not in (str, int, bool, type(None)):
         raise UnsupportedPythonExample("Поддерживаются только литералы строк, целых чисел, bool и None.")
+    if isinstance(node.value, str):
+        _require_unicode_scalars(node.value)
     return node.value
 
 
@@ -46,6 +68,7 @@ def evaluate_literal_print(code: str) -> dict:
         raise UnsupportedPythonExample("Нужен непустой исходный код.")
     if len(code) > MAX_SOURCE_CHARACTERS:
         raise UnsupportedPythonExample("Исходный код превышает 4000 символов.")
+    _require_unicode_scalars(code)
     try:
         tree = ast.parse(code, mode="exec")
     except (SyntaxError, ValueError, RecursionError, UnicodeError) as exc:
@@ -87,9 +110,37 @@ def evaluate_literal_print(code: str) -> dict:
 
 
 def _question_wrapper(text: str) -> bool:
-    """Разрешить только пустое окружение или короткую явную просьбу о выводе."""
-    phrase = " ".join(text.split()).strip(" :：?？.!！")
-    return not phrase or _QUESTION_PHRASE.fullmatch(phrase) is not None
+    """Разрешить замкнутый словарь вопросов о выводе и его форматировании.
+
+    Это проверка окружения, а не интерпретация естественного языка. Отрицание
+    самого вывода, подсказки, условия и неизвестные команды не поддерживаются.
+    """
+    phrase = " ".join(text.split()).lower().replace("ё", "е")
+    if len(phrase) > 1000:
+        return False
+    for qualifier in _SAFE_FORMATTING_QUALIFIERS:
+        phrase = qualifier.sub(" ", phrase)
+    if re.search(r"\b(?:не|нет|без|если|подсказ\w*|подскаж\w*|намек\w*)\b", phrase):
+        return False
+    for command in re.finditer(r"\b(?:покажи|покажите|проверь|проверьте|определи|определите|скажи|скажите)\b", phrase):
+        if not re.match(r"\s+(?:(?:точный|точно)\s+)?(?:вывод|результат|что)\b", phrase[command.end():]):
+            return False
+    for command in re.finditer(r"\b(?:поясни|поясните|объясни|объясните)\b", phrase):
+        if not re.match(r"\s+(?:вывод|результат|перевод|внешние|внутренние|кавычки)\b", phrase[command.end():]):
+            return False
+    for command in re.finditer(r"\b(?:сохрани|сохраните)\b", phrase):
+        clause = re.split(r"[.,:;!?]", phrase[command.end():], maxsplit=1)[0]
+        if not re.match(r"\s+(?:пробелы|пустые|переводы)\b", clause):
+            return False
+        if re.search(r"\b(?:код|кода|программа|программы|print|python|вызов|вызова|вызовов)\b", clause):
+            return False
+    # Одно слово в типографских кавычках может обозначать фрагмент результата.
+    # Скобки, код и команды из нескольких слов таким способом не скрываются.
+    phrase = re.sub(r"«[а-яa-z0-9_]{1,40}»", " данные ", phrase)
+    if re.search(r"[^а-яa-z0-9_\s.,:;!?：？！/]", phrase):
+        return False
+    words = re.findall(r"[а-яa-z0-9_]+", phrase)
+    return len(words) <= 100 and all(word in _OUTPUT_WRAPPER_WORDS for word in words)
 
 
 def _checked_fragment(text: str, start: int, end: int) -> str | None:
