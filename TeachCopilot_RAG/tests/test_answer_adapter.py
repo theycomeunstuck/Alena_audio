@@ -114,6 +114,245 @@ def test_actual_outbound_request_redacts_current_dialogue_quotes_and_ids(setup_a
     assert "Ирина Соколова" in local_messages(value)[-1]["content"]
 
 
+def contextual_projection(**changes):
+    source_id = "learner-synthetic-7/source/private-lesson"
+    return projection(
+        memory=({"source_id": source_id, "role": "student", "quote": "ага", "claim": ""},),
+        memory_dialogue_context=({
+            "source_id": source_id, "role": "assistant", "usage": "context_only",
+            "text": "Ирина Соколова, мы выделили 4 части круга. Всего частей 10 – какое число внизу?",
+            "excerpt_mode": "tail", "truncated": False,
+        },), **changes,
+    )
+
+
+def test_actual_outbound_request_keeps_assistant_memory_context_separate_and_redacted(setup_adapter):
+    adapter, local, _, transport = setup_adapter
+    value = contextual_projection(memory_stale=True)
+    result = adapter.answer(local_messages(value), projection=value, known_identifiers=IDENTITIES)
+    outgoing_bytes = transport.open.call_args.args[0].data.decode("utf-8")
+    outgoing = json.loads(outgoing_bytes)
+    payload = json.loads(outgoing["messages"][1]["content"])
+    assert payload["memory"] == [{"source_id": "S1", "role": "student", "claim": "", "quote": "ага"}]
+    assert payload["memory_dialogue_context"] == [{
+        "source_id": "S1", "role": "assistant", "usage": "context_only",
+        "text": "[REDACTED], мы выделили 4 части круга. Всего частей 10 – какое число внизу?",
+        "excerpt_mode": "tail", "truncated": False,
+    }]
+    assert payload["memory_stale"] is True
+    for private in (*IDENTITIES, "Ирина", "Соколова", value.memory[0]["source_id"], "private-lesson"):
+        assert private not in outgoing_bytes
+    assert "какое число внизу" not in payload["memory"][0]["quote"]
+    checked = json.loads(local.checks[0][0][1]["content"])
+    assert checked["messages"] == outgoing["messages"]
+    system = outgoing["messages"][0]["content"]
+    assert "контекст вопроса" in system and "не наблюдение об ученике" in system
+    assert "не выдавай её за актуальную" in system
+    assert "один уточняющий вопрос" in system and "Согласие ребёнка не означает" in system
+    assert "может быть ошибочным" in system
+    assert result["answer_routing"]["policy"] == "educational-projection-v3"
+
+
+@pytest.mark.parametrize("unsafe", ["Напиши private-person@example.test", "hidden\u200bidentity"])
+def test_unresolved_risk_in_assistant_memory_context_never_reaches_transport(setup_adapter, unsafe):
+    adapter, local, client, transport = setup_adapter
+    value = contextual_projection()
+    value = replace(value, memory_dialogue_context=({**value.memory_dialogue_context[0], "text": unsafe},))
+    result = adapter.answer(local_messages(value), projection=value, known_identifiers=IDENTITIES)
+    assert result["answer_routing"]["backend"] == "local"
+    assert len(local.requests) == 1
+    assert client.preflight()["calls_reserved"] == 0
+    transport.open.assert_not_called()
+
+
+def test_free_text_gate_reads_private_story_in_assistant_context_before_any_external_call(setup_adapter):
+    adapter, local, client, transport = setup_adapter
+    value = contextual_projection()
+    text = "Ты пропустила урок, потому что у мамы неприятности со здоровьем. Продолжим?"
+    value = replace(value, memory_dialogue_context=({**value.memory_dialogue_context[0], "text": text},))
+    local.decision = {"safe_to_send": False, "uncertain": True}
+    result = adapter.answer(local_messages(value), projection=value, known_identifiers=IDENTITIES)
+    checked = json.loads(local.checks[0][0][1]["content"])
+    assert json.loads(checked["messages"][1]["content"])["memory_dialogue_context"][0]["text"] == text
+    assert result["answer_routing"]["reason"] == "privacy_uncertain"
+    assert client.preflight()["calls_reserved"] == 0
+    transport.open.assert_not_called()
+
+
+@pytest.mark.parametrize("context_changes", [
+    {"source_id": "not-selected-foreign-source"}, {"role": "student"}, {"usage": "evidence"},
+    {"excerpt_mode": "full"}, {"truncated": "false"}, {"truncated": 0},
+    {"text": ""}, {"text": "x" * 601}, {"text": "\ufb03" * 201},
+    {"raw_teacher_note": "not allowlisted"},
+])
+def test_invalid_assistant_context_provenance_or_bounds_fails_closed(setup_adapter, context_changes):
+    adapter, _, client, transport = setup_adapter
+    value = contextual_projection()
+    value = replace(value, memory_dialogue_context=({**value.memory_dialogue_context[0], **context_changes},))
+    result = adapter.answer(local_messages(value), projection=value, known_identifiers=IDENTITIES)
+    assert result["answer_routing"]["reason"] == "projection_or_check_invalid"
+    assert client.preflight()["calls_reserved"] == 0
+    transport.open.assert_not_called()
+
+
+@pytest.mark.parametrize("memory_role", [None, "teacher", "assistant"])
+def test_assistant_context_requires_matching_explicit_student_evidence_role(setup_adapter, memory_role):
+    adapter, _, _, transport = setup_adapter
+    value = contextual_projection()
+    memory = dict(value.memory[0])
+    if memory_role is None:
+        del memory["role"]
+    else:
+        memory["role"] = memory_role
+    value = replace(value, memory=(memory,))
+    result = adapter.answer(local_messages(value), projection=value, known_identifiers=IDENTITIES)
+    assert result["answer_routing"]["reason"] == "projection_or_check_invalid"
+    transport.open.assert_not_called()
+
+
+@pytest.mark.parametrize("duplicate_kind", ["context", "source"])
+def test_duplicate_source_or_context_is_rejected_without_repair(setup_adapter, duplicate_kind):
+    adapter, _, _, transport = setup_adapter
+    value = contextual_projection()
+    value = (replace(value, memory=tuple(value.memory) * 2) if duplicate_kind == "source" else
+             replace(value, memory_dialogue_context=tuple(value.memory_dialogue_context) * 2))
+    result = adapter.answer(local_messages(value), projection=value, known_identifiers=IDENTITIES)
+    assert result["answer_routing"]["reason"] == "projection_or_check_invalid"
+    transport.open.assert_not_called()
+
+
+@pytest.mark.parametrize("stale", [None, "false", 0, 1])
+def test_memory_staleness_must_be_boolean(setup_adapter, stale):
+    adapter, _, _, transport = setup_adapter
+    value = contextual_projection(memory_stale=stale)
+    result = adapter.answer(local_messages(value), projection=value, known_identifiers=IDENTITIES)
+    assert result["answer_routing"]["reason"] == "projection_or_check_invalid"
+    transport.open.assert_not_called()
+
+
+def test_legacy_projection_remains_without_context_or_invented_source_role(setup_adapter):
+    adapter, _, _, transport = setup_adapter
+    value = projection()
+    adapter.answer(local_messages(value), projection=value, known_identifiers=IDENTITIES)
+    outgoing = json.loads(transport.open.call_args.args[0].data)
+    payload = json.loads(outgoing["messages"][1]["content"])
+    assert payload["memory_dialogue_context"] == []
+    assert payload["memory_stale"] is False
+    assert "role" not in payload["memory"][0]
+
+
+def test_actual_request_keeps_context_linked_to_correct_source_among_multiple_roles(setup_adapter):
+    adapter, _, _, transport = setup_adapter
+    value = contextual_projection()
+    value = replace(value, memory=(
+        {"source_id": "private-teacher-source", "role": "teacher", "quote": "Самостоятельной проверки не было."},
+        *value.memory,
+        {"source_id": "private-second-student-source", "role": "student", "quote": "хз"},
+    ), memory_dialogue_context=(
+        value.memory_dialogue_context[0],
+        {**value.memory_dialogue_context[0], "source_id": "private-second-student-source",
+         "text": "Как проверить ответ?", "truncated": True},
+    ))
+    adapter.answer(local_messages(value), projection=value, known_identifiers=IDENTITIES)
+    outgoing = json.loads(transport.open.call_args.args[0].data)
+    payload = json.loads(outgoing["messages"][1]["content"])
+    assert [(item["source_id"], item["role"]) for item in payload["memory"]] == [
+        ("S1", "teacher"), ("S2", "student"), ("S3", "student")]
+    assert [(item["source_id"], item["truncated"]) for item in payload["memory_dialogue_context"]] == [
+        ("S2", False), ("S3", True)]
+    assert all(item["role"] == "assistant" and item["usage"] == "context_only"
+               for item in payload["memory_dialogue_context"])
+    assert payload["materials"][0]["source_id"] == "S4"
+
+
+def test_identity_collisions_redact_prose_without_corrupting_outbound_protocol(setup_adapter):
+    adapter, local, _, transport = setup_adapter
+    value = contextual_projection()
+    # These are actual identities for redaction purposes, even when the same
+    # strings also happen to be trusted protocol keys, roles or source aliases.
+    collisions = ("student", "teacher", "assistant", "context_only", "source_id", "tail", "S1", "string")
+    value = replace(value,
+        current_message="student teacher assistant context_only source_id tail S1 string",
+        memory=(value.memory[0], {"source_id": "teacher-source-private", "role": "teacher",
+                                 "quote": "teacher source_id"}),
+    )
+    schema = {"type": "object", "properties": {
+        "source_id": {"type": "string", "description": "student teacher source_id",
+                      "enum": [value.memory[0]["source_id"], "teacher-source-private"]},
+        "answer": {"type": "string", "examples": ["assistant context_only"]},
+    }, "required": ["source_id", "answer"]}
+    result = adapter.answer(local_messages(value), projection=value,
+                            known_identifiers=(*IDENTITIES, *collisions), response_schema=schema)
+    outgoing = json.loads(transport.open.call_args.args[0].data)
+    payload = json.loads(outgoing["messages"][1]["content"])
+    actual_schema = outgoing["response_format"]["json_schema"]["schema"]
+    assert payload["current_message"] == " ".join(["[REDACTED]"] * len(collisions))
+    assert [item["role"] for item in payload["memory"]] == ["student", "teacher"]
+    assert payload["memory"][0]["source_id"] == "S1"
+    assert payload["memory_dialogue_context"][0]["source_id"] == "S1"
+    assert payload["memory_dialogue_context"][0]["role"] == "assistant"
+    assert payload["memory_dialogue_context"][0]["usage"] == "context_only"
+    assert payload["memory_dialogue_context"][0]["excerpt_mode"] == "tail"
+    assert payload["dialogue"][0]["role"] == "user" and payload["dialogue"][1]["role"] == "assistant"
+    assert actual_schema["required"] == ["source_id", "answer"]
+    assert actual_schema["properties"]["source_id"] == {
+        "type": "string", "description": "[REDACTED] [REDACTED] [REDACTED]", "enum": ["S1", "S2"]}
+    assert actual_schema["properties"]["answer"]["examples"] == ["[REDACTED] [REDACTED]"]
+    checked = json.loads(local.checks[0][0][1]["content"])
+    assert checked["messages"] == outgoing["messages"] and checked["response_schema"] == actual_schema
+    assert result["answer_routing"]["backend"] == "spiderssense"
+
+
+def test_conservative_id_fragment_redaction_keeps_protocol_roles_intact(setup_adapter):
+    adapter, _, _, transport = setup_adapter
+    value = contextual_projection(current_message="The student can try one example.")
+    adapter.answer(local_messages(value), projection=value,
+                   known_identifiers=(*IDENTITIES, "demo-projection-student"))
+    outgoing = json.loads(transport.open.call_args.args[0].data)
+    payload = json.loads(outgoing["messages"][1]["content"])
+    assert payload["current_message"] == "The [REDACTED] can try one example."
+    assert payload["memory"][0]["role"] == "student"
+
+
+def test_schema_property_names_that_match_metadata_keywords_remain_structural(setup_adapter):
+    adapter, _, _, transport = setup_adapter
+    value = contextual_projection()
+    names = ["description", "title", "enum", "const"]
+    schema = {"type": "object", "properties": {
+        name: {"type": "string", "description": "student"} for name in names
+    }, "required": names, "dependentRequired": {"description": ["title"]}}
+    adapter.answer(local_messages(value), projection=value,
+                   known_identifiers=(*IDENTITIES, *names, "student", "string"), response_schema=schema)
+    outgoing = json.loads(transport.open.call_args.args[0].data)
+    actual = outgoing["response_format"]["json_schema"]["schema"]
+    assert list(actual["properties"]) == names and actual["required"] == names
+    assert actual["dependentRequired"] == {"description": ["title"]}
+    assert all(item == {"type": "string", "description": "[REDACTED]"}
+               for item in actual["properties"].values())
+
+
+@pytest.mark.parametrize("count", [20, 21])
+def test_assistant_context_collection_has_explicit_count_limit(setup_adapter, count):
+    adapter, _, _, transport = setup_adapter
+    value = contextual_projection()
+    value = replace(value,
+        memory=tuple({"source_id": f"source-{i}", "role": "student", "quote": "хз"}
+                     for i in range(20)),
+        memory_dialogue_context=tuple({**value.memory_dialogue_context[0], "source_id": f"source-{i}",
+                                       "text": "Как проверить ответ?"}
+                                      for i in range(count)),
+    )
+    result = adapter.answer(local_messages(value), projection=value, known_identifiers=IDENTITIES)
+    if count == 20:
+        outgoing = json.loads(transport.open.call_args.args[0].data)
+        payload = json.loads(outgoing["messages"][1]["content"])
+        assert len(payload["memory_dialogue_context"]) == 20
+        assert result["answer_routing"]["backend"] == "spiderssense"
+    else:
+        assert result["answer_routing"]["reason"] == "projection_or_check_invalid"
+        transport.open.assert_not_called()
+
+
 def test_confirmed_interests_and_avoided_themes_are_checked_in_actual_outbound_request(setup_adapter):
     adapter, local, _, transport = setup_adapter
     value = projection(interests=("Minecraft", "Шахматы Ирины Соколовой"),

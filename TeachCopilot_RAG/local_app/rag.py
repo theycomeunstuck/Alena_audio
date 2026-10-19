@@ -437,6 +437,11 @@ class RagService:
             } for source in sources if source.get("id") is not None],
             identity_context_complete=identity_context_complete and not include_private_answers,
             interests=preferences["interests"], avoided_interests=preferences["avoided_interests"],
+            # These are teacher-approved context pairs, not additional learner
+            # evidence. The adapter validates each link and checks the final
+            # outbound text for identifiers, just like the student's quotation.
+            memory_dialogue_context=(memory_context.get("dialogue_context", ()) if approved_memory else ()),
+            memory_stale=(memory_context.get("stale", False) if approved_memory else False),
         )
         response = self.answer_adapter.answer(
             [{"role": "system", "content": system}, *history], projection=projection,

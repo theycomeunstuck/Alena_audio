@@ -1189,7 +1189,8 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None) -> Fas
                     identity_context_complete=identity_complete,
                     preference_context=preference_projection(card),
                     memory_context=memory_context,
-                    memory_projection=[{"source_id": row["source_id"], "quote": row.get("text", "")}
+                    memory_projection=[{"source_id": row["source_id"], "quote": row.get("text", ""),
+                                        "role": row.get("role") or row.get("author_role")}
                                        for row in memory_context.get("sources", [])])
             if chat_job:
                 store.start_memory_job_call(chat_job["job_id"], chat_worker_id)
