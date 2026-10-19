@@ -1217,7 +1217,10 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None) -> Fas
             if reserved:
                 store.fail_chat_message(str(learning_session_id), client_message_id, error=type(exc).__name__, unknown_outcome=call_started and not capacity)
             if chat_job:
-                store.finish_memory_job(chat_job["job_id"], error=type(exc).__name__, worker_id=chat_worker_id, unknown_outcome=call_started and not capacity)
+                raw_failure = getattr(exc, "raw_response", None)
+                diagnostic = ({"type": type(exc).__name__, "message": str(exc), "model_response": raw_failure}
+                              if isinstance(raw_failure, dict) else type(exc).__name__)
+                store.finish_memory_job(chat_job["job_id"], error=diagnostic, worker_id=chat_worker_id, unknown_outcome=call_started and not capacity)
             if capacity:
                 raise HTTPException(status_code=429, detail="generation queue is full; retry later", headers={"Retry-After": "10"}) from exc
             logger.exception("Chat/RAG request failed")

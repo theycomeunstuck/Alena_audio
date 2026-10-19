@@ -485,6 +485,21 @@ class OllamaRuntime:
             bounded_prior.append({"turn_index": index, "content": content})
             remaining -= len(content)
         bounded_prior.reverse()
+        # Never ask the model to invent indices for absent contexts. Optional
+        # available indices may be null; only the corresponding use flag
+        # activates a learner antecedent.
+        if not bounded_prior:
+            schema["properties"].pop("prior_learner_question_index")
+        else:
+            schema["properties"]["prior_learner_question_index"] = {
+                "anyOf": [{"type": "integer", "enum": [row["turn_index"] for row in bounded_prior]}, {"type": "null"}]}
+        if assistant_question is None:
+            schema["properties"].pop("prior_assistant_question_index")
+        else:
+            schema["properties"]["prior_assistant_question_index"] = {
+                "anyOf": [{"type": "integer", "enum": [assistant_question["turn_index"]]}, {"type": "null"}]}
+        if memory is None:
+            schema["properties"].pop("uses_approved_memory")
         user = json.dumps(
             {
                 "subject_hint": subject_id,
@@ -516,20 +531,21 @@ class OllamaRuntime:
             or ("needs_clarification" in result and type(result["needs_clarification"]) is not bool)
         ):
             raise IncompleteCompletionError("Ollama follow-up resolver returned an invalid JSON decision")
-        anchor = result.get("prior_learner_question_index")
-        if "prior_learner_question_index" in result and (
-            type(anchor) is not int or not result["uses_prior_context"]
-            or anchor not in {item["turn_index"] for item in bounded_prior}
+        raw_anchor = result.get("prior_learner_question_index")
+        if raw_anchor is not None and (
+            type(raw_anchor) is not int
+            or raw_anchor not in {item["turn_index"] for item in bounded_prior}
         ):
-            raise IncompleteCompletionError("Follow-up resolver requested an invalid prior learner question")
+            raise IncompleteCompletionError("Follow-up resolver requested an invalid prior learner question", raw_response={"resolver_decision": result})
+        anchor = raw_anchor if result["uses_prior_context"] else None
         assistant_anchor = result.get("prior_assistant_question_index")
         uses_memory = result.get("uses_approved_memory", False)
         needs_clarification = result.get("needs_clarification", False)
-        if "prior_assistant_question_index" in result and (
+        if assistant_anchor is not None and (
             type(assistant_anchor) is not int or not assistant_question
             or assistant_anchor != assistant_question["turn_index"]
         ):
-            raise IncompleteCompletionError("Follow-up resolver requested an invalid assistant question")
+            raise IncompleteCompletionError("Follow-up resolver requested an invalid assistant question", raw_response={"resolver_decision": result})
         if uses_memory and not memory:
             raise IncompleteCompletionError("Follow-up resolver requested unavailable approved memory")
         resolved = result["search_query"].strip()

@@ -196,6 +196,29 @@ def test_question_and_answer_context_can_be_combined_without_erasing_roles(use_m
     assert len(session.requests) == 2
 
 
+def test_new_chat_schema_cannot_request_nonexistent_question_indices():
+    memory = approved()
+    session = LocalSession(json.dumps({"in_scope": True, "uses_prior_context": False,
+        "uses_approved_memory": True, "search_query": "Дроби следующий шаг"}))
+    OllamaRuntime(Settings(), session=session).resolve_chat_query(
+        "Продолжим", [], "math", approved_memory=memory, topic_id=memory["topic_id"])
+    properties = session.requests[0]["format"]["properties"]
+    assert "prior_learner_question_index" not in properties
+    assert "prior_assistant_question_index" not in properties
+
+
+def test_unused_but_valid_learner_index_does_not_activate_learner_context():
+    session = continuation_session({"in_scope": True, "uses_prior_context": False,
+        "prior_learner_question_index": 0, "prior_assistant_question_index": 1,
+        "search_query": "Сколько частей в круге"})
+    result = RagService(LessonMaterials(), OllamaRuntime(Settings(), session=session), Settings()).answer([
+        {"role": "user", "content": "Не понимаю дроби."},
+        {"role": "assistant", "content": "Сколько частей в круге?"},
+        {"role": "user", "content": "хз"},
+    ], subject_id="math")
+    assert result["query_resolution"] == {"source": "assistant_question", "turn_index": 1}
+
+
 def test_memory_bound_keeps_end_corrections_and_unknowns_whole_with_long_history():
     suffix = "\nИсправление записи: помощь unknown; прошлый успех не подтверждён."
     memory = approved(text="п" * (4000 - len(suffix)) + suffix)
