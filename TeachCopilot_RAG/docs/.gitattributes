@@ -1,2 +1,2 @@
 # Preserve exact response-artifact bytes and their SHA-256 across checkouts.
-memory-continuation-v*/** -text
+memory-continuation-v*/** -text whitespace=cr-at-eol
