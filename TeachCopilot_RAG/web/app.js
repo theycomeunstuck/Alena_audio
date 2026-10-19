@@ -3,7 +3,7 @@
   const API = '';
   const tokenKey = 'teachcopilot.session';
   const greeting = 'Привет! Расскажи, что разбираете, и я помогу найти следующий шаг.';
-  const state = { token: sessionStorage.getItem(tokenKey), account: null, learners: [], learnerId: null, dashboard: null, topics: [], task: null, proposal: null, revision: null, chatByLearner: new Map(), nextStepsByLearner: new Map(), learningSessionsByLearner: new Map(), pendingMessages: new Map(), viewRevision: 0 };
+  const state = { token: sessionStorage.getItem(tokenKey), account: null, learners: [], learnerId: null, dashboard: null, topics: [], task: null, proposal: null, revision: null, chatByLearner: new Map(), nextStepsByLearner: new Map(), learningSessionsByLearner: new Map(), pendingMessages: new Map(), chatTopicsByLearnerSubject: new Map(), viewRevision: 0 };
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
   const el = (tag, cls, value) => { const node = document.createElement(tag); if (cls) node.className = cls; if (value !== undefined) node.textContent = value; return node; };
@@ -45,7 +45,7 @@
   }
   function signOutLocal() {
     state.token = null; state.account = null; state.learnerId = null; sessionStorage.removeItem(tokenKey);
-    state.learners = []; state.dashboard = null; state.topics = []; state.task = null; state.proposal = null; state.revision = null; state.chatByLearner.clear(); state.nextStepsByLearner.clear(); state.learningSessionsByLearner.clear(); state.pendingMessages.clear(); state.viewRevision++;
+    state.learners = []; state.dashboard = null; state.topics = []; state.task = null; state.proposal = null; state.revision = null; state.chatByLearner.clear(); state.nextStepsByLearner.clear(); state.learningSessionsByLearner.clear(); state.pendingMessages.clear(); state.chatTopicsByLearnerSubject.clear(); state.viewRevision++;
     $('#learner-list').replaceChildren(); $('#learner-count').textContent = '–'; $('#roster-empty').hidden = true; $('#profile-content').hidden = true; $('#loading-state').hidden = true; $('#error-state').hidden = true; $('#empty-profile').hidden = false;
     $('#account-name').textContent = ''; $('#role-label').textContent = ''; $('#learner-name').textContent = ''; $('#learner-avatar').textContent = ''; $('#profile-grade').textContent = ''; $('#profile-meta').textContent = ''; $('#current-goal').textContent = ''; $('#goal-subject').textContent = ''; $('#revision-label').textContent = ''; $('#zone-map').replaceChildren(); $('#history-list').replaceChildren(); $('#task-cards').replaceChildren(); $('#task-result').hidden = true; $('#proposal-result').replaceChildren(); $('#proposal-result').hidden = true;
     $('#topic-select').replaceChildren(new Option('Выберите тему', '')); $('#observation-topic').replaceChildren(new Option('Выберите тему', '')); $('#chat-subject').value = 'math'; $('#edit-goal').value = ''; $('#edit-interests').value = '';
@@ -72,7 +72,7 @@
       $('#learner-filter').hidden = state.account.role === 'student';
       $('#edit-profile').hidden = state.account.role !== 'teacher';
       await loadLearners();
-      if (state.account.role === 'teacher') loadCatalog().catch(err => toast(errorText(err)));
+      loadCatalog().catch(err => toast(errorText(err)));
     } catch (error) { showLogin(errorText(error)); }
   }
   async function loadLearners() {
@@ -126,6 +126,7 @@
       renderDashboard(data); $('#loading-state').hidden = true; $('#profile-content').hidden = false;
       $('#action-empty').hidden = true;
       fillTopicOptions();
+      if (state.account?.role === 'student') renderLearningSession();
       renderNextStep();
       if (state.account?.role === 'teacher') { loadMemory(); const pending = state.nextStepsByLearner.get(id); if (pending?.job_id && !pending.result && !pending.finished) pollNextStep(id, pending.job_id, viewRevision); }
     } catch (error) { if (viewRevision !== state.viewRevision) return; showError(error); $('#action-empty').hidden = true; }
@@ -219,6 +220,7 @@
   async function loadCatalog() {
     const data = await request('/catalog'); state.topics = normalizeTopics(data); fillTopicOptions();
     if (state.dashboard) { renderDashboard(state.dashboard); renderNextStep(); }
+    if (state.account?.role === 'student') renderLearningSession();
   }
   function fillTopicOptions() {
     for (const select of [$('#topic-select'), $('#observation-topic')]) {
@@ -475,6 +477,29 @@
     $('#learning-action-error').hidden = true; $('#learning-action-error').textContent = '';
     $('#action-code-count').textContent = '0 из 4000 символов';
   }
+  function chatTopicSubject(topic) {
+    const id = topic?.topic_id || topic?.id || '';
+    if (id.startsWith('programming.python.')) return 'python';
+    if (id.startsWith('programming.scratch.')) return 'scratch';
+    return topic?.subject_id || id.split('.')[0];
+  }
+  function renderChatTopicOptions() {
+    const select = $('#chat-topic'), session = state.learningSessionsByLearner.get(state.learnerId), pending = state.pendingMessages.get(state.learnerId);
+    const active = session?.status === 'active';
+    if (active && session.subject_id) $('#chat-subject').value = session.subject_id;
+    if (pending?.subject_id) $('#chat-subject').value = pending.subject_id;
+    const subject = $('#chat-subject').value, key = `${state.learnerId}:${subject}`;
+    const matches = topic => chatTopicSubject(topic) === subject || subject === 'programming' && ['python', 'scratch'].includes(chatTopicSubject(topic));
+    const goal = state.dashboard?.profile?.goal;
+    const candidates = state.topics.filter(matches);
+    if (goal?.topic_id && goal.subject_id && matches(goal) && !candidates.some(topic => (topic.topic_id || topic.id) === goal.topic_id)) candidates.unshift({ ...goal, title: goal.topic });
+    select.replaceChildren(new Option('Общая беседа по предмету', subject));
+    candidates.forEach(topic => select.add(new Option(`${topicTitle(topic)}${topic.grade ? ` · ${topic.grade} класс` : ''}`, topic.topic_id || topic.id)));
+    const chosen = active ? session.topic_id : pending?.topic_id || state.chatTopicsByLearnerSubject.get(key) || (goal?.topic_id && matches(goal) ? goal.topic_id : subject);
+    if (chosen && ![...select.options].some(option => option.value === chosen) && active) select.add(new Option(topicTitle(session), chosen));
+    select.value = [...select.options].some(option => option.value === chosen) ? chosen : subject;
+    select.disabled = active || !!pending;
+  }
   function renderLearningAction(pending) {
     const subject = $('#chat-subject').value;
     $$('#chat-mode option').forEach(option => {
@@ -500,6 +525,7 @@
     $$('#learning-action-form input, #learning-action-form select, #learning-action-form textarea, #learning-action-form button').forEach(field => { field.disabled = !!pending; });
   }
   function renderLearningSession() {
+    renderChatTopicOptions();
     const session = state.learningSessionsByLearner.get(state.learnerId), pending = state.pendingMessages.get(state.learnerId);
     const title = session ? topicTitle({ ...session, topic_id: session.topic_id || session.subject_id }) : '';
     $('#learning-session-status').textContent = session?.status === 'active' ? `${title} · Занятие идёт. После завершения диалог будет сохранён для просмотра учителем.` : session?.status === 'completed' ? `${title} · Занятие завершено. Обновление памяти поставлено в очередь.` : `${subjectTitles[$('#chat-subject').value] || 'Учебное занятие'} · Занятие начнётся с первого вопроса.`;
@@ -516,7 +542,7 @@
     try {
       let session = state.learningSessionsByLearner.get(learnerId);
       if (!session || session.status !== 'active') {
-        session = await request(`/learners/${encodeURIComponent(learnerId)}/learning-sessions`, { method: 'POST', body: { topic_id: pending.subject_id, client_session_id: pending.client_session_id } });
+        session = await request(`/learners/${encodeURIComponent(learnerId)}/learning-sessions`, { method: 'POST', body: { topic_id: pending.topic_id || pending.subject_id, client_session_id: pending.client_session_id } });
         if (state.token !== token) return;
         session.subject_id = pending.subject_id; state.learningSessionsByLearner.set(learnerId, session);
       }
@@ -615,11 +641,15 @@
     if (!learnerId || !content || state.pendingMessages.has(learnerId)) return;
     if (state.learningSessionsByLearner.get(learnerId)?.status === 'completed') { state.chatByLearner.delete(learnerId); renderChatHistory(learnerId); }
     const client_message_id = crypto.randomUUID();
-    state.pendingMessages.set(learnerId, { content, client_message_id, client_session_id: crypto.randomUUID(), subject_id: $('#chat-subject').value });
+    state.pendingMessages.set(learnerId, { content, client_message_id, client_session_id: crypto.randomUUID(), subject_id: $('#chat-subject').value, topic_id: $('#chat-topic').value });
     updateChat('user', content); input.value = ''; sendPendingMessage();
   });
   $('#chat-mode').addEventListener('change', () => { $('#learning-action-error').hidden = true; renderLearningSession(); });
   $('#chat-subject').addEventListener('change', () => { resetLearningAction(); renderLearningSession(); });
+  $('#chat-topic').addEventListener('change', () => {
+    state.chatTopicsByLearnerSubject.set(`${state.learnerId}:${$('#chat-subject').value}`, $('#chat-topic').value);
+    renderLearningSession();
+  });
   $('#action-code').addEventListener('input', () => { $('#action-code-count').textContent = `${$('#action-code').value.length} из 4000 символов`; });
   $('#learning-action-form').addEventListener('submit', event => {
     event.preventDefault(); const learnerId = state.learnerId, operation = $('#chat-mode').value;
@@ -646,7 +676,7 @@
         content = `Покажи точный вывод Python:\n${action.code}`;
       }
       if (state.learningSessionsByLearner.get(learnerId)?.status === 'completed') { state.chatByLearner.delete(learnerId); renderChatHistory(learnerId); }
-      state.pendingMessages.set(learnerId, { content, learning_action: Object.freeze(action), client_message_id: crypto.randomUUID(), client_session_id: crypto.randomUUID(), subject_id: $('#chat-subject').value });
+      state.pendingMessages.set(learnerId, { content, learning_action: Object.freeze(action), client_message_id: crypto.randomUUID(), client_session_id: crypto.randomUUID(), subject_id: $('#chat-subject').value, topic_id: $('#chat-topic').value });
       updateChat('user', content); sendPendingMessage();
     } catch (error) { $('#learning-action-error').textContent = errorText(error); $('#learning-action-error').hidden = false; }
   });

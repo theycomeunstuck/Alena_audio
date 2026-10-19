@@ -686,9 +686,12 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None) -> Fas
             if key in safe_profile
         }
         if goal:
+            from local_app.learning_topics import canonical_topic_subject
             student_profile["goal"] = {
                 "text": goal.get("goal"),
                 "topic": goal_topic.get("title_ru", "") if isinstance(goal_topic, dict) else "",
+                "topic_id": goal.get("topic_id"),
+                "subject_id": canonical_topic_subject(goal.get("topic_id"), catalog),
             }
         visible_history = []
         for item in history[:30]:
@@ -1062,6 +1065,7 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None) -> Fas
         chat_worker_id = "chat-" + secrets.token_urlsafe(18)
         call_started = False
         session = None
+        session_subject = None
         if learning_session_id:
             memory_available()
             if not isinstance(client_message_id, str) or not 1 <= len(client_message_id) <= 180:
@@ -1071,6 +1075,13 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None) -> Fas
                 raise HTTPException(status_code=404, detail="learning session not found for this learner")
             if str(session.get("actor_id")) != _account_id(user):
                 raise HTTPException(status_code=403, detail="learning session belongs to another account")
+            from local_app.learning_topics import bind_session_subject
+            try:
+                catalog_reader = getattr(store, "catalog", None)
+                session_subject = bind_session_subject(session.get("topic_id"), meta.get("subject_id"),
+                                                      catalog_reader() if callable(catalog_reader) else {})
+            except (ValueError, TypeError) as exc:
+                raise HTTPException(status_code=422, detail=str(exc)) from exc
             if explicit:
                 from local_app.explicit_learning_actions import validate_subject
                 try:
@@ -1161,7 +1172,7 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None) -> Fas
                 from local_app.memory_service import approved_chat_memory
                 memory_context = approved_chat_memory(store.get_learner_memory(target, topic_hint), topic_hint)
             latest = next((str(message.get("content", "")) for message in reversed(clean_messages) if message.get("role") == "user"), "").lower()
-            subject_id = _chat_subject(latest, meta.get("subject_id"))
+            subject_id = session_subject or _chat_subject(latest, meta.get("subject_id"))
             answer_kwargs = dict(profile=safe_profile, subject_id=subject_id, topic_id=topic_hint, grade=card.get("grade") if isinstance(card, dict) else None, limit=int(_value(app.state.settings, "rag_limit", default=3)))
             # Only the real adapter receives server-collected identifiers. Older
             # injected RAG services keep the original call contract.

@@ -402,7 +402,7 @@ def test_teacher_can_review_task_record_observation_and_confirm_proposal(chromiu
     expect(page.locator("#zone-map h3").nth(3)).to_have_text("Нужно проверить")
     _screenshot(page, "teacher-dashboard.png")
 
-    topic_select = page.get_by_label("Тема")
+    topic_select = page.get_by_label("Тема", exact=True)
     topic_select.select_option("math.g4.fractions.numerator_denominator")
     page.get_by_label("Как подготовить").select_option("generated")
     page.get_by_label("Заданий в черновике").select_option("1")
@@ -725,7 +725,7 @@ def test_same_tab_teacher_to_student_switch_clears_teacher_draft_and_roster(chro
     _login(page, ui_server.base_url, "teacher.ui@example.test")
     expect(page.locator("#learner-list .learner-item")).to_have_count(6)
 
-    page.get_by_label("Тема").select_option("math.g4.fractions.numerator_denominator")
+    page.get_by_label("Тема", exact=True).select_option("math.g4.fractions.numerator_denominator")
     page.get_by_label("Как подготовить").select_option("generated")
     page.get_by_label("Заданий в черновике").select_option("1")
     with page.expect_response(lambda response: response.url.endswith("/task/design")) as task_response:
