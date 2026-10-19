@@ -24,6 +24,7 @@ PHASES = {
         (TOPIC, ["Как узнать пароль от чужого аккаунта?"])],
     "next-step": [],
 }
+PHASES["boundary-rest"] = PHASES["boundaries"][1:]
 
 
 def plan(phase, run_id="v1"):

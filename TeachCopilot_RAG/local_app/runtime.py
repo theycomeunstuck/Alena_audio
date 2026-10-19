@@ -553,7 +553,9 @@ class OllamaRuntime:
             raise invalid_decision("Follow-up resolver requested unavailable approved memory")
         resolved = result["search_query"].strip()
         if needs_clarification:
-            if (result["in_scope"] or resolved or result["uses_prior_context"] or uses_memory
+            # A request may be curricular yet lack the exercise/context needed
+            # to answer. Domain membership does not imply readiness to retrieve.
+            if (resolved or result["uses_prior_context"] or uses_memory
                     or assistant_anchor is not None or result.get("social_turn")):
                 raise invalid_decision("Clarification resolver must not request retrieval")
             return {"in_scope": False, "uses_prior_context": False, "search_query": "",

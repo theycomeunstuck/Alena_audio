@@ -255,11 +255,23 @@ class RagService:
             ):
                 raise IncompleteCompletionError("Follow-up resolver requested an invalid assistant question")
             if needs_clarification:
-                if (resolution["in_scope"] or resolution["uses_prior_context"] or uses_memory
+                if (resolution["uses_prior_context"] or uses_memory
                         or assistant_anchor is not None or resolution.get("search_query")
                         or resolution.get("social_turn")):
                     raise IncompleteCompletionError("Clarification resolver must not request retrieval")
                 query_resolution = {"source": "clarification", "reason": "learning_context_unclear"}
+                return {
+                    "id": None, "object": "chat.completion", "created": None,
+                    "choices": [{"index": 0, "message": {"role": "assistant", "content": (
+                        "Хочешь другой пример по этой теме или разберём непонятный шаг?"
+                        if latest_user_index > 0 and history[latest_user_index - 1]["role"] == "assistant" else
+                        "Напомни, какое задание мы разбираем или какой шаг сейчас непонятен?"
+                    )}, "finish_reason": "stop"}],
+                    "citations": [], "sources": [], "query_resolution": query_resolution,
+                    "model": self.settings.chat_model,
+                    "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+                    "usage_scope": "deterministic_clarification_excludes_resolver",
+                }
             if resolution.get("social_turn") is True and not resolution["in_scope"]:
                 if resolution["uses_prior_context"] or uses_memory or assistant_anchor is not None:
                     raise IncompleteCompletionError("Social chat cannot request curriculum retrieval")
@@ -350,10 +362,6 @@ class RagService:
                     "message": {
                         "role": "assistant",
                         "content": (
-                            "Хочешь другой пример по этой теме или разберём непонятный шаг?"
-                            if needs_clarification and latest_user_index > 0 and history[latest_user_index - 1]["role"] == "assistant" else
-                            "Напомни, какое задание мы разбираем или какой шаг сейчас непонятен?"
-                            if needs_clarification else
                             "Я могу помочь с математикой, Scratch и Python. Какой учебный вопрос разберём?"
                             if out_of_scope else
                             "Подходящих материалов в базе не найдено – уточните предмет или переформулируйте вопрос."

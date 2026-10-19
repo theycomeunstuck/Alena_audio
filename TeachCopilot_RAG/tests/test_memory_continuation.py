@@ -208,6 +208,16 @@ def test_new_chat_schema_cannot_request_nonexistent_question_indices():
     assert properties["uses_prior_context"]["enum"] == [False]
 
 
+def test_curricular_request_without_exercise_can_still_need_clarification():
+    session = LocalSession(json.dumps({"in_scope": True, "uses_prior_context": False,
+        "search_query": "", "needs_clarification": True}))
+    result = RagService(LessonMaterials(), OllamaRuntime(Settings(), session=session), Settings()).answer([
+        {"role": "user", "content": "Продолжим прошлое занятие"}], subject_id="python")
+    assert result["query_resolution"]["source"] == "clarification"
+    assert "какое задание" in result["choices"][0]["message"]["content"]
+    assert len(session.requests) == 1 and result["sources"] == []
+
+
 def test_unused_but_valid_learner_index_does_not_activate_learner_context():
     session = continuation_session({"in_scope": True, "uses_prior_context": False,
         "prior_learner_question_index": 0, "prior_assistant_question_index": 1,
