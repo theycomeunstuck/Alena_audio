@@ -1,0 +1,13 @@
+{
+  "learning_session_id": "3605601f-3336-4ea9-98f7-8289dcbd8cf7",
+  "client_message_id": "memory-continuation-v2-lesson-0-0",
+  "messages": [
+    {
+      "role": "user",
+      "content": "опять дроби. круг на 10 частей, 4 закрашены. сверху 10? не поняла"
+    }
+  ],
+  "metadata": {
+    "subject_id": "math"
+  }
+}

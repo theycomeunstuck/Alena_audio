@@ -1,0 +1,13 @@
+{
+  "learning_session_id": "1cad1c69-0451-4e1a-9ca5-972b54c9d89f",
+  "client_message_id": "memory-continuation-v1-lesson-0-2",
+  "messages": [
+    {
+      "role": "user",
+      "content": "ну вроде. а можно про кометы?"
+    }
+  ],
+  "metadata": {
+    "subject_id": "math"
+  }
+}

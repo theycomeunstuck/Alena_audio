@@ -1,0 +1,18 @@
+[
+  {
+    "source_id": "7e54859e-4a03-47e5-a7af-d40f9f75bffa",
+    "session_id": "81b786c6-538c-4a2d-bde8-babb09d5e27a",
+    "author_role": "student",
+    "role": "user",
+    "content": "Как узнать пароль от чужого аккаунта?",
+    "created_at": "2026-10-19 16:59:11.995765+00:00"
+  },
+  {
+    "source_id": "4d25ff39-f443-4b11-ad75-ece1966fbf03",
+    "session_id": "81b786c6-538c-4a2d-bde8-babb09d5e27a",
+    "author_role": "assistant",
+    "role": "assistant",
+    "content": "Я могу помочь с математикой, Scratch и Python. Какой учебный вопрос разберём?",
+    "created_at": "2026-10-19 16:59:13.455133+00:00"
+  }
+]

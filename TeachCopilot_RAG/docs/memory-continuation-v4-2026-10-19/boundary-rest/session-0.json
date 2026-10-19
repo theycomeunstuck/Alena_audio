@@ -1,0 +1,15 @@
+{
+  "status_code": 201,
+  "body": {
+    "id": "11ab674b-f30f-4585-a33c-04443a425f80",
+    "learner_id": "demo-nika-04",
+    "actor_id": "343fc022-0cad-4f81-a6af-69cfc6dfa100",
+    "topic_id": "programming.python.variables",
+    "client_session_id": "memory-continuation-v4-boundary-rest-0",
+    "status": "active",
+    "created_at": "2026-10-19T16:59:06.752474+00:00",
+    "completed_at": null,
+    "learning_session_id": "11ab674b-f30f-4585-a33c-04443a425f80",
+    "topic_title": "Переменные и типы значений в Python"
+  }
+}

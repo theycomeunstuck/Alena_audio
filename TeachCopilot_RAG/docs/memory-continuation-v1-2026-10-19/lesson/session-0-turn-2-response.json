@@ -1,0 +1,30 @@
+{
+  "status_code": 200,
+  "body": {
+    "id": null,
+    "object": "chat.completion",
+    "created": null,
+    "model": "gemma4:12b",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "Я могу помочь с математикой, Scratch и Python. Какой учебный вопрос разберём?"
+        },
+        "finish_reason": "stop"
+      }
+    ],
+    "citations": [],
+    "sources": [],
+    "usage": {
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "total_tokens": 0
+    },
+    "learning_session_id": "1cad1c69-0451-4e1a-9ca5-972b54c9d89f",
+    "client_message_id": "memory-continuation-v1-lesson-0-2",
+    "memory_version_id": null,
+    "memory_stale": false
+  }
+}

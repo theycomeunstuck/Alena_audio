@@ -1,0 +1,163 @@
+{
+  "protocol": "memory-continuation-v1",
+  "run_id": "v4",
+  "phase": "recall",
+  "synthetic": true,
+  "research_experiment": false,
+  "sessions": [
+    [
+      "math.g4.fractions.numerator_denominator",
+      [
+        "Продолжим прошлый круг, но можно теперь через кометы? Задай один вопрос.",
+        "хз"
+      ]
+    ]
+  ],
+  "maximum_chat_requests": 2,
+  "maximum_next_step_requests": 0,
+  "automatic_retries": false,
+  "teacher_confirmation": false,
+  "provider": "local",
+  "started_at": "2026-10-19T16:56:25.126285+00:00",
+  "routing_preflight": {
+    "api_pid": 31268,
+    "external_answer_config_absent": true,
+    "scope": "API listener environment and application dotenv"
+  },
+  "status": "completed",
+  "attempted_chat_requests": 2,
+  "job_ids": [
+    "ade0f7a1-b130-4890-aa3f-bb60cb66812f"
+  ],
+  "turns": [
+    {
+      "session_id": "656d0b2b-2c47-4779-b604-753ba3bb9d34",
+      "topic_id": "math.g4.fractions.numerator_denominator",
+      "message": "Продолжим прошлый круг, но можно теперь через кометы? Задай один вопрос.",
+      "response": {
+        "id": null,
+        "object": "chat.completion",
+        "created": "2026-10-19T16:56:33.4422444Z",
+        "model": "gemma4:12b",
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "Конечно, давай представим, что наш круг – это путь кометы в космосе, который разделен на равные участки.\n\nПосмотри на этот путь: на сколько равных участков он разделен всего (включая те, что уже пролетела комета)?"
+            },
+            "finish_reason": "stop"
+          }
+        ],
+        "citations": [],
+        "sources": [
+          {
+            "id": "div-408-4",
+            "source_file": "TeachCopilot_RAG/knowledge-data/math_g4_division_demo.json",
+            "score": 0.02928692699490662,
+            "similarity": 0.5250072911421431
+          },
+          {
+            "id": "shares-name-one-of-four",
+            "source_file": "TeachCopilot_RAG/knowledge-data/math_g3_fractions.json",
+            "score": 0.02943722943722944,
+            "similarity": 0.5088116385470308
+          },
+          {
+            "id": "div-85-4-remainder",
+            "source_file": "TeachCopilot_RAG/knowledge-data/math_g4_division_demo.json",
+            "score": 0.027912386121341344,
+            "similarity": 0.5066297189471894
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 3405,
+          "completion_tokens": 83,
+          "total_tokens": 3488
+        },
+        "answer_routing": {
+          "backend": "local",
+          "reason": "external_disabled",
+          "policy": "educational-projection-v2"
+        },
+        "learning_session_id": "656d0b2b-2c47-4779-b604-753ba3bb9d34",
+        "client_message_id": "memory-continuation-v4-recall-0-0",
+        "memory_version_id": "c2c311b7-b19d-4ba0-a3c7-7311665055ad",
+        "memory_stale": true
+      }
+    },
+    {
+      "session_id": "656d0b2b-2c47-4779-b604-753ba3bb9d34",
+      "topic_id": "math.g4.fractions.numerator_denominator",
+      "message": "хз",
+      "response": {
+        "id": null,
+        "object": "chat.completion",
+        "created": "2026-10-19T16:56:37.5837958Z",
+        "model": "gemma4:12b",
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "Давай попробуем посчитать вместе. Посмотри на круг и просто посчитай все кусочки, которые в нём есть, как будто ты считаешь звёзды в телескопе. Сколько их получилось?"
+            },
+            "finish_reason": "stop"
+          }
+        ],
+        "citations": [],
+        "sources": [
+          {
+            "id": "draw-ray-from-point",
+            "source_file": "TeachCopilot_RAG/knowledge-data/math_g3_geometry_lines_demo.json",
+            "score": 0.029030910609857977,
+            "similarity": 0.5457917126541318
+          },
+          {
+            "id": "angles-which-scale",
+            "source_file": "TeachCopilot_RAG/knowledge-data/math_g4_geometry.json",
+            "score": 0.02463400900900901,
+            "similarity": 0.5070377000615275
+          },
+          {
+            "id": "triangle-two-names",
+            "source_file": "TeachCopilot_RAG/knowledge-data/math_g3_geometry_triangles.json",
+            "score": 0.024080267558528427,
+            "similarity": 0.5013279026327163
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 3560,
+          "completion_tokens": 65,
+          "total_tokens": 3625
+        },
+        "answer_routing": {
+          "backend": "local",
+          "reason": "external_disabled",
+          "policy": "educational-projection-v2"
+        },
+        "query_resolution": {
+          "source": "combined_context",
+          "antecedents": [
+            "learner_question",
+            "approved_memory"
+          ],
+          "topic_id": "math.g4.fractions.numerator_denominator"
+        },
+        "learning_session_id": "656d0b2b-2c47-4779-b604-753ba3bb9d34",
+        "client_message_id": "memory-continuation-v4-recall-0-1",
+        "memory_version_id": "c2c311b7-b19d-4ba0-a3c7-7311665055ad",
+        "memory_stale": true
+      }
+    }
+  ],
+  "checks": {
+    "card_unchanged": true,
+    "old_sources_unchanged": true,
+    "new_versions_unapproved": true
+  },
+  "new_version_ids": [
+    "940cbb4a-4188-4d66-97d7-fc9c6cd4dc5d"
+  ],
+  "finished_at": "2026-10-19T16:56:40.378619+00:00"
+}

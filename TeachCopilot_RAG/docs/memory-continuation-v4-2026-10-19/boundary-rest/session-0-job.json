@@ -1,0 +1,74 @@
+{
+  "id": "5d474b17-eaac-4304-8880-ad9311019758",
+  "learner_id": "demo-nika-04",
+  "topic_id": "programming.python.variables",
+  "actor_id": "343fc022-0cad-4f81-a6af-69cfc6dfa100",
+  "kind": "memory_update",
+  "method": "tail",
+  "provider": "local",
+  "status": "completed",
+  "priority": 0,
+  "base_revision": 3,
+  "source_revision": 47,
+  "idempotency_key": "session:11ab674b-f30f-4585-a33c-04443a425f80",
+  "payload": {
+    "learning_session_id": "11ab674b-f30f-4585-a33c-04443a425f80"
+  },
+  "result": {
+    "calls": [
+      {
+        "purpose": "conversation_interests",
+        "input_chars": 3449,
+        "input_budget": {
+          "method": "cl100k_base_with_safety_reserve_v1",
+          "enforced": true,
+          "estimator": "cl100k_base",
+          "within_guard": true,
+          "context_tokens": 8192,
+          "exact_token_count": false,
+          "schema_utf8_bytes": 521,
+          "token_budget_kind": "heuristic_not_model_tokenizer",
+          "message_utf8_bytes": 5938,
+          "guarded_input_tokens": 2338,
+          "safety_reserve_tokens": 512,
+          "available_input_tokens": 6656,
+          "estimated_input_tokens": 1826,
+          "reserved_output_tokens": 1536,
+          "framing_token_allowance": 256,
+          "estimated_payload_tokens": 1570
+        },
+        "raw_response": {
+          "done": true,
+          "model": "gemma4:12b",
+          "message": {
+            "role": "assistant",
+            "content": "{\"candidates\": []}"
+          },
+          "created_at": "2026-10-19T16:59:09.9672582Z",
+          "eval_count": 6,
+          "done_reason": "stop",
+          "eval_duration": 45549000,
+          "load_duration": 8356300,
+          "total_duration": 543291900,
+          "prompt_eval_count": 876,
+          "prompt_eval_duration": 312321000,
+          "prompt_eval_cached_count": 37
+        },
+        "prompt_tokens": 876,
+        "elapsed_seconds": 0.631637999904342,
+        "completion_tokens": 6
+      }
+    ],
+    "method": "tail",
+    "review_required": true,
+    "memory_version_id": "cf16555e-63fd-41e7-8cde-607316a3be90"
+  },
+  "error": null,
+  "worker_id": "memory-ccc9a26959524529bc337d8d5e24d4d6",
+  "lease_until": null,
+  "call_started_at": "2026-10-19T16:59:09.394950+00:00",
+  "created_at": "2026-10-19T16:59:08.930897+00:00",
+  "started_at": "2026-10-19T16:59:09.146843+00:00",
+  "completed_at": "2026-10-19T16:59:09.991985+00:00",
+  "job_id": "5d474b17-eaac-4304-8880-ad9311019758"
+}

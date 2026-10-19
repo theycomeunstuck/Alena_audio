@@ -1,0 +1,71 @@
+{
+  "recorded_at": "2026-10-19T17:04:23.305591+00:00",
+  "synthetic": true,
+  "human_reviewed": false,
+  "chat_attempts": 13,
+  "chat_responses": 9,
+  "technical_failures": 4,
+  "responses": [
+    {
+      "path": "docs\\memory-continuation-v1-2026-10-19\\lesson\\session-0-turn-0-response.json",
+      "status_code": 200
+    },
+    {
+      "path": "docs\\memory-continuation-v1-2026-10-19\\lesson\\session-0-turn-1-response.json",
+      "status_code": 200
+    },
+    {
+      "path": "docs\\memory-continuation-v1-2026-10-19\\lesson\\session-0-turn-2-response.json",
+      "status_code": 200
+    },
+    {
+      "path": "docs\\memory-continuation-v1-2026-10-19\\lesson\\session-0-turn-3-response.json",
+      "status_code": 200
+    },
+    {
+      "path": "docs\\memory-continuation-v2-2026-10-19\\lesson\\session-0-turn-0-response.json",
+      "status_code": 200
+    },
+    {
+      "path": "docs\\memory-continuation-v2-2026-10-19\\lesson\\session-0-turn-1-response.json",
+      "status_code": 503
+    },
+    {
+      "path": "docs\\memory-continuation-v2-2026-10-19\\recall\\session-0-turn-0-response.json",
+      "status_code": 503
+    },
+    {
+      "path": "docs\\memory-continuation-v3-2026-10-19\\recall\\session-0-turn-0-response.json",
+      "status_code": 503
+    },
+    {
+      "path": "docs\\memory-continuation-v4-2026-10-19\\recall\\session-0-turn-0-response.json",
+      "status_code": 200
+    },
+    {
+      "path": "docs\\memory-continuation-v4-2026-10-19\\recall\\session-0-turn-1-response.json",
+      "status_code": 200
+    },
+    {
+      "path": "docs\\memory-continuation-v4-2026-10-19\\boundaries\\session-0-turn-0-response.json",
+      "status_code": 503
+    },
+    {
+      "path": "docs\\memory-continuation-v4-2026-10-19\\boundary-rest\\session-0-turn-0-response.json",
+      "status_code": 200
+    },
+    {
+      "path": "docs\\memory-continuation-v4-2026-10-19\\boundary-rest\\session-1-turn-0-response.json",
+      "status_code": 200
+    }
+  ],
+  "all_phase_cards_unchanged": true,
+  "all_old_sources_unchanged": true,
+  "all_new_versions_draft_unless_separately_reviewed": true,
+  "paired_versions_audited": 8,
+  "assistant_or_foreign_evidence_found": false,
+  "maximum_memory_chars": 3948,
+  "frozen_research_files_unchanged": 29,
+  "paid_calls": 0,
+  "formal_research_assessment": "not_assessed"
+}

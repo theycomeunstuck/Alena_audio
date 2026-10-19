@@ -1,0 +1,42 @@
+{
+  "protocol": "memory-continuation-v1",
+  "run_id": "v2",
+  "phase": "recall",
+  "synthetic": true,
+  "research_experiment": false,
+  "sessions": [
+    [
+      "math.g4.fractions.numerator_denominator",
+      [
+        "Продолжим тот круг с прошлого занятия. Задай один следующий вопрос без готовой дроби.",
+        "хз",
+        "ну вроде. а можно про кометы?",
+        "ага"
+      ]
+    ]
+  ],
+  "maximum_chat_requests": 4,
+  "maximum_next_step_requests": 0,
+  "automatic_retries": false,
+  "teacher_confirmation": false,
+  "provider": "local",
+  "started_at": "2026-10-19T16:51:40.189183+00:00",
+  "routing_preflight": {
+    "api_pid": 32896,
+    "external_answer_config_absent": true,
+    "scope": "API listener environment and application dotenv"
+  },
+  "status": "interrupted_without_retry",
+  "attempted_chat_requests": 1,
+  "job_ids": [],
+  "turns": [],
+  "error_type": "RuntimeError",
+  "error": "POST /v1/chat/completions: HTTP 503",
+  "checks": {
+    "card_unchanged": true,
+    "old_sources_unchanged": true,
+    "new_versions_unapproved": true
+  },
+  "new_version_ids": [],
+  "finished_at": "2026-10-19T16:51:44.920923+00:00"
+}

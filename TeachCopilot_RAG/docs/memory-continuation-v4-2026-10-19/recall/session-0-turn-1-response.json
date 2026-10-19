@@ -1,0 +1,62 @@
+{
+  "status_code": 200,
+  "body": {
+    "id": null,
+    "object": "chat.completion",
+    "created": "2026-10-19T16:56:37.5837958Z",
+    "model": "gemma4:12b",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "Давай попробуем посчитать вместе. Посмотри на круг и просто посчитай все кусочки, которые в нём есть, как будто ты считаешь звёзды в телескопе. Сколько их получилось?"
+        },
+        "finish_reason": "stop"
+      }
+    ],
+    "citations": [],
+    "sources": [
+      {
+        "id": "draw-ray-from-point",
+        "source_file": "TeachCopilot_RAG/knowledge-data/math_g3_geometry_lines_demo.json",
+        "score": 0.029030910609857977,
+        "similarity": 0.5457917126541318
+      },
+      {
+        "id": "angles-which-scale",
+        "source_file": "TeachCopilot_RAG/knowledge-data/math_g4_geometry.json",
+        "score": 0.02463400900900901,
+        "similarity": 0.5070377000615275
+      },
+      {
+        "id": "triangle-two-names",
+        "source_file": "TeachCopilot_RAG/knowledge-data/math_g3_geometry_triangles.json",
+        "score": 0.024080267558528427,
+        "similarity": 0.5013279026327163
+      }
+    ],
+    "usage": {
+      "prompt_tokens": 3560,
+      "completion_tokens": 65,
+      "total_tokens": 3625
+    },
+    "answer_routing": {
+      "backend": "local",
+      "reason": "external_disabled",
+      "policy": "educational-projection-v2"
+    },
+    "query_resolution": {
+      "source": "combined_context",
+      "antecedents": [
+        "learner_question",
+        "approved_memory"
+      ],
+      "topic_id": "math.g4.fractions.numerator_denominator"
+    },
+    "learning_session_id": "656d0b2b-2c47-4779-b604-753ba3bb9d34",
+    "client_message_id": "memory-continuation-v4-recall-0-1",
+    "memory_version_id": "c2c311b7-b19d-4ba0-a3c7-7311665055ad",
+    "memory_stale": true
+  }
+}

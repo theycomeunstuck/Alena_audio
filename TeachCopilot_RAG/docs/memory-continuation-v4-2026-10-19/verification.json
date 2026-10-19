@@ -1,0 +1,22 @@
+{
+  "created_at": "2026-10-19T16:59:47.153489+00:00",
+  "ui_requested": true,
+  "checks": [
+    {
+      "name": "pytest",
+      "passed": true,
+      "exit_code": 0,
+      "log": ".local\\verification\\pytest.log",
+      "passed_tests": 810,
+      "skipped_tests": 0
+    },
+    {
+      "name": "learner-policy",
+      "passed": true,
+      "exit_code": 0,
+      "log": ".local\\verification\\learner-policy.log",
+      "tests": 52
+    }
+  ],
+  "passed": true
+}

@@ -1,0 +1,13 @@
+{
+  "learning_session_id": "91896726-75be-4bf0-90e1-bb92f1f820fd",
+  "client_message_id": "memory-continuation-v2-recall-0-0",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Продолжим тот круг с прошлого занятия. Задай один следующий вопрос без готовой дроби."
+    }
+  ],
+  "metadata": {
+    "subject_id": "math"
+  }
+}

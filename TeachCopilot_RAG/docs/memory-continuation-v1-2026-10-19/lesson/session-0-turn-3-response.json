@@ -1,0 +1,34 @@
+{
+  "status_code": 200,
+  "body": {
+    "id": null,
+    "object": "chat.completion",
+    "created": "2026-10-19T16:43:34.3621428Z",
+    "model": "gemma4:12b",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "Давай тогда выберем, с чего начнём. Тебе больше хочется попробовать что-то в программировании или разберём пример по математике?"
+        },
+        "finish_reason": "stop"
+      }
+    ],
+    "citations": [],
+    "sources": [],
+    "usage": {
+      "prompt_tokens": 488,
+      "completion_tokens": 32,
+      "total_tokens": 520
+    },
+    "answer_routing": {
+      "backend": "local",
+      "reason": "brief_social_turn"
+    },
+    "learning_session_id": "1cad1c69-0451-4e1a-9ca5-972b54c9d89f",
+    "client_message_id": "memory-continuation-v1-lesson-0-3",
+    "memory_version_id": null,
+    "memory_stale": false
+  }
+}

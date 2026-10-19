@@ -1,0 +1,54 @@
+{
+  "status_code": 200,
+  "body": {
+    "id": null,
+    "object": "chat.completion",
+    "created": "2026-10-19T16:56:33.4422444Z",
+    "model": "gemma4:12b",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "Конечно, давай представим, что наш круг – это путь кометы в космосе, который разделен на равные участки.\n\nПосмотри на этот путь: на сколько равных участков он разделен всего (включая те, что уже пролетела комета)?"
+        },
+        "finish_reason": "stop"
+      }
+    ],
+    "citations": [],
+    "sources": [
+      {
+        "id": "div-408-4",
+        "source_file": "TeachCopilot_RAG/knowledge-data/math_g4_division_demo.json",
+        "score": 0.02928692699490662,
+        "similarity": 0.5250072911421431
+      },
+      {
+        "id": "shares-name-one-of-four",
+        "source_file": "TeachCopilot_RAG/knowledge-data/math_g3_fractions.json",
+        "score": 0.02943722943722944,
+        "similarity": 0.5088116385470308
+      },
+      {
+        "id": "div-85-4-remainder",
+        "source_file": "TeachCopilot_RAG/knowledge-data/math_g4_division_demo.json",
+        "score": 0.027912386121341344,
+        "similarity": 0.5066297189471894
+      }
+    ],
+    "usage": {
+      "prompt_tokens": 3405,
+      "completion_tokens": 83,
+      "total_tokens": 3488
+    },
+    "answer_routing": {
+      "backend": "local",
+      "reason": "external_disabled",
+      "policy": "educational-projection-v2"
+    },
+    "learning_session_id": "656d0b2b-2c47-4779-b604-753ba3bb9d34",
+    "client_message_id": "memory-continuation-v4-recall-0-0",
+    "memory_version_id": "c2c311b7-b19d-4ba0-a3c7-7311665055ad",
+    "memory_stale": true
+  }
+}

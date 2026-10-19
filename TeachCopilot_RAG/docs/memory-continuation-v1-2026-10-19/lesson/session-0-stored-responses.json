@@ -1,0 +1,206 @@
+[
+  {
+    "client_message_id": "memory-continuation-v1-lesson-0-0",
+    "status": "completed",
+    "response": {
+      "id": null,
+      "model": "gemma4:12b",
+      "usage": {
+        "total_tokens": 1800,
+        "prompt_tokens": 1697,
+        "completion_tokens": 103
+      },
+      "object": "chat.completion",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": "Ника, давай сначала определимся с «целым». Представь, что этот круг – это целый аквариум, который мы хотим заполнить рыбками. \n\nЧтобы не запутаться, давай сначала запишем сверху число, которое показывает, на сколько равных частей мы разделили весь круг целиком. \n\nНа сколько частей разделили круг?"
+          },
+          "finish_reason": "stop"
+        }
+      ],
+      "created": "2026-10-19T16:43:26.9945198Z",
+      "sources": [
+        {
+          "id": "fraction-pie-3-of-8",
+          "grade": 4,
+          "score": 0.03047794966520434,
+          "topic_id": "math.g4.fractions.numerator_denominator",
+          "similarity": 0.5714078630781673,
+          "subject_id": "math",
+          "source_file": "TeachCopilot_RAG/knowledge-data/math_g4_fractions.json",
+          "source_version": "474a27139d754e6d5acfe571649f5166c71470cf8d6fcc71a721b102990a06bc"
+        },
+        {
+          "id": "fraction-what-denominator-shows",
+          "grade": 4,
+          "score": 0.03021353930031804,
+          "topic_id": "math.g4.fractions.numerator_denominator",
+          "similarity": 0.5952063472706282,
+          "subject_id": "math",
+          "source_file": "TeachCopilot_RAG/knowledge-data/math_g4_fractions.json",
+          "source_version": "474a27139d754e6d5acfe571649f5166c71470cf8d6fcc71a721b102990a06bc"
+        },
+        {
+          "id": "fraction-name-parts",
+          "grade": 4,
+          "score": 0.02857142857142857,
+          "topic_id": "math.g4.fractions.numerator_denominator",
+          "similarity": 0.5716066019026748,
+          "subject_id": "math",
+          "source_file": "TeachCopilot_RAG/knowledge-data/math_g4_fractions.json",
+          "source_version": "474a27139d754e6d5acfe571649f5166c71470cf8d6fcc71a721b102990a06bc"
+        }
+      ],
+      "citations": [],
+      "memory_stale": false,
+      "answer_routing": {
+        "policy": "educational-projection-v2",
+        "reason": "external_disabled",
+        "backend": "local"
+      },
+      "client_message_id": "memory-continuation-v1-lesson-0-0",
+      "memory_version_id": null,
+      "learning_session_id": "1cad1c69-0451-4e1a-9ca5-972b54c9d89f"
+    }
+  },
+  {
+    "client_message_id": "memory-continuation-v1-lesson-0-1",
+    "status": "completed",
+    "response": {
+      "id": null,
+      "model": "gemma4:12b",
+      "usage": {
+        "total_tokens": 1859,
+        "prompt_tokens": 1794,
+        "completion_tokens": 65
+      },
+      "object": "chat.completion",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": "Посмотри на рисунок ещё раз. Если мы возьмём весь круг целиком, на сколько кусочков он поделен? Просто посчитай все части, включая и закрашенные, и пустые."
+          },
+          "finish_reason": "stop"
+        }
+      ],
+      "created": "2026-10-19T16:43:30.5172072Z",
+      "sources": [
+        {
+          "id": "fraction-pie-3-of-8",
+          "grade": 4,
+          "score": 0.03225806451612903,
+          "topic_id": "math.g4.fractions.numerator_denominator",
+          "similarity": 0.5550522011331951,
+          "subject_id": "math",
+          "source_file": "TeachCopilot_RAG/knowledge-data/math_g4_fractions.json",
+          "source_version": "474a27139d754e6d5acfe571649f5166c71470cf8d6fcc71a721b102990a06bc"
+        },
+        {
+          "id": "shares-name-one-of-four",
+          "grade": 3,
+          "score": 0.032266458495966696,
+          "topic_id": "math.g3.fractions.shares",
+          "similarity": 0.5733356300984678,
+          "subject_id": "math",
+          "source_file": "TeachCopilot_RAG/knowledge-data/math_g3_fractions.json",
+          "source_version": "0ecb24e02bbcfc6737f6f7c367b48055fae82c2ef921a11b50be623ed155316e"
+        },
+        {
+          "id": "div-85-4-remainder",
+          "grade": 4,
+          "score": 0.029644268774703556,
+          "topic_id": "math.g4.numbers.division_by_1_2_digit",
+          "similarity": 0.5376801586674802,
+          "subject_id": "math",
+          "source_file": "TeachCopilot_RAG/knowledge-data/math_g4_division_demo.json",
+          "source_version": "970f59f3106ad2e7249b2d4c42226a4b4c23131cb75cc39c54aff93e3784789d"
+        }
+      ],
+      "citations": [],
+      "memory_stale": false,
+      "answer_routing": {
+        "policy": "educational-projection-v2",
+        "reason": "external_disabled",
+        "backend": "local"
+      },
+      "query_resolution": {
+        "source": "assistant_question",
+        "turn_index": 1
+      },
+      "client_message_id": "memory-continuation-v1-lesson-0-1",
+      "memory_version_id": null,
+      "learning_session_id": "1cad1c69-0451-4e1a-9ca5-972b54c9d89f"
+    }
+  },
+  {
+    "client_message_id": "memory-continuation-v1-lesson-0-2",
+    "status": "completed",
+    "response": {
+      "id": null,
+      "model": "gemma4:12b",
+      "usage": {
+        "total_tokens": 0,
+        "prompt_tokens": 0,
+        "completion_tokens": 0
+      },
+      "object": "chat.completion",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": "Я могу помочь с математикой, Scratch и Python. Какой учебный вопрос разберём?"
+          },
+          "finish_reason": "stop"
+        }
+      ],
+      "created": null,
+      "sources": [],
+      "citations": [],
+      "memory_stale": false,
+      "client_message_id": "memory-continuation-v1-lesson-0-2",
+      "memory_version_id": null,
+      "learning_session_id": "1cad1c69-0451-4e1a-9ca5-972b54c9d89f"
+    }
+  },
+  {
+    "client_message_id": "memory-continuation-v1-lesson-0-3",
+    "status": "completed",
+    "response": {
+      "id": null,
+      "model": "gemma4:12b",
+      "usage": {
+        "total_tokens": 520,
+        "prompt_tokens": 488,
+        "completion_tokens": 32
+      },
+      "object": "chat.completion",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": "Давай тогда выберем, с чего начнём. Тебе больше хочется попробовать что-то в программировании или разберём пример по математике?"
+          },
+          "finish_reason": "stop"
+        }
+      ],
+      "created": "2026-10-19T16:43:34.3621428Z",
+      "sources": [],
+      "citations": [],
+      "memory_stale": false,
+      "answer_routing": {
+        "reason": "brief_social_turn",
+        "backend": "local"
+      },
+      "client_message_id": "memory-continuation-v1-lesson-0-3",
+      "memory_version_id": null,
+      "learning_session_id": "1cad1c69-0451-4e1a-9ca5-972b54c9d89f"
+    }
+  }
+]

@@ -1,0 +1,35 @@
+{
+  "status_code": 200,
+  "body": {
+    "id": null,
+    "object": "chat.completion",
+    "created": null,
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "Напомни, какое задание мы разбираем или какой шаг сейчас непонятен?"
+        },
+        "finish_reason": "stop"
+      }
+    ],
+    "citations": [],
+    "sources": [],
+    "query_resolution": {
+      "source": "clarification",
+      "reason": "learning_context_unclear"
+    },
+    "model": "gemma4:12b",
+    "usage": {
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "total_tokens": 0
+    },
+    "usage_scope": "deterministic_clarification_excludes_resolver",
+    "learning_session_id": "11ab674b-f30f-4585-a33c-04443a425f80",
+    "client_message_id": "memory-continuation-v4-boundary-rest-0-0",
+    "memory_version_id": null,
+    "memory_stale": false
+  }
+}

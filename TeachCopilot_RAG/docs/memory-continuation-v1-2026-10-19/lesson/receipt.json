@@ -1,0 +1,228 @@
+{
+  "protocol": "memory-continuation-v1",
+  "phase": "lesson",
+  "synthetic": true,
+  "research_experiment": false,
+  "sessions": [
+    [
+      "math.g4.fractions.numerator_denominator",
+      [
+        "опять дроби. круг на 10 частей, 4 закрашены. сверху 10? не поняла",
+        "хз",
+        "ну вроде. а можно про кометы?",
+        "ага"
+      ]
+    ]
+  ],
+  "maximum_chat_requests": 4,
+  "maximum_next_step_requests": 0,
+  "automatic_retries": false,
+  "teacher_confirmation": false,
+  "provider": "local",
+  "started_at": "2026-10-19T16:43:14.742212+00:00",
+  "routing_preflight": {
+    "api_pid": 46056,
+    "external_answer_config_absent": true,
+    "scope": "API listener environment and application dotenv"
+  },
+  "status": "completed",
+  "attempted_chat_requests": 4,
+  "job_ids": [
+    "8e9b8704-ace9-497b-b97b-17227badea1d"
+  ],
+  "turns": [
+    {
+      "session_id": "1cad1c69-0451-4e1a-9ca5-972b54c9d89f",
+      "topic_id": "math.g4.fractions.numerator_denominator",
+      "message": "опять дроби. круг на 10 частей, 4 закрашены. сверху 10? не поняла",
+      "response": {
+        "id": null,
+        "object": "chat.completion",
+        "created": "2026-10-19T16:43:26.9945198Z",
+        "model": "gemma4:12b",
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "Ника, давай сначала определимся с «целым». Представь, что этот круг – это целый аквариум, который мы хотим заполнить рыбками. \n\nЧтобы не запутаться, давай сначала запишем сверху число, которое показывает, на сколько равных частей мы разделили весь круг целиком. \n\nНа сколько частей разделили круг?"
+            },
+            "finish_reason": "stop"
+          }
+        ],
+        "citations": [],
+        "sources": [
+          {
+            "id": "fraction-pie-3-of-8",
+            "source_file": "TeachCopilot_RAG/knowledge-data/math_g4_fractions.json",
+            "score": 0.03047794966520434,
+            "similarity": 0.5714078630781673
+          },
+          {
+            "id": "fraction-what-denominator-shows",
+            "source_file": "TeachCopilot_RAG/knowledge-data/math_g4_fractions.json",
+            "score": 0.03021353930031804,
+            "similarity": 0.5952063472706282
+          },
+          {
+            "id": "fraction-name-parts",
+            "source_file": "TeachCopilot_RAG/knowledge-data/math_g4_fractions.json",
+            "score": 0.02857142857142857,
+            "similarity": 0.5716066019026748
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 1697,
+          "completion_tokens": 103,
+          "total_tokens": 1800
+        },
+        "answer_routing": {
+          "backend": "local",
+          "reason": "external_disabled",
+          "policy": "educational-projection-v2"
+        },
+        "learning_session_id": "1cad1c69-0451-4e1a-9ca5-972b54c9d89f",
+        "client_message_id": "memory-continuation-v1-lesson-0-0",
+        "memory_version_id": null,
+        "memory_stale": false
+      }
+    },
+    {
+      "session_id": "1cad1c69-0451-4e1a-9ca5-972b54c9d89f",
+      "topic_id": "math.g4.fractions.numerator_denominator",
+      "message": "хз",
+      "response": {
+        "id": null,
+        "object": "chat.completion",
+        "created": "2026-10-19T16:43:30.5172072Z",
+        "model": "gemma4:12b",
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "Посмотри на рисунок ещё раз. Если мы возьмём весь круг целиком, на сколько кусочков он поделен? Просто посчитай все части, включая и закрашенные, и пустые."
+            },
+            "finish_reason": "stop"
+          }
+        ],
+        "citations": [],
+        "sources": [
+          {
+            "id": "fraction-pie-3-of-8",
+            "source_file": "TeachCopilot_RAG/knowledge-data/math_g4_fractions.json",
+            "score": 0.03225806451612903,
+            "similarity": 0.5550522011331951
+          },
+          {
+            "id": "shares-name-one-of-four",
+            "source_file": "TeachCopilot_RAG/knowledge-data/math_g3_fractions.json",
+            "score": 0.032266458495966696,
+            "similarity": 0.5733356300984678
+          },
+          {
+            "id": "div-85-4-remainder",
+            "source_file": "TeachCopilot_RAG/knowledge-data/math_g4_division_demo.json",
+            "score": 0.029644268774703556,
+            "similarity": 0.5376801586674802
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 1794,
+          "completion_tokens": 65,
+          "total_tokens": 1859
+        },
+        "answer_routing": {
+          "backend": "local",
+          "reason": "external_disabled",
+          "policy": "educational-projection-v2"
+        },
+        "query_resolution": {
+          "source": "assistant_question",
+          "turn_index": 1
+        },
+        "learning_session_id": "1cad1c69-0451-4e1a-9ca5-972b54c9d89f",
+        "client_message_id": "memory-continuation-v1-lesson-0-1",
+        "memory_version_id": null,
+        "memory_stale": false
+      }
+    },
+    {
+      "session_id": "1cad1c69-0451-4e1a-9ca5-972b54c9d89f",
+      "topic_id": "math.g4.fractions.numerator_denominator",
+      "message": "ну вроде. а можно про кометы?",
+      "response": {
+        "id": null,
+        "object": "chat.completion",
+        "created": null,
+        "model": "gemma4:12b",
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "Я могу помочь с математикой, Scratch и Python. Какой учебный вопрос разберём?"
+            },
+            "finish_reason": "stop"
+          }
+        ],
+        "citations": [],
+        "sources": [],
+        "usage": {
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "total_tokens": 0
+        },
+        "learning_session_id": "1cad1c69-0451-4e1a-9ca5-972b54c9d89f",
+        "client_message_id": "memory-continuation-v1-lesson-0-2",
+        "memory_version_id": null,
+        "memory_stale": false
+      }
+    },
+    {
+      "session_id": "1cad1c69-0451-4e1a-9ca5-972b54c9d89f",
+      "topic_id": "math.g4.fractions.numerator_denominator",
+      "message": "ага",
+      "response": {
+        "id": null,
+        "object": "chat.completion",
+        "created": "2026-10-19T16:43:34.3621428Z",
+        "model": "gemma4:12b",
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "Давай тогда выберем, с чего начнём. Тебе больше хочется попробовать что-то в программировании или разберём пример по математике?"
+            },
+            "finish_reason": "stop"
+          }
+        ],
+        "citations": [],
+        "sources": [],
+        "usage": {
+          "prompt_tokens": 488,
+          "completion_tokens": 32,
+          "total_tokens": 520
+        },
+        "answer_routing": {
+          "backend": "local",
+          "reason": "brief_social_turn"
+        },
+        "learning_session_id": "1cad1c69-0451-4e1a-9ca5-972b54c9d89f",
+        "client_message_id": "memory-continuation-v1-lesson-0-3",
+        "memory_version_id": null,
+        "memory_stale": false
+      }
+    }
+  ],
+  "checks": {
+    "card_unchanged": true,
+    "old_sources_unchanged": true,
+    "new_versions_unapproved": true
+  },
+  "new_version_ids": [
+    "4a2f343d-a458-416e-8b36-40ac557cd3f5"
+  ],
+  "finished_at": "2026-10-19T16:43:37.092412+00:00"
+}

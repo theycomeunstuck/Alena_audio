@@ -1,0 +1,38 @@
+[
+  {
+    "client_message_id": "memory-continuation-v4-boundary-rest-0-0",
+    "status": "completed",
+    "response": {
+      "id": null,
+      "model": "gemma4:12b",
+      "usage": {
+        "total_tokens": 0,
+        "prompt_tokens": 0,
+        "completion_tokens": 0
+      },
+      "object": "chat.completion",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": "Напомни, какое задание мы разбираем или какой шаг сейчас непонятен?"
+          },
+          "finish_reason": "stop"
+        }
+      ],
+      "created": null,
+      "sources": [],
+      "citations": [],
+      "usage_scope": "deterministic_clarification_excludes_resolver",
+      "memory_stale": false,
+      "query_resolution": {
+        "reason": "learning_context_unclear",
+        "source": "clarification"
+      },
+      "client_message_id": "memory-continuation-v4-boundary-rest-0-0",
+      "memory_version_id": null,
+      "learning_session_id": "11ab674b-f30f-4585-a33c-04443a425f80"
+    }
+  }
+]

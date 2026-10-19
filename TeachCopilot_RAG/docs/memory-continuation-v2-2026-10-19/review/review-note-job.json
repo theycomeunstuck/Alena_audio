@@ -1,0 +1,31 @@
+{
+  "id": "f1d7432b-bccb-4776-8290-ea0d8ef16c79",
+  "learner_id": "demo-nika-04",
+  "topic_id": "math.g4.fractions.numerator_denominator",
+  "actor_id": "22c59a7e-251a-423a-8885-73455058e5d3",
+  "kind": "memory_update",
+  "method": "tail",
+  "provider": "local",
+  "status": "completed",
+  "priority": 0,
+  "base_revision": 3,
+  "source_revision": 33,
+  "idempotency_key": "memory-continuation-v2-review-note",
+  "payload": {
+    "synthetic_review_note": "8f06aead-9d0d-4980-aa62-6ecbe4e21b53"
+  },
+  "result": {
+    "calls": [],
+    "method": "tail",
+    "review_required": true,
+    "memory_version_id": "54939326-8c2f-4dc2-9f8a-2946287306c4"
+  },
+  "error": null,
+  "worker_id": "memory-c2b518e4d1464272b30b789b95654061",
+  "lease_until": null,
+  "call_started_at": null,
+  "created_at": "2026-10-19T16:49:03.019923+00:00",
+  "started_at": "2026-10-19T16:49:03.815061+00:00",
+  "completed_at": "2026-10-19T16:49:03.873880+00:00",
+  "job_id": "f1d7432b-bccb-4776-8290-ea0d8ef16c79"
+}

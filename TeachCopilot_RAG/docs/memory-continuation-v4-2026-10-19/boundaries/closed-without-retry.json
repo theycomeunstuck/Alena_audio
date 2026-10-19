@@ -1,0 +1,79 @@
+{
+  "failed_message_retried": false,
+  "unexecuted_original_messages": 2,
+  "job": {
+    "id": "a62f53ad-2efa-4f84-831a-1939bc0c7f87",
+    "learner_id": "demo-nika-04",
+    "topic_id": "math.g4.data.bar_charts",
+    "actor_id": "343fc022-0cad-4f81-a6af-69cfc6dfa100",
+    "kind": "memory_update",
+    "method": "tail",
+    "provider": "local",
+    "status": "completed",
+    "priority": 0,
+    "base_revision": 3,
+    "source_revision": 44,
+    "idempotency_key": "session:f2827fc4-144c-4826-87a9-d3d5dc9060bc",
+    "payload": {
+      "learning_session_id": "f2827fc4-144c-4826-87a9-d3d5dc9060bc"
+    },
+    "result": {
+      "calls": [
+        {
+          "purpose": "conversation_interests",
+          "input_chars": 3434,
+          "input_budget": {
+            "method": "cl100k_base_with_safety_reserve_v1",
+            "enforced": true,
+            "estimator": "cl100k_base",
+            "within_guard": true,
+            "context_tokens": 8192,
+            "exact_token_count": false,
+            "schema_utf8_bytes": 521,
+            "token_budget_kind": "heuristic_not_model_tokenizer",
+            "message_utf8_bytes": 5912,
+            "guarded_input_tokens": 2326,
+            "safety_reserve_tokens": 512,
+            "available_input_tokens": 6656,
+            "estimated_input_tokens": 1814,
+            "reserved_output_tokens": 1536,
+            "framing_token_allowance": 256,
+            "estimated_payload_tokens": 1558
+          },
+          "raw_response": {
+            "done": true,
+            "model": "gemma4:12b",
+            "message": {
+              "role": "assistant",
+              "content": "{\"candidates\": []}"
+            },
+            "created_at": "2026-10-19T16:58:59.955371Z",
+            "eval_count": 6,
+            "done_reason": "stop",
+            "eval_duration": 48040000,
+            "load_duration": 7328900,
+            "total_duration": 788594500,
+            "prompt_eval_count": 871,
+            "prompt_eval_duration": 338550000,
+            "prompt_eval_cached_count": 38
+          },
+          "prompt_tokens": 871,
+          "elapsed_seconds": 0.8570290999487042,
+          "completion_tokens": 6
+        }
+      ],
+      "method": "tail",
+      "review_required": true,
+      "memory_version_id": "1509d80c-242e-4a4a-86f0-ef50d4c9b4a4"
+    },
+    "error": null,
+    "worker_id": "memory-ea15e0ebc0604a22a5f87086cbb537f7",
+    "lease_until": null,
+    "call_started_at": "2026-10-19T16:58:59.137444+00:00",
+    "created_at": "2026-10-19T16:58:58.291063+00:00",
+    "started_at": "2026-10-19T16:58:59.013983+00:00",
+    "completed_at": "2026-10-19T16:58:59.979952+00:00",
+    "job_id": "a62f53ad-2efa-4f84-831a-1939bc0c7f87"
+  },
+  "new_memory_approved": false
+}

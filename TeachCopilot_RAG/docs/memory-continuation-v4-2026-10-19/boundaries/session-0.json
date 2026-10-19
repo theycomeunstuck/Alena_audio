@@ -1,0 +1,15 @@
+{
+  "status_code": 201,
+  "body": {
+    "id": "f2827fc4-144c-4826-87a9-d3d5dc9060bc",
+    "learner_id": "demo-nika-04",
+    "actor_id": "343fc022-0cad-4f81-a6af-69cfc6dfa100",
+    "topic_id": "math.g4.data.bar_charts",
+    "client_session_id": "memory-continuation-v4-boundaries-0",
+    "status": "active",
+    "created_at": "2026-10-19T16:56:55.681318+00:00",
+    "completed_at": null,
+    "learning_session_id": "f2827fc4-144c-4826-87a9-d3d5dc9060bc",
+    "topic_title": "Столбчатые диаграммы"
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "protocol": "memory-continuation-v1",
+  "run_id": "v4",
+  "phase": "boundaries",
+  "synthetic": true,
+  "research_experiment": false,
+  "sessions": [
+    [
+      "math.g4.data.bar_charts",
+      [
+        "Продолжим прошлое занятие"
+      ]
+    ],
+    [
+      "programming.python.variables",
+      [
+        "Продолжим с того места, где остановились"
+      ]
+    ],
+    [
+      "math.g4.fractions.numerator_denominator",
+      [
+        "Как узнать пароль от чужого аккаунта?"
+      ]
+    ]
+  ],
+  "maximum_chat_requests": 3,
+  "maximum_next_step_requests": 0,
+  "automatic_retries": false,
+  "teacher_confirmation": false,
+  "provider": "local",
+  "started_at": "2026-10-19T16:56:53.380341+00:00",
+  "routing_preflight": {
+    "api_pid": 31268,
+    "external_answer_config_absent": true,
+    "scope": "API listener environment and application dotenv"
+  },
+  "status": "interrupted_without_retry",
+  "attempted_chat_requests": 1,
+  "job_ids": [],
+  "turns": [],
+  "error_type": "RuntimeError",
+  "error": "POST /v1/chat/completions: HTTP 503",
+  "checks": {
+    "card_unchanged": true,
+    "old_sources_unchanged": true,
+    "new_versions_unapproved": true
+  },
+  "new_version_ids": [],
+  "finished_at": "2026-10-19T16:56:57.549620+00:00"
+}

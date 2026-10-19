@@ -1,0 +1,41 @@
+{
+  "status_code": 202,
+  "body": {
+    "id": "656d0b2b-2c47-4779-b604-753ba3bb9d34",
+    "learner_id": "demo-nika-04",
+    "actor_id": "343fc022-0cad-4f81-a6af-69cfc6dfa100",
+    "topic_id": "math.g4.fractions.numerator_denominator",
+    "client_session_id": "memory-continuation-v4-recall-0",
+    "status": "completed",
+    "created_at": "2026-10-19T16:56:27.599127+00:00",
+    "completed_at": "2026-10-19T16:56:38.021309+00:00",
+    "learning_session_id": "656d0b2b-2c47-4779-b604-753ba3bb9d34",
+    "job": {
+      "id": "ade0f7a1-b130-4890-aa3f-bb60cb66812f",
+      "learner_id": "demo-nika-04",
+      "topic_id": "math.g4.fractions.numerator_denominator",
+      "actor_id": "343fc022-0cad-4f81-a6af-69cfc6dfa100",
+      "kind": "memory_update",
+      "method": "tail",
+      "provider": "local",
+      "status": "queued",
+      "priority": 0,
+      "base_revision": 3,
+      "source_revision": 42,
+      "idempotency_key": "session:656d0b2b-2c47-4779-b604-753ba3bb9d34",
+      "payload": {
+        "learning_session_id": "656d0b2b-2c47-4779-b604-753ba3bb9d34"
+      },
+      "result": null,
+      "error": null,
+      "worker_id": null,
+      "lease_until": null,
+      "call_started_at": null,
+      "created_at": "2026-10-19T16:56:38.021309+00:00",
+      "started_at": null,
+      "completed_at": null,
+      "job_id": "ade0f7a1-b130-4890-aa3f-bb60cb66812f"
+    },
+    "job_id": "ade0f7a1-b130-4890-aa3f-bb60cb66812f"
+  }
+}

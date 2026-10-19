@@ -1,0 +1,41 @@
+{
+  "status_code": 202,
+  "body": {
+    "id": "11ab674b-f30f-4585-a33c-04443a425f80",
+    "learner_id": "demo-nika-04",
+    "actor_id": "343fc022-0cad-4f81-a6af-69cfc6dfa100",
+    "topic_id": "programming.python.variables",
+    "client_session_id": "memory-continuation-v4-boundary-rest-0",
+    "status": "completed",
+    "created_at": "2026-10-19T16:59:06.752474+00:00",
+    "completed_at": "2026-10-19T16:59:08.930897+00:00",
+    "learning_session_id": "11ab674b-f30f-4585-a33c-04443a425f80",
+    "job": {
+      "id": "5d474b17-eaac-4304-8880-ad9311019758",
+      "learner_id": "demo-nika-04",
+      "topic_id": "programming.python.variables",
+      "actor_id": "343fc022-0cad-4f81-a6af-69cfc6dfa100",
+      "kind": "memory_update",
+      "method": "tail",
+      "provider": "local",
+      "status": "queued",
+      "priority": 0,
+      "base_revision": 3,
+      "source_revision": 47,
+      "idempotency_key": "session:11ab674b-f30f-4585-a33c-04443a425f80",
+      "payload": {
+        "learning_session_id": "11ab674b-f30f-4585-a33c-04443a425f80"
+      },
+      "result": null,
+      "error": null,
+      "worker_id": null,
+      "lease_until": null,
+      "call_started_at": null,
+      "created_at": "2026-10-19T16:59:08.930897+00:00",
+      "started_at": null,
+      "completed_at": null,
+      "job_id": "5d474b17-eaac-4304-8880-ad9311019758"
+    },
+    "job_id": "5d474b17-eaac-4304-8880-ad9311019758"
+  }
+}

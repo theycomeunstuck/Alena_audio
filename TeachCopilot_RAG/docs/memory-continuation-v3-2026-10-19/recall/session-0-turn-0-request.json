@@ -1,0 +1,13 @@
+{
+  "learning_session_id": "eb86d355-ea4a-4c5e-9364-9075aa891cfe",
+  "client_message_id": "memory-continuation-v3-recall-0-0",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Я снова здесь. Какой один шаг по дробям мне сейчас сделать?"
+    }
+  ],
+  "metadata": {
+    "subject_id": "math"
+  }
+}

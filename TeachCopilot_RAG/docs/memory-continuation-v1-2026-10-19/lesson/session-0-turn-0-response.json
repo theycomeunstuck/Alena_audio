@@ -1,0 +1,54 @@
+{
+  "status_code": 200,
+  "body": {
+    "id": null,
+    "object": "chat.completion",
+    "created": "2026-10-19T16:43:26.9945198Z",
+    "model": "gemma4:12b",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "Ника, давай сначала определимся с «целым». Представь, что этот круг – это целый аквариум, который мы хотим заполнить рыбками. \n\nЧтобы не запутаться, давай сначала запишем сверху число, которое показывает, на сколько равных частей мы разделили весь круг целиком. \n\nНа сколько частей разделили круг?"
+        },
+        "finish_reason": "stop"
+      }
+    ],
+    "citations": [],
+    "sources": [
+      {
+        "id": "fraction-pie-3-of-8",
+        "source_file": "TeachCopilot_RAG/knowledge-data/math_g4_fractions.json",
+        "score": 0.03047794966520434,
+        "similarity": 0.5714078630781673
+      },
+      {
+        "id": "fraction-what-denominator-shows",
+        "source_file": "TeachCopilot_RAG/knowledge-data/math_g4_fractions.json",
+        "score": 0.03021353930031804,
+        "similarity": 0.5952063472706282
+      },
+      {
+        "id": "fraction-name-parts",
+        "source_file": "TeachCopilot_RAG/knowledge-data/math_g4_fractions.json",
+        "score": 0.02857142857142857,
+        "similarity": 0.5716066019026748
+      }
+    ],
+    "usage": {
+      "prompt_tokens": 1697,
+      "completion_tokens": 103,
+      "total_tokens": 1800
+    },
+    "answer_routing": {
+      "backend": "local",
+      "reason": "external_disabled",
+      "policy": "educational-projection-v2"
+    },
+    "learning_session_id": "1cad1c69-0451-4e1a-9ca5-972b54c9d89f",
+    "client_message_id": "memory-continuation-v1-lesson-0-0",
+    "memory_version_id": null,
+    "memory_stale": false
+  }
+}

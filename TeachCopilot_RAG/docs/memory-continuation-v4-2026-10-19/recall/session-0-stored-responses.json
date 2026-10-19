@@ -1,0 +1,144 @@
+[
+  {
+    "client_message_id": "memory-continuation-v4-recall-0-0",
+    "status": "completed",
+    "response": {
+      "id": null,
+      "model": "gemma4:12b",
+      "usage": {
+        "total_tokens": 3488,
+        "prompt_tokens": 3405,
+        "completion_tokens": 83
+      },
+      "object": "chat.completion",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": "Конечно, давай представим, что наш круг – это путь кометы в космосе, который разделен на равные участки.\n\nПосмотри на этот путь: на сколько равных участков он разделен всего (включая те, что уже пролетела комета)?"
+          },
+          "finish_reason": "stop"
+        }
+      ],
+      "created": "2026-10-19T16:56:33.4422444Z",
+      "sources": [
+        {
+          "id": "div-408-4",
+          "grade": 4,
+          "score": 0.02928692699490662,
+          "topic_id": "math.g4.numbers.division_by_1_2_digit",
+          "similarity": 0.5250072911421431,
+          "subject_id": "math",
+          "source_file": "TeachCopilot_RAG/knowledge-data/math_g4_division_demo.json",
+          "source_version": "970f59f3106ad2e7249b2d4c42226a4b4c23131cb75cc39c54aff93e3784789d"
+        },
+        {
+          "id": "shares-name-one-of-four",
+          "grade": 3,
+          "score": 0.02943722943722944,
+          "topic_id": "math.g3.fractions.shares",
+          "similarity": 0.5088116385470308,
+          "subject_id": "math",
+          "source_file": "TeachCopilot_RAG/knowledge-data/math_g3_fractions.json",
+          "source_version": "0ecb24e02bbcfc6737f6f7c367b48055fae82c2ef921a11b50be623ed155316e"
+        },
+        {
+          "id": "div-85-4-remainder",
+          "grade": 4,
+          "score": 0.027912386121341344,
+          "topic_id": "math.g4.numbers.division_by_1_2_digit",
+          "similarity": 0.5066297189471894,
+          "subject_id": "math",
+          "source_file": "TeachCopilot_RAG/knowledge-data/math_g4_division_demo.json",
+          "source_version": "970f59f3106ad2e7249b2d4c42226a4b4c23131cb75cc39c54aff93e3784789d"
+        }
+      ],
+      "citations": [],
+      "memory_stale": true,
+      "answer_routing": {
+        "policy": "educational-projection-v2",
+        "reason": "external_disabled",
+        "backend": "local"
+      },
+      "client_message_id": "memory-continuation-v4-recall-0-0",
+      "memory_version_id": "c2c311b7-b19d-4ba0-a3c7-7311665055ad",
+      "learning_session_id": "656d0b2b-2c47-4779-b604-753ba3bb9d34"
+    }
+  },
+  {
+    "client_message_id": "memory-continuation-v4-recall-0-1",
+    "status": "completed",
+    "response": {
+      "id": null,
+      "model": "gemma4:12b",
+      "usage": {
+        "total_tokens": 3625,
+        "prompt_tokens": 3560,
+        "completion_tokens": 65
+      },
+      "object": "chat.completion",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": "Давай попробуем посчитать вместе. Посмотри на круг и просто посчитай все кусочки, которые в нём есть, как будто ты считаешь звёзды в телескопе. Сколько их получилось?"
+          },
+          "finish_reason": "stop"
+        }
+      ],
+      "created": "2026-10-19T16:56:37.5837958Z",
+      "sources": [
+        {
+          "id": "draw-ray-from-point",
+          "grade": 3,
+          "score": 0.029030910609857977,
+          "topic_id": "math.g3.geometry.point_line_ray_segment",
+          "similarity": 0.5457917126541318,
+          "subject_id": "math",
+          "source_file": "TeachCopilot_RAG/knowledge-data/math_g3_geometry_lines_demo.json",
+          "source_version": "8e278cc7b2f14392f185e4625a2e1cf46e6efdac9f66f7ced0bb2629abdc4c55"
+        },
+        {
+          "id": "angles-which-scale",
+          "grade": 4,
+          "score": 0.02463400900900901,
+          "topic_id": "math.g4.geometry.angles",
+          "similarity": 0.5070377000615275,
+          "subject_id": "math",
+          "source_file": "TeachCopilot_RAG/knowledge-data/math_g4_geometry.json",
+          "source_version": "fd7b2df314334fa0cbbe9c414dd7841b565252426394b4452aae88d5d686373f"
+        },
+        {
+          "id": "triangle-two-names",
+          "grade": 3,
+          "score": 0.024080267558528427,
+          "topic_id": "math.g3.geometry.triangle_types",
+          "similarity": 0.5013279026327163,
+          "subject_id": "math",
+          "source_file": "TeachCopilot_RAG/knowledge-data/math_g3_geometry_triangles.json",
+          "source_version": "12a5f67b236012aea13cb5265862858d672457e7898bd8508a6720f6834fbfe6"
+        }
+      ],
+      "citations": [],
+      "memory_stale": true,
+      "answer_routing": {
+        "policy": "educational-projection-v2",
+        "reason": "external_disabled",
+        "backend": "local"
+      },
+      "query_resolution": {
+        "source": "combined_context",
+        "topic_id": "math.g4.fractions.numerator_denominator",
+        "antecedents": [
+          "learner_question",
+          "approved_memory"
+        ]
+      },
+      "client_message_id": "memory-continuation-v4-recall-0-1",
+      "memory_version_id": "c2c311b7-b19d-4ba0-a3c7-7311665055ad",
+      "learning_session_id": "656d0b2b-2c47-4779-b604-753ba3bb9d34"
+    }
+  }
+]

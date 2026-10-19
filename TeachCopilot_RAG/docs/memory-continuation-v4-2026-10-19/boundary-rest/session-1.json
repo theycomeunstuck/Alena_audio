@@ -1,0 +1,15 @@
+{
+  "status_code": 201,
+  "body": {
+    "id": "81b786c6-538c-4a2d-bde8-babb09d5e27a",
+    "learner_id": "demo-nika-04",
+    "actor_id": "343fc022-0cad-4f81-a6af-69cfc6dfa100",
+    "topic_id": "math.g4.fractions.numerator_denominator",
+    "client_session_id": "memory-continuation-v4-boundary-rest-1",
+    "status": "active",
+    "created_at": "2026-10-19T16:59:11.492821+00:00",
+    "completed_at": null,
+    "learning_session_id": "81b786c6-538c-4a2d-bde8-babb09d5e27a",
+    "topic_title": "Дробь, числитель и знаменатель"
+  }
+}

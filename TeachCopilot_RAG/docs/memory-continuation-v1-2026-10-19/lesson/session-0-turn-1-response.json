@@ -1,0 +1,58 @@
+{
+  "status_code": 200,
+  "body": {
+    "id": null,
+    "object": "chat.completion",
+    "created": "2026-10-19T16:43:30.5172072Z",
+    "model": "gemma4:12b",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "Посмотри на рисунок ещё раз. Если мы возьмём весь круг целиком, на сколько кусочков он поделен? Просто посчитай все части, включая и закрашенные, и пустые."
+        },
+        "finish_reason": "stop"
+      }
+    ],
+    "citations": [],
+    "sources": [
+      {
+        "id": "fraction-pie-3-of-8",
+        "source_file": "TeachCopilot_RAG/knowledge-data/math_g4_fractions.json",
+        "score": 0.03225806451612903,
+        "similarity": 0.5550522011331951
+      },
+      {
+        "id": "shares-name-one-of-four",
+        "source_file": "TeachCopilot_RAG/knowledge-data/math_g3_fractions.json",
+        "score": 0.032266458495966696,
+        "similarity": 0.5733356300984678
+      },
+      {
+        "id": "div-85-4-remainder",
+        "source_file": "TeachCopilot_RAG/knowledge-data/math_g4_division_demo.json",
+        "score": 0.029644268774703556,
+        "similarity": 0.5376801586674802
+      }
+    ],
+    "usage": {
+      "prompt_tokens": 1794,
+      "completion_tokens": 65,
+      "total_tokens": 1859
+    },
+    "answer_routing": {
+      "backend": "local",
+      "reason": "external_disabled",
+      "policy": "educational-projection-v2"
+    },
+    "query_resolution": {
+      "source": "assistant_question",
+      "turn_index": 1
+    },
+    "learning_session_id": "1cad1c69-0451-4e1a-9ca5-972b54c9d89f",
+    "client_message_id": "memory-continuation-v1-lesson-0-1",
+    "memory_version_id": null,
+    "memory_stale": false
+  }
+}

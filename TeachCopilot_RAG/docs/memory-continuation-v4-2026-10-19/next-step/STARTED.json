@@ -1,0 +1,23 @@
+{
+  "protocol": "memory-continuation-v1",
+  "run_id": "v4",
+  "phase": "next-step",
+  "synthetic": true,
+  "research_experiment": false,
+  "sessions": [],
+  "maximum_chat_requests": 0,
+  "maximum_next_step_requests": 1,
+  "automatic_retries": false,
+  "teacher_confirmation": false,
+  "provider": "local",
+  "started_at": "2026-10-19T16:59:36.116464+00:00",
+  "routing_preflight": {
+    "api_pid": 47148,
+    "external_answer_config_absent": true,
+    "scope": "API listener environment and application dotenv"
+  },
+  "status": "running",
+  "attempted_chat_requests": 0,
+  "job_ids": [],
+  "turns": []
+}

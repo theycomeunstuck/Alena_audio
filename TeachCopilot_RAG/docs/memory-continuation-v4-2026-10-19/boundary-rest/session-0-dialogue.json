@@ -1,0 +1,18 @@
+[
+  {
+    "source_id": "e3dec586-fe51-4e2d-971c-c1e414a11a31",
+    "session_id": "11ab674b-f30f-4585-a33c-04443a425f80",
+    "author_role": "student",
+    "role": "user",
+    "content": "Продолжим с того места, где остановились",
+    "created_at": "2026-10-19 16:59:07.337710+00:00"
+  },
+  {
+    "source_id": "023af661-1e4e-465b-a6e6-57cc1b4c484a",
+    "session_id": "11ab674b-f30f-4585-a33c-04443a425f80",
+    "author_role": "assistant",
+    "role": "assistant",
+    "content": "Напомни, какое задание мы разбираем или какой шаг сейчас непонятен?",
+    "created_at": "2026-10-19 16:59:08.616549+00:00"
+  }
+]

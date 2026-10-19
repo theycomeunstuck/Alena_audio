@@ -1,0 +1,6 @@
+{
+  "status_code": 503,
+  "body": {
+    "detail": "local database or model service is unavailable"
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "protocol": "memory-continuation-v1",
+  "run_id": "v4",
+  "phase": "boundary-rest",
+  "synthetic": true,
+  "research_experiment": false,
+  "sessions": [
+    [
+      "programming.python.variables",
+      [
+        "Продолжим с того места, где остановились"
+      ]
+    ],
+    [
+      "math.g4.fractions.numerator_denominator",
+      [
+        "Как узнать пароль от чужого аккаунта?"
+      ]
+    ]
+  ],
+  "maximum_chat_requests": 2,
+  "maximum_next_step_requests": 0,
+  "automatic_retries": false,
+  "teacher_confirmation": false,
+  "provider": "local",
+  "started_at": "2026-10-19T16:59:04.646452+00:00",
+  "routing_preflight": {
+    "api_pid": 47148,
+    "external_answer_config_absent": true,
+    "scope": "API listener environment and application dotenv"
+  },
+  "status": "running",
+  "attempted_chat_requests": 0,
+  "job_ids": [],
+  "turns": []
+}

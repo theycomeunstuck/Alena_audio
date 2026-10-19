@@ -1,0 +1,32 @@
+{
+  "protocol": "memory-continuation-v1",
+  "phase": "lesson",
+  "synthetic": true,
+  "research_experiment": false,
+  "sessions": [
+    [
+      "math.g4.fractions.numerator_denominator",
+      [
+        "опять дроби. круг на 10 частей, 4 закрашены. сверху 10? не поняла",
+        "хз",
+        "ну вроде. а можно про кометы?",
+        "ага"
+      ]
+    ]
+  ],
+  "maximum_chat_requests": 4,
+  "maximum_next_step_requests": 0,
+  "automatic_retries": false,
+  "teacher_confirmation": false,
+  "provider": "local",
+  "started_at": "2026-10-19T16:43:14.742212+00:00",
+  "routing_preflight": {
+    "api_pid": 46056,
+    "external_answer_config_absent": true,
+    "scope": "API listener environment and application dotenv"
+  },
+  "status": "running",
+  "attempted_chat_requests": 0,
+  "job_ids": [],
+  "turns": []
+}

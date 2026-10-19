@@ -1,0 +1,13 @@
+{
+  "learning_session_id": "f2827fc4-144c-4826-87a9-d3d5dc9060bc",
+  "client_message_id": "memory-continuation-v4-boundaries-0-0",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Продолжим прошлое занятие"
+    }
+  ],
+  "metadata": {
+    "subject_id": "math"
+  }
+}

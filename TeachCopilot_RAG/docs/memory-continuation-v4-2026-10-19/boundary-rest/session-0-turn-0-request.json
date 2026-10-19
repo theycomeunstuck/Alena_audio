@@ -1,0 +1,13 @@
+{
+  "learning_session_id": "11ab674b-f30f-4585-a33c-04443a425f80",
+  "client_message_id": "memory-continuation-v4-boundary-rest-0-0",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Продолжим с того места, где остановились"
+    }
+  ],
+  "metadata": {
+    "subject_id": "python"
+  }
+}

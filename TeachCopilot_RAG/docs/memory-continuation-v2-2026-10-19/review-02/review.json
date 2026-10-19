@@ -1,0 +1,17 @@
+{
+  "recorded_at": "2026-10-19T16:51:36.577379+00:00",
+  "review_performed_by": "assistant_on_synthetic_data",
+  "human_reviewed": false,
+  "version_id": "c2c311b7-b19d-4ba0-a3c7-7311665055ad",
+  "topic_id": "math.g4.fractions.numerator_denominator",
+  "accepted_interest_candidates": [],
+  "card_unchanged": true,
+  "checks": [
+    "literal student/teacher evidence only",
+    "assistant context labelled non-evidence",
+    "teacher correction retained as whole turn",
+    "no independent success established",
+    "context within 4000 characters"
+  ],
+  "limitation": "The v1 teaching error and the v2 technical failure remain in the raw records."
+}

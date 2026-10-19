@@ -1,0 +1,13 @@
+{
+  "learning_session_id": "656d0b2b-2c47-4779-b604-753ba3bb9d34",
+  "client_message_id": "memory-continuation-v4-recall-0-1",
+  "messages": [
+    {
+      "role": "user",
+      "content": "хз"
+    }
+  ],
+  "metadata": {
+    "subject_id": "math"
+  }
+}

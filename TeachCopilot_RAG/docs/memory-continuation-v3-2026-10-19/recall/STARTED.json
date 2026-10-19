@@ -1,0 +1,32 @@
+{
+  "protocol": "memory-continuation-v1",
+  "run_id": "v3",
+  "phase": "recall",
+  "synthetic": true,
+  "research_experiment": false,
+  "sessions": [
+    [
+      "math.g4.fractions.numerator_denominator",
+      [
+        "Я снова здесь. Какой один шаг по дробям мне сейчас сделать?",
+        "хз",
+        "ну вроде. а можно про кометы?"
+      ]
+    ]
+  ],
+  "maximum_chat_requests": 3,
+  "maximum_next_step_requests": 0,
+  "automatic_retries": false,
+  "teacher_confirmation": false,
+  "provider": "local",
+  "started_at": "2026-10-19T16:54:28.471764+00:00",
+  "routing_preflight": {
+    "api_pid": 19108,
+    "external_answer_config_absent": true,
+    "scope": "API listener environment and application dotenv"
+  },
+  "status": "running",
+  "attempted_chat_requests": 0,
+  "job_ids": [],
+  "turns": []
+}
