@@ -1,0 +1,61 @@
+test_all_parents_resolve (__main__.TestCatalogShape.test_all_parents_resolve) ... ok
+test_leaf_count_in_range (__main__.TestCatalogShape.test_leaf_count_in_range) ... ok
+test_six_sections_per_grade (__main__.TestCatalogShape.test_six_sections_per_grade) ... ok
+test_duplicate_topic_id_is_an_error (__main__.TestCompetencyValidation.test_duplicate_topic_id_is_an_error) ... ok
+test_mastery_must_be_a_number_not_a_string (__main__.TestCompetencyValidation.test_mastery_must_be_a_number_not_a_string) ... ok
+test_mastery_out_of_range_is_an_error (__main__.TestCompetencyValidation.test_mastery_out_of_range_is_an_error) ... ok
+test_missing_mastery_is_an_error (__main__.TestCompetencyValidation.test_missing_mastery_is_an_error) ... ok
+test_stale_zpd_block_is_a_warning_not_an_error (__main__.TestCompetencyValidation.test_stale_zpd_block_is_a_warning_not_an_error) ... ok
+test_unknown_help_level_in_history_is_an_error (__main__.TestCompetencyValidation.test_unknown_help_level_in_history_is_an_error) ... ok
+test_unknown_key_in_competency_is_an_error (__main__.TestCompetencyValidation.test_unknown_key_in_competency_is_an_error) ... ok
+test_unknown_topic_id_is_an_error (__main__.TestCompetencyValidation.test_unknown_topic_id_is_an_error) ... ok
+test_all_demo_cards_present (__main__.TestContextPerLearner.test_all_demo_cards_present) ... ok
+test_each_card_context_isolated_and_balanced (__main__.TestContextPerLearner.test_each_card_context_isolated_and_balanced) ... ok
+test_subprocess_smoke_one_learner (__main__.TestContextPerLearner.test_subprocess_smoke_one_learner) ... ok
+test_json_format_matches_disk (__main__.TestJsonFormat.test_json_format_matches_disk) ... ok
+test_json_format_subprocess (__main__.TestJsonFormat.test_json_format_subprocess) ... ok
+test_invalid_learner_id_is_rejected_before_lookup (__main__.TestMissingLearnerSubprocess.test_invalid_learner_id_is_rejected_before_lookup) ... ok
+test_missing_learner_exit_2 (__main__.TestMissingLearnerSubprocess.test_missing_learner_exit_2) ... ok
+test_bad_status (__main__.TestNegativeFixtures.test_bad_status) ... ok
+test_balance_key_forbidden (__main__.TestNegativeFixtures.test_balance_key_forbidden) ... ok
+test_malformed_date (__main__.TestNegativeFixtures.test_malformed_date) ... ok
+test_non_string_element_in_string_array (__main__.TestNegativeFixtures.test_non_string_element_in_string_array) ... ok
+test_non_string_topic_id_in_knowledge (__main__.TestNegativeFixtures.test_non_string_topic_id_in_knowledge) ... ok
+test_points_bool_rejected (__main__.TestNegativeFixtures.test_points_bool_rejected) ... ok
+test_rag_context_limit_is_enforced (__main__.TestNegativeFixtures.test_rag_context_limit_is_enforced) ... ok
+test_unknown_top_level_key (__main__.TestNegativeFixtures.test_unknown_top_level_key) ... ok
+test_unknown_topic_id (__main__.TestNegativeFixtures.test_unknown_topic_id) ... ok
+test_bad_date_is_rejected (__main__.TestProgressReport.test_bad_date_is_rejected) ... ok
+test_card_without_competence_map_gives_an_empty_but_valid_report (__main__.TestProgressReport.test_card_without_competence_map_gives_an_empty_but_valid_report) ... ok
+test_report_contains_no_direct_identifiers (__main__.TestProgressReport.test_report_contains_no_direct_identifiers) ... ok
+test_report_shows_growth_and_less_help_needed (__main__.TestProgressReport.test_report_shows_growth_and_less_help_needed) ... ok
+test_since_filters_earlier_observations (__main__.TestProgressReport.test_since_filters_earlier_observations) ... ok
+test_subprocess_smoke_and_missing_learner (__main__.TestProgressReport.test_subprocess_smoke_and_missing_learner) ... ok
+test_cases_cover_every_demo_learner_once (__main__.TestRagBehaviorBenchmark.test_cases_cover_every_demo_learner_once) ... ok
+test_real_data_is_clean (__main__.TestValidatorOnRealData.test_real_data_is_clean) ... ok
+test_confidence_grows_with_observations (__main__.TestZpdPolicy.test_confidence_grows_with_observations) ... ok
+test_high_mastery_but_low_independence_stays_in_zone (__main__.TestZpdPolicy.test_high_mastery_but_low_independence_stays_in_zone)
+«Умеет с помощью, но не сам» — это и есть зона, а не освоенная тема. ... ok
+test_high_mastery_worked_alone_is_mastered (__main__.TestZpdPolicy.test_high_mastery_worked_alone_is_mastered) ... ok
+test_hint_depth_shrinks_as_mastery_grows (__main__.TestZpdPolicy.test_hint_depth_shrinks_as_mastery_grows) ... ok
+test_history_is_capped (__main__.TestZpdPolicy.test_history_is_capped) ... ok
+test_mid_mastery_is_zone_and_low_mastery_is_outside (__main__.TestZpdPolicy.test_mid_mastery_is_zone_and_low_mastery_is_outside) ... ok
+test_missing_mastery_is_unknown_not_guessed (__main__.TestZpdPolicy.test_missing_mastery_is_unknown_not_guessed) ... ok
+test_missing_or_broken_date_is_not_stale (__main__.TestZpdPolicy.test_missing_or_broken_date_is_not_stale) ... ok
+test_needs_scaffolding_does_not_latch (__main__.TestZpdPolicy.test_needs_scaffolding_does_not_latch)
+Флаг производный: он не должен запирать тему в зоне навсегда. ... ok
+test_old_assessment_is_marked_stale (__main__.TestZpdPolicy.test_old_assessment_is_marked_stale)
+У освоения нет забывания, поэтому давность оценки — единственный сигнал. ... ok
+test_one_bad_attempt_cannot_erase_the_history (__main__.TestZpdPolicy.test_one_bad_attempt_cannot_erase_the_history) ... ok
+test_one_solo_success_is_not_mastery_but_three_are (__main__.TestZpdPolicy.test_one_solo_success_is_not_mastery_but_three_are) ... ok
+test_preferred_support_prefers_topic_specific_and_deduplicates (__main__.TestZpdPolicy.test_preferred_support_prefers_topic_specific_and_deduplicates) ... ok
+test_select_target_uses_requested_topic_then_goal (__main__.TestZpdPolicy.test_select_target_uses_requested_topic_then_goal) ... ok
+test_stored_zpd_matches_derived_for_every_real_card (__main__.TestZpdPolicy.test_stored_zpd_matches_derived_for_every_real_card)
+Пункт 3 концепта — производная проекция пункта 2, а не второй источник. ... ok
+test_unknown_help_level_is_rejected (__main__.TestZpdPolicy.test_unknown_help_level_is_rejected) ... ok
+test_unsolved_attempt_gives_no_credit (__main__.TestZpdPolicy.test_unsolved_attempt_gives_no_credit) ... ok
+
+----------------------------------------------------------------------
+Ran 52 tests in 0.468s
+
+OK

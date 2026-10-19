@@ -1,0 +1,59 @@
+{
+  "status": "implemented_verified_running",
+  "recorded_at": "2026-10-19T11:36:30.573206+00:00",
+  "implementation_commit": "9ee6ccca2188364152d44ab78db59d783c7bd266",
+  "verification": {
+    "created_at": "2026-10-19T11:31:54.240283+00:00",
+    "ui_requested": true,
+    "checks": [
+      {
+        "name": "pytest",
+        "passed": true,
+        "exit_code": 0,
+        "log": ".local\\verification\\pytest.log",
+        "passed_tests": 740,
+        "skipped_tests": 0
+      },
+      {
+        "name": "learner-policy",
+        "passed": true,
+        "exit_code": 0,
+        "log": ".local\\verification\\learner-policy.log",
+        "tests": 52
+      }
+    ],
+    "passed": true
+  },
+  "new_api_config_cases": 20,
+  "new_browser_scenarios": 4,
+  "new_postgres_scenarios": 1,
+  "live_http_login_logout": {
+    "teacher": "passed",
+    "student": "passed"
+  },
+  "live_browser_login_logout": {
+    "teacher": "passed",
+    "student": "passed"
+  },
+  "live_teacher_learner_count": 6,
+  "live_student_learner_count": 1,
+  "live_student_foreign_learner_access": "denied",
+  "local_config_enabled": true,
+  "default_config_enabled": false,
+  "passwords_in_frontend": false,
+  "live_readiness": "ready",
+  "api_launcher_pid": 27944,
+  "worker_launcher_pid": 22628,
+  "memory_data_unchanged_across_restart": true,
+  "memory_sources": 2,
+  "memory_versions": 1,
+  "approved_memory_versions": 0,
+  "paid_provider_calls_this_stage": 0,
+  "new_research_or_load_experiment": false,
+  "artifacts_sha256": {
+    "learner-policy.txt": "b89a79979da1dbb3fabdaddebecc68cd3b0c35e5eca5d67fbc40e166ce620762",
+    "login-desktop.png": "9af5c09ae8e2e3e21812af4fedc3b78942eebfe5a18c1f2f6b8026c3b856a1e3",
+    "login-mobile.png": "88a23897e35f85ce3c0f3f2deaf381a46af5cc26529e2cc03fea1c5e1bf0d4a6",
+    "pytest.txt": "467f782d4c3ca610b8a5448ee51d9f54afa812f4d0495479c76a21a26283601b"
+  }
+}
