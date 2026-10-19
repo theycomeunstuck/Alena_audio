@@ -490,6 +490,7 @@ class OllamaRuntime:
         # activates a learner antecedent.
         if not bounded_prior:
             schema["properties"].pop("prior_learner_question_index")
+            schema["properties"]["uses_prior_context"] = {"type": "boolean", "enum": [False]}
         else:
             schema["properties"]["prior_learner_question_index"] = {
                 "anyOf": [{"type": "integer", "enum": [row["turn_index"] for row in bounded_prior]}, {"type": "null"}]}
@@ -517,6 +518,8 @@ class OllamaRuntime:
             response_schema=schema,
             max_output_tokens=256 if memory or assistant_question else 160,
         )
+        def invalid_decision(message):
+            return IncompleteCompletionError(message, raw_response={"resolver_decision": result})
         if (
             not isinstance(result, dict)
             or not {"in_scope", "uses_prior_context", "search_query"} <= set(result)
@@ -530,7 +533,7 @@ class OllamaRuntime:
             or ("uses_approved_memory" in result and type(result["uses_approved_memory"]) is not bool)
             or ("needs_clarification" in result and type(result["needs_clarification"]) is not bool)
         ):
-            raise IncompleteCompletionError("Ollama follow-up resolver returned an invalid JSON decision")
+            raise invalid_decision("Ollama follow-up resolver returned an invalid JSON decision")
         raw_anchor = result.get("prior_learner_question_index")
         if raw_anchor is not None and (
             type(raw_anchor) is not int
@@ -547,12 +550,12 @@ class OllamaRuntime:
         ):
             raise IncompleteCompletionError("Follow-up resolver requested an invalid assistant question", raw_response={"resolver_decision": result})
         if uses_memory and not memory:
-            raise IncompleteCompletionError("Follow-up resolver requested unavailable approved memory")
+            raise invalid_decision("Follow-up resolver requested unavailable approved memory")
         resolved = result["search_query"].strip()
         if needs_clarification:
             if (result["in_scope"] or resolved or result["uses_prior_context"] or uses_memory
                     or assistant_anchor is not None or result.get("social_turn")):
-                raise IncompleteCompletionError("Clarification resolver must not request retrieval")
+                raise invalid_decision("Clarification resolver must not request retrieval")
             return {"in_scope": False, "uses_prior_context": False, "search_query": "",
                     "needs_clarification": True}
         # A learning request can contain a personal aside. Curriculum intent
@@ -560,12 +563,12 @@ class OllamaRuntime:
         # a repaired model response. Other retrieval validation still applies.
         if result.get("social_turn") and not result["in_scope"]:
             if result["uses_prior_context"] or uses_memory or assistant_anchor is not None or resolved or len(current) > 800:
-                raise IncompleteCompletionError("Social query resolver returned an invalid decision")
+                raise invalid_decision("Social query resolver returned an invalid decision")
             return {"in_scope": False, "uses_prior_context": False,
                     "search_query": "", "social_turn": True}
         if not result["in_scope"]:
             if resolved or result["uses_prior_context"] or uses_memory or assistant_anchor is not None:
-                raise IncompleteCompletionError("Out-of-scope query resolver must return no retrieval context")
+                raise invalid_decision("Out-of-scope query resolver must return no retrieval context")
             return {"in_scope": False, "uses_prior_context": False, "search_query": ""}
         original_query = not resolved
         if original_query:
@@ -573,12 +576,12 @@ class OllamaRuntime:
             # Keep the learner's actual text whole and require an explicit
             # learner anchor when an otherwise empty rewrite uses history.
             if not current or len(current) > 1200 or (result["uses_prior_context"] and anchor is None):
-                raise IncompleteCompletionError("Follow-up resolver cannot use the original learner message")
+                raise invalid_decision("Follow-up resolver cannot use the original learner message")
             resolved = current
         elif len(resolved) > 500:
-            raise IncompleteCompletionError("Ollama follow-up resolver returned an invalid search query")
+            raise invalid_decision("Ollama follow-up resolver returned an invalid search query")
         if result["uses_prior_context"] and not bounded_prior:
-            raise IncompleteCompletionError("Follow-up resolver requested missing prior learner context")
+            raise invalid_decision("Follow-up resolver requested missing prior learner context")
         decision = {
             "in_scope": True,
             "uses_prior_context": result["uses_prior_context"],

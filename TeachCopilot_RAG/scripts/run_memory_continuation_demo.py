@@ -17,8 +17,7 @@ PHASES = {
         "опять дроби. круг на 10 частей, 4 закрашены. сверху 10? не поняла",
         "хз", "ну вроде. а можно про кометы?", "ага"])],
     "recall": [(TOPIC, [
-        "Я снова здесь. Какой один шаг по дробям мне сейчас сделать?", "хз",
-        "ну вроде. а можно про кометы?"])],
+        "Продолжим прошлый круг, но можно теперь через кометы? Задай один вопрос.", "хз"])],
     "boundaries": [
         ("math.g4.data.bar_charts", ["Продолжим прошлое занятие"]),
         ("programming.python.variables", ["Продолжим с того места, где остановились"]),
@@ -168,7 +167,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--phase", choices=PHASES, required=True)
     parser.add_argument("--execute", action="store_true")
-    parser.add_argument("--run-id", choices=("v1", "v2", "v3"), default="v1")
+    parser.add_argument("--run-id", choices=("v1", "v2", "v3", "v4"), default="v1")
     parser.add_argument("--origin", default="http://127.0.0.1:8099")
     parser.add_argument("--out", type=Path)
     parser.add_argument("--lesson-receipt", type=Path)

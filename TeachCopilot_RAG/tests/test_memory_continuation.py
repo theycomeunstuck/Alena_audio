@@ -205,6 +205,7 @@ def test_new_chat_schema_cannot_request_nonexistent_question_indices():
     properties = session.requests[0]["format"]["properties"]
     assert "prior_learner_question_index" not in properties
     assert "prior_assistant_question_index" not in properties
+    assert properties["uses_prior_context"]["enum"] == [False]
 
 
 def test_unused_but_valid_learner_index_does_not_activate_learner_context():
