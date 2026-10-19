@@ -26,8 +26,8 @@ PHASES = {
 }
 
 
-def plan(phase):
-    return {"protocol": "memory-continuation-v1", "phase": phase, "synthetic": True,
+def plan(phase, run_id="v1"):
+    return {"protocol": "memory-continuation-v1", "run_id": run_id, "phase": phase, "synthetic": True,
             "research_experiment": False, "sessions": PHASES[phase],
             "maximum_chat_requests": sum(len(turns) for _, turns in PHASES[phase]),
             "maximum_next_step_requests": int(phase == "next-step"),
@@ -47,7 +47,7 @@ def execute(args):
     if not _synthetic_card(card):
         raise ValueError("Existing synthetic Nika required")
     routing = attest_local_server(origin)
-    tags = [f"memory-continuation-v1-{args.phase}-{i}" for i in range(len(PHASES[args.phase]))]
+    tags = [f"memory-continuation-{args.run_id}-{args.phase}-{i}" for i in range(len(PHASES[args.phase]))]
     with store._connect() as conn, conn.cursor() as cur:
         cur.execute("SELECT 1 FROM teachcopilot.learning_sessions WHERE learner_id=%s AND client_session_id=ANY(%s)", (LEARNER, tags))
         if cur.fetchone():
@@ -65,7 +65,7 @@ def execute(args):
                 or routing["api_pid"] == lesson["routing_preflight"]["api_pid"]):
             raise ValueError("Matching reviewed memory and restarted API required")
     args.out.mkdir(parents=True, exist_ok=False)
-    report = {**plan(args.phase), "started_at": stamp(), "routing_preflight": routing,
+    report = {**plan(args.phase, args.run_id), "started_at": stamp(), "routing_preflight": routing,
               "status": "running", "attempted_chat_requests": 0, "job_ids": [], "turns": []}
     write_json(args.out / "STARTED.json", report)
     write_json(args.out / "before.json", before)
@@ -102,7 +102,7 @@ def execute(args):
     try:
         teacher = login("teacher")
         if args.phase == "next-step":
-            guard = ROOT / ".local" / "memory-continuation-v1-next-step-attempt.json"
+            guard = ROOT / ".local" / f"memory-continuation-{args.run_id}-next-step-attempt.json"
             payload = {"topic_id": TOPIC, "method": "tail", "expected_revision": before["revision"]}
             write_json(guard, {"attempted_at": stamp(), "out": str(args.out), "payload": payload})
             write_json(args.out / "next-step-request.json", payload)
@@ -167,6 +167,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--phase", choices=PHASES, required=True)
     parser.add_argument("--execute", action="store_true")
+    parser.add_argument("--run-id", choices=("v1", "v2"), default="v1")
     parser.add_argument("--origin", default="http://127.0.0.1:8099")
     parser.add_argument("--out", type=Path)
     parser.add_argument("--lesson-receipt", type=Path)
@@ -174,7 +175,7 @@ def main():
     args = parser.parse_args()
     local_origin(args.origin)
     if not args.execute:
-        print(json.dumps(plan(args.phase), ensure_ascii=False, indent=2))
+        print(json.dumps(plan(args.phase, args.run_id), ensure_ascii=False, indent=2))
         return 0
     if args.out is None:
         parser.error("--execute requires a new --out directory")
