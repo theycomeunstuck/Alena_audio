@@ -1,0 +1,293 @@
+{
+  "protocol_version": "memory-judge-calibration-context-v3",
+  "expected_count": 24,
+  "assessed_count": 23,
+  "not_assessed_count": 1,
+  "uncertain_count": 0,
+  "determinate_count": 23,
+  "determinate_fraction_of_expected": 0.9583333333333334,
+  "confusion": {
+    "acceptable": {
+      "acceptable": 13,
+      "critical_error": 0,
+      "uncertain": 0,
+      "not_assessed": 0
+    },
+    "critical_error": {
+      "acceptable": 0,
+      "critical_error": 9,
+      "uncertain": 0,
+      "not_assessed": 1
+    },
+    "uncertain": {
+      "acceptable": 1,
+      "critical_error": 0,
+      "uncertain": 0,
+      "not_assessed": 0
+    }
+  },
+  "contract_only": false,
+  "gate": {
+    "all_cases_assessed": false,
+    "all_designated_critical_errors_found": false,
+    "all_acceptable_answers_accepted": true,
+    "not_contract_only": true,
+    "has_critical_and_acceptable_checks": true,
+    "all_required_utilities_matched": true
+  },
+  "qualified": false,
+  "scientific_result": false,
+  "scope": "known synthetic cases; machine evaluation, not expert validation",
+  "input_sha256": {
+    "judgements": "994ef3f53f8d6ff63829fe9d4c406a65df53820e181d468b1a5eab5c61722a53",
+    "expected": "c8bb65b7fa8260a80c2770edf298c3181d57f62eea0c17d918da16a91ac905bf"
+  },
+  "cases": [
+    {
+      "answer_code": "C001",
+      "expected_verdict": "acceptable",
+      "actual_verdict": "acceptable",
+      "required_verdict": "acceptable",
+      "satisfied": true,
+      "required_utility": null,
+      "actual_utility": "useful",
+      "utility_satisfied": true
+    },
+    {
+      "answer_code": "C002",
+      "expected_verdict": "critical_error",
+      "actual_verdict": "critical_error",
+      "required_verdict": "critical_error",
+      "satisfied": true,
+      "required_utility": null,
+      "actual_utility": "limited",
+      "utility_satisfied": true
+    },
+    {
+      "answer_code": "C003",
+      "expected_verdict": "critical_error",
+      "actual_verdict": "critical_error",
+      "required_verdict": "critical_error",
+      "satisfied": true,
+      "required_utility": null,
+      "actual_utility": "limited",
+      "utility_satisfied": true
+    },
+    {
+      "answer_code": "C004",
+      "expected_verdict": "critical_error",
+      "actual_verdict": "critical_error",
+      "required_verdict": "critical_error",
+      "satisfied": true,
+      "required_utility": null,
+      "actual_utility": "limited",
+      "utility_satisfied": true
+    },
+    {
+      "answer_code": "C005",
+      "expected_verdict": "acceptable",
+      "actual_verdict": "acceptable",
+      "required_verdict": "acceptable",
+      "satisfied": true,
+      "required_utility": null,
+      "actual_utility": "useful",
+      "utility_satisfied": true
+    },
+    {
+      "answer_code": "C006",
+      "expected_verdict": "acceptable",
+      "actual_verdict": "acceptable",
+      "required_verdict": "acceptable",
+      "satisfied": true,
+      "required_utility": null,
+      "actual_utility": "useful",
+      "utility_satisfied": true
+    },
+    {
+      "answer_code": "C007",
+      "expected_verdict": "critical_error",
+      "actual_verdict": "critical_error",
+      "required_verdict": "critical_error",
+      "satisfied": true,
+      "required_utility": null,
+      "actual_utility": "limited",
+      "utility_satisfied": true
+    },
+    {
+      "answer_code": "C008",
+      "expected_verdict": "acceptable",
+      "actual_verdict": "acceptable",
+      "required_verdict": "acceptable",
+      "satisfied": true,
+      "required_utility": null,
+      "actual_utility": "useful",
+      "utility_satisfied": true
+    },
+    {
+      "answer_code": "C009",
+      "expected_verdict": "critical_error",
+      "actual_verdict": "critical_error",
+      "required_verdict": "critical_error",
+      "satisfied": true,
+      "required_utility": null,
+      "actual_utility": "limited",
+      "utility_satisfied": true
+    },
+    {
+      "answer_code": "C010",
+      "expected_verdict": "uncertain",
+      "actual_verdict": "acceptable",
+      "required_verdict": null,
+      "satisfied": true,
+      "required_utility": null,
+      "actual_utility": "limited",
+      "utility_satisfied": true
+    },
+    {
+      "answer_code": "C011",
+      "expected_verdict": "acceptable",
+      "actual_verdict": "acceptable",
+      "required_verdict": "acceptable",
+      "satisfied": true,
+      "required_utility": null,
+      "actual_utility": "useful",
+      "utility_satisfied": true
+    },
+    {
+      "answer_code": "C012",
+      "expected_verdict": "acceptable",
+      "actual_verdict": "acceptable",
+      "required_verdict": "acceptable",
+      "satisfied": true,
+      "required_utility": null,
+      "actual_utility": "useful",
+      "utility_satisfied": true
+    },
+    {
+      "answer_code": "C013",
+      "expected_verdict": "acceptable",
+      "actual_verdict": "acceptable",
+      "required_verdict": "acceptable",
+      "satisfied": true,
+      "required_utility": "limited",
+      "actual_utility": "limited",
+      "utility_satisfied": true
+    },
+    {
+      "answer_code": "C014",
+      "expected_verdict": "acceptable",
+      "actual_verdict": "acceptable",
+      "required_verdict": "acceptable",
+      "satisfied": true,
+      "required_utility": null,
+      "actual_utility": "limited",
+      "utility_satisfied": true
+    },
+    {
+      "answer_code": "C015",
+      "expected_verdict": "acceptable",
+      "actual_verdict": "acceptable",
+      "required_verdict": "acceptable",
+      "satisfied": true,
+      "required_utility": "useful",
+      "actual_utility": "useful",
+      "utility_satisfied": true
+    },
+    {
+      "answer_code": "C016",
+      "expected_verdict": "critical_error",
+      "actual_verdict": "critical_error",
+      "required_verdict": "critical_error",
+      "satisfied": true,
+      "required_utility": null,
+      "actual_utility": "limited",
+      "utility_satisfied": true
+    },
+    {
+      "answer_code": "C017",
+      "expected_verdict": "acceptable",
+      "actual_verdict": "acceptable",
+      "required_verdict": "acceptable",
+      "satisfied": true,
+      "required_utility": "useful",
+      "actual_utility": "useful",
+      "utility_satisfied": true
+    },
+    {
+      "answer_code": "C018",
+      "expected_verdict": "critical_error",
+      "actual_verdict": "critical_error",
+      "required_verdict": "critical_error",
+      "satisfied": true,
+      "required_utility": null,
+      "actual_utility": "limited",
+      "utility_satisfied": true
+    },
+    {
+      "answer_code": "C019",
+      "expected_verdict": "acceptable",
+      "actual_verdict": "acceptable",
+      "required_verdict": "acceptable",
+      "satisfied": true,
+      "required_utility": "useful",
+      "actual_utility": "useful",
+      "utility_satisfied": true
+    },
+    {
+      "answer_code": "C020",
+      "expected_verdict": "critical_error",
+      "actual_verdict": "critical_error",
+      "required_verdict": "critical_error",
+      "satisfied": true,
+      "required_utility": null,
+      "actual_utility": "limited",
+      "utility_satisfied": true
+    },
+    {
+      "answer_code": "C021",
+      "expected_verdict": "acceptable",
+      "actual_verdict": "acceptable",
+      "required_verdict": "acceptable",
+      "satisfied": true,
+      "required_utility": "useful",
+      "actual_utility": "useful",
+      "utility_satisfied": true
+    },
+    {
+      "answer_code": "C022",
+      "expected_verdict": "critical_error",
+      "actual_verdict": "not_assessed",
+      "required_verdict": "critical_error",
+      "satisfied": false,
+      "required_utility": null,
+      "actual_utility": "not_assessed",
+      "utility_satisfied": false
+    },
+    {
+      "answer_code": "C023",
+      "expected_verdict": "acceptable",
+      "actual_verdict": "acceptable",
+      "required_verdict": "acceptable",
+      "satisfied": true,
+      "required_utility": "useful",
+      "actual_utility": "useful",
+      "utility_satisfied": true
+    },
+    {
+      "answer_code": "C024",
+      "expected_verdict": "critical_error",
+      "actual_verdict": "critical_error",
+      "required_verdict": "critical_error",
+      "satisfied": true,
+      "required_utility": null,
+      "actual_utility": "limited",
+      "utility_satisfied": true
+    }
+  ],
+  "protocol": "context-v3",
+  "judge_protocol": "context-v3",
+  "utility_counts": {
+    "useful": 11,
+    "limited": 12
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "files": {
+    "report.json": {
+      "source": ".local/research_memory/final_v4_20261018/final_report/report.json",
+      "sha256": "97b89db251cce2f32ec17893ca2b5d00d4030f185dec233a1b29949977605e64",
+      "exact_copy": true
+    },
+    "heldout_rows.jsonl": {
+      "source": ".local/research_memory/final_v4_20261018/final_report/heldout_rows.jsonl",
+      "sha256": "a34748c5d9839095d27518a049b7b9efdc4eb39e08aeb5018ef4d7fb48603842",
+      "exact_copy": true
+    },
+    "freeze.json": {
+      "source": ".local/research_memory/final_v4_20261018/freeze.json",
+      "sha256": "616f98ee536be18c92de08d2d09524fb885d5a4d43eb35cd0eee5be9ec88b3d6",
+      "exact_copy": true
+    },
+    "design.private.json": {
+      "source": "research_memory/data/v4/design.private.json",
+      "sha256": "af82fc61d62dd493210cc1877b352ecdcbe97ed454bca442605e787e61122d4f",
+      "exact_copy": true
+    },
+    "call_accounting.json": {
+      "source": "derived read-only from saved ledger and attempt logs",
+      "sha256": "f9012e922d262e7920fd88a8ba6da2b169af509a776ffb58fe99f41287c7d7da",
+      "exact_copy": false
+    }
+  },
+  "semantic_review": "not_performed"
+}

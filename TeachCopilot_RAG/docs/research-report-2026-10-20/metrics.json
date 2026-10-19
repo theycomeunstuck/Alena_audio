@@ -1,0 +1,1129 @@
+{
+  "audit_version": 1,
+  "kind": "supplementary_read_only_technical_audit",
+  "semantic_assessment_added": false,
+  "inputs": {
+    "report_sha256": "97b89db251cce2f32ec17893ca2b5d00d4030f185dec233a1b29949977605e64",
+    "rows_sha256": "a34748c5d9839095d27518a049b7b9efdc4eb39e08aeb5018ef4d7fb48603842",
+    "freeze_sha256": "616f98ee536be18c92de08d2d09524fb885d5a4d43eb35cd0eee5be9ec88b3d6",
+    "design_sha256": "af82fc61d62dd493210cc1877b352ecdcbe97ed454bca442605e787e61122d4f",
+    "source_hashes": {
+      "files": {
+        "report.json": {
+          "source": ".local/research_memory/final_v4_20261018/final_report/report.json",
+          "sha256": "97b89db251cce2f32ec17893ca2b5d00d4030f185dec233a1b29949977605e64",
+          "exact_copy": true
+        },
+        "heldout_rows.jsonl": {
+          "source": ".local/research_memory/final_v4_20261018/final_report/heldout_rows.jsonl",
+          "sha256": "a34748c5d9839095d27518a049b7b9efdc4eb39e08aeb5018ef4d7fb48603842",
+          "exact_copy": true
+        },
+        "freeze.json": {
+          "source": ".local/research_memory/final_v4_20261018/freeze.json",
+          "sha256": "616f98ee536be18c92de08d2d09524fb885d5a4d43eb35cd0eee5be9ec88b3d6",
+          "exact_copy": true
+        },
+        "design.private.json": {
+          "source": "research_memory/data/v4/design.private.json",
+          "sha256": "af82fc61d62dd493210cc1877b352ecdcbe97ed454bca442605e787e61122d4f",
+          "exact_copy": true
+        },
+        "call_accounting.json": {
+          "source": "derived read-only from saved ledger and attempt logs",
+          "sha256": "f9012e922d262e7920fd88a8ba6da2b169af509a776ffb58fe99f41287c7d7da",
+          "exact_copy": false
+        }
+      },
+      "semantic_review": "not_performed"
+    }
+  },
+  "validation": {
+    "frozen_hashes_verified": 29,
+    "unique_result_ids": 128,
+    "all_not_assessed": true,
+    "calibration_qualified": false
+  },
+  "frozen_hashes": [
+    {
+      "path": "research_memory/__init__.py",
+      "sha256": "006488f26a39497c251f575bb2949679a40be2a142b6fe5f5d27bc1c821d69d1",
+      "expected": "006488f26a39497c251f575bb2949679a40be2a142b6fe5f5d27bc1c821d69d1"
+    },
+    {
+      "path": "research_memory/__main__.py",
+      "sha256": "18d9f16b6e7542482797f72e834d5abe70e8d3b1b195215cfad107ecc92f116f",
+      "expected": "18d9f16b6e7542482797f72e834d5abe70e8d3b1b195215cfad107ecc92f116f"
+    },
+    {
+      "path": "research_memory/analysis.py",
+      "sha256": "87a2b9ff0a9e61aeb79ec867b294b24503db36abe4c9c4742e197a3652647a88",
+      "expected": "87a2b9ff0a9e61aeb79ec867b294b24503db36abe4c9c4742e197a3652647a88"
+    },
+    {
+      "path": "research_memory/batch.py",
+      "sha256": "c2178f028f0566a2dc18293bdced8b57ca3745bf0c0db0699dc468f06c4acc60",
+      "expected": "c2178f028f0566a2dc18293bdced8b57ca3745bf0c0db0699dc468f06c4acc60"
+    },
+    {
+      "path": "research_memory/clients.py",
+      "sha256": "5e037083cfb1e4856088a1b117b022680d3f50d8bf7ff3c1ec21a9116faf1156",
+      "expected": "5e037083cfb1e4856088a1b117b022680d3f50d8bf7ff3c1ec21a9116faf1156"
+    },
+    {
+      "path": "research_memory/contracts.py",
+      "sha256": "2811da3870f40bd39207194cc5397ef1425dc176714156e9d55bb342f5534c5c",
+      "expected": "2811da3870f40bd39207194cc5397ef1425dc176714156e9d55bb342f5534c5c"
+    },
+    {
+      "path": "research_memory/dataset.py",
+      "sha256": "9c8d8ebe3fcf41779efdf28531ef200d02da089b908de262df765f13c4b7a387",
+      "expected": "9c8d8ebe3fcf41779efdf28531ef200d02da089b908de262df765f13c4b7a387"
+    },
+    {
+      "path": "research_memory/judge.py",
+      "sha256": "c2402a9dc18ed0322bf19b9d73bf34df3df8f5c5fd6517434ba882cf5f12e88a",
+      "expected": "c2402a9dc18ed0322bf19b9d73bf34df3df8f5c5fd6517434ba882cf5f12e88a"
+    },
+    {
+      "path": "research_memory/methods.py",
+      "sha256": "10ee7d1bc1f4cf80c86c9db18adad807174c72288962aa629153efa3bb062027",
+      "expected": "10ee7d1bc1f4cf80c86c9db18adad807174c72288962aa629153efa3bb062027"
+    },
+    {
+      "path": "research_memory/reuse.py",
+      "sha256": "272e9d98540e69d92c044710a785b5f4cd789758885ef0edcf91d88989a8fe4a",
+      "expected": "272e9d98540e69d92c044710a785b5f4cd789758885ef0edcf91d88989a8fe4a"
+    },
+    {
+      "path": "research_memory/runner.py",
+      "sha256": "39bcd8b17ce24815c84f2a70302c16577c95f8656683c80016db82361bb50e16",
+      "expected": "39bcd8b17ce24815c84f2a70302c16577c95f8656683c80016db82361bb50e16"
+    },
+    {
+      "path": "research_memory/spiderssense.py",
+      "sha256": "122c86b7d1a81f680715cf631d5c4fb5e7b4541b1a065a7c72f4d4641736e0b4",
+      "expected": "122c86b7d1a81f680715cf631d5c4fb5e7b4541b1a065a7c72f4d4641736e0b4"
+    },
+    {
+      "path": "research_memory/workflow.py",
+      "sha256": "3d187d8b7f9ca5d470c24cc1597520a928053db9e117a8f1f8b5660cb3db1ab6",
+      "expected": "3d187d8b7f9ca5d470c24cc1597520a928053db9e117a8f1f8b5660cb3db1ab6"
+    },
+    {
+      "path": "research_memory/prompts/action.txt",
+      "sha256": "6645f2ba990d9455a1f2b9a7b860f7aeaa60eae804f5d348f99731988c372505",
+      "expected": "6645f2ba990d9455a1f2b9a7b860f7aeaa60eae804f5d348f99731988c372505"
+    },
+    {
+      "path": "research_memory/prompts/extract.txt",
+      "sha256": "33d4d113c115454f6e561a72750f56c7ffdd0fe6e4709acdfd494b490298df15",
+      "expected": "33d4d113c115454f6e561a72750f56c7ffdd0fe6e4709acdfd494b490298df15"
+    },
+    {
+      "path": "research_memory/prompts/judge.txt",
+      "sha256": "32ac074774d2bf36d633e34b10d4a918876b600f1495bf9f37bfc98567b1c91c",
+      "expected": "32ac074774d2bf36d633e34b10d4a918876b600f1495bf9f37bfc98567b1c91c"
+    },
+    {
+      "path": "research_memory/prompts/judge_context.txt",
+      "sha256": "138b6d104b35867586691504c34f5783400da9c22b431be1577fb9d34170d6bc",
+      "expected": "138b6d104b35867586691504c34f5783400da9c22b431be1577fb9d34170d6bc"
+    },
+    {
+      "path": "research_memory/prompts/judge_context_v3.txt",
+      "sha256": "5c35bfb17327916ffbfd436241e3c2414d7b7110621c75938d47dfb073921066",
+      "expected": "5c35bfb17327916ffbfd436241e3c2414d7b7110621c75938d47dfb073921066"
+    },
+    {
+      "path": "research_memory/prompts/shorten.txt",
+      "sha256": "f52514ab0c6090d51bc946f336dacf287d8a50907c4f0bb504b54c5b45406f5c",
+      "expected": "f52514ab0c6090d51bc946f336dacf287d8a50907c4f0bb504b54c5b45406f5c"
+    },
+    {
+      "path": "research_memory/prompts/summary.txt",
+      "sha256": "fb8c0f5afac43390304c83d359e31c4a87dbfb96684d05dcc452075cb182ddd3",
+      "expected": "fb8c0f5afac43390304c83d359e31c4a87dbfb96684d05dcc452075cb182ddd3"
+    },
+    {
+      "path": "research_memory/config.json",
+      "sha256": "67b22d010c9f3579948256952f8ac2244db3878f2923e329e0a67c84eb198e76",
+      "expected": "67b22d010c9f3579948256952f8ac2244db3878f2923e329e0a67c84eb198e76"
+    },
+    {
+      "path": "research_memory/data/v4/calibration.cases.jsonl",
+      "sha256": "387f70c6002622c770754d947d965a94f65035828205c20b53a84cba913d88a0",
+      "expected": "387f70c6002622c770754d947d965a94f65035828205c20b53a84cba913d88a0"
+    },
+    {
+      "path": "research_memory/data/v4/calibration.expected.jsonl",
+      "sha256": "c8bb65b7fa8260a80c2770edf298c3181d57f62eea0c17d918da16a91ac905bf",
+      "expected": "c8bb65b7fa8260a80c2770edf298c3181d57f62eea0c17d918da16a91ac905bf"
+    },
+    {
+      "path": "research_memory/data/v4/design.private.json",
+      "sha256": "af82fc61d62dd493210cc1877b352ecdcbe97ed454bca442605e787e61122d4f",
+      "expected": "af82fc61d62dd493210cc1877b352ecdcbe97ed454bca442605e787e61122d4f"
+    },
+    {
+      "path": "research_memory/data/v4/gold.test.jsonl",
+      "sha256": "b0bc324ce741665e6e6f72d99051e3a31dcd09b59e8362f7e8ad2aacd8eb6358",
+      "expected": "b0bc324ce741665e6e6f72d99051e3a31dcd09b59e8362f7e8ad2aacd8eb6358"
+    },
+    {
+      "path": "research_memory/data/v4/histories.test.jsonl",
+      "sha256": "1a06e11643a9cf4bdb9def37f068dd76c182b5985b02ac9465b936def6a7e0bb",
+      "expected": "1a06e11643a9cf4bdb9def37f068dd76c182b5985b02ac9465b936def6a7e0bb"
+    },
+    {
+      "path": "research_memory/data/v4/manifest.json",
+      "sha256": "1ade295218b155f391fafc219ad8216e7cc43e3f11d3eed0a5b1415113b5dabe",
+      "expected": "1ade295218b155f391fafc219ad8216e7cc43e3f11d3eed0a5b1415113b5dabe"
+    },
+    {
+      "path": "research_memory/data/v4/requests.test.jsonl",
+      "sha256": "eec575f6b5c278115c1139741d17890e25e5bdcf19e2c0ad6ccc8be940be4af0",
+      "expected": "eec575f6b5c278115c1139741d17890e25e5bdcf19e2c0ad6ccc8be940be4af0"
+    },
+    {
+      "path": "research_memory/data/v4/review.selection.json",
+      "sha256": "cb7f0126efa1683f30aa37bdb3199aed9645f3da3fb3b6622b1f7efd2a6b0e6d",
+      "expected": "cb7f0126efa1683f30aa37bdb3199aed9645f3da3fb3b6622b1f7efd2a6b0e6d"
+    }
+  ],
+  "planned": 128,
+  "distinct_histories": 16,
+  "technical_ok": 94,
+  "methods": {
+    "profile_only": {
+      "planned": 32,
+      "technical_ok": 32,
+      "statuses": {
+        "ok": 32
+      },
+      "assessed": 0,
+      "short": {
+        "planned": 16,
+        "technical_ok": 16
+      },
+      "long": {
+        "planned": 16,
+        "technical_ok": 16
+      }
+    },
+    "tail": {
+      "planned": 32,
+      "technical_ok": 32,
+      "statuses": {
+        "ok": 32
+      },
+      "assessed": 0,
+      "short": {
+        "planned": 16,
+        "technical_ok": 16
+      },
+      "long": {
+        "planned": 16,
+        "technical_ok": 16
+      }
+    },
+    "summary": {
+      "planned": 32,
+      "technical_ok": 24,
+      "statuses": {
+        "ok": 24,
+        "memory_error": 8
+      },
+      "assessed": 0,
+      "short": {
+        "planned": 16,
+        "technical_ok": 16
+      },
+      "long": {
+        "planned": 16,
+        "technical_ok": 8
+      }
+    },
+    "structured": {
+      "planned": 32,
+      "technical_ok": 6,
+      "statuses": {
+        "memory_error": 26,
+        "ok": 6
+      },
+      "assessed": 0,
+      "short": {
+        "planned": 16,
+        "technical_ok": 6
+      },
+      "long": {
+        "planned": 16,
+        "technical_ok": 0
+      }
+    }
+  },
+  "technical_failures_by_stage": {
+    "memory_update": 34
+  },
+  "unique_writer_error_events": [
+    {
+      "history_id": "t01",
+      "method": "structured",
+      "error": "support quote must be a literal source excerpt",
+      "error_code": "invalid_quote",
+      "error_type": "ContractValidationError",
+      "lesson_id": "t01-l01"
+    },
+    {
+      "history_id": "t02",
+      "method": "summary",
+      "error": "Model call failed (CompletionValidationError)",
+      "error_code": "truncated_completion",
+      "error_type": "RuntimeError",
+      "lesson_id": "t02-l07"
+    },
+    {
+      "history_id": "t02",
+      "method": "structured",
+      "error": "support quote must be a literal source excerpt",
+      "error_code": "invalid_quote",
+      "error_type": "ContractValidationError",
+      "lesson_id": "t02-l01"
+    },
+    {
+      "history_id": "t02",
+      "method": "structured",
+      "error": "Known support needs a source ID and literal quote; otherwise use unknown",
+      "error_code": "missing_condition_evidence",
+      "error_type": "ContractValidationError",
+      "lesson_id": "t02-l02"
+    },
+    {
+      "history_id": "t02",
+      "method": "structured",
+      "error": "Known support needs a source ID and literal quote; otherwise use unknown",
+      "error_code": "missing_condition_evidence",
+      "error_type": "ContractValidationError",
+      "lesson_id": "t02-l03"
+    },
+    {
+      "history_id": "t02",
+      "method": "structured",
+      "error": "Known support needs a source ID and literal quote; otherwise use unknown",
+      "error_code": "missing_condition_evidence",
+      "error_type": "ContractValidationError",
+      "lesson_id": "t02-l04"
+    },
+    {
+      "history_id": "t02",
+      "method": "structured",
+      "error": "Known support needs a source ID and literal quote; otherwise use unknown",
+      "error_code": "missing_condition_evidence",
+      "error_type": "ContractValidationError",
+      "lesson_id": "t02-l05"
+    },
+    {
+      "history_id": "t02",
+      "method": "structured",
+      "error": "Known support needs a source ID and literal quote; otherwise use unknown",
+      "error_code": "missing_condition_evidence",
+      "error_type": "ContractValidationError",
+      "lesson_id": "t02-l06"
+    },
+    {
+      "history_id": "t02",
+      "method": "structured",
+      "error": "Known support needs a source ID and literal quote; otherwise use unknown",
+      "error_code": "missing_condition_evidence",
+      "error_type": "ContractValidationError",
+      "lesson_id": "t02-l07"
+    },
+    {
+      "history_id": "t03",
+      "method": "structured",
+      "error": "Known support needs a source ID and literal quote; otherwise use unknown",
+      "error_code": "missing_condition_evidence",
+      "error_type": "ContractValidationError",
+      "lesson_id": "t03-l02"
+    },
+    {
+      "history_id": "t04",
+      "method": "structured",
+      "error": "Known support needs a source ID and literal quote; otherwise use unknown",
+      "error_code": "missing_condition_evidence",
+      "error_type": "ContractValidationError",
+      "lesson_id": "t04-l02"
+    },
+    {
+      "history_id": "t04",
+      "method": "structured",
+      "error": "Known support needs a source ID and literal quote; otherwise use unknown",
+      "error_code": "missing_condition_evidence",
+      "error_type": "ContractValidationError",
+      "lesson_id": "t04-l03"
+    },
+    {
+      "history_id": "t04",
+      "method": "structured",
+      "error": "Known support needs a source ID and literal quote; otherwise use unknown",
+      "error_code": "missing_condition_evidence",
+      "error_type": "ContractValidationError",
+      "lesson_id": "t04-l04"
+    },
+    {
+      "history_id": "t04",
+      "method": "structured",
+      "error": "Known support needs a source ID and literal quote; otherwise use unknown",
+      "error_code": "missing_condition_evidence",
+      "error_type": "ContractValidationError",
+      "lesson_id": "t04-l05"
+    },
+    {
+      "history_id": "t04",
+      "method": "structured",
+      "error": "Known support needs a source ID and literal quote; otherwise use unknown",
+      "error_code": "missing_condition_evidence",
+      "error_type": "ContractValidationError",
+      "lesson_id": "t04-l06"
+    },
+    {
+      "history_id": "t04",
+      "method": "structured",
+      "error": "Known support needs a source ID and literal quote; otherwise use unknown",
+      "error_code": "missing_condition_evidence",
+      "error_type": "ContractValidationError",
+      "lesson_id": "t04-l07"
+    },
+    {
+      "history_id": "t04",
+      "method": "structured",
+      "error": "Known support needs a source ID and literal quote; otherwise use unknown",
+      "error_code": "missing_condition_evidence",
+      "error_type": "ContractValidationError",
+      "lesson_id": "t04-l08"
+    },
+    {
+      "history_id": "t06",
+      "method": "summary",
+      "error": "Model call failed (CompletionValidationError)",
+      "error_code": "truncated_completion",
+      "error_type": "RuntimeError",
+      "lesson_id": "t06-l07"
+    },
+    {
+      "history_id": "t06",
+      "method": "structured",
+      "error": "Known support needs a source ID and literal quote; otherwise use unknown",
+      "error_code": "missing_condition_evidence",
+      "error_type": "ContractValidationError",
+      "lesson_id": "t06-l02"
+    },
+    {
+      "history_id": "t06",
+      "method": "structured",
+      "error": "Known support needs a source ID and literal quote; otherwise use unknown",
+      "error_code": "missing_condition_evidence",
+      "error_type": "ContractValidationError",
+      "lesson_id": "t06-l03"
+    },
+    {
+      "history_id": "t06",
+      "method": "structured",
+      "error": "Known support needs a source ID and literal quote; otherwise use unknown",
+      "error_code": "missing_condition_evidence",
+      "error_type": "ContractValidationError",
+      "lesson_id": "t06-l04"
+    },
+    {
+      "history_id": "t06",
+      "method": "structured",
+      "error": "Known support needs a source ID and literal quote; otherwise use unknown",
+      "error_code": "missing_condition_evidence",
+      "error_type": "ContractValidationError",
+      "lesson_id": "t06-l05"
+    },
+    {
+      "history_id": "t06",
+      "method": "structured",
+      "error": "Known support needs a source ID and literal quote; otherwise use unknown",
+      "error_code": "missing_condition_evidence",
+      "error_type": "ContractValidationError",
+      "lesson_id": "t06-l06"
+    },
+    {
+      "history_id": "t06",
+      "method": "structured",
+      "error": "Known support needs a source ID and literal quote; otherwise use unknown",
+      "error_code": "missing_condition_evidence",
+      "error_type": "ContractValidationError",
+      "lesson_id": "t06-l07"
+    },
+    {
+      "history_id": "t08",
+      "method": "summary",
+      "error": "Model call failed (CompletionValidationError)",
+      "error_code": "truncated_completion",
+      "error_type": "RuntimeError",
+      "lesson_id": "t08-l07"
+    },
+    {
+      "history_id": "t08",
+      "method": "summary",
+      "error": "Model call failed (RuntimeError)",
+      "error_code": null,
+      "error_type": "RuntimeError",
+      "lesson_id": "t08-l08"
+    },
+    {
+      "history_id": "t08",
+      "method": "structured",
+      "error": "Known recheck needs a source ID and literal quote; otherwise use unknown",
+      "error_code": "missing_condition_evidence",
+      "error_type": "ContractValidationError",
+      "lesson_id": "t08-l01"
+    },
+    {
+      "history_id": "t08",
+      "method": "structured",
+      "error": "Known support needs a source ID and literal quote; otherwise use unknown",
+      "error_code": "missing_condition_evidence",
+      "error_type": "ContractValidationError",
+      "lesson_id": "t08-l02"
+    },
+    {
+      "history_id": "t08",
+      "method": "structured",
+      "error": "Known support needs a source ID and literal quote; otherwise use unknown",
+      "error_code": "missing_condition_evidence",
+      "error_type": "ContractValidationError",
+      "lesson_id": "t08-l03"
+    },
+    {
+      "history_id": "t08",
+      "method": "structured",
+      "error": "Known support needs a source ID and literal quote; otherwise use unknown",
+      "error_code": "missing_condition_evidence",
+      "error_type": "ContractValidationError",
+      "lesson_id": "t08-l04"
+    },
+    {
+      "history_id": "t08",
+      "method": "structured",
+      "error": "Known support needs a source ID and literal quote; otherwise use unknown",
+      "error_code": "missing_condition_evidence",
+      "error_type": "ContractValidationError",
+      "lesson_id": "t08-l05"
+    },
+    {
+      "history_id": "t08",
+      "method": "structured",
+      "error": "Known support needs a source ID and literal quote; otherwise use unknown",
+      "error_code": "missing_condition_evidence",
+      "error_type": "ContractValidationError",
+      "lesson_id": "t08-l06"
+    },
+    {
+      "history_id": "t08",
+      "method": "structured",
+      "error": "Known support needs a source ID and literal quote; otherwise use unknown",
+      "error_code": "missing_condition_evidence",
+      "error_type": "ContractValidationError",
+      "lesson_id": "t08-l07"
+    },
+    {
+      "history_id": "t08",
+      "method": "structured",
+      "error": "recheck evidence refers to an absent or uncited source",
+      "error_code": "missing_source",
+      "error_type": "ContractValidationError",
+      "lesson_id": "t08-l08"
+    },
+    {
+      "history_id": "t09",
+      "method": "structured",
+      "error": "support quote must be a literal source excerpt",
+      "error_code": "invalid_quote",
+      "error_type": "ContractValidationError",
+      "lesson_id": "t09-l01"
+    },
+    {
+      "history_id": "t09",
+      "method": "structured",
+      "error": "Known support needs a source ID and literal quote; otherwise use unknown",
+      "error_code": "missing_condition_evidence",
+      "error_type": "ContractValidationError",
+      "lesson_id": "t09-l02"
+    },
+    {
+      "history_id": "t10",
+      "method": "summary",
+      "error": "Model call failed (CompletionValidationError)",
+      "error_code": "truncated_completion",
+      "error_type": "RuntimeError",
+      "lesson_id": "t10-l07"
+    },
+    {
+      "history_id": "t10",
+      "method": "summary",
+      "error": "Model call failed (RuntimeError)",
+      "error_code": null,
+      "error_type": "RuntimeError",
+      "lesson_id": "t10-l08"
+    },
+    {
+      "history_id": "t10",
+      "method": "structured",
+      "error": "support quote must be a literal source excerpt",
+      "error_code": "invalid_quote",
+      "error_type": "ContractValidationError",
+      "lesson_id": "t10-l01"
+    },
+    {
+      "history_id": "t10",
+      "method": "structured",
+      "error": "Known support needs a source ID and literal quote; otherwise use unknown",
+      "error_code": "missing_condition_evidence",
+      "error_type": "ContractValidationError",
+      "lesson_id": "t10-l02"
+    },
+    {
+      "history_id": "t10",
+      "method": "structured",
+      "error": "Known support needs a source ID and literal quote; otherwise use unknown",
+      "error_code": "missing_condition_evidence",
+      "error_type": "ContractValidationError",
+      "lesson_id": "t10-l03"
+    },
+    {
+      "history_id": "t10",
+      "method": "structured",
+      "error": "Known support needs a source ID and literal quote; otherwise use unknown",
+      "error_code": "missing_condition_evidence",
+      "error_type": "ContractValidationError",
+      "lesson_id": "t10-l04"
+    },
+    {
+      "history_id": "t10",
+      "method": "structured",
+      "error": "Known support needs a source ID and literal quote; otherwise use unknown",
+      "error_code": "missing_condition_evidence",
+      "error_type": "ContractValidationError",
+      "lesson_id": "t10-l05"
+    },
+    {
+      "history_id": "t10",
+      "method": "structured",
+      "error": "Known support needs a source ID and literal quote; otherwise use unknown",
+      "error_code": "missing_condition_evidence",
+      "error_type": "ContractValidationError",
+      "lesson_id": "t10-l06"
+    },
+    {
+      "history_id": "t10",
+      "method": "structured",
+      "error": "Known support needs a source ID and literal quote; otherwise use unknown",
+      "error_code": "missing_condition_evidence",
+      "error_type": "ContractValidationError",
+      "lesson_id": "t10-l07"
+    },
+    {
+      "history_id": "t10",
+      "method": "structured",
+      "error": "source_quote must be a literal excerpt from one cited new turn",
+      "error_code": "invalid_quote",
+      "error_type": "ContractValidationError",
+      "lesson_id": "t10-l08"
+    },
+    {
+      "history_id": "t12",
+      "method": "structured",
+      "error": "Known support needs a source ID and literal quote; otherwise use unknown",
+      "error_code": "missing_condition_evidence",
+      "error_type": "ContractValidationError",
+      "lesson_id": "t12-l02"
+    },
+    {
+      "history_id": "t12",
+      "method": "structured",
+      "error": "Known support needs a source ID and literal quote; otherwise use unknown",
+      "error_code": "missing_condition_evidence",
+      "error_type": "ContractValidationError",
+      "lesson_id": "t12-l03"
+    },
+    {
+      "history_id": "t12",
+      "method": "structured",
+      "error": "Known support needs a source ID and literal quote; otherwise use unknown",
+      "error_code": "missing_condition_evidence",
+      "error_type": "ContractValidationError",
+      "lesson_id": "t12-l04"
+    },
+    {
+      "history_id": "t12",
+      "method": "structured",
+      "error": "Known support needs a source ID and literal quote; otherwise use unknown",
+      "error_code": "missing_condition_evidence",
+      "error_type": "ContractValidationError",
+      "lesson_id": "t12-l05"
+    },
+    {
+      "history_id": "t12",
+      "method": "structured",
+      "error": "Known support needs a source ID and literal quote; otherwise use unknown",
+      "error_code": "missing_condition_evidence",
+      "error_type": "ContractValidationError",
+      "lesson_id": "t12-l06"
+    },
+    {
+      "history_id": "t12",
+      "method": "structured",
+      "error": "Known support needs a source ID and literal quote; otherwise use unknown",
+      "error_code": "missing_condition_evidence",
+      "error_type": "ContractValidationError",
+      "lesson_id": "t12-l07"
+    },
+    {
+      "history_id": "t13",
+      "method": "structured",
+      "error": "support quote must be a literal source excerpt",
+      "error_code": "invalid_quote",
+      "error_type": "ContractValidationError",
+      "lesson_id": "t13-l01"
+    },
+    {
+      "history_id": "t13",
+      "method": "structured",
+      "error": "Known support needs a source ID and literal quote; otherwise use unknown",
+      "error_code": "missing_condition_evidence",
+      "error_type": "ContractValidationError",
+      "lesson_id": "t13-l02"
+    },
+    {
+      "history_id": "t14",
+      "method": "structured",
+      "error": "support quote must be a literal source excerpt",
+      "error_code": "invalid_quote",
+      "error_type": "ContractValidationError",
+      "lesson_id": "t14-l01"
+    },
+    {
+      "history_id": "t14",
+      "method": "structured",
+      "error": "Known support needs a source ID and literal quote; otherwise use unknown",
+      "error_code": "missing_condition_evidence",
+      "error_type": "ContractValidationError",
+      "lesson_id": "t14-l02"
+    },
+    {
+      "history_id": "t14",
+      "method": "structured",
+      "error": "Known support needs a source ID and literal quote; otherwise use unknown",
+      "error_code": "missing_condition_evidence",
+      "error_type": "ContractValidationError",
+      "lesson_id": "t14-l03"
+    },
+    {
+      "history_id": "t14",
+      "method": "structured",
+      "error": "Known support needs a source ID and literal quote; otherwise use unknown",
+      "error_code": "missing_condition_evidence",
+      "error_type": "ContractValidationError",
+      "lesson_id": "t14-l04"
+    },
+    {
+      "history_id": "t14",
+      "method": "structured",
+      "error": "Known support needs a source ID and literal quote; otherwise use unknown",
+      "error_code": "missing_condition_evidence",
+      "error_type": "ContractValidationError",
+      "lesson_id": "t14-l05"
+    },
+    {
+      "history_id": "t14",
+      "method": "structured",
+      "error": "Known support needs a source ID and literal quote; otherwise use unknown",
+      "error_code": "missing_condition_evidence",
+      "error_type": "ContractValidationError",
+      "lesson_id": "t14-l06"
+    },
+    {
+      "history_id": "t14",
+      "method": "structured",
+      "error": "Known support needs a source ID and literal quote; otherwise use unknown",
+      "error_code": "missing_condition_evidence",
+      "error_type": "ContractValidationError",
+      "lesson_id": "t14-l07"
+    },
+    {
+      "history_id": "t15",
+      "method": "structured",
+      "error": "recheck quote must be a literal source excerpt",
+      "error_code": "invalid_quote",
+      "error_type": "ContractValidationError",
+      "lesson_id": "t15-l01"
+    },
+    {
+      "history_id": "t16",
+      "method": "structured",
+      "error": "Known support needs a source ID and literal quote; otherwise use unknown",
+      "error_code": "missing_condition_evidence",
+      "error_type": "ContractValidationError",
+      "lesson_id": "t16-l02"
+    },
+    {
+      "history_id": "t16",
+      "method": "structured",
+      "error": "support quote must be a literal source excerpt",
+      "error_code": "invalid_quote",
+      "error_type": "ContractValidationError",
+      "lesson_id": "t16-l03"
+    },
+    {
+      "history_id": "t16",
+      "method": "structured",
+      "error": "Known support needs a source ID and literal quote; otherwise use unknown",
+      "error_code": "missing_condition_evidence",
+      "error_type": "ContractValidationError",
+      "lesson_id": "t16-l04"
+    },
+    {
+      "history_id": "t16",
+      "method": "structured",
+      "error": "Known support needs a source ID and literal quote; otherwise use unknown",
+      "error_code": "missing_condition_evidence",
+      "error_type": "ContractValidationError",
+      "lesson_id": "t16-l05"
+    },
+    {
+      "history_id": "t16",
+      "method": "structured",
+      "error": "Known support needs a source ID and literal quote; otherwise use unknown",
+      "error_code": "missing_condition_evidence",
+      "error_type": "ContractValidationError",
+      "lesson_id": "t16-l06"
+    },
+    {
+      "history_id": "t16",
+      "method": "structured",
+      "error": "Known support needs a source ID and literal quote; otherwise use unknown",
+      "error_code": "missing_condition_evidence",
+      "error_type": "ContractValidationError",
+      "lesson_id": "t16-l07"
+    }
+  ],
+  "resources": [
+    {
+      "method": "profile_only",
+      "stage": "answer",
+      "observed_recorded_calls": 32,
+      "observed_performed_true_records": 32,
+      "observed_failed_records": 0,
+      "observed_known_input_tokens": {
+        "known_sum": 21168,
+        "known_calls": 32,
+        "unknown_calls": 0
+      },
+      "observed_known_output_tokens": {
+        "known_sum": 3425,
+        "known_calls": 32,
+        "unknown_calls": 0
+      },
+      "observed_known_elapsed_seconds": {
+        "known_sum": 37.498803900089115,
+        "known_calls": 32,
+        "unknown_calls": 0
+      },
+      "message_content_chars": 82976,
+      "response_schema_chars": 17120,
+      "durable": {
+        "actual_calls": 32,
+        "failed_calls": 0,
+        "input_tokens": 21168,
+        "output_tokens": 3425,
+        "elapsed_seconds": 37.498803900089115,
+        "incomplete_usage_calls": 0
+      }
+    },
+    {
+      "method": "profile_only",
+      "stage": "memory_update",
+      "observed_recorded_calls": 0,
+      "observed_performed_true_records": 0,
+      "observed_failed_records": 0,
+      "observed_known_input_tokens": {
+        "known_sum": 0,
+        "known_calls": 0,
+        "unknown_calls": 0
+      },
+      "observed_known_output_tokens": {
+        "known_sum": 0,
+        "known_calls": 0,
+        "unknown_calls": 0
+      },
+      "observed_known_elapsed_seconds": {
+        "known_sum": 0,
+        "known_calls": 0,
+        "unknown_calls": 0
+      },
+      "message_content_chars": 0,
+      "response_schema_chars": 0,
+      "durable": {
+        "actual_calls": 0,
+        "failed_calls": 0,
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "elapsed_seconds": 0.0,
+        "incomplete_usage_calls": 0
+      }
+    },
+    {
+      "method": "structured",
+      "stage": "answer",
+      "observed_recorded_calls": 6,
+      "observed_performed_true_records": 6,
+      "observed_failed_records": 0,
+      "observed_known_input_tokens": {
+        "known_sum": 5403,
+        "known_calls": 6,
+        "unknown_calls": 0
+      },
+      "observed_known_output_tokens": {
+        "known_sum": 796,
+        "known_calls": 6,
+        "unknown_calls": 0
+      },
+      "observed_known_elapsed_seconds": {
+        "known_sum": 9.442159300029743,
+        "known_calls": 6,
+        "unknown_calls": 0
+      },
+      "message_content_chars": 19716,
+      "response_schema_chars": 3390,
+      "durable": {
+        "actual_calls": 6,
+        "failed_calls": 0,
+        "input_tokens": 5403,
+        "output_tokens": 796,
+        "elapsed_seconds": 9.442159300029743,
+        "incomplete_usage_calls": 0
+      }
+    },
+    {
+      "method": "structured",
+      "stage": "memory_update",
+      "observed_recorded_calls": 72,
+      "observed_performed_true_records": 72,
+      "observed_failed_records": 0,
+      "observed_known_input_tokens": {
+        "known_sum": 83952,
+        "known_calls": 72,
+        "unknown_calls": 0
+      },
+      "observed_known_output_tokens": {
+        "known_sum": 14530,
+        "known_calls": 72,
+        "unknown_calls": 0
+      },
+      "observed_known_elapsed_seconds": {
+        "known_sum": 143.27173509972636,
+        "known_calls": 72,
+        "unknown_calls": 0
+      },
+      "message_content_chars": 294282,
+      "response_schema_chars": 183881,
+      "durable": {
+        "actual_calls": 72,
+        "failed_calls": 0,
+        "input_tokens": 83952,
+        "output_tokens": 14530,
+        "elapsed_seconds": 143.27173509972636,
+        "incomplete_usage_calls": 0
+      }
+    },
+    {
+      "method": "summary",
+      "stage": "answer",
+      "observed_recorded_calls": 24,
+      "observed_performed_true_records": 24,
+      "observed_failed_records": 0,
+      "observed_known_input_tokens": {
+        "known_sum": 28618,
+        "known_calls": 24,
+        "unknown_calls": 0
+      },
+      "observed_known_output_tokens": {
+        "known_sum": 4509,
+        "known_calls": 24,
+        "unknown_calls": 0
+      },
+      "observed_known_elapsed_seconds": {
+        "known_sum": 49.71948549989611,
+        "known_calls": 24,
+        "unknown_calls": 0
+      },
+      "message_content_chars": 88396,
+      "response_schema_chars": 16448,
+      "durable": {
+        "actual_calls": 24,
+        "failed_calls": 0,
+        "input_tokens": 28618,
+        "output_tokens": 4509,
+        "elapsed_seconds": 49.71948549989611,
+        "incomplete_usage_calls": 0
+      }
+    },
+    {
+      "method": "summary",
+      "stage": "memory_update",
+      "observed_recorded_calls": 72,
+      "observed_performed_true_records": 72,
+      "observed_failed_records": 6,
+      "observed_known_input_tokens": {
+        "known_sum": 86694,
+        "known_calls": 70,
+        "unknown_calls": 2
+      },
+      "observed_known_output_tokens": {
+        "known_sum": 46289,
+        "known_calls": 70,
+        "unknown_calls": 2
+      },
+      "observed_known_elapsed_seconds": {
+        "known_sum": 331.2976205999148,
+        "known_calls": 72,
+        "unknown_calls": 0
+      },
+      "message_content_chars": 255525,
+      "response_schema_chars": 0,
+      "durable": {
+        "actual_calls": 70,
+        "failed_calls": 4,
+        "input_tokens": 86694,
+        "output_tokens": 46289,
+        "elapsed_seconds": 331.2976125999121,
+        "incomplete_usage_calls": 0
+      }
+    },
+    {
+      "method": "tail",
+      "stage": "answer",
+      "observed_recorded_calls": 32,
+      "observed_performed_true_records": 32,
+      "observed_failed_records": 0,
+      "observed_known_input_tokens": {
+        "known_sum": 49990,
+        "known_calls": 32,
+        "unknown_calls": 0
+      },
+      "observed_known_output_tokens": {
+        "known_sum": 6201,
+        "known_calls": 32,
+        "unknown_calls": 0
+      },
+      "observed_known_elapsed_seconds": {
+        "known_sum": 68.17774790001567,
+        "known_calls": 32,
+        "unknown_calls": 0
+      },
+      "message_content_chars": 154394,
+      "response_schema_chars": 22436,
+      "durable": {
+        "actual_calls": 32,
+        "failed_calls": 0,
+        "input_tokens": 49990,
+        "output_tokens": 6201,
+        "elapsed_seconds": 68.17774790001567,
+        "incomplete_usage_calls": 0
+      }
+    },
+    {
+      "method": "tail",
+      "stage": "memory_update",
+      "observed_recorded_calls": 0,
+      "observed_performed_true_records": 0,
+      "observed_failed_records": 0,
+      "observed_known_input_tokens": {
+        "known_sum": 0,
+        "known_calls": 0,
+        "unknown_calls": 0
+      },
+      "observed_known_output_tokens": {
+        "known_sum": 0,
+        "known_calls": 0,
+        "unknown_calls": 0
+      },
+      "observed_known_elapsed_seconds": {
+        "known_sum": 0,
+        "known_calls": 0,
+        "unknown_calls": 0
+      },
+      "message_content_chars": 0,
+      "response_schema_chars": 0,
+      "durable": {
+        "actual_calls": 0,
+        "failed_calls": 0,
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "elapsed_seconds": 0.0,
+        "incomplete_usage_calls": 0
+      }
+    }
+  ],
+  "durable_call_ledger_total": {
+    "actual_calls": 236,
+    "failed_calls": 4,
+    "input_tokens": 275825,
+    "output_tokens": 75750,
+    "elapsed_seconds": 639.4075442996691,
+    "incomplete_usage_calls": 0
+  },
+  "unmatched_attempt_log_records": [
+    {
+      "log": "heldout/attempts/job-0031/attempt-0001/calls.jsonl",
+      "job_id": 31,
+      "history_id": "t08",
+      "method": "summary",
+      "lesson_id": "t08-l08",
+      "call_id": 8,
+      "purpose": "summary",
+      "input_chars": 5364,
+      "response_schema_chars": 0,
+      "response_chars": null,
+      "usage": {
+        "input_tokens": null,
+        "output_tokens": null
+      },
+      "elapsed_seconds": 5.599984433501959e-06,
+      "error": "RuntimeError",
+      "performed": true
+    },
+    {
+      "log": "heldout/attempts/job-0039/attempt-0001/calls.jsonl",
+      "job_id": 39,
+      "history_id": "t10",
+      "method": "summary",
+      "lesson_id": "t10-l08",
+      "call_id": 8,
+      "purpose": "summary",
+      "input_chars": 5761,
+      "response_schema_chars": 0,
+      "response_chars": null,
+      "usage": {
+        "input_tokens": null,
+        "output_tokens": null
+      },
+      "elapsed_seconds": 2.400018274784088e-06,
+      "error": "RuntimeError",
+      "performed": true
+    }
+  ],
+  "call_count_explanation": "238 attempt-log records include two locally rejected summary wrapper calls: t08-l08 and t10-l08. After l07 truncated_completion, _CachedClient.stop_reason raises before ledger INSERT and network request. These records incorrectly carry performed=true; durable ledger contains 236 actual calls, not a regeneration.",
+  "notes": [
+    "128 rows are dependent within 16 histories, with eight related short/long scenario pairs.",
+    "All technical failures remain in planned denominators. No semantic winner is established.",
+    "Writer costs belong to a history/method and are shared across its two requests.",
+    "Token totals are full-call model usage. Schema character counts are separate; schema token counts are unavailable.",
+    "Time is summed call elapsed time, not end-to-end batch latency or a throughput estimate.",
+    "Local hardware, electricity and monetary costs were not measured; missing cost does not mean zero."
+  ]
+}

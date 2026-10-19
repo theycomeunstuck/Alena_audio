@@ -1,0 +1,329 @@
+{
+  "data_origin": "synthetic_unreviewed",
+  "human_semantic_review": false,
+  "scenario_count": 16,
+  "requests_per_history": 2,
+  "expected_answer_count": 128,
+  "independent_observation_unit": "history; compare methods within history; do not count answers as independent learners",
+  "design": [
+    {
+      "history_id": "t01",
+      "situation": "assistance",
+      "length": "short",
+      "source_text_chars": 364,
+      "full_tail_chars": 553,
+      "selected_tail_chars": 553,
+      "key_turn_ids": [
+        "t01-l01-t01",
+        "t01-l01-t02",
+        "t01-l01-t03",
+        "t01-l01-t04",
+        "t01-l01-t05"
+      ],
+      "key_turn_ids_visible_in_tail": [
+        "t01-l01-t01",
+        "t01-l01-t02",
+        "t01-l01-t03",
+        "t01-l01-t04",
+        "t01-l01-t05"
+      ],
+      "lesson_count": 1
+    },
+    {
+      "history_id": "t02",
+      "situation": "assistance",
+      "length": "long",
+      "source_text_chars": 5378,
+      "full_tail_chars": 6479,
+      "selected_tail_chars": 3955,
+      "key_turn_ids": [
+        "t02-l01-t01",
+        "t02-l01-t02",
+        "t02-l01-t03",
+        "t02-l01-t04",
+        "t02-l01-t05"
+      ],
+      "key_turn_ids_visible_in_tail": [],
+      "lesson_count": 7
+    },
+    {
+      "history_id": "t03",
+      "situation": "independent_attempt",
+      "length": "short",
+      "source_text_chars": 376,
+      "full_tail_chars": 527,
+      "selected_tail_chars": 527,
+      "key_turn_ids": [
+        "t03-l01-t01",
+        "t03-l02-t01",
+        "t03-l02-t02",
+        "t03-l02-t03"
+      ],
+      "key_turn_ids_visible_in_tail": [
+        "t03-l01-t01",
+        "t03-l02-t01",
+        "t03-l02-t02",
+        "t03-l02-t03"
+      ],
+      "lesson_count": 2
+    },
+    {
+      "history_id": "t04",
+      "situation": "independent_attempt",
+      "length": "long",
+      "source_text_chars": 5473,
+      "full_tail_chars": 6536,
+      "selected_tail_chars": 3927,
+      "key_turn_ids": [
+        "t04-l01-t01",
+        "t04-l08-t01",
+        "t04-l08-t02",
+        "t04-l08-t03"
+      ],
+      "key_turn_ids_visible_in_tail": [
+        "t04-l08-t01",
+        "t04-l08-t02",
+        "t04-l08-t03"
+      ],
+      "lesson_count": 8
+    },
+    {
+      "history_id": "t05",
+      "situation": "unknown_conditions",
+      "length": "short",
+      "source_text_chars": 285,
+      "full_tail_chars": 398,
+      "selected_tail_chars": 398,
+      "key_turn_ids": [
+        "t05-l01-t01",
+        "t05-l01-t02",
+        "t05-l01-t03"
+      ],
+      "key_turn_ids_visible_in_tail": [
+        "t05-l01-t01",
+        "t05-l01-t02",
+        "t05-l01-t03"
+      ],
+      "lesson_count": 1
+    },
+    {
+      "history_id": "t06",
+      "situation": "unknown_conditions",
+      "length": "long",
+      "source_text_chars": 5341,
+      "full_tail_chars": 6366,
+      "selected_tail_chars": 3949,
+      "key_turn_ids": [
+        "t06-l01-t01",
+        "t06-l01-t02",
+        "t06-l01-t03"
+      ],
+      "key_turn_ids_visible_in_tail": [],
+      "lesson_count": 7
+    },
+    {
+      "history_id": "t07",
+      "situation": "source_correction",
+      "length": "short",
+      "source_text_chars": 358,
+      "full_tail_chars": 509,
+      "selected_tail_chars": 509,
+      "key_turn_ids": [
+        "t07-l01-t01",
+        "t07-l02-t01",
+        "t07-l02-t02",
+        "t07-l02-t03"
+      ],
+      "key_turn_ids_visible_in_tail": [
+        "t07-l01-t01",
+        "t07-l02-t01",
+        "t07-l02-t02",
+        "t07-l02-t03"
+      ],
+      "lesson_count": 2
+    },
+    {
+      "history_id": "t08",
+      "situation": "source_correction",
+      "length": "long",
+      "source_text_chars": 5473,
+      "full_tail_chars": 6536,
+      "selected_tail_chars": 3950,
+      "key_turn_ids": [
+        "t08-l01-t01",
+        "t08-l08-t01",
+        "t08-l08-t02",
+        "t08-l08-t03"
+      ],
+      "key_turn_ids_visible_in_tail": [
+        "t08-l08-t01",
+        "t08-l08-t02",
+        "t08-l08-t03"
+      ],
+      "lesson_count": 8
+    },
+    {
+      "history_id": "t09",
+      "situation": "real_progress",
+      "length": "short",
+      "source_text_chars": 463,
+      "full_tail_chars": 766,
+      "selected_tail_chars": 766,
+      "key_turn_ids": [
+        "t09-l01-t01",
+        "t09-l01-t02",
+        "t09-l01-t03",
+        "t09-l01-t04",
+        "t09-l01-t05",
+        "t09-l02-t01",
+        "t09-l02-t02",
+        "t09-l02-t03"
+      ],
+      "key_turn_ids_visible_in_tail": [
+        "t09-l01-t01",
+        "t09-l01-t02",
+        "t09-l01-t03",
+        "t09-l01-t04",
+        "t09-l01-t05",
+        "t09-l02-t01",
+        "t09-l02-t02",
+        "t09-l02-t03"
+      ],
+      "lesson_count": 2
+    },
+    {
+      "history_id": "t10",
+      "situation": "real_progress",
+      "length": "long",
+      "source_text_chars": 5571,
+      "full_tail_chars": 6710,
+      "selected_tail_chars": 3927,
+      "key_turn_ids": [
+        "t10-l01-t01",
+        "t10-l01-t02",
+        "t10-l01-t03",
+        "t10-l08-t01",
+        "t10-l08-t02",
+        "t10-l08-t03"
+      ],
+      "key_turn_ids_visible_in_tail": [
+        "t10-l08-t01",
+        "t10-l08-t02",
+        "t10-l08-t03"
+      ],
+      "lesson_count": 8
+    },
+    {
+      "history_id": "t11",
+      "situation": "unfinished",
+      "length": "short",
+      "source_text_chars": 340,
+      "full_tail_chars": 453,
+      "selected_tail_chars": 453,
+      "key_turn_ids": [
+        "t11-l01-t01",
+        "t11-l01-t02",
+        "t11-l01-t03"
+      ],
+      "key_turn_ids_visible_in_tail": [
+        "t11-l01-t01",
+        "t11-l01-t02",
+        "t11-l01-t03"
+      ],
+      "lesson_count": 1
+    },
+    {
+      "history_id": "t12",
+      "situation": "unfinished",
+      "length": "long",
+      "source_text_chars": 5474,
+      "full_tail_chars": 6575,
+      "selected_tail_chars": 3778,
+      "key_turn_ids": [
+        "t12-l01-t01",
+        "t12-l08-t01",
+        "t12-l08-t02",
+        "t12-l08-t03",
+        "t12-l08-t04"
+      ],
+      "key_turn_ids_visible_in_tail": [
+        "t12-l08-t01",
+        "t12-l08-t02",
+        "t12-l08-t03",
+        "t12-l08-t04"
+      ],
+      "lesson_count": 8
+    },
+    {
+      "history_id": "t13",
+      "situation": "old_event_eviction",
+      "length": "short",
+      "source_text_chars": 281,
+      "full_tail_chars": 394,
+      "selected_tail_chars": 394,
+      "key_turn_ids": [
+        "t13-l01-t01",
+        "t13-l01-t02",
+        "t13-l02-t01"
+      ],
+      "key_turn_ids_visible_in_tail": [
+        "t13-l01-t01",
+        "t13-l01-t02",
+        "t13-l02-t01"
+      ],
+      "lesson_count": 2
+    },
+    {
+      "history_id": "t14",
+      "situation": "old_event_eviction",
+      "length": "long",
+      "source_text_chars": 5314,
+      "full_tail_chars": 6339,
+      "selected_tail_chars": 3953,
+      "key_turn_ids": [
+        "t14-l01-t01",
+        "t14-l01-t02",
+        "t14-l01-t03"
+      ],
+      "key_turn_ids_visible_in_tail": [],
+      "lesson_count": 7
+    },
+    {
+      "history_id": "t15",
+      "situation": "ambiguous_authorship",
+      "length": "short",
+      "source_text_chars": 412,
+      "full_tail_chars": 565,
+      "selected_tail_chars": 565,
+      "key_turn_ids": [
+        "t15-l01-t01",
+        "t15-l01-t02",
+        "t15-l01-t03",
+        "t15-l01-t04"
+      ],
+      "key_turn_ids_visible_in_tail": [
+        "t15-l01-t01",
+        "t15-l01-t02",
+        "t15-l01-t03",
+        "t15-l01-t04"
+      ],
+      "lesson_count": 1
+    },
+    {
+      "history_id": "t16",
+      "situation": "ambiguous_authorship",
+      "length": "long",
+      "source_text_chars": 5472,
+      "full_tail_chars": 6537,
+      "selected_tail_chars": 3955,
+      "key_turn_ids": [
+        "t16-l01-t01",
+        "t16-l01-t02",
+        "t16-l01-t03",
+        "t16-l01-t04"
+      ],
+      "key_turn_ids_visible_in_tail": [],
+      "lesson_count": 7
+    }
+  ]
+}

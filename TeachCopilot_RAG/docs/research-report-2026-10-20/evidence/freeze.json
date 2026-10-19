@@ -1,0 +1,73 @@
+{
+  "protocol": "memory-final-v4",
+  "code_and_prompts": {
+    "code": {
+      "__init__.py": "006488f26a39497c251f575bb2949679a40be2a142b6fe5f5d27bc1c821d69d1",
+      "__main__.py": "18d9f16b6e7542482797f72e834d5abe70e8d3b1b195215cfad107ecc92f116f",
+      "analysis.py": "87a2b9ff0a9e61aeb79ec867b294b24503db36abe4c9c4742e197a3652647a88",
+      "batch.py": "c2178f028f0566a2dc18293bdced8b57ca3745bf0c0db0699dc468f06c4acc60",
+      "clients.py": "5e037083cfb1e4856088a1b117b022680d3f50d8bf7ff3c1ec21a9116faf1156",
+      "contracts.py": "2811da3870f40bd39207194cc5397ef1425dc176714156e9d55bb342f5534c5c",
+      "dataset.py": "9c8d8ebe3fcf41779efdf28531ef200d02da089b908de262df765f13c4b7a387",
+      "judge.py": "c2402a9dc18ed0322bf19b9d73bf34df3df8f5c5fd6517434ba882cf5f12e88a",
+      "methods.py": "10ee7d1bc1f4cf80c86c9db18adad807174c72288962aa629153efa3bb062027",
+      "reuse.py": "272e9d98540e69d92c044710a785b5f4cd789758885ef0edcf91d88989a8fe4a",
+      "runner.py": "39bcd8b17ce24815c84f2a70302c16577c95f8656683c80016db82361bb50e16",
+      "spiderssense.py": "122c86b7d1a81f680715cf631d5c4fb5e7b4541b1a065a7c72f4d4641736e0b4",
+      "workflow.py": "3d187d8b7f9ca5d470c24cc1597520a928053db9e117a8f1f8b5660cb3db1ab6"
+    },
+    "prompts": {
+      "action.txt": "6645f2ba990d9455a1f2b9a7b860f7aeaa60eae804f5d348f99731988c372505",
+      "extract.txt": "33d4d113c115454f6e561a72750f56c7ffdd0fe6e4709acdfd494b490298df15",
+      "judge.txt": "32ac074774d2bf36d633e34b10d4a918876b600f1495bf9f37bfc98567b1c91c",
+      "judge_context.txt": "138b6d104b35867586691504c34f5783400da9c22b431be1577fb9d34170d6bc",
+      "judge_context_v3.txt": "5c35bfb17327916ffbfd436241e3c2414d7b7110621c75938d47dfb073921066",
+      "shorten.txt": "f52514ab0c6090d51bc946f336dacf287d8a50907c4f0bb504b54c5b45406f5c",
+      "summary.txt": "fb8c0f5afac43390304c83d359e31c4a87dbfb96684d05dcc452075cb182ddd3"
+    }
+  },
+  "inputs": {
+    "research_memory\\config.json": "67b22d010c9f3579948256952f8ac2244db3878f2923e329e0a67c84eb198e76",
+    "research_memory\\data\\v4\\calibration.cases.jsonl": "387f70c6002622c770754d947d965a94f65035828205c20b53a84cba913d88a0",
+    "research_memory\\data\\v4\\calibration.expected.jsonl": "c8bb65b7fa8260a80c2770edf298c3181d57f62eea0c17d918da16a91ac905bf",
+    "research_memory\\data\\v4\\design.private.json": "af82fc61d62dd493210cc1877b352ecdcbe97ed454bca442605e787e61122d4f",
+    "research_memory\\data\\v4\\gold.test.jsonl": "b0bc324ce741665e6e6f72d99051e3a31dcd09b59e8362f7e8ad2aacd8eb6358",
+    "research_memory\\data\\v4\\histories.test.jsonl": "1a06e11643a9cf4bdb9def37f068dd76c182b5985b02ac9465b936def6a7e0bb",
+    "research_memory\\data\\v4\\manifest.json": "1ade295218b155f391fafc219ad8216e7cc43e3f11d3eed0a5b1415113b5dabe",
+    "research_memory\\data\\v4\\requests.test.jsonl": "eec575f6b5c278115c1139741d17890e25e5bdcf19e2c0ad6ccc8be940be4af0",
+    "research_memory\\data\\v4\\review.selection.json": "cb7f0126efa1683f30aa37bdb3199aed9645f3da3fb3b6622b1f7efd2a6b0e6d"
+  },
+  "model": {
+    "name": "gemma4:12b",
+    "digest": "6114515d63c17436a7c0417d82820ac65ad643e2806c5a3c89cb62846436ed0b",
+    "size": 8021618941,
+    "details": {
+      "parent_model": "imatrix-20260927-12b/model-q4_K_M.gguf",
+      "format": "gguf",
+      "family": "gemma4",
+      "families": [
+        "gemma4"
+      ],
+      "parameter_size": "11.9B",
+      "quantization_level": "Q4_K_M",
+      "context_length": 262144,
+      "embedding_length": 3840,
+      "runner": "llamacpp"
+    }
+  },
+  "generation": {
+    "protocol_version": "final-v4-source-corrections",
+    "model": "gemma4:12b",
+    "base_url": "http://127.0.0.1:11435",
+    "timeout_seconds": 180,
+    "context_tokens": 8192,
+    "max_output_tokens": 1536,
+    "budget_chars": 4000
+  },
+  "seed": 42,
+  "temperature": 0,
+  "human_content_review": "not_performed",
+  "scientific_result": false,
+  "evaluation_config_sha256": "291ef22da0aed8195f669187f06cc46181b784f4ded083d7aeb440c69be10fae",
+  "policy": "One full dev batch, one held-out batch, one calibration; no recovery or regeneration"
+}

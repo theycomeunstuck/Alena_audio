@@ -1,0 +1,61 @@
+{
+  "status": "synthetic_human_unreviewed",
+  "semantic_labels_added": false,
+  "files": {
+    "evidence/cases/histories.jsonl": {
+      "source": ".local/research_memory/final_v4_20261018/heldout/snapshots/histories.jsonl",
+      "sha256": "1a06e11643a9cf4bdb9def37f068dd76c182b5985b02ac9465b936def6a7e0bb",
+      "exact_copy": true
+    },
+    "human_review/packet.md": {
+      "source": ".local/research_memory/final_v4_20261018/final_report/human_review/packet.md",
+      "sha256": "f68cac86c92d08ec3a9c5c13ef2a6aa92b46cfd2c7ac6b8c934c0ddb56f4d349",
+      "exact_copy": true
+    },
+    "human_review/answers.jsonl": {
+      "source": ".local/research_memory/final_v4_20261018/final_report/human_review/answers.jsonl",
+      "sha256": "8a7ac019143b8206126d205e621fe6d7625daf51fd4d3bc8c9e2f93481b85e94",
+      "exact_copy": true
+    },
+    "private/mapping.private.json": {
+      "source": ".local/research_memory/final_v4_20261018/final_report/private/mapping.private.json",
+      "sha256": "103db294b47dd4320807543ca17230b0ac6eebf23404f021556d74de01b77bb3",
+      "exact_copy": true
+    },
+    "evidence/calibration_summary.json": {
+      "source": ".local/research_memory/final_v4_20261018/assessment/calibration/summary.json",
+      "sha256": "653e6bc9f8b2ccf21930cf724b0977a08abac6bee2bbde3288c386ffc5e74b4a",
+      "exact_copy": true
+    },
+    "evidence/cases/job-0006-trace.jsonl": {
+      "source": ".local/research_memory/final_v4_20261018/heldout/attempts/job-0006/attempt-0001/trace.jsonl",
+      "sha256": "9434de2561c0f08aef2d310eba845fcff66fbf98637e4aff024a7c840770f459",
+      "exact_copy": true
+    },
+    "evidence/cases/job-0015-trace.jsonl": {
+      "source": ".local/research_memory/final_v4_20261018/heldout/attempts/job-0015/attempt-0001/trace.jsonl",
+      "sha256": "241a29f0fee92ca50eaa97523ce241dcd6a65bfe91144be81ee9f36408d92479",
+      "exact_copy": true
+    },
+    "evidence/cases/job-0027-trace.jsonl": {
+      "source": ".local/research_memory/final_v4_20261018/heldout/attempts/job-0027/attempt-0001/trace.jsonl",
+      "sha256": "79f7a0e69105b91a18befdc8c36de9b19992e1edb1ac4ea642dbd16e5311ef7e",
+      "exact_copy": true
+    },
+    "evidence/cases/job-0028-trace.jsonl": {
+      "source": ".local/research_memory/final_v4_20261018/heldout/attempts/job-0028/attempt-0001/trace.jsonl",
+      "sha256": "bc57976540172adda308db2b1fc0ee33a2280d83a7bebe28568b35227e284838",
+      "exact_copy": true
+    },
+    "evidence/cases/job-0038-trace.jsonl": {
+      "source": ".local/research_memory/final_v4_20261018/heldout/attempts/job-0038/attempt-0001/trace.jsonl",
+      "sha256": "f605de68bf696dea03180d934f14dd5c1a9ba75492b2bb9d498ce52b406b56a4",
+      "exact_copy": true
+    },
+    "evidence/cases/job-0047-trace.jsonl": {
+      "source": ".local/research_memory/final_v4_20261018/heldout/attempts/job-0047/attempt-0001/trace.jsonl",
+      "sha256": "b6d01285051d206f4cbf449e071a98ea8721e8eedbf8ed1f10186bec2b83a230",
+      "exact_copy": true
+    }
+  }
+}

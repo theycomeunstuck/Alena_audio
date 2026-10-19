@@ -1,0 +1,2 @@
+# Keep exact source bytes and checksums on every checkout.
+* -text
