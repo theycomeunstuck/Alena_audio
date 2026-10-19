@@ -13,6 +13,7 @@
   const displayName = account => account?.display_name || account?.email || 'Пользователь';
   const errorText = error => error?.message || 'Попробуйте ещё раз.';
   let toastTimer;
+  let loginBusy = false;
 
   async function request(path, options = {}) {
     const headers = new Headers(options.headers || {});
@@ -34,6 +35,13 @@
   function showLogin(message = '') {
     $('#workspace').hidden = true; $('#login-view').hidden = false;
     $('#login-error').hidden = !message; $('#login-error').textContent = message;
+    $('#demo-login').hidden = true;
+    $('#login-intro').textContent = 'Используйте выданную учётную запись учителя или ученика.';
+    request('/auth/demo').then(data => {
+      const available = data.enabled === true && ['teacher', 'student'].every(role => data.roles?.includes(role));
+      $('#demo-login').hidden = !available;
+      $('#login-intro').textContent = available ? 'Выберите демонстрацию или войдите в свою учётную запись.' : 'Используйте выданную учётную запись учителя или ученика.';
+    }).catch(() => { $('#demo-login').hidden = true; });
   }
   function signOutLocal() {
     state.token = null; state.account = null; state.learnerId = null; sessionStorage.removeItem(tokenKey);
@@ -538,11 +546,35 @@
     }
   }
 
+  async function loginWith(path, body, headers = {}) {
+    if (loginBusy) return;
+    loginBusy = true;
+    const button = $('#login-form button[type="submit"]'), errorNode = $('#login-error');
+    errorNode.hidden = true;
+    $$('#login-form button, #login-form input').forEach(field => { field.disabled = true; });
+    button.textContent = 'Входим…';
+    try {
+      const data = await request(path, { method: 'POST', body, headers });
+      state.token = data.access_token; sessionStorage.setItem(tokenKey, state.token);
+      await boot();
+    } catch (error) {
+      errorNode.textContent = path.startsWith('/auth/demo/')
+        ? 'Демонстрационный вход недоступен. Можно войти по выданной учётной записи.' : errorText(error);
+      errorNode.hidden = false;
+    }
+    finally {
+      loginBusy = false;
+      $$('#login-form button, #login-form input').forEach(field => { field.disabled = false; });
+      button.textContent = 'Войти';
+    }
+  }
   $('#login-form').addEventListener('submit', event => {
-    event.preventDefault(); const button = $('button[type="submit"]', event.currentTarget); const errorNode = $('#login-error'); errorNode.hidden = true;
-    button.disabled = true; button.textContent = 'Входим…';
-    request('/auth/login', { method: 'POST', body: { email: $('#email').value.trim(), password: $('#password').value } }).then(data => { state.token = data.access_token; sessionStorage.setItem(tokenKey, state.token); return boot(); }).catch(error => { errorNode.textContent = errorText(error); errorNode.hidden = false; }).finally(() => { button.disabled = false; button.textContent = 'Войти'; });
+    event.preventDefault();
+    loginWith('/auth/login', { email: $('#email').value.trim(), password: $('#password').value });
   });
+  ['teacher', 'student'].forEach(role => $(`#login-as-${role}`).addEventListener('click', () => {
+    loginWith(`/auth/demo/${role}`, {}, { 'X-TeachCopilot-Demo': '1' });
+  }));
   $('#logout').addEventListener('click', async () => { try { await request('/auth/logout', { method: 'POST' }); } catch { /* local session is still cleared */ } signOutLocal(); });
   $('#learner-filter').addEventListener('input', filterRoster);
   $('#retry-load').addEventListener('click', () => state.learnerId ? selectLearner(state.learnerId) : loadLearners());

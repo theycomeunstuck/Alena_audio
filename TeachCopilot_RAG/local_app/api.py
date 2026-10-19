@@ -6,10 +6,10 @@ from datetime import date
 from pathlib import Path
 from typing import Any, Literal
 
-from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field, StrictBool
+from pydantic import BaseModel, ConfigDict, Field, StrictBool
 
 from local_app.auth import hash_password, hash_session_token, new_session_token, session_expiry, verify_password
 
@@ -212,6 +212,9 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None) -> Fas
     class LoginRequest(BaseModel):
         email: str = Field(..., min_length=3, max_length=320)
         password: str = Field(..., min_length=1, max_length=1024)
+
+    class DemoLoginRequest(BaseModel):
+        model_config = ConfigDict(extra="forbid")
 
     class LearnerCreateRequest(BaseModel):
         learner_id: str = Field(..., min_length=1, max_length=100)
@@ -420,16 +423,42 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None) -> Fas
             logger.exception("Database readiness check failed")
             raise HTTPException(status_code=503, detail={"status": "not_ready", "reason": "database, index, or local model readiness check failed"}) from exc
 
+    def issue_login_session(account: dict) -> dict:
+        token = new_session_token()
+        store.create_session(_account_id(account), hash_session_token(token), session_expiry(hours=int(_value(settings, "session_hours", default=12))))
+        session_hours = int(_value(settings, "session_hours", default=12))
+        return {"access_token": token, "token_type": "bearer", "expires_in": session_hours * 3600, "account": {"id": _account_id(account), "email": account.get("email"), "display_name": account.get("display_name"), "role": _role(account), "learner_id": account.get("learner_id")}}
+
     @app.post("/auth/login")
     def login(request: LoginRequest):
         account = store.get_account(email=request.email.strip().lower())
         encoded = account.get("password_hash", "") if account else ""
         if not account or not account.get("active", True) or not verify_password(request.password, encoded):
             raise HTTPException(status_code=401, detail="invalid email or password")
-        token = new_session_token()
-        store.create_session(_account_id(account), hash_session_token(token), session_expiry(hours=int(_value(settings, "session_hours", default=12))))
-        session_hours = int(_value(settings, "session_hours", default=12))
-        return {"access_token": token, "token_type": "bearer", "expires_in": session_hours * 3600, "account": {"id": _account_id(account), "email": account.get("email"), "display_name": account.get("display_name"), "role": _role(account), "learner_id": account.get("learner_id")}}
+        return issue_login_session(account)
+
+    @app.get("/auth/demo")
+    def demo_login_availability(request: Request):
+        from local_app.demo_login import DEFAULT_CREDENTIALS, demo_account, require_local_demo_request
+        available = {"enabled": False}
+        if _value(settings, "demo_login_enabled", default=False) is True:
+            require_local_demo_request(request)
+            try:
+                for role in ("teacher", "student"):
+                    demo_account(store, _value(settings, "demo_credentials_file", default=DEFAULT_CREDENTIALS), role)
+                available = {"enabled": True, "roles": ["teacher", "student"]}
+            except HTTPException:
+                pass
+        return JSONResponse(content=available, headers={"Cache-Control": "no-store"})
+
+    @app.post("/auth/demo/{role}")
+    def demo_login(role: Literal["teacher", "student"], request: Request, payload: DemoLoginRequest):
+        from local_app.demo_login import DEFAULT_CREDENTIALS, demo_account, require_local_demo_request
+        if _value(settings, "demo_login_enabled", default=False) is not True:
+            raise HTTPException(status_code=404, detail="local demo login is disabled")
+        require_local_demo_request(request, login=True)
+        account = demo_account(store, _value(settings, "demo_credentials_file", default=DEFAULT_CREDENTIALS), role)
+        return JSONResponse(content=issue_login_session(account), headers={"Cache-Control": "no-store"})
 
     @app.post("/auth/logout")
     def logout(user: dict = Depends(require_user), authorization: str | None = Header(default=None)):

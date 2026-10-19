@@ -20,7 +20,16 @@
       <form id="login-form" class="login-form">
         <div class="form-kicker">Локальное рабочее место</div>
         <h1 id="login-title">Войти в класс</h1>
-        <p>Используйте выданную учётную запись учителя или ученика.</p>
+        <p id="login-intro">Используйте выданную учётную запись учителя или ученика.</p>
+        <section id="demo-login" class="demo-login" aria-labelledby="demo-login-title" hidden>
+          <h2 id="demo-login-title">Открыть демонстрацию</h2>
+          <div class="demo-login-buttons">
+            <button id="login-as-teacher" class="button secondary" type="button">Войти как учитель</button>
+            <button id="login-as-student" class="button secondary" type="button">Войти как ученик</button>
+          </div>
+          <p>Синтетические учебные профили. Ученик – Ника Комета.</p>
+        </section>
+        <p id="manual-login-caption" class="manual-login-caption">Вход по выданной учётной записи</p>
         <label for="email">Электронная почта</label><input id="email" name="email" type="email" autocomplete="username" required>
         <label for="password">Пароль</label><input id="password" name="password" type="password" autocomplete="current-password" required>
         <button class="button primary wide" type="submit">Войти</button>
