@@ -51,6 +51,31 @@ def _revision_error(message):
     raise RevisionConflict(message)
 
 
+def _approved_memory_source_ids(version):
+    """Recognize the complete source snapshot written by the native memory worker.
+
+    Selected context contains only a budgeted subset and cannot determine
+    freshness. Legacy versions without the native snapshot retain revision
+    checks instead of being silently treated as current.
+    """
+    state = version.get("state")
+    if (not version.get("approved") or not isinstance(state,dict)
+            or state.get("method") not in {"profile_only", "tail", "summary", "structured"}
+            or not isinstance(state.get("topic_id"),str) or not state["topic_id"]
+            or state["topic_id"] != version.get("topic_id")
+            or not isinstance(state.get("sources"),dict)):
+        return None
+    sources = state["sources"]
+    if any(not isinstance(source_id,str) or not source_id or not isinstance(source,dict)
+           or source.get("turn_id") != source_id
+           or source.get("role") not in {"student", "teacher"}
+           or not isinstance(source.get("text"),str)
+           or not isinstance(source.get("observed_on"),str)
+           for source_id,source in sources.items()):
+        return None
+    return set(sources)
+
+
 class MemoryStoreMixin:
     @staticmethod
     def _memory_learner(cur, learner_id, expected_revision=None, lock="UPDATE"):
@@ -498,9 +523,20 @@ class MemoryStoreMixin:
                                                   "truncated":bool(truncated)}
             cur.execute("SELECT * FROM teachcopilot.memory_versions WHERE learner_id=%s" + (" AND topic_id=%s" if topic_id is not None else "") + " ORDER BY created_at DESC,id", values)
             versions = [_row(row) for row in cur.fetchall()]
+            eligible_by_topic = {}
+            for source in sources:
+                eligible_by_topic.setdefault(source["topic_id"],set()).add(source["source_id"])
             for version in versions:
                 version["method"] = version["state"].get("method") if isinstance(version["state"],dict) else None
-                version["stale"] = version["base_revision"] != learner["revision"] or version["source_revision"] != learner["memory_source_revision"]
+                source_ids = _approved_memory_source_ids(version)
+                if source_ids is None:
+                    sources_changed = version["source_revision"] != learner["memory_source_revision"]
+                else:
+                    # Active turns and another topic change the global revision
+                    # for concurrency guards, but do not change this approved
+                    # long-term memory's immutable eligible source snapshot.
+                    sources_changed = source_ids != eligible_by_topic.get(version["topic_id"],set())
+                version["stale"] = version["base_revision"] != learner["revision"] or sources_changed
             return {"learner_id":learner_id,"revision":learner["revision"],"source_revision":learner["memory_source_revision"],"sources":sources,"versions":versions}
 
     def approve_memory_version(self, learner_id, version_id, actor_id, expected_revision, interest_candidate_ids=None):
