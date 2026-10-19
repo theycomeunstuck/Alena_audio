@@ -1,0 +1,47 @@
+{
+  "status": "report_bundle_prepared",
+  "date": "2026-10-20",
+  "new_model_calls": 0,
+  "new_paid_calls": 0,
+  "human_content_review": "not_performed",
+  "formal_semantic_assessment": "128 not_assessed; calibration_not_qualified",
+  "supplemental_case_analysis": "AI only, selected cases, no comparative quality rates",
+  "technical_results": {
+    "planned_rows": 128,
+    "accepted_rows": 94,
+    "histories": 16,
+    "actual_model_calls_in_frozen_experiment": 236
+  },
+  "verification": {
+    "frozen_hashes_verified": 29,
+    "docx_pages_rendered_and_reviewed": 11,
+    "pptx_slides_reimported_rendered_and_reviewed": 12,
+    "pptx_native_tables": 5,
+    "pptx_native_charts": 1,
+    "pptx_layout_findings": 0,
+    "pptx_layout_warnings": 0,
+    "powerpoint_native_execution": "not_performed",
+    "docx_renderer": "packaged render_docx.py, read-only Word PDF export because no bundled LibreOffice on Windows"
+  },
+  "artifacts": {
+    "Отчет_память_TeachCopilot.docx": {
+      "bytes": 55002,
+      "sha256": "6332b997f11cec0a9bc5e13f7f35bb24348025a51cb6c960eb7715b428a5e4bd"
+    },
+    "Презентация_память_TeachCopilot.pptx": {
+      "bytes": 69147,
+      "sha256": "8b494c5a0672db8399b27ff998417a9138318db336cfeba0c2f50688d949edcd"
+    },
+    "metrics.json": {
+      "bytes": 39369,
+      "sha256": "d7422db9495edb1528cb9b8c453339935a2933fc4964fdc32480d72df84c171e"
+    },
+    "history_pairs.csv": {
+      "bytes": 1075,
+      "sha256": "5f39d8c7d16872ac4cedbdc930ea905ce4be0ec773f1af2ef4a9508e2920933a"
+    }
+  },
+  "budget_charged_or_reserved_usd": "1.2405025",
+  "budget_total_cap_usd": "4",
+  "completion_boundary": "Reporting bundle complete. Qualified substantive comparison remains incomplete; prototype constraints remain documented."
+}
