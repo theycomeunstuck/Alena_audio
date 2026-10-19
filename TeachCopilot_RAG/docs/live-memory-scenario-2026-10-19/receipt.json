@@ -1,0 +1,70 @@
+{
+  "recorded_at": "2026-10-19T13:44:22.581150+00:00",
+  "application_commit": "2f5848772816904c60f7d1cf2d41f402f2f3be05",
+  "synthetic_learner": "demo-nika-04",
+  "real_application_real_postgres_real_local_model": true,
+  "provider_mocked": false,
+  "application_code_changed": false,
+  "teacher_confirmation_performed_by": "assistant_during_authorized_synthetic_walkthrough",
+  "new_browser_tab_and_application_worker_restart": true,
+  "sources_versions_and_card_interests_equal_across_restart": true,
+  "different_learning_session_ids": true,
+  "observed_academic_continuation": "failed_scope_redirect",
+  "observed_interest_recall": "includes_newly_approved_astronomy",
+  "assistant_outputs_verbatim": [
+    "Привет, Ника! Здорово, что ты увлекаешься астрономией – кометы это очень круто! Давай разберёмся с этой дробью так же чётко, как по орбите кометы.\n\nПрежде чем мы запишем цифры, давай посмотрим на весь круг целиком. Сколько всего равных частей в этом круге (в нашем «целом»)?",
+    "Я могу помочь с математикой, Scratch и Python. Какой учебный вопрос разберём?",
+    "Ты увлекаешься графическими романами, аквариумами, головоломками и астрономией. Какая из этих тем тебе сейчас нравится больше всего?"
+  ],
+  "formal_research_evaluation": "not_performed",
+  "general_quality_claim": false,
+  "paid_calls": 0,
+  "screenshots": [
+    {
+      "original": "01-first-session-full.jpg",
+      "readable_crop": "01-first-conversation.jpg",
+      "crop_box_pixels": [
+        182,
+        978,
+        598,
+        1623
+      ],
+      "content_edited": false
+    },
+    {
+      "original": "02-teacher-review.jpg",
+      "readable_crop": "02-teacher-review-readable.jpg",
+      "crop_box_pixels": [
+        214,
+        190,
+        706,
+        745
+      ],
+      "content_edited": false
+    },
+    {
+      "original": "04-new-session-interests.jpg",
+      "readable_crop": "03-after-restart-readable.jpg",
+      "crop_box_pixels": [
+        214,
+        170,
+        706,
+        994
+      ],
+      "content_edited": false
+    }
+  ],
+  "sha256": {
+    "01-after-first-session.json": "37e1bd05f524ed6e49fb62e01e9cb0a5f1167c36469aae6d5d297e03fedb1568",
+    "01-first-conversation.jpg": "b996a07f865be3be8f7e92755ac8a1b994712a3af28deee9e3dee8b83fcbb83e",
+    "01-first-session-full.jpg": "16aefb97ebe2b90eb6f4d3ac4130cd4b7f88ff996ae2972ea9f0cf4fa836357d",
+    "02-after-teacher-confirmation.json": "8e5f8a9b09b7e202f7efa57dbe73d694804461ab04b83ed8af8b64f4e79d705c",
+    "02-teacher-review-readable.jpg": "4af5bad155cea2def636fb42a3c4b8abec0f588780a1cc23cc17a37896358d7f",
+    "02-teacher-review.jpg": "a69215b195a0399a495f91ec28018bd811e56d12a11c514964a5a48aa84ad6e3",
+    "03-after-process-restart.json": "93cf2ee5dac6af17f0513ea16d3167e8f1939c8c2c11f9436d8d4230d18490d3",
+    "03-after-restart-readable.jpg": "6b741a73253ef0ccb777f44b40ef31e06e796ca98c1db23d366032ddf2cfcc87",
+    "04-new-session-interests.jpg": "6cc175f3fd226232e5e2fb642b8cd6840615aeedfd6a92e0cdac35a1a230ac79",
+    "04-new-session-results.json": "a7f456c3e9045137a436e884aeaf8dc5eba47791154e9869833e79d88591a192",
+    "05-after-second-session.json": "68abf9c2b1e9203f23464b03e83fcc3a2951c33b1d2c49b7518f80b1b2aecdb8"
+  }
+}

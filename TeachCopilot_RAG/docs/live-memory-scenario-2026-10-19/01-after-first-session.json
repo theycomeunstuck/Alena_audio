@@ -1,0 +1,419 @@
+{
+  "learner_id": "demo-nika-04",
+  "revision": 2,
+  "source_revision": 5,
+  "sources": [
+    {
+      "source_id": "677ff6d7-9b5b-468e-b730-a8d40bdd5aec",
+      "session_id": null,
+      "author_role": "teacher",
+      "text": "[СИНТЕТИЧЕСКОЕ ДЕМО] На первом рисунке записано 3/8. Условия помощи и авторство записи не указаны.",
+      "content": "[СИНТЕТИЧЕСКОЕ ДЕМО] На первом рисунке записано 3/8. Условия помощи и авторство записи не указаны.",
+      "observed_on": "2026-10-17",
+      "topic_id": "math.g4.fractions.numerator_denominator",
+      "approved": true,
+      "created_at": "2026-10-17 17:49:58.052370+00:00"
+    },
+    {
+      "source_id": "bb5a1b4a-33fd-41f6-a1e1-fcdf6c642188",
+      "session_id": null,
+      "author_role": "teacher",
+      "text": "[СИНТЕТИЧЕСКОЕ ДЕМО] На втором рисунке ученик подписал целое после вопроса преподавателя. Работа остановлена перед выбором знаменателя; новая самостоятельная проверка не проводилась.",
+      "content": "[СИНТЕТИЧЕСКОЕ ДЕМО] На втором рисунке ученик подписал целое после вопроса преподавателя. Работа остановлена перед выбором знаменателя; новая самостоятельная проверка не проводилась.",
+      "observed_on": "2026-10-17",
+      "topic_id": "math.g4.fractions.numerator_denominator",
+      "approved": true,
+      "created_at": "2026-10-17 17:49:58.086553+00:00"
+    },
+    {
+      "source_id": "12f4e708-6fb4-4ed3-9902-e83fcbf35fba",
+      "session_id": "af07cc37-2cb4-4563-8fbd-efe09e612c5d",
+      "author_role": "student",
+      "text": "На рисунке круг разделён на 8 равных частей, я закрасила 3. Я записала 8/3 и остановилась: путаю, что ставить сверху, а что снизу. Не говори готовую дробь, задай один вопрос. Ещё мне нравится астрономия, особенно кометы.",
+      "content": "На рисунке круг разделён на 8 равных частей, я закрасила 3. Я записала 8/3 и остановилась: путаю, что ставить сверху, а что снизу. Не говори готовую дробь, задай один вопрос. Ещё мне нравится астрономия, особенно кометы.",
+      "observed_on": null,
+      "topic_id": "math",
+      "approved": false,
+      "created_at": "2026-10-19 13:35:58.764239+00:00"
+    }
+  ],
+  "versions": [
+    {
+      "id": "9ad28bd6-58a2-4af9-91f5-17996a417b09",
+      "learner_id": "demo-nika-04",
+      "topic_id": "math",
+      "base_revision": 2,
+      "source_revision": 5,
+      "state": {
+        "blocks": [
+          [
+            "12f4e708-6fb4-4ed3-9902-e83fcbf35fba",
+            "[12f4e708-6fb4-4ed3-9902-e83fcbf35fba | 2026-10-19 | student] На рисунке круг разделён на 8 равных частей, я закрасила 3. Я записала 8/3 и остановилась: путаю, что ставить сверху, а что снизу. Не говори готовую дробь, задай один вопрос. Ещё мне нравится астрономия, особенно кометы."
+          ]
+        ],
+        "events": [],
+        "method": "tail",
+        "records": [],
+        "sources": {
+          "12f4e708-6fb4-4ed3-9902-e83fcbf35fba": {
+            "role": "student",
+            "text": "На рисунке круг разделён на 8 равных частей, я закрасила 3. Я записала 8/3 и остановилась: путаю, что ставить сверху, а что снизу. Не говори готовую дробь, задай один вопрос. Ещё мне нравится астрономия, особенно кометы.",
+            "turn_id": "12f4e708-6fb4-4ed3-9902-e83fcbf35fba",
+            "observed_on": "2026-10-19"
+          }
+        },
+        "summary": "",
+        "topic_id": "math"
+      },
+      "context": {
+        "text": "[12f4e708-6fb4-4ed3-9902-e83fcbf35fba | 2026-10-19 | student] На рисунке круг разделён на 8 равных частей, я закрасила 3. Я записала 8/3 и остановилась: путаю, что ставить сверху, а что снизу. Не говори готовую дробь, задай один вопрос. Ещё мне нравится астрономия, особенно кометы.",
+        "method": "tail",
+        "sources": [
+          {
+            "role": "student",
+            "text": "На рисунке круг разделён на 8 равных частей, я закрасила 3. Я записала 8/3 и остановилась: путаю, что ставить сверху, а что снизу. Не говори готовую дробь, задай один вопрос. Ещё мне нравится астрономия, особенно кометы.",
+            "source_id": "12f4e708-6fb4-4ed3-9902-e83fcbf35fba",
+            "observed_on": "2026-10-19"
+          }
+        ],
+        "topic_id": "math",
+        "evidence_ids": [
+          "12f4e708-6fb4-4ed3-9902-e83fcbf35fba"
+        ],
+        "interest_candidates": [
+          {
+            "quote": "Ещё мне нравится астрономия, особенно кометы.",
+            "interest": "астрономия",
+            "operation": "add",
+            "source_id": "12f4e708-6fb4-4ed3-9902-e83fcbf35fba",
+            "candidate_id": "interest-717a0f4d66316387e6ff86b1"
+          }
+        ],
+        "interest_extraction": {
+          "status": "ready",
+          "learning_session_id": "af07cc37-2cb4-4563-8fbd-efe09e612c5d"
+        }
+      },
+      "approved": false,
+      "approved_by": null,
+      "approved_at": null,
+      "job_id": "c16fd99f-681f-4c1b-bf64-0f98e6f0e3e5",
+      "created_at": "2026-10-19 13:37:06.512122+00:00",
+      "version_id": "9ad28bd6-58a2-4af9-91f5-17996a417b09",
+      "method": "tail",
+      "stale": false
+    },
+    {
+      "id": "5b2bce31-c8a5-40c2-a415-2d605575b88b",
+      "learner_id": "demo-nika-04",
+      "topic_id": "math.g4.fractions.numerator_denominator",
+      "base_revision": 2,
+      "source_revision": 2,
+      "state": {
+        "blocks": [
+          [
+            "677ff6d7-9b5b-468e-b730-a8d40bdd5aec",
+            "[677ff6d7-9b5b-468e-b730-a8d40bdd5aec | 2026-10-17 | teacher] [СИНТЕТИЧЕСКОЕ ДЕМО] На первом рисунке записано 3/8. Условия помощи и авторство записи не указаны."
+          ],
+          [
+            "bb5a1b4a-33fd-41f6-a1e1-fcdf6c642188",
+            "[bb5a1b4a-33fd-41f6-a1e1-fcdf6c642188 | 2026-10-17 | teacher] [СИНТЕТИЧЕСКОЕ ДЕМО] На втором рисунке ученик подписал целое после вопроса преподавателя. Работа остановлена перед выбором знаменателя; новая самостоятельная проверка не проводилась."
+          ]
+        ],
+        "events": [],
+        "method": "tail",
+        "records": [],
+        "sources": {
+          "677ff6d7-9b5b-468e-b730-a8d40bdd5aec": {
+            "role": "teacher",
+            "text": "[СИНТЕТИЧЕСКОЕ ДЕМО] На первом рисунке записано 3/8. Условия помощи и авторство записи не указаны.",
+            "turn_id": "677ff6d7-9b5b-468e-b730-a8d40bdd5aec",
+            "observed_on": "2026-10-17"
+          },
+          "bb5a1b4a-33fd-41f6-a1e1-fcdf6c642188": {
+            "role": "teacher",
+            "text": "[СИНТЕТИЧЕСКОЕ ДЕМО] На втором рисунке ученик подписал целое после вопроса преподавателя. Работа остановлена перед выбором знаменателя; новая самостоятельная проверка не проводилась.",
+            "turn_id": "bb5a1b4a-33fd-41f6-a1e1-fcdf6c642188",
+            "observed_on": "2026-10-17"
+          }
+        },
+        "summary": "",
+        "topic_id": "math.g4.fractions.numerator_denominator"
+      },
+      "context": {
+        "text": "[677ff6d7-9b5b-468e-b730-a8d40bdd5aec | 2026-10-17 | teacher] [СИНТЕТИЧЕСКОЕ ДЕМО] На первом рисунке записано 3/8. Условия помощи и авторство записи не указаны.\n[bb5a1b4a-33fd-41f6-a1e1-fcdf6c642188 | 2026-10-17 | teacher] [СИНТЕТИЧЕСКОЕ ДЕМО] На втором рисунке ученик подписал целое после вопроса преподавателя. Работа остановлена перед выбором знаменателя; новая самостоятельная проверка не проводилась.",
+        "method": "tail",
+        "sources": [
+          {
+            "role": "teacher",
+            "text": "[СИНТЕТИЧЕСКОЕ ДЕМО] На первом рисунке записано 3/8. Условия помощи и авторство записи не указаны.",
+            "source_id": "677ff6d7-9b5b-468e-b730-a8d40bdd5aec",
+            "observed_on": "2026-10-17"
+          },
+          {
+            "role": "teacher",
+            "text": "[СИНТЕТИЧЕСКОЕ ДЕМО] На втором рисунке ученик подписал целое после вопроса преподавателя. Работа остановлена перед выбором знаменателя; новая самостоятельная проверка не проводилась.",
+            "source_id": "bb5a1b4a-33fd-41f6-a1e1-fcdf6c642188",
+            "observed_on": "2026-10-17"
+          }
+        ],
+        "topic_id": "math.g4.fractions.numerator_denominator",
+        "evidence_ids": [
+          "677ff6d7-9b5b-468e-b730-a8d40bdd5aec",
+          "bb5a1b4a-33fd-41f6-a1e1-fcdf6c642188"
+        ]
+      },
+      "approved": false,
+      "approved_by": null,
+      "approved_at": null,
+      "job_id": "d7d80e6a-66b2-4c30-ad13-51acefd83c20",
+      "created_at": "2026-10-17 17:55:24.026386+00:00",
+      "version_id": "5b2bce31-c8a5-40c2-a415-2d605575b88b",
+      "method": "tail",
+      "stale": true
+    }
+  ],
+  "recorded_at": "2026-10-19T13:37:41.954885+00:00",
+  "card_interests": [
+    "графические романы",
+    "аквариумы",
+    "головоломки"
+  ],
+  "sessions": [
+    {
+      "id": "af07cc37-2cb4-4563-8fbd-efe09e612c5d",
+      "learner_id": "demo-nika-04",
+      "actor_id": "343fc022-0cad-4f81-a6af-69cfc6dfa100",
+      "topic_id": "math",
+      "client_session_id": "93251497-afbb-4efe-afc0-9e6968abd0e2",
+      "status": "completed",
+      "created_at": "2026-10-19 13:35:58.204549+00:00",
+      "completed_at": "2026-10-19 13:37:04.617052+00:00"
+    }
+  ],
+  "messages": [
+    {
+      "client_message_id": "4fc9740e-4f44-4822-bc0d-a66d6d45d89c",
+      "learning_session_id": "af07cc37-2cb4-4563-8fbd-efe09e612c5d",
+      "status": "completed",
+      "response": {
+        "id": null,
+        "model": "gemma4:12b",
+        "usage": {
+          "total_tokens": 1759,
+          "prompt_tokens": 1660,
+          "completion_tokens": 99
+        },
+        "object": "chat.completion",
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "Привет, Ника! Здорово, что ты увлекаешься астрономией – кометы это очень круто! Давай разберёмся с этой дробью так же чётко, как по орбите кометы.\n\nПрежде чем мы запишем цифры, давай посмотрим на весь круг целиком. Сколько всего равных частей в этом круге (в нашем «целом»)?"
+            },
+            "finish_reason": "stop"
+          }
+        ],
+        "created": "2026-10-19T13:36:08.1876478Z",
+        "sources": [
+          {
+            "id": "fraction-pie-3-of-8",
+            "grade": 4,
+            "score": 0.03278688524590164,
+            "topic_id": "math.g4.fractions.numerator_denominator",
+            "similarity": 0.6202311700651467,
+            "subject_id": "math",
+            "source_file": "TeachCopilot_RAG/knowledge-data/math_g4_fractions.json",
+            "source_version": "474a27139d754e6d5acfe571649f5166c71470cf8d6fcc71a721b102990a06bc"
+          },
+          {
+            "id": "div-736-8",
+            "grade": 4,
+            "score": 0.030090497737556562,
+            "topic_id": "math.g4.numbers.division_by_1_2_digit",
+            "similarity": 0.5708128726798551,
+            "subject_id": "math",
+            "source_file": "TeachCopilot_RAG/knowledge-data/math_g4_division_demo.json",
+            "source_version": "970f59f3106ad2e7249b2d4c42226a4b4c23131cb75cc39c54aff93e3784789d"
+          },
+          {
+            "id": "compare-two-cakes",
+            "grade": 3,
+            "score": 0.031054405392392875,
+            "topic_id": "math.g3.fractions.comparing_shares",
+            "similarity": 0.5663041045160387,
+            "subject_id": "math",
+            "source_file": "TeachCopilot_RAG/knowledge-data/math_g3_fractions.json",
+            "source_version": "0ecb24e02bbcfc6737f6f7c367b48055fae82c2ef921a11b50be623ed155316e"
+          }
+        ],
+        "citations": [],
+        "memory_stale": false,
+        "answer_routing": {
+          "policy": "educational-projection-v2",
+          "reason": "external_disabled",
+          "backend": "local"
+        },
+        "query_resolution": {
+          "source": "original_learner_message"
+        },
+        "client_message_id": "4fc9740e-4f44-4822-bc0d-a66d6d45d89c",
+        "memory_version_id": null,
+        "learning_session_id": "af07cc37-2cb4-4563-8fbd-efe09e612c5d"
+      }
+    }
+  ],
+  "jobs": [
+    {
+      "id": "c16fd99f-681f-4c1b-bf64-0f98e6f0e3e5",
+      "kind": "memory_update",
+      "topic_id": "math",
+      "status": "completed",
+      "result": {
+        "calls": [
+          {
+            "purpose": "conversation_interests",
+            "input_chars": 3629,
+            "input_budget": {
+              "method": "cl100k_base_with_safety_reserve_v1",
+              "enforced": true,
+              "estimator": "cl100k_base",
+              "within_guard": true,
+              "context_tokens": 8192,
+              "exact_token_count": false,
+              "schema_utf8_bytes": 521,
+              "token_budget_kind": "heuristic_not_model_tokenizer",
+              "message_utf8_bytes": 6254,
+              "guarded_input_tokens": 2433,
+              "safety_reserve_tokens": 512,
+              "available_input_tokens": 6656,
+              "estimated_input_tokens": 1921,
+              "reserved_output_tokens": 1536,
+              "framing_token_allowance": 256,
+              "estimated_payload_tokens": 1665
+            },
+            "raw_response": {
+              "done": true,
+              "model": "gemma4:12b",
+              "message": {
+                "role": "assistant",
+                "content": "{\"candidates\": [{\"operation\": \"add\", \"interest\": \"астрономия\", \"source_id\": \"12f4e708-6fb4-4ed3-9902-e83fcbf35fba\", \"quote\": \"Ещё мне нравится астрономия, особенно кометы.\"}]}"
+              },
+              "created_at": "2026-10-19T13:37:06.4869833Z",
+              "eval_count": 74,
+              "done_reason": "stop",
+              "eval_duration": 389820000,
+              "load_duration": 6977900,
+              "total_duration": 1001329900,
+              "prompt_eval_count": 930,
+              "prompt_eval_duration": 403054000,
+              "prompt_eval_cached_count": 0
+            },
+            "prompt_tokens": 930,
+            "elapsed_seconds": 1.107596000074409,
+            "completion_tokens": 74
+          }
+        ],
+        "method": "tail",
+        "review_required": true,
+        "memory_version_id": "9ad28bd6-58a2-4af9-91f5-17996a417b09"
+      },
+      "error": null
+    },
+    {
+      "id": "ceef9f22-4b8c-4286-95ec-a6ef2a3fbf3c",
+      "kind": "chat",
+      "topic_id": "math",
+      "status": "completed",
+      "result": {
+        "response_ready": true
+      },
+      "error": null
+    },
+    {
+      "id": "d7d80e6a-66b2-4c30-ad13-51acefd83c20",
+      "kind": "next_step",
+      "topic_id": "math.g4.fractions.numerator_denominator",
+      "status": "completed",
+      "result": {
+        "calls": [
+          {
+            "purpose": "action",
+            "input_chars": 3456,
+            "input_budget": {
+              "method": "cl100k_base_with_safety_reserve_v1",
+              "enforced": false,
+              "estimator": "cl100k_base",
+              "within_guard": true,
+              "context_tokens": 8192,
+              "exact_token_count": false,
+              "schema_utf8_bytes": 580,
+              "token_budget_kind": "heuristic_not_model_tokenizer",
+              "message_utf8_bytes": 5588,
+              "guarded_input_tokens": 2290,
+              "safety_reserve_tokens": 512,
+              "available_input_tokens": 6656,
+              "estimated_input_tokens": 1778,
+              "reserved_output_tokens": 1536,
+              "framing_token_allowance": 256,
+              "estimated_payload_tokens": 1522
+            },
+            "raw_response": {
+              "done": true,
+              "model": "gemma4:12b",
+              "message": {
+                "role": "assistant",
+                "content": "{\n  \"action\": \"continue_work\",\n  \"reason\": \"Ученик подписал целое после подсказки, но работа была остановлена до выбора знаменателя. Необходимо продолжить выполнение текущей задачи.\",\n  \"evidence_turn_ids\": [\n    \"bb5a1b4a-33fd-41f6-a1e1-fcdf6c642188\"\n  ],\n  \"unknowns\": [\n    \"Условия помощи при подписании целого\",\n    \"Авторство записи 3/8\"\n  ],\n  \"review_required\": true\n}"
+              },
+              "created_at": "2026-10-17T17:55:23.995147Z",
+              "eval_count": 139,
+              "done_reason": "stop",
+              "eval_duration": 964009000,
+              "load_duration": 8266600,
+              "total_duration": 1458294400,
+              "prompt_eval_count": 929,
+              "prompt_eval_duration": 422447000,
+              "prompt_eval_cached_count": 1
+            },
+            "prompt_tokens": 929,
+            "elapsed_seconds": 1.5890679999720305,
+            "completion_tokens": 139
+          }
+        ],
+        "stale": false,
+        "action": "continue_work",
+        "method": "tail",
+        "reason": "Ученик подписал целое после подсказки, но работа была остановлена до выбора знаменателя. Необходимо продолжить выполнение текущей задачи.",
+        "sources": [
+          {
+            "role": "teacher",
+            "text": "[СИНТЕТИЧЕСКОЕ ДЕМО] На первом рисунке записано 3/8. Условия помощи и авторство записи не указаны.",
+            "source_id": "677ff6d7-9b5b-468e-b730-a8d40bdd5aec",
+            "observed_on": "2026-10-17"
+          },
+          {
+            "role": "teacher",
+            "text": "[СИНТЕТИЧЕСКОЕ ДЕМО] На втором рисунке ученик подписал целое после вопроса преподавателя. Работа остановлена перед выбором знаменателя; новая самостоятельная проверка не проводилась.",
+            "source_id": "bb5a1b4a-33fd-41f6-a1e1-fcdf6c642188",
+            "observed_on": "2026-10-17"
+          }
+        ],
+        "revision": 2,
+        "topic_id": "math.g4.fractions.numerator_denominator",
+        "unknowns": [
+          "Условия помощи при подписании целого",
+          "Авторство записи 3/8"
+        ],
+        "learner_id": "demo-nika-04",
+        "next_step_id": "3381823b-c046-4b24-b2f3-79b3536ddeb7",
+        "review_required": true,
+        "evidence_turn_ids": [
+          "bb5a1b4a-33fd-41f6-a1e1-fcdf6c642188"
+        ],
+        "memory_version_id": "5b2bce31-c8a5-40c2-a415-2d605575b88b"
+      },
+      "error": null
+    }
+  ]
+}
