@@ -48,6 +48,14 @@ def _role(account: dict) -> str:
     return str(account.get("role", ""))
 
 
+def _topic_title(topic_id: str | None, catalog: dict) -> str:
+    entry = catalog.get(topic_id, {}) if topic_id else {}
+    return (entry.get("title_ru") or entry.get("title") or {
+        "math": "Математика", "python": "Python", "programming": "Программирование",
+        "scratch": "Scratch", "general": "Общее занятие",
+    }.get(topic_id) or topic_id or "Тема не указана")
+
+
 def _chat_subject(query: str, requested: str | None = None) -> str | None:
     if requested in {"math", "programming", "python", "scratch"}:
         return requested
@@ -349,7 +357,10 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None) -> Fas
         access(user, learner_id)
         memory_available()
         result = store.get_learner_memory(learner_id, topic_id)
-        return {**result, "default_method": "tail", "human_reviewed": False}
+        catalog = store.catalog()
+        titles = {key: [{**item, "topic_title": _topic_title(item.get("topic_id"), catalog)}
+                        for item in result.get(key, [])] for key in ("sources", "versions")}
+        return {**result, **titles, "default_method": "tail", "human_reviewed": False}
 
     @app.post("/learners/{learner_id}/memory/versions/{version_id}/confirm")
     def confirm_memory(learner_id: str, version_id: str, request: MemoryConfirmRequest,
@@ -374,8 +385,9 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None) -> Fas
         access(user, learner_id)
         memory_available()
         try:
-            return store.create_learning_session(learner_id, _account_id(user), request.topic_id or "general",
-                                                 client_session_id=request.client_session_id)
+            session = store.create_learning_session(learner_id, _account_id(user), request.topic_id or "general",
+                                                    client_session_id=request.client_session_id)
+            return {**session, "topic_title": _topic_title(session.get("topic_id"), store.catalog())}
         except Exception as exc:
             memory_error(exc)
 
@@ -606,14 +618,13 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None) -> Fas
             if not isinstance(competency, dict):
                 continue
             topic_id = competency.get("topic_id")
-            entry = catalog.get(topic_id, {}) if isinstance(topic_id, str) else {}
             for observation in competency.get("history") or []:
                 if not isinstance(observation, dict):
                     continue
                 support = observation.get("support_level") or observation.get("help_level")
                 rows.append({
                     "topic_id": topic_id,
-                    "topic_title": entry.get("title_ru", topic_id),
+                    "topic_title": _topic_title(topic_id, catalog),
                     "date": observation.get("date"),
                     "solved": observation.get("solved"),
                     "support_level": support,

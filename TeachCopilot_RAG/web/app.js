@@ -130,7 +130,8 @@
       if (state.account?.role === 'teacher') { loadMemory(); const pending = state.nextStepsByLearner.get(id); if (pending?.job_id && !pending.result && !pending.finished) pollNextStep(id, pending.job_id, viewRevision); }
     } catch (error) { if (viewRevision !== state.viewRevision) return; showError(error); $('#action-empty').hidden = true; }
   }
-  const topicTitle = topic => topic?.title || topic?.name || topic?.topic_id || topic?.id || 'Тема без названия';
+  const subjectTitles = { math: 'Математика', python: 'Python', programming: 'Программирование', scratch: 'Scratch', general: 'Общее занятие' };
+  const topicTitle = topic => topic?.topic_title || topic?.title || topic?.title_ru || topic?.name || topic?.topic || subjectTitles[topic?.topic_id || topic?.id] || topic?.topic_id || topic?.id || 'Тема не указана';
   function normalizeTopics(data) { return Array.isArray(data.topics) ? data.topics : Array.isArray(data) ? data : []; }
   function topicRows(dashboard) { return dashboard?.zpd?.topics || dashboard?.zone_report?.topics || dashboard?.profile?.zpd?.topics || []; }
   function renderDashboard(d) {
@@ -140,9 +141,9 @@
     $('#profile-grade').textContent = p.grade ? `Учебный профиль · ${p.grade} класс` : 'Учебный профиль';
     const meta = [p.language ? `Язык: ${languageLabel(p.language)}` : '', Array.isArray(p.interests) && p.interests.length ? `Интересы: ${p.interests.slice(0, 3).join(', ')}` : ''].filter(Boolean).join(' · ');
     $('#profile-meta').textContent = meta;
-    $('#current-goal').textContent = goal.goal || goal.description || (state.account.role === 'student' ? 'Цель ещё не указана' : 'Добавьте цель в профиле или заметках к занятию');
+    $('#current-goal').textContent = p.goal?.text || goal.goal || goal.description || (state.account.role === 'student' ? 'Цель ещё не указана' : 'Добавьте цель в профиле или заметках к занятию');
     const goalTopic = goal.topic_id ? topicById(goal.topic_id) : null;
-    $('#goal-subject').textContent = goalTopic ? topicTitle(goalTopic) : goal.topic_id || '';
+    $('#goal-subject').textContent = p.goal?.topic || (goalTopic ? topicTitle(goalTopic) : goal.topic_id ? topicTitle({ topic_id: goal.topic_id }) : '');
     $('#revision-label').textContent = state.account.role === 'teacher' && d.revision ? `Версия профиля ${d.revision}` : '';
     renderZones(topicRows(d)); renderHistory(d.history?.observations || d.observations || []);
     if (state.account.role === 'teacher') { $('#edit-goal').value = goal.goal || ''; $('#edit-interests').value = (p.interests || []).join(', '); }
@@ -205,17 +206,19 @@
     if (!Array.isArray(rows) || !rows.length) { root.append(el('p', 'zone-empty', 'Наблюдений пока нет. Когда появятся первые попытки, здесь будет видна история работы.')); return; }
     rows.slice(0, 8).forEach(row => {
       const item = el('article', 'history-item'), date = el('time', 'history-date', safeDate(row.observed_on || row.created_at || row.date));
-      const copy = el('div', 'history-copy'), topic = topicById(row.topic_id), title = topicTitle(topic || { topic_id: row.topic_id });
-      const solved = row.solved === true || row.outcome === 'solved' || row.success === true;
-      const support = row.support_level || row.support || 'independent';
+      const copy = el('div', 'history-copy'), topic = topicById(row.topic_id), title = topicTitle(topic || row);
+      const solved = row.solved === true || row.outcome === 'solved' || row.success === true || ['Выполнено самостоятельно', 'Выполнено с опорой'].includes(row.outcome);
+      const support = row.support_level || row.support || (row.outcome === 'Выполнено с опорой' ? 'assisted' : 'independent');
       const supportLabel = ({ independent: 'самостоятельно', hint_question: 'после наводящего вопроса', visual: 'с наглядной опорой', joint: 'при совместной работе', assisted: 'с опорой', not_solved: 'попытка не завершена' })[support] || 'с опорой';
-      const heading = el('strong'); heading.append(el('i', `history-mark${solved ? (support === 'independent' ? '' : ' supported') : ' no'}`), document.createTextNode(`${title} – ${solved ? `решил ${supportLabel}` : supportLabel}`));
+      const outcome = state.account.role === 'student' && row.outcome ? row.outcome : solved ? `решил ${supportLabel}` : supportLabel;
+      const heading = el('strong'); heading.append(el('i', `history-mark${solved ? (support === 'independent' ? '' : ' supported') : ' no'}`), document.createTextNode(`${title} – ${outcome}`));
       copy.append(heading); if (row.notes) copy.append(el('p', '', row.notes)); else if (row.task_title || row.task_id) copy.append(el('p', '', row.task_title || row.task_id));
       item.append(date, copy); root.append(item);
     });
   }
   async function loadCatalog() {
     const data = await request('/catalog'); state.topics = normalizeTopics(data); fillTopicOptions();
+    if (state.dashboard) { renderDashboard(state.dashboard); renderNextStep(); }
   }
   function fillTopicOptions() {
     for (const select of [$('#topic-select'), $('#observation-topic')]) {
@@ -252,7 +255,7 @@
       row.append(el('strong', '', source.source_id || source.turn_id || source.id || 'Источник занятия'));
       const sourceRole = source.role || source.author_role;
       const role = ({ user: 'Ученик', student: 'Ученик', teacher: 'Учитель', assistant: 'Помощник' })[sourceRole] || sourceRole || '';
-      row.append(el('small', '', [role, safeDate(source.observed_on || source.created_at)].filter(Boolean).join(' · ')));
+      row.append(el('small', '', [role, source.topic_id || source.topic_title ? topicTitle(source) : '', safeDate(source.observed_on || source.created_at)].filter(Boolean).join(' · ')));
       row.append(el('p', '', source.text || source.content || source.quote || 'Текст источника недоступен.')); details.append(row);
     });
     return details;
@@ -282,7 +285,7 @@
       versions.forEach(version => {
         const details = el('details', 'memory-version');
         const names = { tail: 'Последние занятия', profile_only: 'Профиль', summary: 'Сводка', structured: 'Структурированная память' };
-        details.append(el('summary', '', `${names[version.method] || 'Память'} · ${safeDate(version.created_at)}${version.stale ? ' · требует обновления' : ''}${version.approved ? ' · подтверждена' : ' · черновик'}`));
+        details.append(el('summary', '', `${topicTitle(version)} · ${names[version.method] || 'Память'} · ${safeDate(version.created_at)}${version.stale ? ' · требует обновления' : ''}${version.approved ? ' · подтверждена' : ' · черновик'}`));
         const memory = version.state || version.memory || version.payload || version;
         const records = memory.records || version.records || [];
         if (Array.isArray(records)) appendMemoryRecords(details, records);
@@ -498,7 +501,8 @@
   }
   function renderLearningSession() {
     const session = state.learningSessionsByLearner.get(state.learnerId), pending = state.pendingMessages.get(state.learnerId);
-    $('#learning-session-status').textContent = session?.status === 'active' ? 'Занятие идёт. После завершения диалог будет сохранён для просмотра учителем.' : session?.status === 'completed' ? 'Занятие завершено. Обновление памяти поставлено в очередь.' : 'Занятие начнётся с первого вопроса.';
+    const title = session ? topicTitle({ ...session, topic_id: session.topic_id || session.subject_id }) : '';
+    $('#learning-session-status').textContent = session?.status === 'active' ? `${title} · Занятие идёт. После завершения диалог будет сохранён для просмотра учителем.` : session?.status === 'completed' ? `${title} · Занятие завершено. Обновление памяти поставлено в очередь.` : `${subjectTitles[$('#chat-subject').value] || 'Учебное занятие'} · Занятие начнётся с первого вопроса.`;
     $('#complete-learning-session').hidden = session?.status !== 'active'; $('#complete-learning-session').disabled = !!pending && !pending.terminal;
     $('#chat-subject').disabled = session?.status === 'active' || !!pending;
     $('#send-chat').disabled = !!pending; $('#chat-input').disabled = !!pending;
