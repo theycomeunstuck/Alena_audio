@@ -1,0 +1,23 @@
+{
+  "reference_sha256": "7b152ffff9c1412129d024011f10108b6089a7de7b2ff3c27fdcbd45ee4e505b",
+  "reference_unchanged": true,
+  "changed_package_parts": [
+    "word/document.xml"
+  ],
+  "other_package_parts_byte_identical": true,
+  "page_and_table_properties_preserved": true,
+  "all_pages_visually_reviewed": true,
+  "render_engine": "Microsoft Word PDF export and packaged render_docx rasterization with bundled Poppler",
+  "outputs": [
+    {
+      "file": "ИЗ_память_обобщённая.docx",
+      "sha256": "dbbaa90752d1950b19ed24a3550c1341255a4e32dd64be273b50a54fe0e41558",
+      "pages": 1
+    },
+    {
+      "file": "ИЗ_память_стандартная.docx",
+      "sha256": "52913a81b223105be86320036eda0fd63fbb1ce295bd7c369664fc5effe9a3ea",
+      "pages": 1
+    }
+  ]
+}
