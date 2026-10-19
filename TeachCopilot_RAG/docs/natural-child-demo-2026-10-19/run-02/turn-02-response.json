@@ -1,0 +1,32 @@
+{
+  "turn": 2,
+  "student_message": "хз",
+  "response": {
+    "id": null,
+    "object": "chat.completion",
+    "created": null,
+    "model": "gemma4:12b",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "Я могу помочь с математикой, Scratch и Python. Какой учебный вопрос разберём?"
+        },
+        "finish_reason": "stop"
+      }
+    ],
+    "citations": [],
+    "sources": [],
+    "usage": {
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "total_tokens": 0
+    },
+    "learning_session_id": "fed94452-58ef-4275-849f-a3020a146062",
+    "client_message_id": "natural-child-v1-20261019-2",
+    "memory_version_id": null,
+    "memory_stale": false
+  },
+  "elapsed_seconds": 1.6099999999860302
+}

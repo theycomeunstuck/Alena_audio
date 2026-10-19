@@ -1,0 +1,29 @@
+{
+  "scenario": "natural-child-v1-20261019",
+  "synthetic_demo": true,
+  "research_experiment": false,
+  "origin": "http://127.0.0.1:8099",
+  "learner_id": "demo-nika-04",
+  "topic_id": "math.g4.fractions.numerator_denominator",
+  "topic_title": "Числитель и знаменатель",
+  "student_messages": [
+    "опять эти дроби. круг на 8 частей, 3 закрашены. я не поняла, что сверху",
+    "хз",
+    "ну вроде. а можно про кометы?",
+    "ага"
+  ],
+  "maximum_chat_requests": 4,
+  "automatic_retries": false,
+  "provider": "local",
+  "paid_calls": 0,
+  "teacher_confirmation": false,
+  "interpretation": "Короткое согласие и неопределённый ответ не доказывают освоение темы.",
+  "started_at": "2026-10-19T13:57:14.723690+00:00",
+  "routing_preflight": {
+    "api_pid": 38736,
+    "external_answer_config_absent": true,
+    "scope": "API listener environment and application dotenv"
+  },
+  "status": "running",
+  "turns": []
+}

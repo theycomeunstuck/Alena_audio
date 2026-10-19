@@ -1,0 +1,38 @@
+{
+  "id": "fed94452-58ef-4275-849f-a3020a146062",
+  "learner_id": "demo-nika-04",
+  "actor_id": "343fc022-0cad-4f81-a6af-69cfc6dfa100",
+  "topic_id": "math.g4.fractions.numerator_denominator",
+  "client_session_id": "natural-child-v1-20261019",
+  "status": "completed",
+  "created_at": "2026-10-19T13:57:16.548106+00:00",
+  "completed_at": "2026-10-19T13:57:32.542676+00:00",
+  "learning_session_id": "fed94452-58ef-4275-849f-a3020a146062",
+  "job": {
+    "id": "baa33cdd-d3dc-4dd4-b8be-4a4a70098590",
+    "learner_id": "demo-nika-04",
+    "topic_id": "math.g4.fractions.numerator_denominator",
+    "actor_id": "343fc022-0cad-4f81-a6af-69cfc6dfa100",
+    "kind": "memory_update",
+    "method": "tail",
+    "provider": "local",
+    "status": "queued",
+    "priority": 0,
+    "base_revision": 3,
+    "source_revision": 19,
+    "idempotency_key": "session:fed94452-58ef-4275-849f-a3020a146062",
+    "payload": {
+      "learning_session_id": "fed94452-58ef-4275-849f-a3020a146062"
+    },
+    "result": null,
+    "error": null,
+    "worker_id": null,
+    "lease_until": null,
+    "call_started_at": null,
+    "created_at": "2026-10-19T13:57:32.542676+00:00",
+    "started_at": null,
+    "completed_at": null,
+    "job_id": "baa33cdd-d3dc-4dd4-b8be-4a4a70098590"
+  },
+  "job_id": "baa33cdd-d3dc-4dd4-b8be-4a4a70098590"
+}

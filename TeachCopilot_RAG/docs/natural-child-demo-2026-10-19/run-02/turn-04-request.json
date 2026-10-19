@@ -1,0 +1,13 @@
+{
+  "learning_session_id": "fed94452-58ef-4275-849f-a3020a146062",
+  "client_message_id": "natural-child-v1-20261019-4",
+  "metadata": {
+    "subject_id": "math"
+  },
+  "messages": [
+    {
+      "role": "user",
+      "content": "ага"
+    }
+  ]
+}

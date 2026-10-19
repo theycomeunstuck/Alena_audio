@@ -1,0 +1,61 @@
+{
+  "scenario": "natural-child-v1-20261019",
+  "synthetic_demo": true,
+  "research_experiment": false,
+  "origin": "http://127.0.0.1:8099",
+  "learner_id": "demo-nika-04",
+  "topic_id": "math.g4.fractions.numerator_denominator",
+  "topic_title": "Числитель и знаменатель",
+  "student_messages": [
+    "опять эти дроби. круг на 8 частей, 3 закрашены. я не поняла, что сверху",
+    "хз",
+    "ну вроде. а можно про кометы?",
+    "ага"
+  ],
+  "maximum_chat_requests": 4,
+  "automatic_retries": false,
+  "provider": "local",
+  "paid_calls": 0,
+  "teacher_confirmation": false,
+  "interpretation": "Короткое согласие и неопределённый ответ не доказывают освоение темы.",
+  "started_at": "2026-10-19T13:56:47.775322+00:00",
+  "routing_preflight": {
+    "api_pid": 38736,
+    "external_answer_config_absent": true,
+    "scope": "API listener environment and application dotenv"
+  },
+  "status": "interrupted_without_retry",
+  "turns": [],
+  "model_readiness": {
+    "status": "ready",
+    "database": "ok",
+    "schema_version": 11,
+    "index": {
+      "embedding_model": "bge-m3",
+      "dimension": 1024,
+      "total": 147,
+      "indexed": 147,
+      "ready": true,
+      "embedding_model_identity": "bge-m3:latest@7907646426070047a77226ac3e684fbbe8410524f7b4a74d02837e43f2146bab@recipe=269bda234d703b088f748f6e2e68687de148258c776da902d257e232589e83c3",
+      "embedding_prompt_recipe": "raw-query-v1",
+      "embedding_prompt_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "models": {
+      "ready": true,
+      "models": [
+        {
+          "name": "bge-m3:latest",
+          "digest": "7907646426070047a77226ac3e684fbbe8410524f7b4a74d02837e43f2146bab"
+        },
+        {
+          "name": "gemma4:12b",
+          "digest": "6114515d63c17436a7c0417d82820ac65ad643e2806c5a3c89cb62846436ed0b"
+        }
+      ],
+      "local_only": true
+    }
+  },
+  "error_type": "RuntimeError",
+  "error": "The demo login returned a different learner",
+  "finished_at": "2026-10-19T13:56:48.835117+00:00"
+}
