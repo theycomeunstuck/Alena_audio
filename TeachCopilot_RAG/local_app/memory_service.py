@@ -23,7 +23,7 @@ from .memory_store import DIALOGUE_CONTEXT_CHARS
 
 MEMORY_BUDGET = 4000
 STATE_FIELDS = ("sources", "summary", "records", "blocks", "events")
-TAIL_PRESENTATION_VERSION = "dialogue-pairs-v1"
+TAIL_PRESENTATION_VERSION = "dialogue-pairs-v2"
 DIALOGUE_CONTEXT_NOTICE = (
     "Слова ассистента ниже – только контекст ответа ученика. Они не доказывают действия, "
     "самостоятельность или освоение. Короткое согласие ученика тоже не доказывает освоение."
@@ -91,8 +91,16 @@ def _tail_with_dialogue_context(memory: Memory, sources: list[dict]) -> tuple[st
         text = "\n".join(([DIALOGUE_CONTEXT_NOTICE] if notes else []) + parts)
         return text, notes
 
+    # The frozen tail splits long turns into chunks. The application presents
+    # whole literal turns so a budget boundary cannot leave half an answer or
+    # detach a correction. The stored research state is left unchanged.
+    whole_turns = []
+    for source_id in dict.fromkeys(source_id for source_id, _ in memory.blocks):
+        turn = memory.sources[source_id]
+        header = f"[{source_id} | {turn['observed_on']} | {turn['role']}] "
+        whole_turns.append((source_id, header + turn['text']))
     selected, text, notes = [], "", []
-    for source_id, block in reversed(memory.blocks):
+    for source_id, block in reversed(whole_turns):
         candidate = [(source_id, block), *selected]
         candidate_text, candidate_notes = render(candidate)
         if len(candidate_text) > memory.budget:

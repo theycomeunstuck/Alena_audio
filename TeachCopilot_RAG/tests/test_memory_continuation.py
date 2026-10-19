@@ -164,11 +164,10 @@ def test_missing_materials_does_not_discard_available_continuation_memory():
 
 
 @pytest.mark.parametrize("decision", [
-    {"in_scope": True, "uses_prior_context": True, "uses_approved_memory": True, "search_query": "Дроби"},
     {"in_scope": False, "uses_prior_context": False, "uses_approved_memory": True, "search_query": ""},
     {"in_scope": True, "uses_prior_context": False, "needs_clarification": True, "search_query": "Дроби"},
 ])
-def test_mixed_or_inconsistent_grounding_fails_without_retrieval(decision):
+def test_inconsistent_grounding_fails_without_retrieval(decision):
     memory = approved()
     session = LocalSession(json.dumps(decision))
     with pytest.raises(IncompleteCompletionError):
@@ -176,6 +175,25 @@ def test_mixed_or_inconsistent_grounding_fails_without_retrieval(decision):
             "Давай дальше.", [{"role": "user", "content": "Дроби?"}], "math",
             topic_id=memory["topic_id"], approved_memory=memory)
     assert len(session.requests) == 1
+
+
+@pytest.mark.parametrize("use_memory", [False, True])
+def test_question_and_answer_context_can_be_combined_without_erasing_roles(use_memory):
+    memory = approved()
+    decision = {"in_scope": True, "uses_prior_context": True, "prior_learner_question_index": 0,
+                "prior_assistant_question_index": 1, "uses_approved_memory": use_memory,
+                "search_query": "Сколько всего частей в круге"}
+    session = continuation_session(decision)
+    result = RagService(LessonMaterials(), OllamaRuntime(Settings(), session=session), Settings()).answer([
+        {"role": "user", "content": "Круг разделён на 10 частей; четыре закрашены."},
+        {"role": "assistant", "content": "Сколько всего частей?"},
+        {"role": "user", "content": "хз"},
+    ], subject_id="math", topic_id=memory["topic_id"], memory_context=memory)
+    assert result["query_resolution"]["source"] == "combined_context"
+    assert "assistant_question" in result["query_resolution"]["antecedents"]
+    assert "learner_question" in result["query_resolution"]["antecedents"]
+    assert ("approved_memory" in result["query_resolution"]["antecedents"]) == use_memory
+    assert len(session.requests) == 2
 
 
 def test_memory_bound_keeps_end_corrections_and_unknowns_whole_with_long_history():

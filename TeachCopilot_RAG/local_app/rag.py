@@ -246,8 +246,7 @@ class RagService:
             assistant_anchor = resolution.get("prior_assistant_question_index")
             needs_clarification = resolution.get("needs_clarification", False)
             if (type(uses_memory) is not bool or type(needs_clarification) is not bool
-                    or (uses_memory and not resolver_memory)
-                    or sum((resolution["uses_prior_context"], assistant_anchor is not None, uses_memory)) > 1):
+                    or (uses_memory and not resolver_memory)):
                 raise IncompleteCompletionError("Follow-up resolver requested invalid contextual grounding")
             if assistant_anchor is not None and (
                 type(assistant_anchor) is not int or assistant_anchor != latest_user_index - 1
@@ -301,6 +300,9 @@ class RagService:
                     resolved_query = (
                         f"{resolved_query.strip()}\nEarlier learner question: {previous_question}"
                     )
+                antecedents = (["learner_question"] if resolution["uses_prior_context"] else []) + (["assistant_question"] if assistant_anchor is not None else []) + (["approved_memory"] if uses_memory else [])
+                if len(antecedents) > 1:
+                    query_resolution = {"source": "combined_context", "antecedents": antecedents, "topic_id": topic_id}
                 from local_app.learning_tools import verified_learning_response
                 verified = verified_learning_response(latest_query, subject_id,
                                                       previous_messages=history[:latest_user_index])

@@ -94,6 +94,18 @@ def test_long_assistant_turn_preserves_the_trailing_question_as_literal_context(
     assert QUESTION in context["text"]
 
 
+def test_long_turn_is_not_selected_as_only_its_last_frozen_chunk():
+    memory = Memory("tail", None, 500, TOPIC)
+    text = "Важное начало. " + "длинная реплика " * 60 + " Последнее слово."
+    memory.update({"lesson_id": "long-turn", "observed_on": "2026-10-19",
+                   "turns": [{"turn_id": "teacher-long", "role": "teacher", "text": text}]})
+    assert memory.context(TOPIC).text  # The frozen baseline selects a suffix.
+    assert _tail_with_dialogue_context(memory, []) == ("", set(), [])
+    memory.budget = 4000
+    selected, ids, _ = _tail_with_dialogue_context(memory, [])
+    assert text in selected and ids == {"teacher-long"}
+
+
 def test_context_is_ignored_for_teacher_sources_or_wrong_preceding_role():
     teacher = source("teacher-one", "Проверки пока не было.", role="teacher", question="WRONG TEACHER CONTEXT")
     student = source("student-one", "хз", question="WRONG ROLE")

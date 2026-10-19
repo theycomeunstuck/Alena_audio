@@ -17,7 +17,8 @@ PHASES = {
         "опять дроби. круг на 10 частей, 4 закрашены. сверху 10? не поняла",
         "хз", "ну вроде. а можно про кометы?", "ага"])],
     "recall": [(TOPIC, [
-        "Продолжим тот круг с прошлого занятия. Задай один следующий вопрос без готовой дроби.", "хз"])],
+        "Продолжим тот круг с прошлого занятия. Задай один следующий вопрос без готовой дроби.", "хз",
+        "ну вроде. а можно про кометы?", "ага"])],
     "boundaries": [
         ("math.g4.data.bar_charts", ["Продолжим прошлое занятие"]),
         ("programming.python.variables", ["Продолжим с того места, где остановились"]),
@@ -57,7 +58,7 @@ def execute(args):
         if not args.lesson_receipt or not args.reviewed_version_id:
             raise ValueError("Recall requires a lesson receipt and a separately reviewed version")
         lesson = json.loads(args.lesson_receipt.read_text(encoding="utf-8"))
-        if lesson.get("phase") != "lesson" or lesson.get("status") != "completed":
+        if lesson.get("phase") != "lesson" or lesson.get("status") not in {"completed", "closed_without_retry"}:
             raise ValueError("A completed lesson receipt is required")
         version = next((row for row in before["versions"] if row["version_id"] == args.reviewed_version_id), {})
         if (not version.get("approved") or version.get("topic_id") != TOPIC
