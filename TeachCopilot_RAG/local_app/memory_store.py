@@ -12,6 +12,9 @@ from typing import Any
 from psycopg2.extras import Json
 
 
+DIALOGUE_CONTEXT_CHARS = 600
+
+
 class MemoryQueueFullError(RuntimeError):
     """The durable queue has forty waiting jobs; retry later."""
 
@@ -468,11 +471,31 @@ class MemoryStoreMixin:
             topic_filter = " AND s.topic_id=%s" if topic_id is not None else ""
             values = [learner_id] + ([topic_id] if topic_id is not None else [])
             cur.execute("""SELECT s.id AS source_id,s.learning_session_id AS session_id,s.author_role,s.content AS text,
-                s.content,s.observed_on,s.topic_id,s.approved,s.created_at FROM teachcopilot.memory_sources s
-                LEFT JOIN teachcopilot.learning_sessions ls ON ls.id=s.learning_session_id
+                s.content,s.observed_on,s.topic_id,s.approved,s.created_at,
+                CASE WHEN preceding.author_role='assistant' AND preceding.topic_id=s.topic_id AND s.topic_id=ls.topic_id
+                    THEN right(preceding.content,%s) END AS preceding_assistant_text,
+                CASE WHEN preceding.author_role='assistant' AND preceding.topic_id=s.topic_id AND s.topic_id=ls.topic_id
+                    THEN length(preceding.content)>%s ELSE FALSE END AS preceding_assistant_truncated
+                FROM teachcopilot.memory_sources s
+                LEFT JOIN teachcopilot.learning_sessions ls ON ls.id=s.learning_session_id AND ls.learner_id=s.learner_id
+                LEFT JOIN LATERAL (
+                    SELECT previous.author_role,previous.content,previous.topic_id
+                    FROM teachcopilot.memory_sources previous
+                    WHERE s.author_role='student' AND previous.learner_id=s.learner_id
+                        AND previous.learning_session_id=s.learning_session_id AND previous.source_order<s.source_order
+                    ORDER BY previous.source_order DESC LIMIT 1
+                ) preceding ON TRUE
                 WHERE s.learner_id=%s AND s.author_role <> 'assistant'
-                AND ((s.author_role='teacher' AND s.approved AND (s.learning_session_id IS NULL OR ls.status='completed')) OR (s.author_role='student' AND ls.status='completed'))""" + topic_filter + " ORDER BY s.source_order", values)
+                AND ((s.author_role='teacher' AND s.approved AND (s.learning_session_id IS NULL OR ls.status='completed')) OR (s.author_role='student' AND ls.status='completed'))""" + topic_filter + " ORDER BY s.source_order", [DIALOGUE_CONTEXT_CHARS,DIALOGUE_CONTEXT_CHARS,*values])
             sources = [_row(row) for row in cur.fetchall()]
+            for source in sources:
+                preceding_text = source.pop("preceding_assistant_text")
+                truncated = source.pop("preceding_assistant_truncated")
+                if preceding_text:
+                    # Context belongs to the following student's literal source.
+                    # It is never an assistant evidence source or an achievement.
+                    source["dialogue_context"] = {"role":"assistant", "text":preceding_text, "excerpt_mode":"tail",
+                                                  "truncated":bool(truncated)}
             cur.execute("SELECT * FROM teachcopilot.memory_versions WHERE learner_id=%s" + (" AND topic_id=%s" if topic_id is not None else "") + " ORDER BY created_at DESC,id", values)
             versions = [_row(row) for row in cur.fetchall()]
             for version in versions:

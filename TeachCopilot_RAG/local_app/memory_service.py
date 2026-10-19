@@ -1,7 +1,9 @@
 """Shared research memory rules behind durable application jobs.
 
-Only literal student and teacher sources enter memory. Generated conclusions stay
-drafts until a teacher approves a version; competencies are never written here.
+Only literal student and teacher sources enter evidence memory. The application
+may show a bounded preceding assistant turn as labelled conversational context.
+Generated conclusions stay drafts until a teacher approves a version;
+competencies are never written here.
 """
 from __future__ import annotations
 
@@ -16,10 +18,16 @@ from research_memory.clients import input_budget_diagnostic
 from research_memory.methods import METHODS, Memory, messages
 from .conversation_memory import (interest_messages, interest_schema, preference_projection,
                                   validate_interest_candidates)
+from .memory_store import DIALOGUE_CONTEXT_CHARS
 
 
 MEMORY_BUDGET = 4000
 STATE_FIELDS = ("sources", "summary", "records", "blocks", "events")
+TAIL_PRESENTATION_VERSION = "dialogue-pairs-v1"
+DIALOGUE_CONTEXT_NOTICE = (
+    "Слова ассистента ниже – только контекст ответа ученика. Они не доказывают действия, "
+    "самостоятельность или освоение. Короткое согласие ученика тоже не доказывает освоение."
+)
 
 
 def memory_state(memory: Memory) -> dict:
@@ -41,6 +49,56 @@ def source_projection(source: dict) -> dict:
             "role": source.get("author_role") or source.get("role"),
             "text": str(source.get("text") or source.get("content") or ""),
             "observed_on": str(source.get("observed_on") or source.get("created_at") or "")[:10]}
+
+
+def _dialogue_contexts(sources: list[dict]) -> dict[str, dict]:
+    contexts = {}
+    for source in sources:
+        if (source.get("author_role") or source.get("role")) != "student":
+            continue
+        preceding = source.get("dialogue_context") or {}
+        text = preceding.get("text") if isinstance(preceding, dict) else None
+        if not isinstance(text, str) or not text or preceding.get("role") != "assistant":
+            continue
+        source_id = str(source.get("source_id") or source.get("turn_id"))
+        contexts[source_id] = {"source_id": source_id, "role": "assistant", "usage": "context_only",
+                               "text": text[-DIALOGUE_CONTEXT_CHARS:], "excerpt_mode": "tail",
+                               "truncated": bool(preceding.get("truncated")) or len(text) > DIALOGUE_CONTEXT_CHARS}
+    return contexts
+
+
+def _tail_with_dialogue_context(memory: Memory, sources: list[dict]) -> tuple[str, set[str], list[dict]]:
+    """App-only tail presentation; frozen research state and rules stay literal.
+
+    A selected student's turn and its known preceding assistant context are one
+    budget unit. When the pair does not fit, neither side is emitted alone.
+    """
+    contexts = _dialogue_contexts(sources)
+
+    def render(blocks):
+        parts, notes, seen = [], [], set()
+        for source_id, block in blocks:
+            if source_id in contexts and source_id not in seen:
+                note = contexts[source_id]
+                label = f"[Контекст перед ответом ученика {source_id}; ассистент, не доказательство]"
+                excerpt = label + "\n" + note["text"]
+                if note["truncated"]:
+                    excerpt += f"\n[Показан конец предыдущей реплики, до {DIALOGUE_CONTEXT_CHARS} символов.]"
+                parts.append(excerpt)
+                notes.append(deepcopy(note))
+                seen.add(source_id)
+            parts.append(block)
+        text = "\n".join(([DIALOGUE_CONTEXT_NOTICE] if notes else []) + parts)
+        return text, notes
+
+    selected, text, notes = [], "", []
+    for source_id, block in reversed(memory.blocks):
+        candidate = [(source_id, block), *selected]
+        candidate_text, candidate_notes = render(candidate)
+        if len(candidate_text) > memory.budget:
+            break
+        selected, text, notes = candidate, candidate_text, candidate_notes
+    return text, {source_id for source_id, _ in selected}, notes
 
 
 def profile_projection(card: dict, topic_id: str) -> dict:
@@ -137,10 +195,15 @@ class MemoryWorker:
                               "fallback_version_id": versions[0].get("version_id") or versions[0].get("id")}
             memory = restore_memory(prior, self._call, method=method, topic_id=topic_id)
         selected = memory.context(topic_id)
+        dialogue_context = []
+        if method == "tail":
+            selected.text, selected.evidence_ids, dialogue_context = _tail_with_dialogue_context(memory, sources)
         visible = [source_projection(row) for row in sources
                    if str(row.get("source_id")) in selected.evidence_ids]
         context = {"text": selected.text, "evidence_ids": sorted(selected.evidence_ids),
                    "sources": visible, "method": method, "topic_id": topic_id}
+        if method == "tail":
+            context.update(presentation_version=TAIL_PRESENTATION_VERSION, dialogue_context=dialogue_context)
         if update_failure:
             context.update(stale=True, update_failure=update_failure,
                            memory_version_id=update_failure["fallback_version_id"])
@@ -232,6 +295,6 @@ def approved_chat_memory(snapshot: dict, topic_id: str | None = None) -> dict:
         return {"text": "", "sources": [], "stale": False, "version_id": None}
     version = versions[0]
     context = deepcopy(version.get("context") or {})
-    context.update(version_id=version.get("version_id"),
+    context.update(version_id=version.get("version_id"), topic_id=version.get("topic_id"),
                    stale=bool(version.get("stale")) or version.get("base_revision") != snapshot.get("revision"))
     return context
