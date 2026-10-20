@@ -157,12 +157,16 @@ def test_explicit_current_operands_are_verified_after_a_valid_prior_anchor():
 
 
 def test_verified_operation_does_not_bypass_invalid_assistant_anchor():
-    from local_app.runtime import IncompleteCompletionError
     session = LocalSession(json.dumps({'in_scope': True, 'uses_prior_context': True,
                                       'prior_learner_question_index': 1, 'search_query': 'Проверка деления'}))
-    with pytest.raises(IncompleteCompletionError, match='invalid (?:prior )?learner question'):
-        RagService(NoMaterials(), OllamaRuntime(Settings(), session=session), Settings()).answer([
-            {'role': 'user', 'content': 'Раньше я решал 120 : 12.'},
-            {'role': 'assistant', 'content': 'А теперь 2464 : 8.'},
-            {'role': 'user', 'content': 'Проверь 2464 : 8 = 308.'},
-        ], subject_id='math')
+    result = RagService(NoMaterials(), OllamaRuntime(Settings(), session=session), Settings()).answer([
+        {'role': 'user', 'content': 'Раньше я решал 120 : 12.'},
+        {'role': 'assistant', 'content': 'А теперь 2464 : 8.'},
+        {'role': 'user', 'content': 'Проверь 2464 : 8 = 308.'},
+    ], subject_id='math')
+    assert result['query_resolution'] == {
+        'source': 'invalid_resolver_decision', 'reason': 'resolver_contract_violation'}
+    assert 'invalid prior learner question' in result['_local_diagnostics']['message']
+    assert 'learning_tool' not in result
+    assert result['sources'] == result['citations'] == []
+    assert len(session.requests) == 1

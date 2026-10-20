@@ -8,7 +8,7 @@ import inspect
 from typing import Any, Sequence
 
 from local_app.answer_adapter import AnswerAdapter, EducationalProjection
-from local_app.runtime import IncompleteCompletionError
+from local_app.runtime import IncompleteCompletionError, InvalidQueryResolutionError
 
 
 class RagService:
@@ -17,6 +17,27 @@ class RagService:
         self.runtime = runtime
         self.settings = settings
         self.answer_adapter = answer_adapter or AnswerAdapter.from_env(runtime)
+
+    def _clarification_answer(self, history: list[dict[str, str]], latest_user_index: int, *,
+                              source: str = "clarification", reason: str = "learning_context_unclear",
+                              diagnostics: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Ask one fixed question without retrieval, answer generation or repair."""
+        result = {
+            "id": None, "object": "chat.completion", "created": None,
+            "choices": [{"index": 0, "message": {"role": "assistant", "content": (
+                "Хочешь другой пример по этой теме или разберём непонятный шаг?"
+                if latest_user_index > 0 and history[latest_user_index - 1]["role"] == "assistant" else
+                "Напомни, какое задание мы разбираем или какой шаг сейчас непонятен?"
+            )}, "finish_reason": "stop"}],
+            "citations": [], "sources": [],
+            "query_resolution": {"source": source, "reason": reason},
+            "model": self.settings.chat_model,
+            "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+            "usage_scope": "deterministic_clarification_excludes_resolver",
+        }
+        if diagnostics is not None:
+            result["_local_diagnostics"] = diagnostics
+        return result
 
     def embedding_model_identity(self) -> str:
         manifest = self.runtime.manifest() if hasattr(self.runtime, "manifest") else {}
@@ -235,10 +256,16 @@ class RagService:
             resolver_options = {key: value for key, value in {
                 "approved_memory": resolver_memory, "topic_id": topic_id,
             }.items() if accepts_keywords or key in parameters}
-            resolution = resolver(
-                latest_query, history[:latest_user_index], subject_id,
-                **resolver_options,
-            )
+            try:
+                resolution = resolver(
+                    latest_query, history[:latest_user_index], subject_id,
+                    **resolver_options,
+                )
+            except InvalidQueryResolutionError as exc:
+                return self._clarification_answer(history, latest_user_index,
+                    source="invalid_resolver_decision", reason="resolver_contract_violation",
+                    diagnostics={"type": type(exc).__name__, "message": str(exc),
+                                 "model_response": exc.raw_response})
             if (
                 not isinstance(resolution, dict)
                 or type(resolution.get("in_scope")) is not bool
@@ -274,19 +301,7 @@ class RagService:
                         or resolution.get("search_query")
                         or resolution.get("social_turn")):
                     raise IncompleteCompletionError("Clarification resolver must not request retrieval")
-                query_resolution = {"source": "clarification", "reason": "learning_context_unclear"}
-                return {
-                    "id": None, "object": "chat.completion", "created": None,
-                    "choices": [{"index": 0, "message": {"role": "assistant", "content": (
-                        "Хочешь другой пример по этой теме или разберём непонятный шаг?"
-                        if latest_user_index > 0 and history[latest_user_index - 1]["role"] == "assistant" else
-                        "Напомни, какое задание мы разбираем или какой шаг сейчас непонятен?"
-                    )}, "finish_reason": "stop"}],
-                    "citations": [], "sources": [], "query_resolution": query_resolution,
-                    "model": self.settings.chat_model,
-                    "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
-                    "usage_scope": "deterministic_clarification_excludes_resolver",
-                }
+                return self._clarification_answer(history, latest_user_index)
             if resolution.get("social_turn") is True and not resolution["in_scope"]:
                 if (resolution["uses_prior_context"] or uses_memory or assistant_anchor is not None
                         or assistant_turn_anchor is not None):

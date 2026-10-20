@@ -1222,11 +1222,19 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None) -> Fas
             response = app.state.rag_service.answer(clean_messages, **answer_kwargs)
             if not isinstance(response, dict) or not isinstance(response.get("choices"), list):
                 raise ValueError("chat service returned an invalid response")
+            # Raw resolver decisions belong only in the protected local job.
+            # Remove them before either role's response or cached replay is saved.
+            local_diagnostics = response.pop("_local_diagnostics", None)
+            if isinstance(local_diagnostics, dict):
+                logger.warning("Chat resolver returned an invalid decision; clarification sent")
             if reserved:
                 response.update(learning_session_id=str(learning_session_id), client_message_id=client_message_id,
                                 memory_version_id=memory_context.get("version_id"), memory_stale=memory_context.get("stale", False))
             if chat_job:
-                finished = store.finish_memory_job(chat_job["job_id"], result={"response_ready": True}, worker_id=chat_worker_id)
+                job_result = {"response_ready": True}
+                if isinstance(local_diagnostics, dict):
+                    job_result["local_diagnostics"] = local_diagnostics
+                finished = store.finish_memory_job(chat_job["job_id"], result=job_result, worker_id=chat_worker_id)
                 if finished.get("status") != "completed":
                     raise ValueError("chat context changed or job lease expired during generation")
             if reserved:

@@ -82,10 +82,14 @@ def test_unattributed_memory_cannot_be_a_resolver_anchor(override):
     memory = {**approved(), **override}
     session = LocalSession(json.dumps({"in_scope": True, "uses_prior_context": False,
                                        "uses_approved_memory": True, "search_query": "Дроби"}))
-    with pytest.raises(IncompleteCompletionError, match="unavailable approved memory"):
-        RagService(LessonMaterials(), OllamaRuntime(Settings(), session=session), Settings()).answer(
-            [{"role": "user", "content": "Давай дальше."}], subject_id="math",
-            topic_id="math.g4.fractions.numerator_denominator", memory_context=memory)
+    result = RagService(LessonMaterials(), OllamaRuntime(Settings(), session=session), Settings()).answer(
+        [{"role": "user", "content": "Давай дальше."}], subject_id="math",
+        topic_id="math.g4.fractions.numerator_denominator", memory_context=memory)
+    assert result["query_resolution"] == {
+        "source": "invalid_resolver_decision", "reason": "resolver_contract_violation"}
+    assert "unavailable approved memory" in result["_local_diagnostics"]["message"]
+    assert result["sources"] == result["citations"] == []
+    assert "какое задание" in result["choices"][0]["message"]["content"]
     assert len(session.requests) == 1
 
 

@@ -70,6 +70,10 @@ class IncompleteCompletionError(ConnectionError):
         self.raw_response = deepcopy(raw_response)
 
 
+class InvalidQueryResolutionError(IncompleteCompletionError):
+    """Complete resolver JSON violates its decision contract after parsing."""
+
+
 class OllamaRuntime:
     """Use Ollama's native chat and embedding APIs on loopback only."""
 
@@ -542,7 +546,7 @@ class OllamaRuntime:
             max_output_tokens=256 if memory or assistant_question or assistant_turn else 160,
         )
         def invalid_decision(message):
-            return IncompleteCompletionError(message, raw_response={"resolver_decision": result})
+            return InvalidQueryResolutionError(message, raw_response={"resolver_decision": result})
         if (
             not isinstance(result, dict)
             or not {"in_scope", "uses_prior_context", "search_query"} <= set(result)
@@ -563,7 +567,7 @@ class OllamaRuntime:
             type(raw_anchor) is not int
             or raw_anchor not in {item["turn_index"] for item in bounded_prior}
         ):
-            raise IncompleteCompletionError("Follow-up resolver requested an invalid prior learner question", raw_response={"resolver_decision": result})
+            raise invalid_decision("Follow-up resolver requested an invalid prior learner question")
         anchor = raw_anchor if result["uses_prior_context"] else None
         assistant_anchor = result.get("prior_assistant_question_index")
         assistant_turn_anchor = result.get("prior_assistant_turn_index")
@@ -573,7 +577,7 @@ class OllamaRuntime:
             type(assistant_anchor) is not int or not assistant_question
             or assistant_anchor != assistant_question["turn_index"]
         ):
-            raise IncompleteCompletionError("Follow-up resolver requested an invalid assistant question", raw_response={"resolver_decision": result})
+            raise invalid_decision("Follow-up resolver requested an invalid assistant question")
         if assistant_turn_anchor is not None and (
             type(assistant_turn_anchor) is not int or not assistant_turn
             or assistant_turn_anchor != assistant_turn["turn_index"]
