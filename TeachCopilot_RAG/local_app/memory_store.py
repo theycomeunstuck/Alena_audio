@@ -13,6 +13,7 @@ from psycopg2.extras import Json
 
 
 DIALOGUE_CONTEXT_CHARS = 600
+SESSION_END_CONTEXT_CHARS = 1200
 
 
 class MemoryQueueFullError(RuntimeError):
@@ -454,12 +455,63 @@ class MemoryStoreMixin:
             return cur.fetchone() is not None
 
     @staticmethod
-    def _assert_memory_references(cur, learner_id, value):
+    def _latest_session_end_context(cur, learner_id, topic_id=None):
+        """Return the final assistant turn of the latest completed topic session.
+
+        The preceding student source owns the context link. Looking at the two
+        actual last sources avoids skipping over teacher notes, another topic,
+        or a failed turn to find a more convenient historical instruction.
+        """
+        topic_filter = " AND topic_id=%s" if topic_id is not None else ""
+        values = [learner_id] + ([topic_id] if topic_id is not None else [])
+        cur.execute("""WITH latest AS (
+                SELECT DISTINCT ON (topic_id) id,learner_id,topic_id
+                FROM teachcopilot.learning_sessions
+                WHERE learner_id=%s AND status='completed'""" + topic_filter + """
+                ORDER BY topic_id,completed_at DESC,id DESC
+            )
+            SELECT preceding.id AS source_id,ending.id AS assistant_source_id,
+                latest.id AS session_id,ending.content AS text
+            FROM latest
+            JOIN LATERAL (
+                SELECT s.id,s.content,s.author_role,s.topic_id,s.source_order
+                FROM teachcopilot.memory_sources s
+                WHERE s.learning_session_id=latest.id AND s.learner_id=latest.learner_id
+                ORDER BY s.source_order DESC LIMIT 1
+            ) ending ON TRUE
+            JOIN LATERAL (
+                SELECT s.id,s.author_role,s.topic_id
+                FROM teachcopilot.memory_sources s
+                WHERE s.learning_session_id=latest.id AND s.learner_id=latest.learner_id
+                    AND s.source_order<ending.source_order
+                ORDER BY s.source_order DESC LIMIT 1
+            ) preceding ON TRUE
+            WHERE ending.author_role='assistant' AND preceding.author_role='student'
+                AND ending.topic_id=latest.topic_id AND preceding.topic_id=latest.topic_id""", values)
+        contexts = {}
+        for raw in cur.fetchall():
+            row = _row(raw)
+            if len(row["text"]) > SESSION_END_CONTEXT_CHARS:
+                contexts[row["source_id"]] = {"session_end_context_omitted": {
+                    "reason":"exceeds_context_excerpt_limit", "limit_chars":SESSION_END_CONTEXT_CHARS}}
+            else:
+                contexts[row["source_id"]] = {"session_end_context": {
+                    "assistant_source_id":row["assistant_source_id"], "session_id":row["session_id"],
+                    "role":"assistant", "usage":"context_only", "text":row["text"],
+                    "excerpt_mode":"whole", "truncated":False}}
+        return contexts
+
+    @staticmethod
+    def _assert_memory_references(cur, learner_id, value, *, topic_id=None):
         """Reject cross-learner source links in persisted context and memory."""
         ids = set()
-        def visit(node):
+        def visit(node, path=()):
             if isinstance(node,dict):
                 for key,item in node.items():
+                    if key == "assistant_source_id" and not (
+                            len(path) == 3 and path[:2] == ("context","session_end_context")
+                            and isinstance(path[2],int)):
+                        raise ValueError("assistant context reference is only allowed in session_end_context")
                     if key == "corrects_source_id" and item is not None and (not isinstance(item,str) or not item):
                         raise ValueError("memory correction reference must be a nonempty source identifier")
                     if key in ("source_id","evidence_source_id","turn_id","source_turn_id","corrects_source_id") and isinstance(item,str):
@@ -467,22 +519,44 @@ class MemoryStoreMixin:
                     elif key in ("source_ids","evidence_ids","evidence_source_ids","evidence_turn_ids") and isinstance(item,list):
                         ids.update(str(x) for x in item)
                     else:
-                        visit(item)
+                        visit(item,(*path,key))
             elif isinstance(node,list):
-                for item in node:
-                    visit(item)
+                for index,item in enumerate(node):
+                    visit(item,(*path,index))
         visit(value)
         if ids:
             cur.execute("SELECT id FROM teachcopilot.memory_sources WHERE learner_id=%s AND id=ANY(%s) AND author_role <> 'assistant'", (learner_id,list(ids)))
             found = {row["id"] for row in cur.fetchall()}
             if found != ids:
                 raise ValueError("memory contains unavailable or assistant evidence sources")
+        context = value.get("context") if isinstance(value,dict) else None
+        if isinstance(context,dict) and "session_end_context" in context:
+            endings = context["session_end_context"]
+            if not isinstance(endings,list):
+                raise ValueError("session_end_context must be a list")
+            required = {"source_id","assistant_source_id","session_id","role","usage","text","excerpt_mode","truncated"}
+            anchors, assistants = set(), set()
+            expected = MemoryStoreMixin._latest_session_end_context(cur,learner_id,topic_id) if endings else {}
+            for item in endings:
+                if (not isinstance(item,dict) or set(item) != required
+                        or any(not isinstance(item.get(key),str) or not item[key]
+                               for key in ("source_id","assistant_source_id","session_id","text"))
+                        or item["role"] != "assistant" or item["usage"] != "context_only"
+                        or item["excerpt_mode"] != "whole" or item["truncated"] is not False
+                        or len(item["text"]) > SESSION_END_CONTEXT_CHARS
+                        or item["source_id"] in anchors or item["assistant_source_id"] in assistants):
+                    raise ValueError("invalid session_end_context metadata")
+                actual = expected.get(item["source_id"],{}).get("session_end_context")
+                if actual != {key:val for key,val in item.items() if key != "source_id"}:
+                    raise ValueError("session_end_context must match the final assistant of the latest completed session")
+                anchors.add(item["source_id"])
+                assistants.add(item["assistant_source_id"])
 
     def _save_memory_version(self, cur, learner_id, topic_id, state, *, base_revision, source_revision=None, approved=False, context=None, job_id=None):
         learner = self._memory_learner(cur,learner_id,base_revision)
         if source_revision is not None and learner["memory_source_revision"] != source_revision:
             _revision_error("learning sources changed while memory was generated")
-        self._assert_memory_references(cur,learner_id,{"state":state,"context":context or {}})
+        self._assert_memory_references(cur,learner_id,{"state":state,"context":context or {}},topic_id=topic_id)
         cur.execute("""INSERT INTO teachcopilot.memory_versions(learner_id,topic_id,base_revision,source_revision,state,context,approved,job_id)
             VALUES (%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *""",
             (learner_id,topic_id,base_revision,learner["memory_source_revision"],Json(state),Json(context or {}),approved,job_id))
@@ -496,7 +570,7 @@ class MemoryStoreMixin:
         learner = self._memory_learner(cur,learner_id,base_revision)
         if source_revision is not None and learner["memory_source_revision"] != source_revision:
             _revision_error("learning sources changed while next step was generated")
-        self._assert_memory_references(cur,learner_id,{"result":result,"context":context or {}})
+        self._assert_memory_references(cur,learner_id,{"result":result,"context":context or {}},topic_id=topic_id)
         cur.execute("""INSERT INTO teachcopilot.next_steps(learner_id,topic_id,base_revision,source_revision,result,context,memory_version_id,job_id,method)
             VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *""",
             (learner_id,topic_id,base_revision,learner["memory_source_revision"],Json(result),Json(context or {}),memory_version_id,job_id,method))
@@ -578,6 +652,7 @@ class MemoryStoreMixin:
                 WHERE s.learner_id=%s AND s.author_role <> 'assistant'
                 AND ((s.author_role='teacher' AND s.approved AND (s.learning_session_id IS NULL OR ls.status='completed')) OR (s.author_role='student' AND ls.status='completed'))""" + topic_filter + " ORDER BY s.source_order", [DIALOGUE_CONTEXT_CHARS,DIALOGUE_CONTEXT_CHARS,*values])
             sources = [_row(row) for row in cur.fetchall()]
+            ending_contexts = self._latest_session_end_context(cur,learner_id,topic_id)
             for source in sources:
                 preceding_text = source.pop("preceding_assistant_text")
                 truncated = source.pop("preceding_assistant_truncated")
@@ -586,6 +661,7 @@ class MemoryStoreMixin:
                     # It is never an assistant evidence source or an achievement.
                     source["dialogue_context"] = {"role":"assistant", "text":preceding_text, "excerpt_mode":"tail",
                                                   "truncated":bool(truncated)}
+                source.update(ending_contexts.get(source["source_id"],{}))
             cur.execute("SELECT * FROM teachcopilot.memory_versions WHERE learner_id=%s" + (" AND topic_id=%s" if topic_id is not None else "") + " ORDER BY created_at DESC,id", values)
             versions = [_row(row) for row in cur.fetchall()]
             eligible_by_topic = {}
@@ -601,7 +677,17 @@ class MemoryStoreMixin:
                     # for concurrency guards, but do not change this approved
                     # long-term memory's immutable eligible source snapshot.
                     sources_changed = source_ids != eligible_by_topic.get(version["topic_id"],set())
-                version["stale"] = version["base_revision"] != learner["revision"] or sources_changed
+                stored_endings = (version.get("context") or {}).get("session_end_context",[])
+                endings_changed = (not isinstance(stored_endings,list) or any(
+                    not isinstance(item,dict) or not isinstance(item.get("source_id"),str)
+                    or ending_contexts.get(item["source_id"],{}).get("session_end_context")
+                        != {key:val for key,val in item.items() if key != "source_id"}
+                    for item in stored_endings))
+                # A completed empty lesson can replace the closing context
+                # without adding student evidence. Only an ending actually
+                # stored in this version participates in this freshness check.
+                version["stale"] = (version["base_revision"] != learner["revision"]
+                                    or sources_changed or endings_changed)
             return {"learner_id":learner_id,"revision":learner["revision"],"source_revision":learner["memory_source_revision"],"sources":sources,"versions":versions}
 
     def approve_memory_version(self, learner_id, version_id, actor_id, expected_revision, interest_candidate_ids=None):

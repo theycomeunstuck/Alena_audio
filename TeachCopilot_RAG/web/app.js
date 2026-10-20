@@ -259,6 +259,13 @@
       const role = ({ user: 'Ученик', student: 'Ученик', teacher: 'Учитель', assistant: 'Помощник' })[sourceRole] || sourceRole || '';
       row.append(el('small', '', [role, source.topic_id || source.topic_title ? topicTitle(source) : '', safeDate(source.observed_on || source.created_at)].filter(Boolean).join(' · ')));
       row.append(el('p', '', source.text || source.content || source.quote || 'Текст источника недоступен.'));
+      const sessionEndContext = source.session_end_context;
+      if (sessionEndContext?.role === 'assistant' && sessionEndContext.usage === 'context_only' && typeof sessionEndContext.text === 'string' && sessionEndContext.text) {
+        const context = el('div', 'memory-session-end-context');
+        context.append(el('small', '', 'Последняя реплика помощника в занятии'), el('blockquote', 'memory-text', sessionEndContext.text), el('small', '', 'Только контекст разговора. Результат ученика по этой реплике не установлен.'));
+        row.append(context);
+      }
+      if (source.session_end_context_omitted) row.append(el('p', 'review-note', 'Последняя реплика помощника слишком длинная и не включена в память.'));
       if (source.corrects_source_id) row.append(el('small', '', `Исправляет источник ${source.corrects_source_id}. Исходная запись сохранена.`));
       if (options.onCorrection && source.source_id && ['student', 'teacher'].includes(sourceRole)) options.onCorrection(row, source);
       details.append(row);
@@ -338,6 +345,8 @@
         const text = memory.summary || memory.text || version.context?.text || version.context_text;
         if (typeof text === 'string' && text) details.append(el('p', 'memory-text', text));
         if (Array.isArray(version.context?.selection_events) && version.context.selection_events.some(event => event.event === 'source_correction_group_skipped')) details.append(el('p', 'review-note', 'Исходная запись и исправления не поместились в выбранную память. Эта связка не будет передана помощнику.'));
+        if (Array.isArray(version.context?.selection_events) && version.context.selection_events.some(event => event?.event === 'session_end_context_group_skipped')) details.append(el('p', 'review-note', 'Контекст последней реплики помощника не поместился в выбранную память и не будет передан помощнику.'));
+        if (Array.isArray(version.context?.selection_events) && version.context.selection_events.some(event => event?.event === 'session_end_context_omitted')) details.append(el('p', 'review-note', 'Последняя реплика помощника слишком длинная и не включена в память. Контекст этой реплики недоступен.'));
         if (version.context?.interest_extraction?.status === 'failed') details.append(el('p', 'review-note', 'Учебная память готова. Интересы из разговора извлечь не удалось.'));
         const canApprove = version.version_id && version.method === 'tail' && !version.approved && !version.stale;
         const candidates = Array.isArray(version.context?.interest_candidates) ? version.context.interest_candidates : [];

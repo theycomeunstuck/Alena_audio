@@ -18,12 +18,12 @@ from research_memory.clients import input_budget_diagnostic
 from research_memory.methods import METHODS, Memory, messages
 from .conversation_memory import (interest_messages, interest_schema, preference_projection,
                                   validate_interest_candidates)
-from .memory_store import DIALOGUE_CONTEXT_CHARS
+from .memory_store import DIALOGUE_CONTEXT_CHARS, SESSION_END_CONTEXT_CHARS
 
 
 MEMORY_BUDGET = 4000
 STATE_FIELDS = ("sources", "summary", "records", "blocks", "events")
-TAIL_PRESENTATION_VERSION = "dialogue-pairs-v3-source-corrections"
+TAIL_PRESENTATION_VERSION = "dialogue-pairs-v4-session-end-context"
 DIALOGUE_CONTEXT_NOTICE = (
     "Слова ассистента ниже – только контекст ответа ученика. Они не доказывают действия, "
     "самостоятельность или освоение. Короткое согласие ученика тоже не доказывает освоение."
@@ -32,6 +32,11 @@ SOURCE_CORRECTION_NOTICE = (
     "Исправление источника уточняет прежнюю запись, а не означает новое действие "
     "или прогресс ученика. Исходное утверждение читай вместе со всеми исправлениями; "
     "отозванное утверждение не используй как доказанный факт."
+)
+SESSION_END_CONTEXT_NOTICE = (
+    "Последняя реплика помощника сохранена только как контекст занятия. Она не доказывает, "
+    "что ученик решил задание или что задание до сих пор не завершено. Слова помощника могут "
+    "содержать ошибку; при возвращении уточни текущее состояние у ученика."
 )
 
 
@@ -73,14 +78,37 @@ def _dialogue_contexts(sources: list[dict]) -> dict[str, dict]:
     return contexts
 
 
+def _session_end_contexts(sources: list[dict]) -> dict[str, dict]:
+    contexts = {}
+    fields = {"assistant_source_id", "session_id", "role", "usage", "text", "excerpt_mode", "truncated"}
+    for source in sources:
+        closing = source.get("session_end_context")
+        if closing is None:
+            continue
+        source_id = str(source.get("source_id") or source.get("turn_id"))
+        if ((source.get("author_role") or source.get("role")) != "student"
+                or not isinstance(closing, dict) or set(closing) != fields
+                or closing.get("role") != "assistant" or closing.get("usage") != "context_only"
+                or closing.get("excerpt_mode") != "whole" or closing.get("truncated") is not False
+                or not isinstance(closing.get("text"), str) or not closing["text"].strip()
+                or len(closing["text"]) > SESSION_END_CONTEXT_CHARS
+                or not all(isinstance(closing.get(key), str) and closing[key]
+                           for key in ("assistant_source_id", "session_id"))):
+            raise ValueError("invalid_session_end_context")
+        contexts[source_id] = {"source_id": source_id, **deepcopy(closing)}
+    return contexts
+
+
 def _tail_with_dialogue_context(memory: Memory, sources: list[dict], *,
-                               selection_events: list[dict] | None = None) -> tuple[str, set[str], list[dict]]:
+                               selection_events: list[dict] | None = None,
+                               session_end_context: list[dict] | None = None) -> tuple[str, set[str], list[dict]]:
     """App-only tail presentation; frozen research state and rules stay literal.
 
     A selected student's turn and its known preceding assistant context are one
     budget unit. When the pair does not fit, neither side is emitted alone.
     """
     contexts = _dialogue_contexts(sources)
+    closing_contexts = _session_end_contexts(sources)
     positions = {source_id: index for index, source_id in enumerate(
         dict.fromkeys(source_id for source_id, _ in memory.blocks))}
     corrections, corrected_by = {}, {}
@@ -100,7 +128,7 @@ def _tail_with_dialogue_context(memory: Memory, sources: list[dict], *,
         links[target].add(source_id)
 
     def render(blocks):
-        parts, notes, seen = [], [], set()
+        parts, notes, closing_notes, seen = [], [], [], set()
         for source_id, block in blocks:
             if source_id in corrected_by:
                 parts.append(f"[Источник {source_id}; исправлен источниками: {', '.join(corrected_by[source_id])}]")
@@ -116,10 +144,16 @@ def _tail_with_dialogue_context(memory: Memory, sources: list[dict], *,
                 notes.append(deepcopy(note))
                 seen.add(source_id)
             parts.append(block)
+            if source_id in closing_contexts:
+                note = closing_contexts[source_id]
+                parts.append(f"[Последняя реплика помощника после {source_id}; только контекст, не доказательство]\n"
+                             + note["text"])
+                closing_notes.append(deepcopy(note))
         has_corrections = any(source_id in corrections for source_id, _ in blocks)
         text = "\n".join(([SOURCE_CORRECTION_NOTICE] if has_corrections else [])
-                         + ([DIALOGUE_CONTEXT_NOTICE] if notes else []) + parts)
-        return text, notes
+                         + ([DIALOGUE_CONTEXT_NOTICE] if notes else [])
+                         + ([SESSION_END_CONTEXT_NOTICE] if closing_notes else []) + parts)
+        return text, notes, closing_notes
 
     # The frozen tail splits long turns into chunks. The application presents
     # whole literal turns so a budget boundary cannot leave half an answer or
@@ -130,7 +164,7 @@ def _tail_with_dialogue_context(memory: Memory, sources: list[dict], *,
         header = f"[{source_id} | {turn['observed_on']} | {turn['role']}] "
         whole_turns.append((source_id, header + turn['text']))
     by_id = dict(whole_turns)
-    selected, text, notes, visited = [], "", [], set()
+    selected, text, notes, closing_notes, visited = [], "", [], [], set()
     for source_id, block in reversed(whole_turns):
         if source_id in visited:
             continue
@@ -143,18 +177,24 @@ def _tail_with_dialogue_context(memory: Memory, sources: list[dict], *,
         visited.update(group)
         candidate_ids = {item[0] for item in selected} | group
         candidate = [(item, by_id[item]) for item in sorted(candidate_ids, key=positions.__getitem__)]
-        candidate_text, candidate_notes = render(candidate)
+        candidate_text, candidate_notes, candidate_closing = render(candidate)
         if len(candidate_text) > memory.budget:
+            if selection_events is not None and group & closing_contexts.keys():
+                selection_events.append({"event": "session_end_context_group_skipped",
+                    "source_ids": sorted(group, key=positions.__getitem__), "budget_chars": memory.budget,
+                    "reason": "remaining_budget_exceeded"})
             if len(group) == 1:
                 break  # Ordinary turns keep the existing contiguous-tail rule.
             if selection_events is not None:
-                group_text, _ = render([(item, by_id[item]) for item in sorted(group, key=positions.__getitem__)])
+                group_text, _, _ = render([(item, by_id[item]) for item in sorted(group, key=positions.__getitem__)])
                 selection_events.append({"event": "source_correction_group_skipped",
                     "source_ids": sorted(group, key=positions.__getitem__), "budget_chars": memory.budget,
                     "group_chars": len(group_text),
                     "reason": "group_exceeds_budget" if len(group_text) > memory.budget else "remaining_budget_exceeded"})
             continue
-        selected, text, notes = candidate, candidate_text, candidate_notes
+        selected, text, notes, closing_notes = candidate, candidate_text, candidate_notes, candidate_closing
+    if session_end_context is not None:
+        session_end_context.extend(closing_notes)
     return text, {source_id for source_id, _ in selected}, notes
 
 
@@ -257,16 +297,23 @@ class MemoryWorker:
             memory = restore_memory(prior, self._call, method=method, topic_id=topic_id)
         selected = memory.context(topic_id)
         dialogue_context = []
+        session_end_context = []
         selection_events = []
         if method == "tail":
+            for source in sources:
+                if source.get("session_end_context_omitted"):
+                    selection_events.append({"event": "session_end_context_omitted",
+                        "source_id": str(source.get("source_id")), **source["session_end_context_omitted"]})
             selected.text, selected.evidence_ids, dialogue_context = _tail_with_dialogue_context(
-                memory, sources, selection_events=selection_events)
+                memory, sources, selection_events=selection_events, session_end_context=session_end_context)
         visible = [source_projection(row) for row in sources
                    if str(row.get("source_id")) in selected.evidence_ids]
         context = {"text": selected.text, "evidence_ids": sorted(selected.evidence_ids),
                    "sources": visible, "method": method, "topic_id": topic_id}
         if method == "tail":
             context.update(presentation_version=TAIL_PRESENTATION_VERSION, dialogue_context=dialogue_context)
+            if session_end_context:
+                context["session_end_context"] = session_end_context
             if selection_events:
                 context["selection_events"] = selection_events
         if update_failure:
