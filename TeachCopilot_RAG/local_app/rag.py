@@ -222,6 +222,7 @@ class RagService:
         tool_selection = None
         uses_memory = False
         assistant_anchor = None
+        assistant_turn_anchor = None
         needs_clarification = False
         if callable(resolver):
             # Older injected resolvers retain the three-argument contract. Check
@@ -244,6 +245,7 @@ class RagService:
                 raise IncompleteCompletionError("Follow-up query resolver returned an invalid decision")
             uses_memory = resolution.get("uses_approved_memory", False)
             assistant_anchor = resolution.get("prior_assistant_question_index")
+            assistant_turn_anchor = resolution.get("prior_assistant_turn_index")
             needs_clarification = resolution.get("needs_clarification", False)
             if (type(uses_memory) is not bool or type(needs_clarification) is not bool
                     or (uses_memory and not resolver_memory)):
@@ -254,9 +256,20 @@ class RagService:
                 or "?" not in history[assistant_anchor]["content"]
             ):
                 raise IncompleteCompletionError("Follow-up resolver requested an invalid assistant question")
+            if assistant_turn_anchor is not None and (
+                type(assistant_turn_anchor) is not int
+                or not 0 <= assistant_turn_anchor < latest_user_index
+                or assistant_turn_anchor != latest_user_index - 1
+                or history[assistant_turn_anchor]["role"] != "assistant"
+                or not history[assistant_turn_anchor]["content"].strip()
+                or len(history[assistant_turn_anchor]["content"]) > 1200
+                or "?" in history[assistant_turn_anchor]["content"]
+            ):
+                raise IncompleteCompletionError("Follow-up resolver requested an invalid assistant turn")
             if needs_clarification:
                 if (resolution["uses_prior_context"] or uses_memory
-                        or assistant_anchor is not None or resolution.get("search_query")
+                        or assistant_anchor is not None or assistant_turn_anchor is not None
+                        or resolution.get("search_query")
                         or resolution.get("social_turn")):
                     raise IncompleteCompletionError("Clarification resolver must not request retrieval")
                 query_resolution = {"source": "clarification", "reason": "learning_context_unclear"}
@@ -273,9 +286,12 @@ class RagService:
                     "usage_scope": "deterministic_clarification_excludes_resolver",
                 }
             if resolution.get("social_turn") is True and not resolution["in_scope"]:
-                if resolution["uses_prior_context"] or uses_memory or assistant_anchor is not None:
+                if (resolution["uses_prior_context"] or uses_memory or assistant_anchor is not None
+                        or assistant_turn_anchor is not None):
                     raise IncompleteCompletionError("Social chat cannot request curriculum retrieval")
                 return self._social_answer(history[:latest_user_index + 1], preferences)
+            if assistant_turn_anchor is not None and not resolution["in_scope"]:
+                raise IncompleteCompletionError("Out-of-scope query cannot request an assistant turn")
             if resolution["in_scope"]:
                 resolved_query = resolution.get("search_query")
                 if not isinstance(resolved_query, str) or not resolved_query.strip():
@@ -291,6 +307,9 @@ class RagService:
                 if assistant_anchor is not None:
                     query_resolution = {"source": "assistant_question", "turn_index": assistant_anchor}
                     resolved_query += "\nPrevious assistant question (not learner evidence): " + history[assistant_anchor]["content"]
+                if assistant_turn_anchor is not None:
+                    query_resolution = {"source": "assistant_turn", "turn_index": assistant_turn_anchor}
+                    resolved_query += "\nPrevious assistant turn (context only, not learner evidence): " + history[assistant_turn_anchor]["content"]
                 if resolution["uses_prior_context"]:
                     anchor = resolution.get("prior_learner_question_index")
                     if "prior_learner_question_index" in resolution:
@@ -312,7 +331,10 @@ class RagService:
                     resolved_query = (
                         f"{resolved_query.strip()}\nEarlier learner question: {previous_question}"
                     )
-                antecedents = (["learner_question"] if resolution["uses_prior_context"] else []) + (["assistant_question"] if assistant_anchor is not None else []) + (["approved_memory"] if uses_memory else [])
+                antecedents = ((["learner_question"] if resolution["uses_prior_context"] else [])
+                               + (["assistant_question"] if assistant_anchor is not None else [])
+                               + (["assistant_turn"] if assistant_turn_anchor is not None else [])
+                               + (["approved_memory"] if uses_memory else []))
                 if len(antecedents) > 1:
                     query_resolution = {"source": "combined_context", "antecedents": antecedents, "topic_id": topic_id}
                 from local_app.learning_tools import verified_learning_response
@@ -351,7 +373,8 @@ class RagService:
             # Compatibility for injected runtimes that only implement the
             # unary scope gate. Production OllamaRuntime uses the resolver above.
             sources = self.search(latest_query, subject_id, topic_id, grade, limit)
-        if not sources and not (not out_of_scope and (uses_memory or assistant_anchor is not None)):
+        if not sources and not (not out_of_scope and (
+                uses_memory or assistant_anchor is not None or assistant_turn_anchor is not None)):
             return {
                 "id": None,
                 "object": "chat.completion",
@@ -385,7 +408,7 @@ class RagService:
             "Используй их только как подтверждение фактов и не выдумывай ссылки. "
             "Если источников недостаточно, честно скажи об этом."
             " На короткую или неуверенную реплику отвечай коротко: один понятный следующий шаг "
-            "или один уточняющий вопрос. Учитывай, на какой предыдущий вопрос ребёнок отвечает. "
+            "или один уточняющий вопрос. Учитывай предыдущий вопрос или задание, на которое ребёнок отвечает. "
             "Не повторяй длинную теорию и не делай вывод «теперь понятно» или «тема освоена» "
             "по словам «ага», «ну вроде» или одному ответу. Полноценный запрос на объяснение "
             "может требовать более развёрнутого ответа. Если предыдущее объяснение помощника ошибочно, "
@@ -400,6 +423,8 @@ class RagService:
                 "Учитывай исправления исходных записей вместе с исправляемыми утверждениями; "
                 "сохраняй неизвестные условия помощи. Одно успешное действие не доказывает "
                 "устойчивое освоение; реплика ассистента не доказывает действие ученика."
+                " Последняя сохранённая реплика ассистента – только контекст диалога, "
+                "не доказательство незавершённости задания или истинности ответа."
             )
             if memory_context.get("stale"):
                 system += " Память требует актуализации и может не учитывать последние занятия."
@@ -441,6 +466,11 @@ class RagService:
             # evidence. The adapter validates each link and checks the final
             # outbound text for identifiers, just like the student's quotation.
             memory_dialogue_context=(memory_context.get("dialogue_context", ()) if approved_memory else ()),
+            memory_session_end_context=([
+                {key: row[key] for key in ("source_id", "role", "usage", "text", "excerpt_mode", "truncated")
+                 if key in row}
+                for row in memory_context.get("session_end_context", ()) if isinstance(row, dict)
+            ] if approved_memory else ()),
             memory_stale=(memory_context.get("stale", False) if approved_memory else False),
         )
         response = self.answer_adapter.answer(

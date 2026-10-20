@@ -91,3 +91,49 @@ def test_broken_assistant_link_cannot_be_silently_dropped_from_external_memory(s
     assert result["answer_routing"]["reason"] == "projection_or_check_invalid"
     transport.open.assert_not_called()
     assert len(local.requests) == 1
+
+
+def with_last_task(text="Теперь попробуй 1224 : 4. Напиши ответ."):
+    memory = approved_context()
+    memory["session_end_context"] = [{"source_id": SOURCE_ID, "role": "assistant", "usage": "context_only",
+        "text": text, "excerpt_mode": "whole", "truncated": False,
+        "assistant_source_id": "local-assistant-private-id", "session_id": "local-session-private-id"}]
+    return memory
+
+
+def test_rag_sends_last_task_as_separate_context_and_strips_local_provenance_ids(setup_adapter):
+    adapter, local, _, transport = setup_adapter
+    memory = with_last_task()
+    before = deepcopy(memory)
+    result = answer(adapter, memory)
+    request = json.loads(transport.open.call_args.args[0].data)
+    outgoing = json.loads(request["messages"][1]["content"])
+    assert outgoing["memory_session_end_context"] == [{"source_id": "S1", "role": "assistant",
+        "usage": "context_only", "text": "Теперь попробуй 1224 : 4. Напиши ответ.",
+        "excerpt_mode": "whole", "truncated": False}]
+    assert outgoing["memory"][0]["quote"] == "хз"
+    assert outgoing["memory_dialogue_context"][0]["source_id"] == "S1"
+    assert outgoing["memory_stale"] is True
+    sent = json.dumps(request, ensure_ascii=False)
+    assert all(value not in sent for value in (SOURCE_ID, "local-assistant-private-id", "local-session-private-id"))
+    assert json.loads(local.checks[0][0][1]["content"])["messages"] == request["messages"]
+    assert memory == before and result["answer_routing"]["backend"] == "spiderssense"
+
+
+def test_last_task_from_another_selected_topic_never_reaches_external_request(setup_adapter):
+    adapter, _, _, transport = setup_adapter
+    answer(adapter, with_last_task(), topic="math.g4.numbers.division_by_1_2_digit")
+    request = json.loads(transport.open.call_args.args[0].data)
+    outgoing = json.loads(request["messages"][1]["content"])
+    assert outgoing["memory_session_end_context"] == [] and outgoing["memory"] == []
+    assert "1224" not in json.dumps(request, ensure_ascii=False)
+
+
+def test_risk_in_last_task_is_checked_in_actual_projection_before_external_send(setup_adapter):
+    adapter, local, client, transport = setup_adapter
+    memory = with_last_task("Ответ отправь на private-student@example.test.")
+    result = answer(adapter, memory)
+    assert result["answer_routing"]["backend"] == "local"
+    assert result["answer_routing"]["reason"] == "free_text_risk"
+    transport.open.assert_not_called()
+    assert client.preflight()["calls_reserved"] == 0 and len(local.requests) == 1

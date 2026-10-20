@@ -150,7 +150,7 @@ def test_actual_outbound_request_keeps_assistant_memory_context_separate_and_red
     assert "не выдавай её за актуальную" in system
     assert "один уточняющий вопрос" in system and "Согласие ребёнка не означает" in system
     assert "может быть ошибочным" in system
-    assert result["answer_routing"]["policy"] == "educational-projection-v4"
+    assert result["answer_routing"]["policy"] == "educational-projection-v5"
 
 
 @pytest.mark.parametrize("unsafe", ["Напиши private-person@example.test", "hidden\u200bidentity"])
@@ -237,8 +237,156 @@ def test_legacy_projection_remains_without_context_or_invented_source_role(setup
     outgoing = json.loads(transport.open.call_args.args[0].data)
     payload = json.loads(outgoing["messages"][1]["content"])
     assert payload["memory_dialogue_context"] == []
+    assert payload["memory_session_end_context"] == []
     assert payload["memory_stale"] is False
     assert "role" not in payload["memory"][0]
+
+
+def session_end_projection():
+    value = contextual_projection(memory_stale=True)
+    return replace(value, memory_session_end_context=({
+        "source_id": value.memory[0]["source_id"], "role": "assistant", "usage": "context_only",
+        "text": "Ирина Соколова, знаменатель – 4. Какое число поставишь снизу?",
+        "excerpt_mode": "whole", "truncated": False,
+    },))
+
+
+def test_actual_request_keeps_session_end_context_separate_from_evidence_and_previous_question(setup_adapter):
+    adapter, local, _, transport = setup_adapter
+    value = session_end_projection()
+    result = adapter.answer(local_messages(value), projection=value,
+                            known_identifiers=(*IDENTITIES, "assistant", "context_only", "whole",
+                                               "source_id", "S1", "memory_session_end_context"))
+    outgoing_bytes = transport.open.call_args.args[0].data.decode("utf-8")
+    outgoing = json.loads(outgoing_bytes)
+    payload = json.loads(outgoing["messages"][1]["content"])
+    assert payload["memory"] == [{"source_id": "S1", "role": "student", "claim": "", "quote": "ага"}]
+    assert payload["memory_session_end_context"] == [{
+        "source_id": "S1", "role": "assistant", "usage": "context_only",
+        "text": "[REDACTED], знаменатель – 4. Какое число поставишь снизу?",
+        "excerpt_mode": "whole", "truncated": False,
+    }]
+    assert payload["memory_dialogue_context"][0]["source_id"] == "S1"
+    assert payload["memory_dialogue_context"][0]["excerpt_mode"] == "tail"
+    assert "Всего частей 10" in payload["memory_dialogue_context"][0]["text"]
+    assert payload["memory_stale"] is True
+    assert "assistant_source_id" not in outgoing_bytes and "session_id" not in outgoing_bytes
+    for private in (*IDENTITIES, "Ирина", "Соколова", value.memory[0]["source_id"]):
+        assert private not in outgoing_bytes
+    checked = json.loads(local.checks[0][0][1]["content"])
+    assert checked["messages"] == outgoing["messages"]
+    system = outgoing["messages"][0]["content"]
+    assert "не доказательство действия или освоения ученика" in system
+    assert "не установленная незавершённая работа" in system
+    assert "не додумывай его ответ" in system
+    assert "Последняя реплика ассистента тоже может быть ошибочной" in system
+    assert result["answer_routing"]["policy"] == "educational-projection-v5"
+
+
+@pytest.mark.parametrize("changes", [
+    {"source_id": "not-selected-foreign-source"}, {"source_id": None}, {"role": "student"},
+    {"role": "teacher"}, {"usage": "evidence"}, {"excerpt_mode": "tail"},
+    {"truncated": True}, {"truncated": "false"}, {"truncated": 0},
+    {"text": ""}, {"text": "  "}, {"text": "x" * 1201}, {"text": "\ufb03" * 401},
+    {"assistant_source_id": "internal-assistant-id"}, {"session_id": "internal-session-id"},
+])
+def test_invalid_session_end_context_never_reaches_transport(setup_adapter, changes):
+    adapter, _, client, transport = setup_adapter
+    value = session_end_projection()
+    value = replace(value, memory_session_end_context=({**value.memory_session_end_context[0], **changes},))
+    result = adapter.answer(local_messages(value), projection=value, known_identifiers=IDENTITIES)
+    assert result["answer_routing"]["reason"] == "projection_or_check_invalid"
+    assert client.preflight()["calls_reserved"] == 0
+    transport.open.assert_not_called()
+
+
+@pytest.mark.parametrize("memory_role", [None, "teacher"])
+def test_session_end_context_requires_explicit_student_evidence_role(setup_adapter, memory_role):
+    adapter, _, _, transport = setup_adapter
+    value = session_end_projection()
+    memory = dict(value.memory[0])
+    if memory_role is None:
+        del memory["role"]
+    else:
+        memory["role"] = memory_role
+    value = replace(value, memory=(memory,), memory_dialogue_context=())
+    result = adapter.answer(local_messages(value), projection=value, known_identifiers=IDENTITIES)
+    assert result["answer_routing"]["reason"] == "projection_or_check_invalid"
+    transport.open.assert_not_called()
+
+
+def test_duplicate_session_end_context_is_rejected_without_deduplication(setup_adapter):
+    adapter, _, _, transport = setup_adapter
+    value = session_end_projection()
+    value = replace(value, memory_session_end_context=tuple(value.memory_session_end_context) * 2)
+    result = adapter.answer(local_messages(value), projection=value, known_identifiers=IDENTITIES)
+    assert result["answer_routing"]["reason"] == "projection_or_check_invalid"
+    transport.open.assert_not_called()
+
+
+@pytest.mark.parametrize("unsafe", ["Напиши private-person@example.test", "hidden\u200bidentity"])
+def test_private_text_in_session_end_context_never_reaches_transport(setup_adapter, unsafe):
+    adapter, local, client, transport = setup_adapter
+    value = session_end_projection()
+    value = replace(value, memory_session_end_context=({**value.memory_session_end_context[0], "text": unsafe},))
+    result = adapter.answer(local_messages(value), projection=value, known_identifiers=IDENTITIES)
+    assert result["answer_routing"]["backend"] == "local" and len(local.requests) == 1
+    assert client.preflight()["calls_reserved"] == 0
+    transport.open.assert_not_called()
+
+
+def test_privacy_gate_checks_whole_session_end_context_before_external_generation(setup_adapter):
+    adapter, local, client, transport = setup_adapter
+    value = session_end_projection()
+    text = "Ты пропустила урок, потому что у мамы неприятности со здоровьем. Продолжим?"
+    value = replace(value, memory_session_end_context=({**value.memory_session_end_context[0], "text": text},))
+    local.decision = {"safe_to_send": False, "uncertain": True}
+    result = adapter.answer(local_messages(value), projection=value, known_identifiers=IDENTITIES)
+    checked = json.loads(local.checks[0][0][1]["content"])
+    assert json.loads(checked["messages"][1]["content"])["memory_session_end_context"][0]["text"] == text
+    assert result["answer_routing"]["reason"] == "privacy_uncertain"
+    assert client.preflight()["calls_reserved"] == 0
+    transport.open.assert_not_called()
+
+
+@pytest.mark.parametrize("invalid_collection", [None, "", {}])
+def test_session_end_context_requires_a_sequence_of_rows(setup_adapter, invalid_collection):
+    adapter, _, _, transport = setup_adapter
+    value = replace(session_end_projection(), memory_session_end_context=invalid_collection)
+    result = adapter.answer(local_messages(value), projection=value, known_identifiers=IDENTITIES)
+    assert result["answer_routing"]["reason"] == "projection_or_check_invalid"
+    transport.open.assert_not_called()
+
+
+def test_session_end_context_whole_text_limit_preserves_all_1200_characters(setup_adapter):
+    adapter, _, _, transport = setup_adapter
+    value = session_end_projection()
+    text = "А" * 1181 + " Какое число снизу?"
+    assert len(text) == 1200
+    value = replace(value, memory_session_end_context=({**value.memory_session_end_context[0], "text": text},))
+    adapter.answer(local_messages(value), projection=value, known_identifiers=IDENTITIES)
+    outgoing = json.loads(transport.open.call_args.args[0].data)
+    payload = json.loads(outgoing["messages"][1]["content"])
+    assert payload["memory_session_end_context"][0]["text"] == text
+
+
+@pytest.mark.parametrize("count", [20, 21])
+def test_session_end_context_collection_is_bounded(setup_adapter, count):
+    adapter, _, _, transport = setup_adapter
+    value = session_end_projection()
+    value = replace(value, memory_dialogue_context=(),
+        memory=tuple({"source_id": f"source-{i}", "role": "student", "quote": "хз"} for i in range(20)),
+        memory_session_end_context=tuple({**value.memory_session_end_context[0], "source_id": f"source-{i}",
+                                         "text": "Сначала посчитай все части."} for i in range(count)))
+    result = adapter.answer(local_messages(value), projection=value, known_identifiers=IDENTITIES)
+    if count == 20:
+        outgoing = json.loads(transport.open.call_args.args[0].data)
+        payload = json.loads(outgoing["messages"][1]["content"])
+        assert len(payload["memory_session_end_context"]) == 20
+        assert result["answer_routing"]["backend"] == "spiderssense"
+    else:
+        assert result["answer_routing"]["reason"] == "projection_or_check_invalid"
+        transport.open.assert_not_called()
 
 
 def correction_projection():
@@ -278,7 +426,7 @@ def test_actual_request_preserves_correction_pair_and_redacts_both_quotes(setup_
     assert checked["response_schema"] == outgoing["response_format"]["json_schema"]["schema"]
     for private in (*IDENTITIES, "Ирина", "Соколова", *(item["source_id"] for item in value.memory)):
         assert private not in outgoing_bytes
-    assert result["answer_routing"]["policy"] == "educational-projection-v4"
+    assert result["answer_routing"]["policy"] == "educational-projection-v5"
 
 
 @pytest.mark.parametrize("bad_role", ["student", "assistant", None])

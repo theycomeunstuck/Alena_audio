@@ -21,7 +21,7 @@ from research_memory.spiderssense import SpiderssenseClient
 
 
 _EXTERNAL_SLOTS = threading.BoundedSemaphore(4)
-_POLICY = "educational-projection-v4"
+_POLICY = "educational-projection-v5"
 _PLACEHOLDER = "[REDACTED]"
 _IDENTIFIER_PATTERNS = (
     re.compile(r"[\w.+-]+@[\w.-]+\.[A-Za-zА-Яа-я]{2,}", re.UNICODE),
@@ -72,6 +72,11 @@ _PURPOSE_INSTRUCTIONS = {
         "решение или умение из этих слов. При truncated=true показан только конец реплики "
         "ассистента – не додумывай её начало. При memory_stale=true память может не учитывать "
         "последние занятия – не выдавай её за актуальную проверку текущего состояния. "
+        "memory_session_end_context – последняя реплика ассистента в завершённой сессии, "
+        "связанная с предшествующим ответом ученика. Это только контекст для продолжения, "
+        "не доказательство действия или освоения ученика и не установленная незавершённая "
+        "работа. Ученик мог не ответить на этот вопрос; не додумывай его ответ. "
+        "Последняя реплика ассистента тоже может быть ошибочной – проверь её перед продолжением. "
         "Учитывай переданные interests, когда это уместно для текущей задачи; не навязывай любимый "
         "сюжет в каждом ответе. Не используй сюжеты из avoided_interests. Интерес не доказывает "
         "учебное умение. Используй короткое тире –."
@@ -88,6 +93,9 @@ _PURPOSE_INSTRUCTIONS = {
         "слова ассистента перед связанным ответом ученика, не доказательство учебного действия; "
         "при truncated=true известно только окончание реплики. При memory_stale=true память "
         "может не учитывать последние занятия – не выдавай её за актуальную проверку. "
+        "memory_session_end_context содержит последнюю реплику ассистента завершённой сессии. "
+        "Это только контекст, не доказательство действия или освоения ученика и не установленная "
+        "незавершённая работа. Не додумывай ответ ученика; сама реплика может быть ошибочной. "
         "Используй короткое тире –."
     ),
 }
@@ -119,6 +127,7 @@ class EducationalProjection:
     avoided_interests: Sequence[str] = field(default_factory=tuple)
     memory_dialogue_context: Sequence[Mapping[str, Any]] = field(default_factory=tuple)
     memory_stale: bool = False
+    memory_session_end_context: Sequence[Mapping[str, Any]] = field(default_factory=tuple)
 
 
 def _text(value: Any, maximum: int, label: str) -> str:
@@ -180,7 +189,8 @@ def _protect_payload_text(payload: dict, transform: Callable[[str], str]) -> dic
         payload[key] = [transform(value) for value in payload[key]]
     for collection, fields in (
         ("dialogue", ("content",)), ("memory", ("claim", "quote")),
-        ("memory_dialogue_context", ("text",)), ("materials", ("title", "content")),
+        ("memory_dialogue_context", ("text",)), ("memory_session_end_context", ("text",)),
+        ("materials", ("title", "content")),
     ):
         for excerpt in payload[collection]:
             for key in fields:
@@ -288,6 +298,7 @@ class AnswerAdapter:
             "current_message": _text(projection.current_message, 2400, "current message"),
             "dialogue": [], "memory": [], "materials": [],
             "memory_dialogue_context": [], "memory_stale": projection.memory_stale,
+            "memory_session_end_context": [],
         }
         for label in ("interests", "avoided_interests"):
             values = getattr(projection, label)
@@ -304,8 +315,11 @@ class AnswerAdapter:
                 aliases[source_id] = f"S{len(aliases) + 1}"
             return aliases[source_id]
 
+        if not isinstance(projection.memory_session_end_context, (list, tuple)):
+            raise ProjectionError("Invalid session-end context collection")
         if (len(projection.dialogue) > 12 or len(projection.memory) > 20
-                or len(projection.materials) > 6 or len(projection.memory_dialogue_context) > 20):
+                or len(projection.materials) > 6 or len(projection.memory_dialogue_context) > 20
+                or len(projection.memory_session_end_context) > 20):
             raise ProjectionError("Too many projection excerpts")
         for item in projection.dialogue:
             if not isinstance(item, Mapping) or set(item) != {"role", "content"} or item["role"] not in {"user", "assistant"}:
@@ -364,6 +378,26 @@ class AnswerAdapter:
             payload["memory_dialogue_context"].append({
                 "source_id": alias, "role": "assistant", "usage": "context_only",
                 "text": text, "excerpt_mode": "tail", "truncated": item["truncated"],
+            })
+        closing_context_sources: set[str] = set()
+        for item in projection.memory_session_end_context:
+            if (not isinstance(item, Mapping)
+                    or set(item) != {"source_id", "role", "usage", "text", "excerpt_mode", "truncated"}
+                    or item["role"] != "assistant" or item["usage"] != "context_only"
+                    or item["excerpt_mode"] != "whole" or item["truncated"] is not False):
+                raise ProjectionError("Invalid session-end assistant context provenance")
+            source_id = _text(item["source_id"], 512, "session-end context source identifier")
+            alias = aliases.get(source_id)
+            if (alias not in memory_source_ids or alias not in student_sources
+                    or alias in closing_context_sources):
+                raise ProjectionError("Session-end context must have one matching student source")
+            text = _text(item["text"], 1200, "session-end assistant context")
+            if not text.strip():
+                raise ProjectionError("Session-end assistant context must not be empty")
+            closing_context_sources.add(alias)
+            payload["memory_session_end_context"].append({
+                "source_id": alias, "role": "assistant", "usage": "context_only",
+                "text": text, "excerpt_mode": "whole", "truncated": False,
             })
         for item in projection.materials:
             if not isinstance(item, Mapping) or set(item) != {"source_id", "title", "content"}:
