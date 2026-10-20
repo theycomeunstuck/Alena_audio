@@ -260,6 +260,13 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None) -> Fas
         expected_revision: int = Field(..., ge=1)
         interest_candidate_ids: list[str] | None = Field(default=None, max_length=16)
 
+    class MemoryCorrectionRequest(BaseModel):
+        model_config = ConfigDict(extra="forbid")
+        text: str = Field(..., min_length=1, max_length=2000)
+        expected_revision: int = Field(..., ge=1, strict=True)
+        expected_source_revision: int = Field(..., ge=0, strict=True)
+        client_correction_id: str = Field(..., min_length=1, max_length=180)
+
     class UpdateRequest(BaseModel):
         notes: str = Field(..., min_length=1)
         learner_ids: list[str] = Field(..., min_length=1)
@@ -361,6 +368,21 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None) -> Fas
         titles = {key: [{**item, "topic_title": _topic_title(item.get("topic_id"), catalog)}
                         for item in result.get(key, [])] for key in ("sources", "versions")}
         return {**result, **titles, "default_method": "tail", "human_reviewed": False}
+
+    @app.post("/learners/{learner_id}/memory/sources/{source_id}/corrections", status_code=202)
+    def correct_memory_source(learner_id: str, source_id: str, request: MemoryCorrectionRequest,
+                              user: dict = Depends(teacher)):
+        access(user, learner_id)
+        memory_available()
+        try:
+            return store.correct_memory_source(learner_id,source_id,request.text,_account_id(user),
+                expected_revision=request.expected_revision,expected_source_revision=request.expected_source_revision,
+                client_correction_id=request.client_correction_id)
+        except Exception as exc:
+            from local_app.memory_store import MemoryIdempotencyConflict
+            if isinstance(exc, MemoryIdempotencyConflict):
+                raise HTTPException(status_code=409, detail="client_correction_id was reused for a different correction") from exc
+            memory_error(exc)
 
     @app.post("/learners/{learner_id}/memory/versions/{version_id}/confirm")
     def confirm_memory(learner_id: str, version_id: str, request: MemoryConfirmRequest,
@@ -1190,7 +1212,9 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None) -> Fas
                     preference_context=preference_projection(card),
                     memory_context=memory_context,
                     memory_projection=[{"source_id": row["source_id"], "quote": row.get("text", ""),
-                                        "role": row.get("role") or row.get("author_role")}
+                                        "role": row.get("role") or row.get("author_role"),
+                                        **({"corrects_source_id":row["corrects_source_id"]}
+                                           if row.get("corrects_source_id") is not None else {})}
                                        for row in memory_context.get("sources", [])])
             if chat_job:
                 store.start_memory_job_call(chat_job["job_id"], chat_worker_id)

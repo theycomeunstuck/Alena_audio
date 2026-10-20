@@ -90,30 +90,93 @@ class MemoryStoreMixin:
         return learner
 
     @staticmethod
-    def _memory_source(cur, learner_id, topic_id, actor_id, content, *, author_role="teacher", session_id=None, approved=False, observed_on=None, source_key=None):
+    def _memory_source(cur, learner_id, topic_id, actor_id, content, *, author_role="teacher", session_id=None, approved=False, observed_on=None, source_key=None, corrects_source_id=None):
         if author_role not in ("student", "teacher", "assistant"):
             raise ValueError("invalid source author")
         if not isinstance(content, str) or not content.strip():
             raise ValueError("source content is required")
+        if corrects_source_id is not None:
+            if author_role != "teacher" or approved is not True:
+                raise ValueError("a source correction must be an approved teacher note")
+            MemoryStoreMixin._correction_target(cur,learner_id,corrects_source_id,topic_id)
         cur.execute("""INSERT INTO teachcopilot.memory_sources
-            (learner_id,topic_id,actor_id,content,author_role,learning_session_id,approved,observed_on,source_key)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            (learner_id,topic_id,actor_id,content,author_role,learning_session_id,approved,observed_on,source_key,corrects_source_id)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
             ON CONFLICT(learner_id,source_key) DO NOTHING RETURNING *""",
-            (learner_id,topic_id,str(actor_id),content,author_role,session_id,approved,observed_on,source_key))
+            (learner_id,topic_id,str(actor_id),content,author_role,session_id,approved,observed_on,source_key,corrects_source_id))
         source = cur.fetchone()
         if source is None:
             cur.execute("SELECT * FROM teachcopilot.memory_sources WHERE learner_id=%s AND source_key=%s", (learner_id,source_key))
             source = cur.fetchone()
-            if source["content"] != content or source["author_role"] != author_role or source["topic_id"] != topic_id:
+            if (source["content"] != content or source["author_role"] != author_role or source["topic_id"] != topic_id
+                    or str(source["actor_id"]) != str(actor_id) or source["corrects_source_id"] != corrects_source_id):
                 raise MemoryIdempotencyConflict("source key was reused for different content")
         else:
             cur.execute("UPDATE teachcopilot.learners SET memory_source_revision=memory_source_revision+1 WHERE learner_id=%s", (learner_id,))
         return _row(source)
 
-    def add_memory_source(self, learner_id, topic_id, content, actor_id, *, author_role="teacher", approved=False, observed_on=None, source_key=None, expected_revision=None):
+    def add_memory_source(self, learner_id, topic_id, content, actor_id, *, author_role="teacher", approved=False, observed_on=None, source_key=None, expected_revision=None, corrects_source_id=None):
         with self._connect() as conn, conn.cursor() as cur:
             self._memory_learner(cur,learner_id,expected_revision)
-            return self._memory_source(cur,learner_id,topic_id,actor_id,content,author_role=author_role,approved=approved,observed_on=observed_on,source_key=source_key)
+            return self._memory_source(cur,learner_id,topic_id,actor_id,content,author_role=author_role,approved=approved,observed_on=observed_on,source_key=source_key,corrects_source_id=corrects_source_id)
+
+    @staticmethod
+    def _correction_target(cur, learner_id, source_id, topic_id=None):
+        if not isinstance(source_id,str) or not source_id:
+            raise ValueError("correction target source is required")
+        cur.execute("""SELECT s.*,ls.status AS session_status FROM teachcopilot.memory_sources s
+            LEFT JOIN teachcopilot.learning_sessions ls ON ls.id=s.learning_session_id AND ls.learner_id=s.learner_id
+            WHERE s.id=%s AND s.learner_id=%s""", (source_id,learner_id))
+        source = cur.fetchone()
+        if source is None:
+            raise KeyError(source_id)
+        if topic_id is not None and source["topic_id"] != topic_id:
+            raise ValueError("correction target must have the same topic")
+        if not ((source["author_role"] == "teacher" and source["approved"]
+                 and (source["learning_session_id"] is None or source["session_status"] == "completed"))
+                or (source["author_role"] == "student" and source["session_status"] == "completed")):
+            raise ValueError("correction target must be an eligible student or approved teacher source")
+        return source
+
+    def correct_memory_source(self, learner_id, source_id, text, actor_id, *, expected_revision,
+                              expected_source_revision, client_correction_id):
+        """Append one reviewed correction and its durable update job atomically."""
+        if not isinstance(text,str) or not text.strip() or len(text)>2000:
+            raise ValueError("correction text must contain 1 to 2000 characters")
+        if (not isinstance(client_correction_id,str) or not client_correction_id.strip()
+                or len(client_correction_id)>180):
+            raise ValueError("client correction identifier must contain 1 to 180 characters")
+        with self._connect() as conn, conn.cursor() as cur:
+            learner = self._memory_learner(cur,learner_id)
+            source_key = "correction:" + client_correction_id
+            cur.execute("SELECT * FROM teachcopilot.memory_sources WHERE learner_id=%s AND source_key=%s",
+                        (learner_id,source_key))
+            existing = cur.fetchone()
+            if existing is not None:
+                if (existing["content"] != text or existing["corrects_source_id"] != source_id
+                        or str(existing["actor_id"]) != str(actor_id) or existing["author_role"] != "teacher"
+                        or not existing["approved"]):
+                    raise MemoryIdempotencyConflict("correction identifier was reused for different input")
+                source = _row(existing)
+                cur.execute("""SELECT * FROM teachcopilot.memory_jobs
+                    WHERE learner_id=%s AND kind='memory_update' AND idempotency_key=%s""",
+                    (learner_id,f"source:{source['id']}"))
+                job = cur.fetchone()
+                if job is None:
+                    raise MemoryIdempotencyConflict("correction has no original update job")
+                return {"source":source,"job_id":str(job["id"]),"learner_id":learner_id,
+                        "topic_id":source["topic_id"]}
+            if learner["revision"] != expected_revision:
+                _revision_error("learner revision changed before source correction")
+            if learner["memory_source_revision"] != expected_source_revision:
+                _revision_error("learning sources changed before source correction")
+            target = self._correction_target(cur,learner_id,source_id)
+            source = self._memory_source(cur,learner_id,target["topic_id"],actor_id,text,
+                approved=True,source_key=source_key,corrects_source_id=source_id)
+            job = self._enqueue_memory_job(cur,learner_id,target["topic_id"],"memory_update",
+                {"source_id":source["id"]},actor_id,expected_revision=expected_revision,
+                method="tail",idempotency_key=f"source:{source['id']}")
+            return {"source":source,"job_id":job["id"],"learner_id":learner_id,"topic_id":target["topic_id"]}
 
     def create_learning_session(self, learner_id, actor_id, topic_id, client_session_id=None):
         if not topic_id or not str(topic_id).strip():
@@ -397,7 +460,9 @@ class MemoryStoreMixin:
         def visit(node):
             if isinstance(node,dict):
                 for key,item in node.items():
-                    if key in ("source_id","evidence_source_id","turn_id","source_turn_id") and isinstance(item,str):
+                    if key == "corrects_source_id" and item is not None and (not isinstance(item,str) or not item):
+                        raise ValueError("memory correction reference must be a nonempty source identifier")
+                    if key in ("source_id","evidence_source_id","turn_id","source_turn_id","corrects_source_id") and isinstance(item,str):
                         ids.add(item)
                     elif key in ("source_ids","evidence_ids","evidence_source_ids","evidence_turn_ids") and isinstance(item,list):
                         ids.update(str(x) for x in item)
@@ -496,7 +561,7 @@ class MemoryStoreMixin:
             topic_filter = " AND s.topic_id=%s" if topic_id is not None else ""
             values = [learner_id] + ([topic_id] if topic_id is not None else [])
             cur.execute("""SELECT s.id AS source_id,s.learning_session_id AS session_id,s.author_role,s.content AS text,
-                s.content,s.observed_on,s.topic_id,s.approved,s.created_at,
+                s.content,s.observed_on,s.topic_id,s.approved,s.created_at,s.corrects_source_id,
                 CASE WHEN preceding.author_role='assistant' AND preceding.topic_id=s.topic_id AND s.topic_id=ls.topic_id
                     THEN right(preceding.content,%s) END AS preceding_assistant_text,
                 CASE WHEN preceding.author_role='assistant' AND preceding.topic_id=s.topic_id AND s.topic_id=ls.topic_id
@@ -613,7 +678,7 @@ class MemoryStoreMixin:
                 text = entry["text"]
                 if metadata.get("group_note") or entry.get("group_note"):
                     text = "Групповая заметка преподавателя – авторство отдельных результатов не установлено.\n" + text
-                source = self._memory_source(cur,learner_id,entry["topic_id"],actor_id,text,author_role="teacher",approved=True,observed_on=entry.get("observed_on"),source_key=f"proposal:{new_revisions[learner_id]}:{index}:{digest}")
+                source = self._memory_source(cur,learner_id,entry["topic_id"],actor_id,text,author_role="teacher",approved=True,observed_on=entry.get("observed_on"),source_key=f"proposal:{new_revisions[learner_id]}:{index}:{digest}",corrects_source_id=entry.get("corrects_source_id"))
                 jobs.append(self._enqueue_memory_job(cur,learner_id,entry["topic_id"],"memory_update",{"source_id":source["id"]},actor_id,expected_revision=new_revisions[learner_id],method="tail",idempotency_key=f"source:{source['id']}"))
         return jobs
 
