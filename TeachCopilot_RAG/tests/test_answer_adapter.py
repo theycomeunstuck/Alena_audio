@@ -1,6 +1,7 @@
 """Synthetic request-boundary checks; no paid or network calls."""
 from __future__ import annotations
 
+from copy import deepcopy
 from dataclasses import replace
 import json
 from pathlib import Path
@@ -10,6 +11,9 @@ from urllib.error import URLError
 import pytest
 
 from local_app.answer_adapter import AnswerAdapter, AnswerCapacityError, EducationalProjection
+from local_app.checked_division_context import (
+    CHAT_CONTEXT_INSTRUCTIONS, DIVISION_TOPIC, checked_division_context,
+)
 from research_memory.spiderssense import KEY_ENV, ProviderRequestError, SpiderssenseClient
 
 
@@ -150,7 +154,7 @@ def test_actual_outbound_request_keeps_assistant_memory_context_separate_and_red
     assert "не выдавай её за актуальную" in system
     assert "один уточняющий вопрос" in system and "Согласие ребёнка не означает" in system
     assert "может быть ошибочным" in system
-    assert result["answer_routing"]["policy"] == "educational-projection-v5"
+    assert result["answer_routing"]["policy"] == "educational-projection-v6"
 
 
 @pytest.mark.parametrize("unsafe", ["Напиши private-person@example.test", "hidden\u200bidentity"])
@@ -238,8 +242,203 @@ def test_legacy_projection_remains_without_context_or_invented_source_role(setup
     payload = json.loads(outgoing["messages"][1]["content"])
     assert payload["memory_dialogue_context"] == []
     assert payload["memory_session_end_context"] == []
+    assert payload["checked_division_context"] is None
     assert payload["memory_stale"] is False
     assert "role" not in payload["memory"][0]
+
+
+def checked_projection():
+    return projection(topic=DIVISION_TOPIC, current_message="хз", dialogue=(), memory=(), materials=(),
+                      checked_division_context=checked_division_context("1224 : 4", "math", DIVISION_TOPIC))
+
+
+@pytest.mark.parametrize("ground", ["current", "dialogue", "memory", "preceding", "closing"])
+def test_checked_first_group_is_grounded_in_actual_outbound_text_without_full_answer(setup_adapter, ground):
+    adapter, local, _, transport = setup_adapter
+    value = checked_projection()
+    task = "Ирина Соколова, подскажи первый шаг: 1224 : 4."
+    source_id = "learner-synthetic-7/source/current-task"
+    if ground == "current":
+        value = replace(value, current_message=task)
+    elif ground == "dialogue":
+        value = replace(value, dialogue=({"role": "user", "content": task},
+                                         {"role": "assistant", "content": "С какого шага начнём?"}))
+    elif ground == "memory":
+        value = replace(value, memory=({"source_id": source_id, "role": "teacher", "quote": task},))
+    else:
+        context = {"source_id": source_id, "role": "assistant", "usage": "context_only", "text": task,
+                   "excerpt_mode": "tail" if ground == "preceding" else "whole", "truncated": False}
+        value = replace(value, memory=({"source_id": source_id, "role": "student", "quote": "хз"},),
+                        **{"memory_dialogue_context" if ground == "preceding" else "memory_session_end_context": (context,)})
+    before = deepcopy(value.checked_division_context)
+    result = adapter.answer(local_messages(value), projection=value, known_identifiers=IDENTITIES)
+    outgoing_bytes = transport.open.call_args.args[0].data.decode("utf-8")
+    outgoing = json.loads(outgoing_bytes)
+    payload = json.loads(outgoing["messages"][1]["content"])
+    assert payload["checked_division_context"] == {
+        "version": "checked-division-first-group-v1", "dividend": 1224, "divisor": 4,
+        "first_group": {"digits": "12", "place_value": 100, "place_name": "сотен", "amount": 12,
+                        "real_value": 1200},
+        "complete_answer_included": False, "student_work_assessed": False,
+    }
+    checked_json = json.dumps(payload["checked_division_context"], ensure_ascii=False)
+    assert "quotient" not in checked_json and "306" not in checked_json
+    assert "Ирина" not in outgoing_bytes and "Соколова" not in outgoing_bytes
+    assert source_id not in outgoing_bytes and "[REDACTED]" in outgoing_bytes
+    assert CHAT_CONTEXT_INSTRUCTIONS in outgoing["messages"][0]["content"]
+    checked_request = json.loads(local.checks[0][0][1]["content"])
+    assert checked_request["messages"] == outgoing["messages"]
+    assert value.checked_division_context == before
+    assert result["answer_routing"]["policy"] == "educational-projection-v6"
+    assert result["answer_routing"]["backend"] == "spiderssense"
+
+
+def test_checked_context_metadata_is_not_corrupted_by_identifier_collisions(setup_adapter):
+    adapter, _, _, transport = setup_adapter
+    value = replace(checked_projection(), current_message="Подскажи 1224 : 4.")
+    adapter.answer(local_messages(value), projection=value, known_identifiers=(
+        *IDENTITIES, "checked_division_context", "first_group", "сотен", "checked-division-first-group-v1"))
+    outgoing = json.loads(transport.open.call_args.args[0].data)
+    payload = json.loads(outgoing["messages"][1]["content"])
+    assert payload["checked_division_context"] == value.checked_division_context
+
+
+@pytest.mark.parametrize("changes", [
+    {"quotient": 306}, {"source_id": "private-source"}, {"version": "private-person@example.test"},
+    {"dividend": 2842}, {"divisor": True}, {"complete_answer_included": True},
+    {"complete_answer_included": "false"}, {"student_work_assessed": True},
+    {"first_group": {"quotient": 306}},
+    {"first_group": {"digits": "12", "place_value": 100, "place_name": "сотен", "amount": 1, "real_value": 1200}},
+    {"first_group": {"digits": "12", "place_value": 100, "place_name": "private-person@example.test", "amount": 12, "real_value": 1200}},
+])
+def test_invalid_or_full_answer_checked_context_falls_back_before_transport(setup_adapter, changes):
+    adapter, local, client, transport = setup_adapter
+    value = checked_projection()
+    value = replace(value, current_message="Подскажи 1224 : 4.",
+                    checked_division_context={**value.checked_division_context, **changes})
+    result = adapter.answer(local_messages(value), projection=value, known_identifiers=IDENTITIES)
+    assert result["answer_routing"]["reason"] == "projection_or_check_invalid"
+    assert len(local.requests) == 1 and client.preflight()["calls_reserved"] == 0
+    transport.open.assert_not_called()
+
+
+@pytest.mark.parametrize("hidden_ground", ["missing", "materials", "claim", "topic", "schema", "system", "split"])
+def test_checked_operands_cannot_be_grounded_in_nonpublic_fields_or_separate_fragments(setup_adapter, hidden_ground):
+    adapter, _, client, transport = setup_adapter
+    value = checked_projection()
+    schema = None
+    if hidden_ground == "materials":
+        value = replace(value, materials=({"source_id": "material-one", "title": "Деление", "content": "1224 : 4"},))
+    elif hidden_ground == "claim":
+        value = replace(value, memory=({"source_id": "source-one", "role": "teacher", "claim": "1224 : 4", "quote": "хз"},))
+    elif hidden_ground == "topic":
+        value = replace(value, topic="1224 : 4")
+    elif hidden_ground == "schema":
+        schema = {"type": "string", "description": "1224 : 4"}
+    elif hidden_ground == "split":
+        value = replace(value, current_message="1224", dialogue=({"role": "user", "content": "4"},))
+    messages = local_messages(value)
+    if hidden_ground == "system":
+        messages[0]["content"] += " Model search rewrite: 1224 : 4"
+    result = adapter.answer(messages, projection=value, known_identifiers=IDENTITIES, response_schema=schema)
+    assert result["answer_routing"]["reason"] == "projection_or_check_invalid"
+    assert client.preflight()["calls_reserved"] == 0
+    transport.open.assert_not_called()
+
+
+@pytest.mark.parametrize("current", ["2842 : 14", "4 : 1224", "1224 : 4 + 5", "1224.0 : 4", "-1224 : 4"])
+def test_checked_context_requires_the_same_complete_literal_pair(setup_adapter, current):
+    adapter, _, _, transport = setup_adapter
+    value = replace(checked_projection(), current_message=current)
+    result = adapter.answer(local_messages(value), projection=value, known_identifiers=IDENTITIES)
+    assert result["answer_routing"]["reason"] == "projection_or_check_invalid"
+    transport.open.assert_not_called()
+
+
+def test_checked_context_is_grounded_after_redaction_not_before_it(setup_adapter):
+    adapter, _, _, transport = setup_adapter
+    value = replace(checked_projection(), current_message="1224 : 4")
+    result = adapter.answer(local_messages(value), projection=value, known_identifiers=(*IDENTITIES, "1224"))
+    assert result["answer_routing"]["reason"] == "projection_or_check_invalid"
+    transport.open.assert_not_called()
+
+
+def test_redaction_placeholder_does_not_assemble_a_literal_operation(setup_adapter):
+    adapter, _, _, transport = setup_adapter
+    value = replace(checked_projection(), current_message="1224 private-name : 4")
+    result = adapter.answer(local_messages(value), projection=value, known_identifiers=(*IDENTITIES, "private-name"))
+    assert result["answer_routing"]["reason"] == "projection_or_check_invalid"
+    transport.open.assert_not_called()
+
+
+@pytest.mark.parametrize("whole_ground", [None, "current", "closing"])
+def test_truncated_assistant_operand_is_not_checked_ground_but_whole_sources_remain_usable(setup_adapter, whole_ground):
+    adapter, _, _, transport = setup_adapter
+    source_id = "learner-synthetic-7/source/truncated-task"
+    # The stored tail could be cut from "1224 : 4"; its first visible digit is
+    # insufficient to claim the literal task was actually "224 : 4".
+    tail = {"source_id": source_id, "role": "assistant", "usage": "context_only",
+            "text": "224 : 4", "excerpt_mode": "tail", "truncated": True}
+    value = replace(checked_projection(), memory=({"source_id": source_id, "role": "student", "quote": "хз"},),
+                    memory_dialogue_context=(tail,),
+                    checked_division_context=checked_division_context("224 : 4", "math", DIVISION_TOPIC))
+    if whole_ground == "current":
+        value = replace(value, current_message="Подскажи 224 : 4.")
+    elif whole_ground == "closing":
+        value = replace(value, memory_session_end_context=({**tail, "excerpt_mode": "whole", "truncated": False},))
+    result = adapter.answer(local_messages(value), projection=value, known_identifiers=IDENTITIES)
+    if whole_ground is None:
+        assert result["answer_routing"]["reason"] == "projection_or_check_invalid"
+        transport.open.assert_not_called()
+    else:
+        outgoing = json.loads(transport.open.call_args.args[0].data)
+        payload = json.loads(outgoing["messages"][1]["content"])
+        assert payload["checked_division_context"]["dividend"] == 224
+        # The truncated excerpt stays available as conversation context; it
+        # simply cannot justify the independently verified arithmetic object.
+        assert payload["memory_dialogue_context"][0]["truncated"] is True
+        assert result["answer_routing"]["backend"] == "spiderssense"
+
+
+@pytest.mark.parametrize("topic,allowed", [(DIVISION_TOPIC, True), ("math.g4.fractions", False)])
+def test_slash_ground_requires_exact_selected_division_topic(setup_adapter, topic, allowed):
+    adapter, _, _, transport = setup_adapter
+    value = replace(checked_projection(), current_message="1224 / 4", topic=topic)
+    result = adapter.answer(local_messages(value), projection=value, known_identifiers=IDENTITIES)
+    if allowed:
+        assert result["answer_routing"]["backend"] == "spiderssense"
+    else:
+        assert result["answer_routing"]["reason"] == "projection_or_check_invalid"
+        transport.open.assert_not_called()
+
+
+def test_checked_context_does_not_bypass_actual_body_privacy_checks(setup_adapter):
+    adapter, local, client, transport = setup_adapter
+    value = replace(checked_projection(), current_message="1224 : 4. Отправь на private@example.test")
+    result = adapter.answer(local_messages(value), projection=value, known_identifiers=IDENTITIES)
+    assert result["answer_routing"]["reason"] == "free_text_risk"
+    assert client.preflight()["calls_reserved"] == 0 and len(local.requests) == 1
+    transport.open.assert_not_called()
+
+
+def test_checked_context_is_in_whole_request_seen_by_conservative_local_gate(setup_adapter):
+    adapter, local, client, transport = setup_adapter
+    value = replace(checked_projection(), current_message="1224 : 4. Потом расскажу о неприятностях в семье.")
+    local.decision = {"safe_to_send": False, "uncertain": True}
+    result = adapter.answer(local_messages(value), projection=value, known_identifiers=IDENTITIES)
+    checked = json.loads(local.checks[0][0][1]["content"])
+    assert json.loads(checked["messages"][1]["content"])["checked_division_context"] == value.checked_division_context
+    assert result["answer_routing"]["reason"] == "privacy_uncertain"
+    assert client.preflight()["calls_reserved"] == 0
+    transport.open.assert_not_called()
+
+
+def test_shared_chat_division_instructions_do_not_change_next_step_prompt(setup_adapter):
+    adapter, _, _, transport = setup_adapter
+    value = replace(checked_projection(), current_message="1224 : 4")
+    adapter.answer(local_messages(value), projection=value, known_identifiers=IDENTITIES, purpose="next_step")
+    outgoing = json.loads(transport.open.call_args.args[0].data)
+    assert CHAT_CONTEXT_INSTRUCTIONS not in outgoing["messages"][0]["content"]
 
 
 def session_end_projection():
@@ -280,7 +479,7 @@ def test_actual_request_keeps_session_end_context_separate_from_evidence_and_pre
     assert "не установленная незавершённая работа" in system
     assert "не додумывай его ответ" in system
     assert "Последняя реплика ассистента тоже может быть ошибочной" in system
-    assert result["answer_routing"]["policy"] == "educational-projection-v5"
+    assert result["answer_routing"]["policy"] == "educational-projection-v6"
 
 
 @pytest.mark.parametrize("changes", [
@@ -426,7 +625,7 @@ def test_actual_request_preserves_correction_pair_and_redacts_both_quotes(setup_
     assert checked["response_schema"] == outgoing["response_format"]["json_schema"]["schema"]
     for private in (*IDENTITIES, "Ирина", "Соколова", *(item["source_id"] for item in value.memory)):
         assert private not in outgoing_bytes
-    assert result["answer_routing"]["policy"] == "educational-projection-v5"
+    assert result["answer_routing"]["policy"] == "educational-projection-v6"
 
 
 @pytest.mark.parametrize("bad_role", ["student", "assistant", None])

@@ -17,11 +17,15 @@ import time
 import unicodedata
 from typing import Any, Callable, Mapping, Sequence
 
+from local_app.checked_division_context import (
+    CHAT_CONTEXT_INSTRUCTIONS, DIVISION_TOPIC, extract_literal_division_pair,
+    validate_checked_division_context,
+)
 from research_memory.spiderssense import SpiderssenseClient
 
 
 _EXTERNAL_SLOTS = threading.BoundedSemaphore(4)
-_POLICY = "educational-projection-v5"
+_POLICY = "educational-projection-v6"
 _PLACEHOLDER = "[REDACTED]"
 _IDENTIFIER_PATTERNS = (
     re.compile(r"[\w.+-]+@[\w.-]+\.[A-Za-zА-Яа-я]{2,}", re.UNICODE),
@@ -79,7 +83,7 @@ _PURPOSE_INSTRUCTIONS = {
         "Последняя реплика ассистента тоже может быть ошибочной – проверь её перед продолжением. "
         "Учитывай переданные interests, когда это уместно для текущей задачи; не навязывай любимый "
         "сюжет в каждом ответе. Не используй сюжеты из avoided_interests. Интерес не доказывает "
-        "учебное умение. Используй короткое тире –."
+        "учебное умение. Используй короткое тире –. " + CHAT_CONTEXT_INSTRUCTIONS
     ),
     "next_step": (
         "Подготовь черновик следующего учебного действия для просмотра преподавателем. "
@@ -116,6 +120,7 @@ class EducationalProjection:
     identity_context_complete is a server assertion that known_identifiers includes
     the identities available to the authorized operation. It defaults to false.
     The independent local free-text gate still has to approve the final payload.
+    Checked arithmetic is recomputed context, never a learner observation.
     """
     topic: str
     current_message: str
@@ -128,6 +133,7 @@ class EducationalProjection:
     memory_dialogue_context: Sequence[Mapping[str, Any]] = field(default_factory=tuple)
     memory_stale: bool = False
     memory_session_end_context: Sequence[Mapping[str, Any]] = field(default_factory=tuple)
+    checked_division_context: dict[str, Any] | None = None
 
 
 def _text(value: Any, maximum: int, label: str) -> str:
@@ -293,12 +299,15 @@ class AnswerAdapter:
             raise ProjectionError("Complete server-side identity context is required")
         if type(projection.memory_stale) is not bool:
             raise ProjectionError("Memory staleness must be explicit boolean data")
+        checked = (validate_checked_division_context(projection.checked_division_context)
+                   if projection.checked_division_context is not None else None)
         payload: dict[str, Any] = {
             "topic": _text(projection.topic, 300, "topic"),
             "current_message": _text(projection.current_message, 2400, "current message"),
             "dialogue": [], "memory": [], "materials": [],
             "memory_dialogue_context": [], "memory_stale": projection.memory_stale,
             "memory_session_end_context": [],
+            "checked_division_context": checked,
         }
         for label in ("interests", "avoided_interests"):
             values = getattr(projection, label)
@@ -448,6 +457,28 @@ class AnswerAdapter:
                 return _redact(value, identifiers)
 
             payload = _protect_payload_text(payload, protect)
+            checked = payload["checked_division_context"]
+            if checked is not None:
+                # Ground in the actual redacted public request, never private
+                # system prompts, rewritten search, retrieved materials or claims.
+                public_texts = [payload["current_message"]]
+                for collection, field_name in (
+                    ("dialogue", "content"), ("memory", "quote"),
+                    ("memory_dialogue_context", "text"), ("memory_session_end_context", "text"),
+                ):
+                    # A tail may start halfway through an operand: "1224 : 4"
+                    # could become "224 : 4". Keep it as dialogue context only.
+                    public_texts.extend(item[field_name] for item in payload[collection]
+                                        if collection != "memory_dialogue_context" or not item["truncated"])
+                pair = checked["dividend"], checked["divisor"]
+                if not any(extract_literal_division_pair(
+                    # The privacy placeholder is prose, not a bracketed math
+                    # expression. Preserve a word so redaction cannot assemble
+                    # an operation across the removed identity's position.
+                    text.replace(_PLACEHOLDER, " redacted "),
+                    division_context=payload["topic"] == DIVISION_TOPIC) == pair
+                           for text in public_texts):
+                    raise ProjectionError("Checked division operands require a literal public source")
             schema = (_protect_schema(response_schema, protect, aliases)
                       if response_schema is not None else None)
             outgoing = [
