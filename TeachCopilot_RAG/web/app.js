@@ -3,7 +3,7 @@
   const API = '';
   const tokenKey = 'teachcopilot.session';
   const greeting = 'Привет! Расскажи, что разбираете, и я помогу найти следующий шаг.';
-  const state = { token: sessionStorage.getItem(tokenKey), account: null, learners: [], learnerId: null, dashboard: null, topics: [], task: null, proposal: null, revision: null, chatByLearner: new Map(), nextStepsByLearner: new Map(), learningSessionsByLearner: new Map(), pendingMessages: new Map(), chatTopicsByLearnerSubject: new Map(), viewRevision: 0 };
+  const state = { token: sessionStorage.getItem(tokenKey), account: null, learners: [], learnerId: null, dashboard: null, topics: [], task: null, proposal: null, revision: null, chatByLearner: new Map(), nextStepsByLearner: new Map(), learningSessionsByLearner: new Map(), pendingMessages: new Map(), chatTopicsByLearnerSubject: new Map(), memoryCorrectionJobs: new Map(), memoryViewRevision: 0, viewRevision: 0 };
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
   const el = (tag, cls, value) => { const node = document.createElement(tag); if (cls) node.className = cls; if (value !== undefined) node.textContent = value; return node; };
@@ -45,7 +45,7 @@
   }
   function signOutLocal() {
     state.token = null; state.account = null; state.learnerId = null; sessionStorage.removeItem(tokenKey);
-    state.learners = []; state.dashboard = null; state.topics = []; state.task = null; state.proposal = null; state.revision = null; state.chatByLearner.clear(); state.nextStepsByLearner.clear(); state.learningSessionsByLearner.clear(); state.pendingMessages.clear(); state.chatTopicsByLearnerSubject.clear(); state.viewRevision++;
+    state.learners = []; state.dashboard = null; state.topics = []; state.task = null; state.proposal = null; state.revision = null; state.chatByLearner.clear(); state.nextStepsByLearner.clear(); state.learningSessionsByLearner.clear(); state.pendingMessages.clear(); state.chatTopicsByLearnerSubject.clear(); state.memoryCorrectionJobs.clear(); state.viewRevision++;
     $('#learner-list').replaceChildren(); $('#learner-count').textContent = '–'; $('#roster-empty').hidden = true; $('#profile-content').hidden = true; $('#loading-state').hidden = true; $('#error-state').hidden = true; $('#empty-profile').hidden = false;
     $('#account-name').textContent = ''; $('#role-label').textContent = ''; $('#learner-name').textContent = ''; $('#learner-avatar').textContent = ''; $('#profile-grade').textContent = ''; $('#profile-meta').textContent = ''; $('#current-goal').textContent = ''; $('#goal-subject').textContent = ''; $('#revision-label').textContent = ''; $('#zone-map').replaceChildren(); $('#history-list').replaceChildren(); $('#task-cards').replaceChildren(); $('#task-result').hidden = true; $('#proposal-result').replaceChildren(); $('#proposal-result').hidden = true;
     $('#topic-select').replaceChildren(new Option('Выберите тему', '')); $('#observation-topic').replaceChildren(new Option('Выберите тему', '')); $('#chat-subject').value = 'math'; $('#edit-goal').value = ''; $('#edit-interests').value = '';
@@ -250,7 +250,7 @@
     });
     if (data.review_required) root.append(el('p', 'review-note', 'Материал создан как черновик. Учитель проверяет его перед использованием.'));
   }
-  function sourceDetails(sources, title = 'Источники') {
+  function sourceDetails(sources, title = 'Источники', options = {}) {
     const details = el('details', 'memory-sources'); details.append(el('summary', '', `${title} (${sources.length})`));
     sources.forEach(source => {
       const row = el('article', 'memory-source');
@@ -258,7 +258,10 @@
       const sourceRole = source.role || source.author_role;
       const role = ({ user: 'Ученик', student: 'Ученик', teacher: 'Учитель', assistant: 'Помощник' })[sourceRole] || sourceRole || '';
       row.append(el('small', '', [role, source.topic_id || source.topic_title ? topicTitle(source) : '', safeDate(source.observed_on || source.created_at)].filter(Boolean).join(' · ')));
-      row.append(el('p', '', source.text || source.content || source.quote || 'Текст источника недоступен.')); details.append(row);
+      row.append(el('p', '', source.text || source.content || source.quote || 'Текст источника недоступен.'));
+      if (source.corrects_source_id) row.append(el('small', '', `Исправляет источник ${source.corrects_source_id}. Исходная запись сохранена.`));
+      if (options.onCorrection && source.source_id && ['student', 'teacher'].includes(sourceRole)) options.onCorrection(row, source);
+      details.append(row);
     });
     return details;
   }
@@ -274,15 +277,56 @@
     });
   }
   async function loadMemory() {
-    const learnerId = state.learnerId, viewRevision = state.viewRevision, topic = $('#topic-select').value;
+    const learnerId = state.learnerId, viewRevision = state.viewRevision, topic = $('#topic-select').value, sessionToken = state.token;
     if (!learnerId || state.account?.role !== 'teacher') return;
+    const memoryViewRevision = ++state.memoryViewRevision;
+    const currentSelection = () => sessionToken === state.token && learnerId === state.learnerId && viewRevision === state.viewRevision && topic === $('#topic-select').value && state.account?.role === 'teacher';
+    const currentView = () => currentSelection() && memoryViewRevision === state.memoryViewRevision;
     $('#memory-status').textContent = 'Загружаем источники и версии памяти…';
     try {
       const data = await request(`/learners/${encodeURIComponent(learnerId)}/memory${topic ? `?topic_id=${encodeURIComponent(topic)}` : ''}`);
-      if (viewRevision !== state.viewRevision || topic !== $('#topic-select').value) return;
+      if (!currentView()) return;
       const root = $('#memory-history'); root.replaceChildren();
       const sources = Array.isArray(data.sources) ? data.sources : [], versions = Array.isArray(data.versions) ? data.versions : [];
       $('#memory-status').textContent = `Версия профиля ${data.revision ?? '–'}. ${data.human_reviewed ? 'Содержание просмотрено преподавателем.' : 'Содержание памяти требует просмотра преподавателем.'}`;
+      const correctionStatus = status => ({
+        queued: 'Исправление сохранено. Обновление памяти в очереди.',
+        pending: 'Исправление сохранено. Обновление памяти в очереди.',
+        running: 'Исправление сохранено. Память обновляется.',
+        completed: 'Исправление сохранено. Обновление памяти завершено. Проверьте обновлённую версию памяти.',
+        succeeded: 'Исправление сохранено. Обновление памяти завершено. Проверьте обновлённую версию памяти.',
+        failed: 'Исправление сохранено. Обновить память не удалось. Автоматического повторного запуска не будет.',
+        cancelled: 'Исправление сохранено. Обновление памяти отменено. Автоматического повторного запуска не будет.',
+        missing_job: 'Исправление сохранено. Сервер не вернул идентификатор обновления памяти. Обновите список позже.',
+        unknown_outcome: 'Исправление сохранено. Исход обновления памяти неизвестен. Автоматического повторного запуска не будет.',
+        outcome_unknown: 'Исправление сохранено. Исход обновления памяти неизвестен. Автоматического повторного запуска не будет.',
+        unknown: 'Исправление сохранено. Исход обновления памяти неизвестен. Автоматического повторного запуска не будет.',
+      })[status] || 'Исправление сохранено. Состояние обновления памяти ещё не проверено.';
+      state.memoryCorrectionJobs.forEach(job => {
+        if (job.learnerId !== learnerId || (topic && job.topic !== topic)) return;
+        const panel = el('article', 'memory-record memory-correction-job');
+        panel.append(el('small', '', `Исправление источника ${job.sourceId}`));
+        const status = el('p', 'review-note', job.statusText || correctionStatus(job.status)); status.setAttribute('role', 'status'); panel.append(status);
+        if (job.job_id) {
+          const check = el('button', 'button secondary', 'Проверить обновление памяти'); check.type = 'button';
+          check.addEventListener('click', () => busy(check, async () => {
+            if (!currentView()) return;
+            status.textContent = 'Исправление сохранено. Проверяем состояние обновления памяти…';
+            try {
+              const result = await request(`/memory/jobs/${encodeURIComponent(job.job_id)}`);
+              if (!currentView()) return;
+              job.status = result.status || 'unknown'; job.statusText = correctionStatus(job.status); status.textContent = job.statusText;
+              if (['completed', 'succeeded'].includes(job.status)) {
+                const refreshed = await loadMemory();
+                if (currentSelection() && refreshed?.generation === state.memoryViewRevision) $('#memory-status').textContent = `${job.statusText}${refreshed.rendered ? '' : ' Не удалось обновить список памяти. Нажмите «Обновить».'}`;
+              }
+            } catch (error) {
+              if (currentView()) { job.statusText = `Исправление сохранено. Проверить обновление памяти не удалось. ${errorText(error)}`; status.textContent = job.statusText; }
+            }
+          })); panel.append(check);
+        }
+        root.append(panel);
+      });
       if (!sources.length && !versions.length) root.append(el('p', 'zone-empty', 'Завершённых занятий пока нет. Источники появятся после сохранения занятия или диалога.'));
       versions.forEach(version => {
         const details = el('details', 'memory-version');
@@ -293,6 +337,7 @@
         if (Array.isArray(records)) appendMemoryRecords(details, records);
         const text = memory.summary || memory.text || version.context?.text || version.context_text;
         if (typeof text === 'string' && text) details.append(el('p', 'memory-text', text));
+        if (Array.isArray(version.context?.selection_events) && version.context.selection_events.some(event => event.event === 'source_correction_group_skipped')) details.append(el('p', 'review-note', 'Исходная запись и исправления не поместились в выбранную память. Эта связка не будет передана помощнику.'));
         if (version.context?.interest_extraction?.status === 'failed') details.append(el('p', 'review-note', 'Учебная память готова. Интересы из разговора извлечь не удалось.'));
         const canApprove = version.version_id && version.method === 'tail' && !version.approved && !version.stale;
         const candidates = Array.isArray(version.context?.interest_candidates) ? version.context.interest_candidates : [];
@@ -337,8 +382,40 @@
         }
         root.append(details);
       });
-      if (sources.length) root.append(sourceDetails(sources, 'Исходные реплики и заметки'));
-    } catch (error) { if (viewRevision === state.viewRevision && topic === $('#topic-select').value) $('#memory-status').textContent = errorText(error); }
+      if (sources.length) root.append(sourceDetails(sources, 'Исходные реплики и заметки', { onCorrection: Number.isInteger(data.revision) && Number.isInteger(data.source_revision) ? (row, source) => {
+        const open = el('button', 'button secondary', 'Исправить запись'); open.type = 'button';
+        const form = el('form', 'work-form compact-form'); form.hidden = true;
+        const input = el('textarea'); input.setAttribute('aria-label', 'Исправление записи'); input.maxLength = 2000; input.required = true; input.rows = 4;
+        const save = el('button', 'button secondary', 'Сохранить исправление'); save.type = 'submit';
+        const status = el('p', 'review-note'); status.setAttribute('role', 'status');
+        form.append(el('p', 'review-note', 'Исходная запись сохранится. Это исправление сведений о прошлом занятии, а не новый результат или прогресс ребёнка.'), input, save, status);
+        let pending = null, submitting = false;
+        open.addEventListener('click', () => { form.hidden = !form.hidden; if (!form.hidden) input.focus(); });
+        input.addEventListener('input', () => { if (pending && pending.text !== input.value) pending = null; });
+        form.addEventListener('submit', async event => {
+          event.preventDefault();
+          if (submitting || !currentView() || !input.value.trim()) return;
+          if (!pending || pending.text !== input.value) pending = { text: input.value, client_correction_id: crypto.randomUUID() };
+          const correction = pending;
+          submitting = true; save.disabled = true; input.disabled = true; open.disabled = true; status.textContent = 'Сохраняем исправление…';
+          try {
+            const result = await request(`/learners/${encodeURIComponent(learnerId)}/memory/sources/${encodeURIComponent(source.source_id)}/corrections`, { method: 'POST', body: { text: correction.text, expected_revision: data.revision, expected_source_revision: data.source_revision, client_correction_id: correction.client_correction_id } });
+            if (sessionToken !== state.token || state.account?.role !== 'teacher') return;
+            const job = { job_id: result.job_id, learnerId, topic: result.topic_id || source.topic_id || topic, sourceId: source.source_id, status: result.job_id ? 'not_checked' : 'missing_job' };
+            state.memoryCorrectionJobs.set(result.job_id || correction.client_correction_id, job);
+            if (!currentView()) return;
+            const refreshed = await loadMemory();
+            if (currentSelection() && refreshed?.generation === state.memoryViewRevision) $('#memory-status').textContent = `${correctionStatus(job.status)}${refreshed.rendered ? '' : ' Не удалось обновить список памяти. Нажмите «Обновить».'}`;
+          } catch (error) {
+            if (currentView()) status.textContent = `${errorText(error)} Черновик исправления сохранён в форме.${error.status ? '' : ' Исход запроса может быть неизвестен. Повтор без изменения текста использует тот же идентификатор.'}`;
+          } finally {
+            submitting = false; save.disabled = false; input.disabled = false; open.disabled = false;
+          }
+        });
+        row.append(open, form);
+      } : null }));
+      return { rendered: true, generation: memoryViewRevision };
+    } catch (error) { if (currentView()) $('#memory-status').textContent = errorText(error); return { rendered: false, generation: memoryViewRevision }; }
   }
   function renderNextStep() {
     const current = state.nextStepsByLearner.get(state.learnerId), root = $('#next-step-result'); root.replaceChildren(); root.hidden = !current?.result;
