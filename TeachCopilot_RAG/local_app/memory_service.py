@@ -23,10 +23,15 @@ from .memory_store import DIALOGUE_CONTEXT_CHARS
 
 MEMORY_BUDGET = 4000
 STATE_FIELDS = ("sources", "summary", "records", "blocks", "events")
-TAIL_PRESENTATION_VERSION = "dialogue-pairs-v2"
+TAIL_PRESENTATION_VERSION = "dialogue-pairs-v3-source-corrections"
 DIALOGUE_CONTEXT_NOTICE = (
     "Слова ассистента ниже – только контекст ответа ученика. Они не доказывают действия, "
     "самостоятельность или освоение. Короткое согласие ученика тоже не доказывает освоение."
+)
+SOURCE_CORRECTION_NOTICE = (
+    "Исправление источника уточняет прежнюю запись, а не означает новое действие "
+    "или прогресс ученика. Исходное утверждение читай вместе со всеми исправлениями; "
+    "отозванное утверждение не используй как доказанный факт."
 )
 
 
@@ -48,7 +53,8 @@ def source_projection(source: dict) -> dict:
     return {"source_id": str(source.get("source_id") or source.get("turn_id")),
             "role": source.get("author_role") or source.get("role"),
             "text": str(source.get("text") or source.get("content") or ""),
-            "observed_on": str(source.get("observed_on") or source.get("created_at") or "")[:10]}
+            "observed_on": str(source.get("observed_on") or source.get("created_at") or "")[:10],
+            **({"corrects_source_id": source["corrects_source_id"]} if source.get("corrects_source_id") else {})}
 
 
 def _dialogue_contexts(sources: list[dict]) -> dict[str, dict]:
@@ -67,17 +73,39 @@ def _dialogue_contexts(sources: list[dict]) -> dict[str, dict]:
     return contexts
 
 
-def _tail_with_dialogue_context(memory: Memory, sources: list[dict]) -> tuple[str, set[str], list[dict]]:
+def _tail_with_dialogue_context(memory: Memory, sources: list[dict], *,
+                               selection_events: list[dict] | None = None) -> tuple[str, set[str], list[dict]]:
     """App-only tail presentation; frozen research state and rules stay literal.
 
     A selected student's turn and its known preceding assistant context are one
     budget unit. When the pair does not fit, neither side is emitted alone.
     """
     contexts = _dialogue_contexts(sources)
+    positions = {source_id: index for index, source_id in enumerate(
+        dict.fromkeys(source_id for source_id, _ in memory.blocks))}
+    corrections, corrected_by = {}, {}
+    links = {source_id: set() for source_id in positions}
+    for source in sources:
+        target = source.get("corrects_source_id")
+        if not target:
+            continue
+        source_id = str(source.get("source_id") or source.get("turn_id"))
+        if (not isinstance(target, str) or source_id not in positions or target not in positions
+                or positions[target] >= positions[source_id]
+                or (source.get("author_role") or source.get("role")) != "teacher"):
+            raise ValueError("source_correction_requires_an_earlier_available_source")
+        corrections[source_id] = target
+        corrected_by.setdefault(target, []).append(source_id)
+        links[source_id].add(target)
+        links[target].add(source_id)
 
     def render(blocks):
         parts, notes, seen = [], [], set()
         for source_id, block in blocks:
+            if source_id in corrected_by:
+                parts.append(f"[Источник {source_id}; исправлен источниками: {', '.join(corrected_by[source_id])}]")
+            if source_id in corrections:
+                parts.append(f"[Исправление источника {corrections[source_id]}; это не новая попытка ученика]")
             if source_id in contexts and source_id not in seen:
                 note = contexts[source_id]
                 label = f"[Контекст перед ответом ученика {source_id}; ассистент, не доказательство]"
@@ -88,7 +116,9 @@ def _tail_with_dialogue_context(memory: Memory, sources: list[dict]) -> tuple[st
                 notes.append(deepcopy(note))
                 seen.add(source_id)
             parts.append(block)
-        text = "\n".join(([DIALOGUE_CONTEXT_NOTICE] if notes else []) + parts)
+        has_corrections = any(source_id in corrections for source_id, _ in blocks)
+        text = "\n".join(([SOURCE_CORRECTION_NOTICE] if has_corrections else [])
+                         + ([DIALOGUE_CONTEXT_NOTICE] if notes else []) + parts)
         return text, notes
 
     # The frozen tail splits long turns into chunks. The application presents
@@ -99,12 +129,31 @@ def _tail_with_dialogue_context(memory: Memory, sources: list[dict]) -> tuple[st
         turn = memory.sources[source_id]
         header = f"[{source_id} | {turn['observed_on']} | {turn['role']}] "
         whole_turns.append((source_id, header + turn['text']))
-    selected, text, notes = [], "", []
+    by_id = dict(whole_turns)
+    selected, text, notes, visited = [], "", [], set()
     for source_id, block in reversed(whole_turns):
-        candidate = [(source_id, block), *selected]
+        if source_id in visited:
+            continue
+        pending, group = [source_id], set()
+        while pending:
+            current = pending.pop()
+            if current not in group:
+                group.add(current)
+                pending.extend(links[current] - group)
+        visited.update(group)
+        candidate_ids = {item[0] for item in selected} | group
+        candidate = [(item, by_id[item]) for item in sorted(candidate_ids, key=positions.__getitem__)]
         candidate_text, candidate_notes = render(candidate)
         if len(candidate_text) > memory.budget:
-            break
+            if len(group) == 1:
+                break  # Ordinary turns keep the existing contiguous-tail rule.
+            if selection_events is not None:
+                group_text, _ = render([(item, by_id[item]) for item in sorted(group, key=positions.__getitem__)])
+                selection_events.append({"event": "source_correction_group_skipped",
+                    "source_ids": sorted(group, key=positions.__getitem__), "budget_chars": memory.budget,
+                    "group_chars": len(group_text),
+                    "reason": "group_exceeds_budget" if len(group_text) > memory.budget else "remaining_budget_exceeded"})
+            continue
         selected, text, notes = candidate, candidate_text, candidate_notes
     return text, {source_id for source_id, _ in selected}, notes
 
@@ -178,6 +227,10 @@ class MemoryWorker:
         memory = restore_memory(prior, self._call, method=method, topic_id=topic_id)
         sources = [source for source in snapshot.get("sources", [])
                    if (source.get("author_role") or source.get("role")) in {"student", "teacher"}]
+        if method in {"summary", "structured"} and any(source.get("corrects_source_id") for source in sources):
+            # Source relations are an application feature. Until other writers
+            # have a matching contract, never silently discard the relation.
+            raise ValueError("Для истории с исправлениями источников используйте метод tail.")
         groups: dict[str, list[dict]] = {}
         for source in sources:
             projected = source_projection(source)
@@ -204,14 +257,18 @@ class MemoryWorker:
             memory = restore_memory(prior, self._call, method=method, topic_id=topic_id)
         selected = memory.context(topic_id)
         dialogue_context = []
+        selection_events = []
         if method == "tail":
-            selected.text, selected.evidence_ids, dialogue_context = _tail_with_dialogue_context(memory, sources)
+            selected.text, selected.evidence_ids, dialogue_context = _tail_with_dialogue_context(
+                memory, sources, selection_events=selection_events)
         visible = [source_projection(row) for row in sources
                    if str(row.get("source_id")) in selected.evidence_ids]
         context = {"text": selected.text, "evidence_ids": sorted(selected.evidence_ids),
                    "sources": visible, "method": method, "topic_id": topic_id}
         if method == "tail":
             context.update(presentation_version=TAIL_PRESENTATION_VERSION, dialogue_context=dialogue_context)
+            if selection_events:
+                context["selection_events"] = selection_events
         if update_failure:
             context.update(stale=True, update_failure=update_failure,
                            memory_version_id=update_failure["fallback_version_id"])
@@ -303,6 +360,28 @@ def approved_chat_memory(snapshot: dict, topic_id: str | None = None) -> dict:
         return {"text": "", "sources": [], "stale": False, "version_id": None}
     version = versions[0]
     context = deepcopy(version.get("context") or {})
+    # A normal new attempt may make memory stale while still useful. An explicit
+    # correction must not leave a withdrawn assertion in the answer meanwhile.
+    visible = set(context.get("evidence_ids") or []) | {
+        str(source.get("source_id")) for source in context.get("sources", []) if source.get("source_id")}
+    links = {}
+    for source in snapshot.get("sources", []):
+        target = source.get("corrects_source_id")
+        if not target or source.get("topic_id") != version.get("topic_id"):
+            continue
+        source_id = str(source.get("source_id"))
+        links.setdefault(source_id, set()).add(target)
+        links.setdefault(target, set()).add(source_id)
+    pending, related = list(visible), set(visible)
+    while pending:
+        for linked in links.get(pending.pop(), ()):
+            if linked not in related:
+                related.add(linked)
+                pending.append(linked)
+    if (related - visible) or (links and not visible and context.get("text")):
+        return {"text": "", "sources": [], "evidence_ids": [], "stale": True,
+                "version_id": None, "topic_id": version.get("topic_id"),
+                "withheld_reason": "source_correction_requires_review"}
     context.update(version_id=version.get("version_id"), topic_id=version.get("topic_id"),
                    stale=bool(version.get("stale")) or version.get("base_revision") != snapshot.get("revision"))
     return context

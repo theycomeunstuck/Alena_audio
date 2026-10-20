@@ -150,7 +150,7 @@ def test_actual_outbound_request_keeps_assistant_memory_context_separate_and_red
     assert "не выдавай её за актуальную" in system
     assert "один уточняющий вопрос" in system and "Согласие ребёнка не означает" in system
     assert "может быть ошибочным" in system
-    assert result["answer_routing"]["policy"] == "educational-projection-v3"
+    assert result["answer_routing"]["policy"] == "educational-projection-v4"
 
 
 @pytest.mark.parametrize("unsafe", ["Напиши private-person@example.test", "hidden\u200bidentity"])
@@ -239,6 +239,122 @@ def test_legacy_projection_remains_without_context_or_invented_source_role(setup
     assert payload["memory_dialogue_context"] == []
     assert payload["memory_stale"] is False
     assert "role" not in payload["memory"][0]
+
+
+def correction_projection():
+    original = "learner-synthetic-7/source/original-record"
+    correction = "learner-synthetic-7/source/source-correction"
+    return projection(memory=(
+        {"source_id": original, "role": "teacher",
+         "quote": "Ирина Соколова пропустила ноль в ответе 303."},
+        {"source_id": correction, "role": "teacher", "corrects_source_id": original,
+         "quote": "Исправление записи: Ирина Соколова записала 303, ноль был. Условия помощи неизвестны."},
+    ), memory_stale=True)
+
+
+@pytest.mark.parametrize("original_role", ["student", "teacher"])
+def test_actual_request_preserves_correction_pair_and_redacts_both_quotes(setup_adapter, original_role):
+    adapter, local, _, transport = setup_adapter
+    value = correction_projection()
+    value = replace(value, memory=({**value.memory[0], "role": original_role}, value.memory[1]))
+    schema = {"type": "string", "enum": [item["source_id"] for item in value.memory]}
+    result = adapter.answer(local_messages(value), projection=value, known_identifiers=IDENTITIES,
+                            response_schema=schema)
+    outgoing_bytes = transport.open.call_args.args[0].data.decode("utf-8")
+    outgoing = json.loads(outgoing_bytes)
+    payload = json.loads(outgoing["messages"][1]["content"])
+    assert payload["memory"] == [
+        {"source_id": "S1", "role": original_role, "claim": "",
+         "quote": "[REDACTED] пропустила ноль в ответе 303."},
+        {"source_id": "S2", "role": "teacher", "claim": "", "corrects_source_id": "S1",
+         "quote": "Исправление записи: [REDACTED] записала 303, ноль был. Условия помощи неизвестны."},
+    ]
+    assert payload["memory_stale"] is True and payload["memory_dialogue_context"] == []
+    assert outgoing["response_format"]["json_schema"]["schema"]["enum"] == ["S1", "S2"]
+    assert "а не новое действие ученика" in outgoing["messages"][0]["content"]
+    assert "отменённый тезис не используй" in outgoing["messages"][0]["content"]
+    checked = json.loads(local.checks[0][0][1]["content"])
+    assert checked["messages"] == outgoing["messages"]
+    assert checked["response_schema"] == outgoing["response_format"]["json_schema"]["schema"]
+    for private in (*IDENTITIES, "Ирина", "Соколова", *(item["source_id"] for item in value.memory)):
+        assert private not in outgoing_bytes
+    assert result["answer_routing"]["policy"] == "educational-projection-v4"
+
+
+@pytest.mark.parametrize("bad_role", ["student", "assistant", None])
+def test_source_correction_requires_explicit_teacher_role(setup_adapter, bad_role):
+    adapter, _, _, transport = setup_adapter
+    value = correction_projection()
+    correction = dict(value.memory[1])
+    if bad_role is None:
+        del correction["role"]
+    else:
+        correction["role"] = bad_role
+    value = replace(value, memory=(value.memory[0], correction))
+    result = adapter.answer(local_messages(value), projection=value, known_identifiers=IDENTITIES)
+    assert result["answer_routing"]["reason"] == "projection_or_check_invalid"
+    transport.open.assert_not_called()
+
+
+@pytest.mark.parametrize("bad_target", [None, 1, "", "not-selected-foreign-source", "x" * 513])
+def test_source_correction_rejects_missing_or_invalid_target(setup_adapter, bad_target):
+    adapter, _, client, transport = setup_adapter
+    value = correction_projection()
+    value = replace(value, memory=(value.memory[0], {**value.memory[1], "corrects_source_id": bad_target}))
+    result = adapter.answer(local_messages(value), projection=value, known_identifiers=IDENTITIES)
+    assert result["answer_routing"]["reason"] == "projection_or_check_invalid"
+    assert client.preflight()["calls_reserved"] == 0
+    transport.open.assert_not_called()
+
+
+@pytest.mark.parametrize("invalid_pair", ["unpaired", "self", "forward", "cycle", "legacy_target_role", "duplicate"])
+def test_source_correction_rejects_unpaired_or_nonchronological_records_without_repair(setup_adapter, invalid_pair):
+    adapter, _, _, transport = setup_adapter
+    value = correction_projection()
+    original, correction = (dict(item) for item in value.memory)
+    if invalid_pair == "unpaired":
+        memory = (correction,)
+    elif invalid_pair == "self":
+        correction["corrects_source_id"] = correction["source_id"]
+        memory = (original, correction)
+    elif invalid_pair == "forward":
+        memory = (correction, original)
+    elif invalid_pair == "cycle":
+        original["corrects_source_id"] = correction["source_id"]
+        memory = (original, correction)
+    elif invalid_pair == "legacy_target_role":
+        del original["role"]
+        memory = (original, correction)
+    else:
+        memory = (original, correction, correction)
+    value = replace(value, memory=memory)
+    result = adapter.answer(local_messages(value), projection=value, known_identifiers=IDENTITIES)
+    assert result["answer_routing"]["reason"] == "projection_or_check_invalid"
+    transport.open.assert_not_called()
+
+
+@pytest.mark.parametrize("unsafe_index", [0, 1])
+def test_private_text_in_either_correction_pair_quote_never_reaches_transport(setup_adapter, unsafe_index):
+    adapter, local, client, transport = setup_adapter
+    value = correction_projection()
+    memory = [dict(item) for item in value.memory]
+    memory[unsafe_index]["quote"] += " Напиши private-person@example.test"
+    value = replace(value, memory=tuple(memory))
+    result = adapter.answer(local_messages(value), projection=value, known_identifiers=IDENTITIES)
+    assert result["answer_routing"]["reason"] == "free_text_risk"
+    assert len(local.requests) == 1 and client.preflight()["calls_reserved"] == 0
+    transport.open.assert_not_called()
+
+
+def test_correction_metadata_alias_survives_collision_with_a_known_identity(setup_adapter):
+    adapter, _, _, transport = setup_adapter
+    value = correction_projection()
+    adapter.answer(local_messages(value), projection=value,
+                   known_identifiers=(*IDENTITIES, "teacher", "corrects_source_id", "S1"))
+    outgoing = json.loads(transport.open.call_args.args[0].data)
+    payload = json.loads(outgoing["messages"][1]["content"])
+    assert payload["memory"][1]["role"] == "teacher"
+    assert payload["memory"][1]["corrects_source_id"] == payload["memory"][0]["source_id"] == "S1"
 
 
 def test_actual_request_keeps_context_linked_to_correct_source_among_multiple_roles(setup_adapter):
