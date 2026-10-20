@@ -366,29 +366,28 @@ class RagService:
                         if query_resolution:
                             interpreted['query_resolution'] = query_resolution
                         return interpreted
-                # Arithmetic scaffolding comes only from actual, selected
-                # text. A model's rewritten search query is never a source of
-                # verified operands, and an old unused exercise cannot replace
-                # an unsupported new one.
-                from local_app.checked_division_context import checked_division_context
-                checked_anchors = []
-                if selected_learner_question is not None:
-                    checked_anchors.append(selected_learner_question)
-                for anchor in (assistant_anchor, assistant_turn_anchor):
-                    if anchor is not None:
-                        checked_anchors.append(history[anchor]["content"])
-                if uses_memory:
-                    memory_sources = [row for row in memory_context.get("sources", ())
-                                      if isinstance(row, dict) and (row.get("role") or row.get("author_role")) in {"student", "teacher"}]
-                    checked_anchors.extend(row["text"] for row in memory_sources if isinstance(row.get("text"), str))
-                    source_ids = {row.get("source_id") for row in memory_sources if row.get("source_id")}
-                    for key in ("dialogue_context", "session_end_context"):
-                        checked_anchors.extend(row["text"] for row in memory_context.get(key, ())
-                            if isinstance(row, dict) and row.get("source_id") in source_ids
-                            and row.get("role") == "assistant" and row.get("usage") == "context_only"
-                            and row.get("truncated") is False
-                            and isinstance(row.get("text"), str))
-                checked_context = checked_division_context(latest_query, subject_id, topic_id, anchors=checked_anchors)
+                if getattr(self.settings, "checked_division_context_enabled", False):
+                    # Experimental arithmetic scaffolding comes only from
+                    # actual selected text, never a model's search rewrite.
+                    from local_app.checked_division_context import checked_division_context
+                    checked_anchors = []
+                    if selected_learner_question is not None:
+                        checked_anchors.append(selected_learner_question)
+                    for anchor in (assistant_anchor, assistant_turn_anchor):
+                        if anchor is not None:
+                            checked_anchors.append(history[anchor]["content"])
+                    if uses_memory:
+                        memory_sources = [row for row in memory_context.get("sources", ())
+                                          if isinstance(row, dict) and (row.get("role") or row.get("author_role")) in {"student", "teacher"}]
+                        checked_anchors.extend(row["text"] for row in memory_sources if isinstance(row.get("text"), str))
+                        source_ids = {row.get("source_id") for row in memory_sources if row.get("source_id")}
+                        for key in ("dialogue_context", "session_end_context"):
+                            checked_anchors.extend(row["text"] for row in memory_context.get(key, ())
+                                if isinstance(row, dict) and row.get("source_id") in source_ids
+                                and row.get("role") == "assistant" and row.get("usage") == "context_only"
+                                and row.get("truncated") is False
+                                and isinstance(row.get("text"), str))
+                    checked_context = checked_division_context(latest_query, subject_id, topic_id, anchors=checked_anchors)
                 sources = self.search(
                     resolved_query.strip(), subject_id, topic_id, grade, limit, _scope_checked=True
                 )

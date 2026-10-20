@@ -29,6 +29,7 @@ class Settings:
     rag_limit: int = 3
     minimum_similarity: float = 0.35
     learning_operation_selection_enabled: bool = False
+    checked_division_context_enabled: bool = False
     demo_login_enabled: bool = False
     demo_credentials_file: str = str(Path(__file__).resolve().parents[1] / ".local" / "rich-demo-credentials.json")
 
@@ -54,6 +55,7 @@ class Settings:
             session_hours=int(os.getenv("LOCAL_SESSION_HOURS", "12")),
             minimum_similarity=float(os.getenv("LOCAL_MIN_SIMILARITY", "0.35")),
             learning_operation_selection_enabled=os.getenv('LOCAL_LEARNING_OPERATION_SELECTION', '0') == '1',
+            checked_division_context_enabled=os.getenv('LOCAL_CHECKED_DIVISION_CONTEXT', '0') == '1',
             demo_login_enabled=os.getenv('LOCAL_DEMO_LOGIN', '0') == '1',
             demo_credentials_file=os.getenv('LOCAL_DEMO_CREDENTIALS_FILE', cls.demo_credentials_file),
         )

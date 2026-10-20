@@ -243,6 +243,7 @@ def test_legacy_projection_remains_without_context_or_invented_source_role(setup
     assert payload["memory_dialogue_context"] == []
     assert payload["memory_session_end_context"] == []
     assert payload["checked_division_context"] is None
+    assert CHAT_CONTEXT_INSTRUCTIONS not in outgoing["messages"][0]["content"]
     assert payload["memory_stale"] is False
     assert "role" not in payload["memory"][0]
 

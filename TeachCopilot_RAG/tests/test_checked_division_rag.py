@@ -5,12 +5,17 @@ import json
 import pytest
 
 from local_app.rag import RagService
+from local_app.config import Settings as LocalSettings
 from tests.test_local_rag import FakeRuntime, FakeStore, Settings
 from tests.test_answer_adapter import setup_adapter  # noqa: F401
 
 
 TOPIC = 'math.g4.numbers.division_by_1_2_digit'
 TASK = 'Попробуй вычислить 1224 : 4. Напиши ответ.'
+
+
+class GuidanceSettings(Settings):
+    checked_division_context_enabled = True
 
 
 class Runtime(FakeRuntime):
@@ -31,13 +36,27 @@ class Adapter:
         return {'message': {'content': json.dumps({'answer': 'Сколько раз 4 помещается в 12?', 'citations': []})}}
 
 
-def run(messages, *, decision=None, memory=None, topic=TOPIC):
+def run(messages, *, decision=None, memory=None, topic=TOPIC, settings=None):
     adapter = Adapter()
     runtime = Runtime(decision or {'in_scope': True, 'uses_prior_context': False,
                                   'search_query': 'Переписанный запрос: 1824 : 6'})
-    result = RagService(FakeStore(), runtime, Settings(), answer_adapter=adapter).answer(
+    result = RagService(FakeStore(), runtime, settings or GuidanceSettings(), answer_adapter=adapter).answer(
         messages, subject_id='math', topic_id=topic, memory_context=memory)
     return result, adapter
+
+
+@pytest.mark.parametrize('settings', [Settings(), LocalSettings()])
+def test_default_settings_do_not_build_checked_context_or_add_it_to_local_prompt_or_projection(settings, monkeypatch):
+    def unexpected(*args, **kwargs):
+        raise AssertionError('Experimental scaffolding must stay disabled by default')
+
+    monkeypatch.setattr('local_app.checked_division_context.checked_division_context', unexpected)
+    _, adapter = run([{'role': 'user', 'content': '1224 : 4. Не говори ответ, с чего начать?'}],
+                     settings=settings)
+    messages, projection = adapter.calls[0]
+    assert projection.checked_division_context is None
+    assert '<checked_division_context>' not in messages[0]['content']
+    assert 'checked_division_context содержит' not in messages[0]['content']
 
 
 def test_current_literal_has_priority_over_numbers_in_model_search_rewrite():
@@ -137,7 +156,7 @@ def test_existing_explicit_literal_check_still_returns_its_deterministic_answer(
 def test_rag_preserves_checked_scaffold_in_actual_outbound_projection_without_answer(setup_adapter):
     adapter, local, _, transport = setup_adapter
     runtime = Runtime({'in_scope': True, 'uses_prior_context': False, 'search_query': 'Деление'})
-    result = RagService(FakeStore(), runtime, Settings(), answer_adapter=adapter).answer(
+    result = RagService(FakeStore(), runtime, GuidanceSettings(), answer_adapter=adapter).answer(
         [{'role': 'user', 'content': '1224 : 4. Только подскажи начало, не говори ответ.'}],
         subject_id='math', topic_id=TOPIC, identity_context_complete=True,
         known_identifiers=('Synthetic Student', 'synthetic-learner-id'))
@@ -150,3 +169,15 @@ def test_rag_preserves_checked_scaffold_in_actual_outbound_projection_without_an
     assert checked['student_work_assessed'] is False
     assert json.loads(local.checks[0][0][1]['content'])['messages'] == request['messages']
     assert result['answer_routing']['backend'] == 'spiderssense'
+
+
+def test_default_settings_send_no_checked_facts_in_actual_external_projection(setup_adapter):
+    adapter, _, _, transport = setup_adapter
+    runtime = Runtime({'in_scope': True, 'uses_prior_context': False, 'search_query': 'Деление'})
+    RagService(FakeStore(), runtime, LocalSettings(), answer_adapter=adapter).answer(
+        [{'role': 'user', 'content': '1224 : 4. Только подскажи начало, не говори ответ.'}],
+        subject_id='math', topic_id=TOPIC, identity_context_complete=True,
+        known_identifiers=('Synthetic Student', 'synthetic-learner-id'))
+    request = json.loads(transport.open.call_args.args[0].data)
+    payload = json.loads(request['messages'][1]['content'])
+    assert payload['checked_division_context'] is None

@@ -83,7 +83,7 @@ _PURPOSE_INSTRUCTIONS = {
         "Последняя реплика ассистента тоже может быть ошибочной – проверь её перед продолжением. "
         "Учитывай переданные interests, когда это уместно для текущей задачи; не навязывай любимый "
         "сюжет в каждом ответе. Не используй сюжеты из avoided_interests. Интерес не доказывает "
-        "учебное умение. Используй короткое тире –. " + CHAT_CONTEXT_INSTRUCTIONS
+        "учебное умение. Используй короткое тире –."
     ),
     "next_step": (
         "Подготовь черновик следующего учебного действия для просмотра преподавателем. "
@@ -481,8 +481,11 @@ class AnswerAdapter:
                     raise ProjectionError("Checked division operands require a literal public source")
             schema = (_protect_schema(response_schema, protect, aliases)
                       if response_schema is not None else None)
+            instructions = _PURPOSE_INSTRUCTIONS[purpose]
+            if purpose == "chat" and checked is not None:
+                instructions += " " + CHAT_CONTEXT_INSTRUCTIONS
             outgoing = [
-                {"role": "system", "content": _PURPOSE_INSTRUCTIONS[purpose]},
+                {"role": "system", "content": instructions},
                 {"role": "user", "content": json.dumps(payload, ensure_ascii=False, separators=(",", ":"))},
             ]
             candidate = json.dumps({"messages": outgoing, "response_schema": schema}, ensure_ascii=False, allow_nan=False)
