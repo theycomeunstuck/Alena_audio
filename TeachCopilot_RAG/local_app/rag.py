@@ -81,6 +81,7 @@ class RagService:
         limit: int = 3,
         *,
         _scope_checked: bool = False,
+        _exact_topic: bool = False,
     ) -> list[dict[str, Any]]:
         if not query or not query.strip() or limit <= 0:
             return []
@@ -98,6 +99,10 @@ class RagService:
         filters = {"subject_id": subject_id} if subject_id else {}
         if topic_prefix:
             filters["topic_prefix"] = topic_prefix
+        if _exact_topic:
+            if not topic_id:
+                raise ValueError('Exact-topic retrieval requires a topic')
+            filters['topic_id'] = topic_id
         rows = self.store.hybrid_search(
             query=query.strip(),
             query_embedding=vector,
@@ -111,6 +116,8 @@ class RagService:
             if subject_id and str(item.get("subject_id")) != str(subject_id):
                 continue
             if topic_prefix and not str(item.get("topic_id") or "").startswith(topic_prefix):
+                continue
+            if _exact_topic and str(item.get('topic_id')) != str(topic_id):
                 continue
             score = float(item.get("score") or 0.0)
             ranking_score = score
@@ -246,6 +253,7 @@ class RagService:
         assistant_turn_anchor = None
         selected_learner_question = None
         checked_context = None
+        retrieval_context = {}
         needs_clarification = False
         if callable(resolver):
             # Older injected resolvers retain the three-argument contract. Check
@@ -403,9 +411,21 @@ class RagService:
                                 and row.get("truncated") is False
                                 and isinstance(row.get("text"), str))
                     checked_context = checked_division_context(latest_query, subject_id, topic_id, anchors=checked_anchors)
+                if uses_memory:
+                    from local_app.memory_retrieval import memory_retrieval_query
+                    catalog_reader = getattr(self.store, 'catalog', None)
+                    catalog = catalog_reader() if callable(catalog_reader) else {}
+                    entry = catalog.get(topic_id, {}) if isinstance(catalog, dict) else {}
+                    title = entry.get('title_ru') or entry.get('title') if isinstance(entry, dict) else None
+                    anchored = memory_retrieval_query(latest_query, topic_id, memory_context, topic_title=title)
+                    resolved_query, retrieval_context = anchored['query'], anchored['diagnostics']
                 sources = self.search(
-                    resolved_query.strip(), subject_id, topic_id, grade, limit, _scope_checked=True
+                    resolved_query.strip(), subject_id, topic_id, grade, limit,
+                    _scope_checked=True, _exact_topic=uses_memory,
                 )
+                if uses_memory:
+                    retrieval_context.update(material_count=len(sources),
+                        outcome='matched_topic' if sources else 'memory_without_topic_materials')
             else:
                 out_of_scope = True
                 sources = []
@@ -583,6 +603,7 @@ class RagService:
                 "total_tokens": response.get("prompt_eval_count", 0) + response.get("eval_count", 0),
             },
             "answer_routing": response.get("answer_routing", {"backend": "local"}),
+            **({'retrieval_context': retrieval_context} if retrieval_context else {}),
             **({"query_resolution": query_resolution} if query_resolution else {}),
             **({'tool_selection': tool_selection,
                 'usage_scope': 'final_answer_only_excludes_scope_and_operation_selection'} if tool_selection else {}),
