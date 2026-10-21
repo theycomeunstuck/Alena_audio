@@ -128,6 +128,11 @@ def _safe_student_completion(response: dict) -> dict:
     return safe
 
 
+def _public_chat_completion(response: dict) -> dict:
+    # The action chain is retained in PostgreSQL, never in either role's chat.
+    return {key: value for key, value in response.items() if key != '_guided_division_provenance'}
+
+
 def create_app(settings=None, store=None, runtime=None, rag_service=None) -> FastAPI:
     """Build an app with injectable settings, DB store and local model services.
 
@@ -410,6 +415,20 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None) -> Fas
             session = store.create_learning_session(learner_id, _account_id(user), request.topic_id or "general",
                                                     client_session_id=request.client_session_id)
             return {**session, "topic_title": _topic_title(session.get("topic_id"), store.catalog())}
+        except Exception as exc:
+            memory_error(exc)
+
+    @app.get('/learners/{learner_id}/guided-division')
+    def guided_division_context(learner_id: str, topic_id: str, learning_session_id: str | None = None,
+                                user: dict = Depends(require_user)):
+        access(user, learner_id)
+        memory_available()
+        try:
+            if learning_session_id:
+                from uuid import UUID
+                learning_session_id = str(UUID(learning_session_id))
+            return store.guided_division_context(learner_id, topic_id, _account_id(user),
+                                                 learning_session_id=learning_session_id)
         except Exception as exc:
             memory_error(exc)
 
@@ -1119,10 +1138,14 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None) -> Fas
             if not reservation.get("created"):
                 if reservation.get("status") == "completed" and isinstance(reservation.get("response"), dict):
                     cached = reservation["response"]
-                    from local_app.explicit_learning_actions import VERSION
-                    expected_action = {'operation': action['operation'], 'request_text': action_text, 'version': VERSION} if explicit else None
-                    if cached.get('learning_action') != expected_action:
+                    from local_app.explicit_learning_actions import VERSION, GUIDED_OPERATIONS, GUIDED_VERSION
+                    guided = explicit and action['operation'] in GUIDED_OPERATIONS
+                    version = GUIDED_VERSION if guided else VERSION
+                    expected_action = {'operation': action['operation'], 'request_text': action_text, 'version': version} if explicit else None
+                    if (cached.get('learning_action') != expected_action or guided and
+                            (cached.get('_guided_division_provenance') or {}).get('action') != action):
                         raise HTTPException(status_code=409, detail="client_message_id was reused for a different request mode")
+                    cached = _public_chat_completion(cached)
                     if _role(user) == "student":
                         cached = _safe_student_completion(cached)
                     return JSONResponse(content=cached)
@@ -1155,9 +1178,14 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None) -> Fas
             except Exception as exc:
                 memory_error(exc)
         if explicit:
-            from local_app.explicit_learning_actions import action_response
+            from local_app.explicit_learning_actions import action_response, GUIDED_OPERATIONS
             try:
-                response = action_response(action, action_text, clean_messages)
+                if action['operation'] in GUIDED_OPERATIONS:
+                    from local_app.guided_division_store import guided_response
+                    response = guided_response(store, target, session['topic_id'], _account_id(user),
+                        str(learning_session_id), client_message_id, action, action_text)
+                else:
+                    response = action_response(action, action_text, clean_messages)
                 response.update(learning_session_id=str(learning_session_id), client_message_id=client_message_id,
                                 memory_version_id=None, memory_stale=False)
                 finished = store.finish_memory_job(chat_job['job_id'], result={'response_ready': True}, worker_id=chat_worker_id)
@@ -1168,6 +1196,7 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None) -> Fas
                 store.fail_chat_message(str(learning_session_id), client_message_id, error=type(exc).__name__, unknown_outcome=False)
                 store.finish_memory_job(chat_job['job_id'], error=type(exc).__name__, worker_id=chat_worker_id, unknown_outcome=False)
                 memory_error(exc)
+            response = _public_chat_completion(response)
             return JSONResponse(content=_safe_student_completion(response) if _role(user) == 'student' else response)
         if app.state.rag_service is None:
             if reserved:
@@ -1262,6 +1291,7 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None) -> Fas
             raise HTTPException(status_code=code, detail=detail) from exc
         if not isinstance(response, dict) or not isinstance(response.get("choices"), list):
             raise HTTPException(status_code=502, detail="chat service returned an invalid response")
+        response = _public_chat_completion(response)
         if _role(user) == "student":
             response = _safe_student_completion(response)
         return JSONResponse(content=response)

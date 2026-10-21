@@ -78,6 +78,10 @@ def _approved_memory_source_ids(version):
 
 
 class MemoryStoreMixin:
+    def guided_division_context(self, learner_id, topic_id, actor_id, **kwargs):
+        from .guided_division_store import guided_context
+        return guided_context(self, learner_id, topic_id, actor_id, **kwargs)
+
     @staticmethod
     def _memory_learner(cur, learner_id, expected_revision=None, lock="UPDATE"):
         if lock not in ("UPDATE", "SHARE"):

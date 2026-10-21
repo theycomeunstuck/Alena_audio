@@ -14,6 +14,9 @@
   const errorText = error => error?.message || 'Попробуйте ещё раз.';
   let toastTimer;
   let loginBusy = false;
+  const guidedContexts = new Map();
+  let guidedViewRevision = 0;
+  const guidedTopic = 'math.g4.numbers.division_by_1_2_digit';
 
   async function request(path, options = {}) {
     const headers = new Headers(options.headers || {});
@@ -44,6 +47,7 @@
     }).catch(() => { $('#demo-login').hidden = true; });
   }
   function signOutLocal() {
+    guidedContexts.clear(); guidedViewRevision++;
     state.token = null; state.account = null; state.learnerId = null; sessionStorage.removeItem(tokenKey);
     state.learners = []; state.dashboard = null; state.topics = []; state.task = null; state.proposal = null; state.revision = null; state.chatByLearner.clear(); state.nextStepsByLearner.clear(); state.learningSessionsByLearner.clear(); state.pendingMessages.clear(); state.chatTopicsByLearnerSubject.clear(); state.memoryCorrectionJobs.clear(); state.viewRevision++;
     $('#learner-list').replaceChildren(); $('#learner-count').textContent = '–'; $('#roster-empty').hidden = true; $('#profile-content').hidden = true; $('#loading-state').hidden = true; $('#error-state').hidden = true; $('#empty-profile').hidden = false;
@@ -557,7 +561,59 @@
     const root = $('#chat-log'); root.replaceChildren(el('div', 'chat-bubble assistant', greeting));
     (state.chatByLearner.get(learnerId) || []).forEach(message => root.append(chatBubble(message.role, message.content, message.tool)));
   }
-  const actionLabels = { division_check: 'Проверить деление', division_places: 'Разряды частного', division_practice: 'Дать пример', print_output: 'Вывод Python' };
+  const actionLabels = { division_check: 'Проверить деление', division_places: 'Разряды частного', division_practice: 'Дать пример', print_output: 'Вывод Python', division_guided: 'Решать по шагам' };
+  function guidedKey() { return `${state.learnerId}:${$('#chat-topic').value}`; }
+  function renderGuided(pending) {
+    const shown = $('#chat-mode').value === 'division_guided';
+    $('#guided-division-panel').hidden = !shown;
+    if (!shown) return;
+    const entry = guidedContexts.get(guidedKey()), cursor = entry?.guided_division;
+    const ready = entry?.available && cursor && !entry.loading;
+    const answering = ready && entry.origin === 'current_session' && cursor.status === 'active';
+    const resuming = ready && (entry.origin === 'approved_memory' || cursor.status === 'paused');
+    $('#guided-division-status').textContent = entry?.loading ? 'Проверяем сохранённый шаг…' : entry?.error ||
+      (ready ? entry.origin === 'approved_memory' ? 'Есть просмотренный учителем пример. Продолжи его явно или начни новый.' : cursor.status === 'paused' ? 'Пример на паузе.' : 'Один вопрос – один шаг. Готовый ответ не показываем.' : cursor?.status === 'completed' ? 'Этот пример завершён. Можно начать новый.' : 'Сохранённого шага для продолжения нет. Можно начать новый пример.');
+    $('#guided-division-example').hidden = !cursor;
+    $('#guided-division-example').textContent = cursor ? `${cursor.dividend} : ${cursor.divisor}` : '';
+    $('#guided-division-prompt').hidden = !entry?.prompt;
+    $('#guided-division-prompt').textContent = entry?.prompt || '';
+    $('#guided-division-answer-form').hidden = !answering;
+    $('#guided-division-hint').hidden = !answering;
+    $('#guided-division-pause').hidden = !answering;
+    $('#guided-division-resume').hidden = !resuming;
+    $('#guided-division-refresh').hidden = false;
+    $$('#guided-division-panel input, #guided-division-panel button').forEach(field => { field.disabled = !!pending || !!entry?.loading; });
+  }
+  async function refreshGuided() {
+    if ($('#chat-mode').value !== 'division_guided' || !state.learnerId) return;
+    const learnerId = state.learnerId, key = guidedKey(), token = state.token, revision = ++guidedViewRevision;
+    if ($('#chat-topic').value !== guidedTopic) { guidedContexts.delete(key); renderLearningSession(); return; }
+    const query = new URLSearchParams({ topic_id: guidedTopic });
+    const session = state.learningSessionsByLearner.get(learnerId);
+    if (session?.status === 'active') query.set('learning_session_id', session.learning_session_id);
+    guidedContexts.set(key, { loading: true }); renderLearningSession();
+    try {
+      const data = await request(`/learners/${encodeURIComponent(learnerId)}/guided-division?${query}`);
+      if (revision !== guidedViewRevision || token !== state.token || learnerId !== state.learnerId || key !== guidedKey()) return;
+      guidedContexts.set(key, data);
+      if (data.active_learning_session_id) state.learningSessionsByLearner.set(learnerId, { learning_session_id: data.active_learning_session_id, topic_id: guidedTopic, subject_id: 'math', status: 'active' });
+    } catch (error) {
+      if (revision !== guidedViewRevision || token !== state.token || learnerId !== state.learnerId || key !== guidedKey()) return;
+      guidedContexts.set(key, { error: errorText(error) });
+    }
+    renderLearningSession();
+  }
+  function sendGuided(operation, value) {
+    const learnerId = state.learnerId, entry = guidedContexts.get(guidedKey());
+    if (!entry?.available || state.pendingMessages.has(learnerId)) return;
+    const action = { operation, expected_state_id: entry.guided_division.state_id };
+    if (operation === 'division_guided_answer') action.value = value;
+    if (operation === 'division_guided_resume' && entry.origin === 'approved_memory') action.source_learning_session_id = entry.source_learning_session_id;
+    const content = operation === 'division_guided_answer' ? `Мой ответ на шаг: ${value}.` : ({division_guided_hint:'Хочу подсказку к этому шагу.', division_guided_pause:'Сделаем паузу.', division_guided_resume:'Продолжим сохранённый пример.'})[operation];
+    if (state.learningSessionsByLearner.get(learnerId)?.status === 'completed') { state.chatByLearner.delete(learnerId); renderChatHistory(learnerId); }
+    state.pendingMessages.set(learnerId, { content, learning_action: Object.freeze(action), client_message_id: crypto.randomUUID(), client_session_id: crypto.randomUUID(), subject_id: 'math', topic_id: guidedTopic });
+    updateChat('user', content); sendPendingMessage();
+  }
   function resetLearningAction() {
     $('#learning-action-form').reset(); $('#chat-mode').value = 'chat';
     $('#learning-action-error').hidden = true; $('#learning-action-error').textContent = '';
@@ -590,25 +646,28 @@
     const subject = $('#chat-subject').value;
     $$('#chat-mode option').forEach(option => {
       option.disabled = option.value === 'print_output' ? !['python', 'programming'].includes(subject) : option.value !== 'chat' && subject !== 'math';
+      if (option.value === 'division_guided' && state.learningSessionsByLearner.get(state.learnerId)?.status === 'active' && $('#chat-topic').value !== guidedTopic) option.disabled = true;
     });
     if ($('#chat-mode').selectedOptions[0]?.disabled && !pending) $('#chat-mode').value = 'chat';
     const mode = $('#chat-mode').value, isAction = mode !== 'chat';
     $('#chat-form').hidden = isAction; $('#learning-action-panel').hidden = !isAction;
     $('#learning-action-availability').hidden = subject !== 'scratch';
-    $('#action-division-fields').hidden = !['division_check', 'division_places'].includes(mode);
+    $('#action-division-fields').hidden = !['division_check', 'division_places', 'division_guided'].includes(mode);
     $('#action-quotient-field').hidden = mode !== 'division_check';
     $('#action-practice-fields').hidden = mode !== 'division_practice';
     $('#action-print-fields').hidden = mode !== 'print_output';
     $('#learning-action-title').textContent = actionLabels[mode] || '';
-    $('#send-learning-action').textContent = pending?.sending ? 'Проверяем…' : actionLabels[mode] || 'Выполнить';
+    $('#send-learning-action').textContent = pending?.sending ? 'Проверяем…' : mode === 'division_guided' ? 'Начать новый пример' : actionLabels[mode] || 'Выполнить';
     $('#learning-action-hint').textContent = {
       division_check: 'Покажу результат и проверку умножением. Можно указать свой ответ. Для деления с остатком покажу остаток.',
       division_places: 'Покажу всё частное и значение каждой его цифры.',
       division_practice: 'Деление без остатка. В частном три цифры, ноль в десятках и ненулевые единицы. Ответ останется тебе.',
+      division_guided: 'По одному шагу, без готового ответа. Поддерживается положительное деление без остатка. Проверка шага не означает освоение темы.',
       print_output: 'Покажу точные символы вывода. Поддерживаются до 8 вызовов print со строками, целыми числами, True, False, None и параметрами sep и end. Выражения и переменные здесь не поддерживаются.'
     }[mode] || '';
     $('#chat-mode').disabled = !!pending;
     $$('#learning-action-form input, #learning-action-form select, #learning-action-form textarea, #learning-action-form button').forEach(field => { field.disabled = !!pending; });
+    renderGuided(pending);
   }
   function renderLearningSession() {
     renderChatTopicOptions();
@@ -638,16 +697,21 @@
       if (state.token !== token) return;
       const message = data.choices?.[0]?.message?.content;
       if (!message) throw new Error('В ответе нет объяснения. Повторите этот же вопрос, чтобы проверить результат запроса.');
+      guidedViewRevision++;
+      const guideKey = `${learnerId}:${session.topic_id}`;
+      if (data.guided_division) guidedContexts.set(guideKey, { available: data.guided_division.status !== 'completed', origin: 'current_session', guided_division: data.guided_division, source_learning_session_id: session.learning_session_id, prompt: message });
+      else guidedContexts.delete(guideKey);
       state.pendingMessages.delete(learnerId);
       if (state.learnerId === learnerId) updateChat('assistant', message, data.citations || data.sources || [], data.learning_tool);
       else { const history = state.chatByLearner.get(learnerId) || []; history.push({ role: 'assistant', content: message, tool: data.learning_tool }); state.chatByLearner.set(learnerId, history); }
     } catch (error) {
       if (state.token === token) {
-        if (pending.learning_action && [400, 422].includes(error.status)) {
+        if (pending.learning_action && ([400, 422].includes(error.status) || error.status === 409 && pending.learning_action.operation.startsWith('division_guided_') && !/automatic retry is disabled|already processing/.test(error.detail || ''))) {
           state.pendingMessages.delete(learnerId);
           const history = state.chatByLearner.get(learnerId) || []; history.pop(); state.chatByLearner.set(learnerId, history);
           if (state.learnerId === learnerId) {
             renderChatHistory(learnerId); $('#learning-action-error').textContent = error.detail || errorText(error); $('#learning-action-error').hidden = false;
+            if (error.status === 409) { $('#learning-action-error').textContent = 'Сохранённый шаг изменился. Обновите его перед следующим ответом.'; await refreshGuided(); }
           }
         } else {
           pending.terminal = error.status === 409 && /automatic retry is disabled/.test(error.detail || '');
@@ -730,11 +794,17 @@
     state.pendingMessages.set(learnerId, { content, client_message_id, client_session_id: crypto.randomUUID(), subject_id: $('#chat-subject').value, topic_id: $('#chat-topic').value });
     updateChat('user', content); input.value = ''; sendPendingMessage();
   });
-  $('#chat-mode').addEventListener('change', () => { $('#learning-action-error').hidden = true; renderLearningSession(); });
+  $('#chat-mode').addEventListener('change', () => {
+    guidedViewRevision++; $('#learning-action-error').hidden = true;
+    if ($('#chat-mode').value === 'division_guided' && state.learningSessionsByLearner.get(state.learnerId)?.status !== 'active' && [...$('#chat-topic').options].some(option => option.value === guidedTopic)) {
+      state.chatTopicsByLearnerSubject.set(`${state.learnerId}:math`, guidedTopic);
+    }
+    renderLearningSession(); refreshGuided();
+  });
   $('#chat-subject').addEventListener('change', () => { resetLearningAction(); renderLearningSession(); });
   $('#chat-topic').addEventListener('change', () => {
     state.chatTopicsByLearnerSubject.set(`${state.learnerId}:${$('#chat-subject').value}`, $('#chat-topic').value);
-    renderLearningSession();
+    guidedViewRevision++; renderLearningSession(); refreshGuided();
   });
   $('#action-code').addEventListener('input', () => { $('#action-code-count').textContent = `${$('#action-code').value.length} из 4000 символов`; });
   $('#learning-action-form').addEventListener('submit', event => {
@@ -748,8 +818,9 @@
         if (!/^[0-9]+$/.test(value) || Number(value) < min || Number(value) > max) { $(selector).focus(); throw new Error(`${label}: введите целое число от ${min} до ${max}.`); }
         return Number(value);
       };
-      if (['division_check', 'division_places'].includes(operation)) {
-        action.dividend = number('#action-dividend', 'Делимое', 0, 999999);
+      if (['division_check', 'division_places', 'division_guided'].includes(operation)) {
+        if (operation === 'division_guided') action.operation = 'division_guided_start';
+        action.dividend = number('#action-dividend', 'Делимое', operation === 'division_guided' ? 1 : 0, 999999);
         action.divisor = number('#action-divisor', 'Делитель', 1, 99);
         if (operation === 'division_check' && $('#action-quotient').value !== '') action.stated_quotient = number('#action-quotient', 'Мой ответ', 0, 999999);
         content = `${actionLabels[operation]}: ${action.dividend} : ${action.divisor}${action.stated_quotient === undefined ? '' : ` = ${action.stated_quotient}`}.`;
@@ -767,12 +838,22 @@
     } catch (error) { $('#learning-action-error').textContent = errorText(error); $('#learning-action-error').hidden = false; }
   });
   $('#retry-chat').addEventListener('click', () => busy($('#retry-chat'), sendPendingMessage));
+  $('#guided-division-answer-form').addEventListener('submit', event => {
+    event.preventDefault(); const text = $('#guided-division-answer').value;
+    if (!/^[0-9]{1,6}$/.test(text)) { $('#learning-action-error').textContent = 'Введите одно целое число от 0 до 999999.'; $('#learning-action-error').hidden = false; return; }
+    $('#learning-action-error').hidden = true; $('#guided-division-answer').value = ''; sendGuided('division_guided_answer', Number(text));
+  });
+  $('#guided-division-hint').addEventListener('click', () => sendGuided('division_guided_hint'));
+  $('#guided-division-pause').addEventListener('click', () => sendGuided('division_guided_pause'));
+  $('#guided-division-resume').addEventListener('click', () => sendGuided('division_guided_resume'));
+  $('#guided-division-refresh').addEventListener('click', refreshGuided);
   $('#complete-learning-session').addEventListener('click', () => busy($('#complete-learning-session'), async () => {
     const learnerId = state.learnerId, session = state.learningSessionsByLearner.get(learnerId), token = state.token;
     if (!session || state.pendingMessages.get(learnerId)?.sending) return;
     const result = await request(`/learning-sessions/${encodeURIComponent(session.learning_session_id)}/complete`, { method: 'POST', body: {} });
     if (state.token !== token) return;
     session.status = result.status || 'completed'; session.job_id = result.job_id; state.pendingMessages.delete(learnerId); renderLearningSession(); toast('Занятие сохранено. Память обновится в фоне.');
+    refreshGuided();
   }));
   boot();
 })();

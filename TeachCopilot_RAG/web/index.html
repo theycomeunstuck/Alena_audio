@@ -116,6 +116,7 @@
                 <option value="division_places">Разряды частного</option>
                 <option value="division_practice">Дать пример</option>
                 <option value="print_output">Вывод Python</option>
+                <option value="division_guided">Решать по шагам</option>
               </select>
             </div>
             <p id="learning-action-availability" class="review-note" hidden>Для Scratch можно задать обычный вопрос. Действия с числами доступны в математике, с print – в Python и программировании.</p>
@@ -123,6 +124,21 @@
             <section id="learning-action-panel" class="learning-action-panel" aria-labelledby="learning-action-title" hidden>
               <h3 id="learning-action-title">Проверить деление</h3>
               <p id="learning-action-hint" class="review-note"></p>
+              <section id="guided-division-panel" class="guided-division-panel" aria-label="Текущий шаг деления" hidden>
+                <p id="guided-division-status" class="review-note" role="status"></p>
+                <p id="guided-division-example" class="guided-division-example" hidden></p>
+                <p id="guided-division-prompt" class="guided-division-prompt" hidden></p>
+                <form id="guided-division-answer-form" class="learning-action-form" novalidate hidden>
+                  <div class="action-fields"><label for="guided-division-answer">Ответ на этот шаг</label><input id="guided-division-answer" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="off" aria-describedby="learning-action-error"></div>
+                  <button id="guided-division-check" class="button primary wide" type="submit">Проверить шаг</button>
+                </form>
+                <div class="guided-division-buttons">
+                  <button id="guided-division-hint" class="button secondary" type="button" hidden>Подсказка</button>
+                  <button id="guided-division-pause" class="text-button" type="button" hidden>Пауза</button>
+                  <button id="guided-division-resume" class="button secondary wide" type="button" hidden>Продолжить пример</button>
+                  <button id="guided-division-refresh" class="text-button" type="button" hidden>Обновить шаг</button>
+                </div>
+              </section>
               <form id="learning-action-form" class="learning-action-form" novalidate>
                 <fieldset id="action-division-fields" class="action-fields" aria-describedby="action-division-hint">
                   <legend class="sr-only">Числа для деления</legend>

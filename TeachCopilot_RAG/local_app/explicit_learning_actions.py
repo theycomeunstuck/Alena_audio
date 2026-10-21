@@ -6,9 +6,12 @@ import re
 from local_app.learning_math import division_facts, format_verified_division, practice_division
 from local_app.learning_python import evaluate_literal_print, render_print_result
 from local_app.learning_tools import _completion
+from local_app.guided_division import (
+    GUIDED_OPERATIONS, GUIDED_VERSION, validate_answer, validate_identifier, validate_operands,
+)
 
 VERSION = 'explicit-learning-action-v1'
-MATH_OPERATIONS = {'division_check', 'division_places', 'division_practice'}
+MATH_OPERATIONS = {'division_check', 'division_places', 'division_practice'} | GUIDED_OPERATIONS
 
 
 def validate_action(value: object) -> tuple[dict, str]:
@@ -18,7 +21,27 @@ def validate_action(value: object) -> tuple[dict, str]:
     if not isinstance(operation, str) or operation not in MATH_OPERATIONS | {'print_output'}:
         raise ValueError('Неизвестное учебное действие.')
     allowed = {'operation'}
-    if operation in {'division_check', 'division_places'}:
+    if operation in GUIDED_OPERATIONS:
+        if operation == 'division_guided_start':
+            allowed |= {'dividend', 'divisor'}
+            validate_operands(value.get('dividend'), value.get('divisor'))
+            request_text = f"Решать по шагам: {value['dividend']} : {value['divisor']}. Полный ответ не показывай."
+        else:
+            allowed.add('expected_state_id')
+            validate_identifier(value.get('expected_state_id'))
+            if operation == 'division_guided_answer':
+                allowed.add('value')
+                answer = validate_answer(value.get('value'))
+                request_text = f'Мой ответ на текущий шаг: {answer}.'
+            else:
+                label = {'division_guided_hint': 'Подсказка к текущему шагу',
+                         'division_guided_pause': 'Приостановить пошаговый пример',
+                         'division_guided_resume': 'Продолжить сохранённый пошаговый пример'}[operation]
+                request_text = label + '.'
+                if operation == 'division_guided_resume' and 'source_learning_session_id' in value:
+                    allowed.add('source_learning_session_id')
+                    validate_identifier(value['source_learning_session_id'], 'Идентификатор исходного занятия')
+    elif operation in {'division_check', 'division_places'}:
         allowed |= {'dividend', 'divisor'}
         if operation == 'division_check':
             allowed.add('stated_quotient')
@@ -69,6 +92,8 @@ def validate_subject(action: dict, topic_id: str, requested: object, catalog: di
 
 def action_response(action: dict, request_text: str, previous_messages=()) -> dict:
     operation = action['operation']
+    if operation in GUIDED_OPERATIONS:
+        raise ValueError('Для пошагового действия требуется проверенное сервером состояние.')
     if operation == 'print_output':
         result = evaluate_literal_print(action['code'])
         text, facts, scope = render_print_result(result), {'stdout': result['stdout']}, ['literal_print_stdout']
