@@ -30,3 +30,6 @@
 .guided-division-prompt { white-space: pre-wrap; overflow-wrap: anywhere; margin: 8px 0 12px; }
 .guided-division-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; align-items: center; }
 .guided-division-buttons .text-button { padding: 8px; }
+.chat-guided-return { margin: 12px 0; padding: 12px; border: 1px solid var(--line); border-radius: 6px; background: #fff; }
+.chat-guided-return-label { margin: 0 0 6px; font-size: 12px; font-weight: 600; color: var(--sea-dark); overflow-wrap: anywhere; }
+.chat-guided-return .review-note { margin: 0 0 10px; }

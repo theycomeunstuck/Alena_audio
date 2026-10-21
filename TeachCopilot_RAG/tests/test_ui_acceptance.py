@@ -234,6 +234,11 @@ class BrowserStore:
         row = self.learning_sessions.get(session_id)
         return copy.deepcopy(row) if row and (learner_id is None or row["learner_id"] == learner_id) else None
 
+    def guided_division_context(self, learner_id, topic_id, actor_id, *, learning_session_id=None):
+        # Ordinary UI scenarios have no persisted typed steps. Dedicated guided
+        # browser tests install controlled transport; PostgreSQL tests use Store.
+        return {"available": False, "reason": "no_saved_guided_step"}
+
     def reserve_chat_message(self, session_id, learner_id, client_message_id, content, actor_id, author_role="student"):
         key = (session_id, client_message_id)
         if key in self.learning_messages:
