@@ -6,19 +6,23 @@ requests and state restoration without invoking a model or touching live data.
 from copy import deepcopy
 import json
 
+import pytest
 from playwright.sync_api import expect
 from test_ui_acceptance import _login, ui_server  # noqa: F401
 from local_app.explicit_learning_actions import validate_action
 from local_app.guided_division import start_state, transition, action_response, render_prompt
 
 
-def install_transport(page, initial=None):
+def install_transport(page, initial=None, *, unavailable_reason=None):
     data = {'state':initial, 'origin':'approved_memory' if initial else 'current_session',
-            'session':None, 'sent':[], 'cache':{}}
+            'session':None, 'sent':[], 'cache':{}, 'unavailable_reason':unavailable_reason}
     def context(route):
         cursor = data['state']
-        payload = {'available':cursor is not None and cursor['status'] != 'completed'}
-        if cursor:
+        reason = data['unavailable_reason']
+        payload = {'available':not reason and cursor is not None and cursor['status'] != 'completed'}
+        if reason:
+            payload['reason'] = reason
+        if cursor and (not reason or reason == 'exercise_completed'):
             payload.update(guided_division=cursor, origin=data['origin'],
                 source_learning_session_id=data['session'] or 'reviewed-previous-session', prompt=render_prompt(cursor))
             if data['session']:
@@ -40,6 +44,7 @@ def install_transport(page, initial=None):
                 assert canonical['expected_state_id'] == data['state']['state_id']
                 cursor, assessment = transition(data['state'], canonical['operation'], state_id=mid, value=canonical.get('value'))
             data['state'], data['session'], data['origin'] = cursor, request['learning_session_id'], 'current_session'
+            data['unavailable_reason'] = None
             data['cache'][mid] = action_response(cursor,assessment,text,canonical['operation'])
         route.fulfill(status=200, content_type='application/json', body=json.dumps(data['cache'][mid]))
     page.route('**/guided-division?*', context)
@@ -113,4 +118,83 @@ def test_reviewed_previous_exercise_waits_for_explicit_resume(chromium, ui_serve
         expect(page.locator('#guided-division-answer-form')).to_be_visible()
         assert transport['state']['step_index'] == 1
     finally:
+        page.close()
+
+
+@pytest.mark.parametrize(('reason', 'message'), [
+    ('teacher_review_required', 'Для продолжения учителю нужно проверить записи прошлого занятия. Пока можно начать новый пример.'),
+    ('corrected_guided_source', 'Запись сохранённого шага исправлена. Продолжение этого примера недоступно. Можно начать новый.'),
+    ('later_message_barrier', 'После пошагового решения беседа продолжилась. Точное место остановки не определено. Можно начать новый пример.'),
+    ('invalid_guided_chain', 'Сохранённый шаг не удалось проверить. Можно начать новый пример.'),
+    ('another_actor', 'Сохранённого шага для этого входа нет. Можно начать новый пример.'),
+    ('exercise_completed', 'Этот пример завершён. Можно начать новый.'),
+])
+def test_unavailable_step_explains_reason_without_offering_resume(chromium, ui_server, reason, message):
+    page = chromium.new_page()
+    cursor = None
+    if reason == 'exercise_completed':
+        cursor = start_state(12, 4, state_id='private-completed-step-id')
+        cursor.update(step_index=0, phase='remainder', status='completed')
+    transport = install_transport(page, cursor, unavailable_reason=reason)
+    try:
+        _login(page, ui_server.base_url, 'student.ui@example.test')
+        page.locator('#chat-mode').select_option('division_guided')
+        expect(page.locator('#guided-division-status')).to_have_text(message)
+        for selector in ('#guided-division-resume', '#guided-division-answer-form',
+                         '#guided-division-hint', '#guided-division-pause'):
+            expect(page.locator(selector)).to_be_hidden()
+        expect(page.locator('#send-learning-action')).to_be_enabled()
+        assert not transport['sent']
+        panel_text = page.locator('#guided-division-panel').inner_text()
+        assert reason not in panel_text
+        assert 'private-completed-step-id' not in panel_text
+        assert 'reviewed-previous-session' not in panel_text
+        page.locator('#action-dividend').fill('12')
+        page.locator('#action-divisor').fill('4')
+        click_action(page, '#send-learning-action')
+        expect(page.locator('#guided-division-answer-form')).to_be_visible()
+        assert transport['sent'][0]['learning_action'] == {
+            'operation':'division_guided_start', 'dividend':12, 'divisor':4}
+    finally:
+        page.close()
+
+
+def test_guided_mode_loads_saved_step_before_catalog_and_keeps_topic_after_catalog(chromium, ui_server):
+    page = chromium.new_page()
+    held_catalog = []
+    page.route('**/catalog', lambda route: held_catalog.append(route))
+    cursor = start_state(3636, 12, state_id='reviewed-step-before-catalog')
+    cursor.update(step_index=1, phase='quotient_digit', status='paused')
+    transport = install_transport(page, cursor)
+    topic = 'math.g4.numbers.division_by_1_2_digit'
+    title = 'Деление на однозначное и двузначное число'
+    try:
+        with page.expect_request(lambda request: request.url.endswith('/catalog')):
+            _login(page, ui_server.base_url, 'student.ui@example.test')
+        expect(page.locator('#learner-name')).to_contain_text('Ника')
+        assert len(held_catalog) == 1
+        with page.expect_response(lambda response: '/guided-division?' in response.url) as context:
+            page.locator('#chat-mode').select_option('division_guided')
+        assert context.value.status == 200
+        assert f'topic_id={topic}' in context.value.url
+        expect(page.locator('#chat-topic')).to_have_value(topic)
+        expect(page.locator('#chat-topic option:checked')).to_have_text(title)
+        expect(page.locator('#guided-division-resume')).to_be_visible()
+        expect(page.locator('#guided-division-answer-form')).to_be_hidden()
+        assert not transport['sent']
+
+        with page.expect_response(lambda response: response.url.endswith('/catalog')):
+            held_catalog.pop().continue_()
+        expect(page.locator('#chat-topic option:checked')).to_have_text(f'{title} · 4 класс')
+        expect(page.locator('#chat-topic')).to_have_value(topic)
+        expect(page.locator('#chat-mode')).to_have_value('division_guided')
+        expect(page.locator('#guided-division-resume')).to_be_visible()
+        click_action(page, '#guided-division-resume')
+        session_id = transport['sent'][0]['learning_session_id']
+        assert ui_server.store.learning_sessions[session_id]['topic_id'] == topic
+        expect(page.locator('#guided-division-answer-form')).to_be_visible()
+        assert transport['state']['step_index'] == 1
+    finally:
+        for route in held_catalog:
+            route.abort()
         page.close()

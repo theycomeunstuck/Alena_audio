@@ -17,6 +17,7 @@
   const guidedContexts = new Map();
   let guidedViewRevision = 0;
   const guidedTopic = 'math.g4.numbers.division_by_1_2_digit';
+  const guidedTopicTitle = 'Деление на однозначное и двузначное число';
 
   async function request(path, options = {}) {
     const headers = new Headers(options.headers || {});
@@ -571,8 +572,16 @@
     const ready = entry?.available && cursor && !entry.loading;
     const answering = ready && entry.origin === 'current_session' && cursor.status === 'active';
     const resuming = ready && (entry.origin === 'approved_memory' || cursor.status === 'paused');
+    const unavailableMessage = {
+      teacher_review_required: 'Для продолжения учителю нужно проверить записи прошлого занятия. Пока можно начать новый пример.',
+      corrected_guided_source: 'Запись сохранённого шага исправлена. Продолжение этого примера недоступно. Можно начать новый.',
+      later_message_barrier: 'После пошагового решения беседа продолжилась. Точное место остановки не определено. Можно начать новый пример.',
+      invalid_guided_chain: 'Сохранённый шаг не удалось проверить. Можно начать новый пример.',
+      another_actor: 'Сохранённого шага для этого входа нет. Можно начать новый пример.',
+      exercise_completed: 'Этот пример завершён. Можно начать новый.'
+    }[entry?.reason];
     $('#guided-division-status').textContent = entry?.loading ? 'Проверяем сохранённый шаг…' : entry?.error ||
-      (ready ? entry.origin === 'approved_memory' ? 'Есть просмотренный учителем пример. Продолжи его явно или начни новый.' : cursor.status === 'paused' ? 'Пример на паузе.' : 'Один вопрос – один шаг. Готовый ответ не показываем.' : cursor?.status === 'completed' ? 'Этот пример завершён. Можно начать новый.' : 'Сохранённого шага для продолжения нет. Можно начать новый пример.');
+      (ready ? entry.origin === 'approved_memory' ? 'Есть просмотренный учителем пример. Продолжи его явно или начни новый.' : cursor.status === 'paused' ? 'Пример на паузе.' : 'Один вопрос – один шаг. Готовый ответ не показываем.' : unavailableMessage || (cursor?.status === 'completed' ? 'Этот пример завершён. Можно начать новый.' : 'Сохранённого шага для продолжения нет. Можно начать новый пример.'));
     $('#guided-division-example').hidden = !cursor;
     $('#guided-division-example').textContent = cursor ? `${cursor.dividend} : ${cursor.divisor}` : '';
     $('#guided-division-prompt').hidden = !entry?.prompt;
@@ -638,7 +647,9 @@
     select.replaceChildren(new Option('Общая беседа по предмету', subject));
     candidates.forEach(topic => select.add(new Option(`${topicTitle(topic)}${topic.grade ? ` · ${topic.grade} класс` : ''}`, topic.topic_id || topic.id)));
     const chosen = active ? session.topic_id : pending?.topic_id || state.chatTopicsByLearnerSubject.get(key) || (goal?.topic_id && matches(goal) ? goal.topic_id : subject);
-    if (chosen && ![...select.options].some(option => option.value === chosen) && active) select.add(new Option(topicTitle(session), chosen));
+    if (chosen && ![...select.options].some(option => option.value === chosen) && (active || chosen === guidedTopic && $('#chat-mode').value === 'division_guided')) {
+      select.add(new Option(chosen === guidedTopic ? guidedTopicTitle : topicTitle(session), chosen));
+    }
     select.value = [...select.options].some(option => option.value === chosen) ? chosen : subject;
     select.disabled = active || !!pending;
   }
@@ -796,7 +807,7 @@
   });
   $('#chat-mode').addEventListener('change', () => {
     guidedViewRevision++; $('#learning-action-error').hidden = true;
-    if ($('#chat-mode').value === 'division_guided' && state.learningSessionsByLearner.get(state.learnerId)?.status !== 'active' && [...$('#chat-topic').options].some(option => option.value === guidedTopic)) {
+    if ($('#chat-mode').value === 'division_guided' && state.learningSessionsByLearner.get(state.learnerId)?.status !== 'active') {
       state.chatTopicsByLearnerSubject.set(`${state.learnerId}:math`, guidedTopic);
     }
     renderLearningSession(); refreshGuided();
