@@ -570,18 +570,19 @@
     if (!shown) return;
     const entry = guidedContexts.get(guidedKey()), cursor = entry?.guided_division;
     const ready = entry?.available && cursor && !entry.loading;
-    const answering = ready && entry.origin === 'current_session' && cursor.status === 'active';
-    const resuming = ready && (entry.origin === 'approved_memory' || cursor.status === 'paused');
+    const answering = ready && !entry.resume_required && entry.origin === 'current_session' && cursor.status === 'active';
+    const resuming = ready && (entry.resume_required || entry.origin === 'approved_memory' || cursor.status === 'paused');
     const unavailableMessage = {
       teacher_review_required: 'Для продолжения учителю нужно проверить записи прошлого занятия. Пока можно начать новый пример.',
       corrected_guided_source: 'Запись сохранённого шага исправлена. Продолжение этого примера недоступно. Можно начать новый.',
-      later_message_barrier: 'После пошагового решения беседа продолжилась. Точное место остановки не определено. Можно начать новый пример.',
+      later_message_barrier: 'После этого шага выбрано другое учебное действие. Можно начать новый пример.',
+      message_outcome_unavailable: 'Результат предыдущего сообщения пока не подтверждён. Продолжение недоступно.',
       invalid_guided_chain: 'Сохранённый шаг не удалось проверить. Можно начать новый пример.',
       another_actor: 'Сохранённого шага для этого входа нет. Можно начать новый пример.',
       exercise_completed: 'Этот пример завершён. Можно начать новый.'
     }[entry?.reason];
     $('#guided-division-status').textContent = entry?.loading ? 'Проверяем сохранённый шаг…' : entry?.error ||
-      (ready ? entry.origin === 'approved_memory' ? 'Есть просмотренный учителем пример. Продолжи его явно или начни новый.' : cursor.status === 'paused' ? 'Пример на паузе.' : 'Один вопрос – один шаг. Готовый ответ не показываем.' : unavailableMessage || (cursor?.status === 'completed' ? 'Этот пример завершён. Можно начать новый.' : 'Сохранённого шага для продолжения нет. Можно начать новый пример.'));
+      (ready ? entry.resume_required ? 'Последний проверенный шаг сохранён. После беседы можно вернуться к нему.' : entry.origin === 'approved_memory' ? 'Есть просмотренный учителем пример. Продолжи его явно или начни новый.' : cursor.status === 'paused' ? 'Пример на паузе.' : 'Один вопрос – один шаг. Готовый ответ не показываем.' : unavailableMessage || (cursor?.status === 'completed' ? 'Этот пример завершён. Можно начать новый.' : 'Сохранённого шага для продолжения нет. Можно начать новый пример.'));
     $('#guided-division-example').hidden = !cursor;
     $('#guided-division-example').textContent = cursor ? `${cursor.dividend} : ${cursor.divisor}` : '';
     $('#guided-division-prompt').hidden = !entry?.prompt;
@@ -590,6 +591,7 @@
     $('#guided-division-hint').hidden = !answering;
     $('#guided-division-pause').hidden = !answering;
     $('#guided-division-resume').hidden = !resuming;
+    $('#guided-division-resume').textContent = entry?.resume_required ? 'Вернуться к сохранённому шагу' : 'Продолжить пример';
     $('#guided-division-refresh').hidden = false;
     $$('#guided-division-panel input, #guided-division-panel button').forEach(field => { field.disabled = !!pending || !!entry?.loading; });
   }
@@ -614,7 +616,7 @@
   }
   function sendGuided(operation, value) {
     const learnerId = state.learnerId, entry = guidedContexts.get(guidedKey());
-    if (!entry?.available || state.pendingMessages.has(learnerId)) return;
+    if (!entry?.available || state.pendingMessages.has(learnerId) || entry.resume_required && operation !== 'division_guided_resume') return;
     const action = { operation, expected_state_id: entry.guided_division.state_id };
     if (operation === 'division_guided_answer') action.value = value;
     if (operation === 'division_guided_resume' && entry.origin === 'approved_memory') action.source_learning_session_id = entry.source_learning_session_id;

@@ -13,9 +13,10 @@ from local_app.explicit_learning_actions import validate_action
 from local_app.guided_division import start_state, transition, action_response, render_prompt
 
 
-def install_transport(page, initial=None, *, unavailable_reason=None):
+def install_transport(page, initial=None, *, unavailable_reason=None, resume_required=False):
     data = {'state':initial, 'origin':'approved_memory' if initial else 'current_session',
-            'session':None, 'sent':[], 'cache':{}, 'unavailable_reason':unavailable_reason}
+            'session':None, 'sent':[], 'chat_sent':[], 'cache':{},
+            'unavailable_reason':unavailable_reason, 'resume_required':resume_required}
     def context(route):
         cursor = data['state']
         reason = data['unavailable_reason']
@@ -25,6 +26,8 @@ def install_transport(page, initial=None, *, unavailable_reason=None):
         if cursor and (not reason or reason == 'exercise_completed'):
             payload.update(guided_division=cursor, origin=data['origin'],
                 source_learning_session_id=data['session'] or 'reviewed-previous-session', prompt=render_prompt(cursor))
+            if data['resume_required']:
+                payload.update(resume_required=True, resume_reason='conversation_continued')
             if data['session']:
                 payload['active_learning_session_id'] = data['session']
         route.fulfill(status=200, content_type='application/json', body=json.dumps(payload))
@@ -32,7 +35,15 @@ def install_transport(page, initial=None, *, unavailable_reason=None):
         request = route.request.post_data_json
         action = request.get('learning_action', {})
         if not action.get('operation','').startswith('division_guided_'):
-            route.continue_(); return
+            # A controlled ordinary reply tests the actual browser transition;
+            # this is not an inference-quality or PostgreSQL persistence test.
+            data['chat_sent'].append(deepcopy(request))
+            assert not action and data['state'] is not None
+            data['resume_required'] = True
+            route.fulfill(status=200, content_type='application/json', body=json.dumps({
+                'choices':[{'message':{'role':'assistant',
+                    'content':'Хорошо. Если хочешь, вернёмся к примеру.'}}]}))
+            return
         data['sent'].append(deepcopy(request))
         mid = request['client_message_id']
         if mid not in data['cache']:
@@ -41,10 +52,12 @@ def install_transport(page, initial=None, *, unavailable_reason=None):
                 cursor = start_state(canonical['dividend'], canonical['divisor'], state_id=mid)
                 assessment = {'status':'not_assessed','competence_assessed':False,'independent_work':'unknown'}
             else:
+                assert not data['resume_required'] or canonical['operation'] == 'division_guided_resume'
                 assert canonical['expected_state_id'] == data['state']['state_id']
                 cursor, assessment = transition(data['state'], canonical['operation'], state_id=mid, value=canonical.get('value'))
             data['state'], data['session'], data['origin'] = cursor, request['learning_session_id'], 'current_session'
             data['unavailable_reason'] = None
+            data['resume_required'] = False
             data['cache'][mid] = action_response(cursor,assessment,text,canonical['operation'])
         route.fulfill(status=200, content_type='application/json', body=json.dumps(data['cache'][mid]))
     page.route('**/guided-division?*', context)
@@ -121,10 +134,93 @@ def test_reviewed_previous_exercise_waits_for_explicit_resume(chromium, ui_serve
         page.close()
 
 
+@pytest.mark.parametrize('aside', ['ага', 'хз', '3', 'я в майнкрафте строю дом'])
+def test_return_after_ordinary_conversation_requires_resume_without_advancing(chromium, ui_server, aside):
+    """Use controlled ordinary replies; browser actions and reload are real."""
+    page = chromium.new_page(viewport={'width':1365, 'height':1050})
+    transport = install_transport(page)
+    try:
+        _login(page, ui_server.base_url, 'student.ui@example.test')
+        page.locator('#chat-mode').select_option('division_guided')
+        expect(page.locator('#guided-division-status')).to_contain_text('Сохранённого шага')
+        page.locator('#action-dividend').fill('3636')
+        page.locator('#action-divisor').fill('12')
+        click_action(page, '#send-learning-action')
+        for number in ('3', '0', '3'):
+            page.locator('#guided-division-answer').fill(number)
+            click_action(page, '#guided-division-check')
+        saved = deepcopy(transport['state'])
+        assert (saved['step_index'], saved['phase'], saved['status']) == (1, 'quotient_digit', 'active')
+        typed_calls = len(transport['sent'])
+        session_id = transport['session']
+
+        page.locator('#chat-mode').select_option('chat')
+        assert len(transport['sent']) == typed_calls and not transport['chat_sent']
+        page.locator('#chat-input').fill(aside)
+        click_action(page, '#send-chat')
+        assert transport['chat_sent'][0]['messages'] == [{'role':'user', 'content':aside}]
+        assert transport['chat_sent'][0]['learning_session_id'] == session_id
+        assert transport['state'] == saved
+
+        for reload_first in (False, True):
+            if reload_first:
+                page.reload()
+                expect(page.locator('#learner-name')).to_contain_text('Ника')
+            page.locator('#chat-mode').select_option('division_guided')
+            expect(page.locator('#guided-division-status')).to_have_text(
+                'Последний проверенный шаг сохранён. После беседы можно вернуться к нему.')
+            expect(page.locator('#guided-division-resume')).to_have_text('Вернуться к сохранённому шагу')
+            expect(page.locator('#guided-division-resume')).to_be_visible()
+            for selector in ('#guided-division-answer-form', '#guided-division-hint', '#guided-division-pause'):
+                expect(page.locator(selector)).to_be_hidden()
+            expect(page.locator('#guided-division-prompt')).to_contain_text('3 на 12')
+            assert len(transport['sent']) == typed_calls and len(transport['chat_sent']) == 1
+            assert transport['state'] == saved
+
+        click_action(page, '#guided-division-resume')
+        assert transport['sent'][-1]['learning_action'] == {
+            'operation':'division_guided_resume', 'expected_state_id':saved['state_id']}
+        assert transport['sent'][-1]['learning_session_id'] == session_id
+        assert transport['state']['step_index'] == saved['step_index']
+        assert transport['state']['phase'] == saved['phase']
+        expect(page.locator('#guided-division-answer-form')).to_be_visible()
+        expect(page.locator('#guided-division-status')).to_have_text('Один вопрос – один шаг. Готовый ответ не показываем.')
+        expect(page.locator('#guided-division-resume')).to_have_text('Продолжить пример')
+        page.locator('#guided-division-answer').fill('0')
+        click_action(page, '#guided-division-check')
+        assert (transport['state']['step_index'], transport['state']['phase']) == (1, 'remainder')
+        assert len(ui_server.store.learning_sessions) == 1
+        assert '303' not in page.locator('#guided-division-panel').inner_text()
+    finally:
+        page.close()
+
+
+def test_reviewed_conversation_return_keeps_cross_session_resume_source(chromium, ui_server):
+    page = chromium.new_page()
+    cursor = start_state(3636, 12, state_id='reviewed-step-before-conversation')
+    cursor.update(step_index=1, phase='quotient_digit')
+    transport = install_transport(page, cursor, resume_required=True)
+    try:
+        _login(page, ui_server.base_url, 'student.ui@example.test')
+        page.locator('#chat-mode').select_option('division_guided')
+        expect(page.locator('#guided-division-resume')).to_have_text('Вернуться к сохранённому шагу')
+        expect(page.locator('#guided-division-answer-form')).to_be_hidden()
+        assert not transport['sent']
+        click_action(page, '#guided-division-resume')
+        assert transport['sent'][0]['learning_action'] == {
+            'operation':'division_guided_resume', 'expected_state_id':cursor['state_id'],
+            'source_learning_session_id':'reviewed-previous-session'}
+        expect(page.locator('#guided-division-answer-form')).to_be_visible()
+        assert (transport['state']['step_index'], transport['state']['phase']) == (1, 'quotient_digit')
+    finally:
+        page.close()
+
+
 @pytest.mark.parametrize(('reason', 'message'), [
     ('teacher_review_required', 'Для продолжения учителю нужно проверить записи прошлого занятия. Пока можно начать новый пример.'),
     ('corrected_guided_source', 'Запись сохранённого шага исправлена. Продолжение этого примера недоступно. Можно начать новый.'),
-    ('later_message_barrier', 'После пошагового решения беседа продолжилась. Точное место остановки не определено. Можно начать новый пример.'),
+    ('later_message_barrier', 'После этого шага выбрано другое учебное действие. Можно начать новый пример.'),
+    ('message_outcome_unavailable', 'Результат предыдущего сообщения пока не подтверждён. Продолжение недоступно.'),
     ('invalid_guided_chain', 'Сохранённый шаг не удалось проверить. Можно начать новый пример.'),
     ('another_actor', 'Сохранённого шага для этого входа нет. Можно начать новый пример.'),
     ('exercise_completed', 'Этот пример завершён. Можно начать новый.'),

@@ -7,6 +7,29 @@ from .explicit_learning_actions import GUIDED_OPERATIONS, validate_action
 TOPIC = 'math.g4.numbers.division_by_1_2_digit'
 
 
+def _saved_step_candidate(rows):
+    """Offer a bookmark, never interpret ordinary dialogue as checked progress."""
+    conversation_continued = False
+    for row in reversed(rows):
+        if row['status'] == 'failed':
+            continue
+        if row['status'] != 'completed':
+            return None, conversation_continued, 'message_outcome_unavailable'
+        response = row.get('response')
+        if not isinstance(response, dict):
+            return None, conversation_continued, 'invalid_guided_chain'
+        if 'guided_division' in response:
+            return row, conversation_continued, None
+        action = response.get('learning_action')
+        if ('_guided_division_provenance' in response or isinstance(action, dict)
+                and str(action.get('operation', '')).startswith('division_guided_')):
+            return None, conversation_continued, 'invalid_guided_chain'
+        if 'learning_action' in response:
+            return None, conversation_continued, 'later_message_barrier'
+        conversation_continued = True
+    return None, conversation_continued, None
+
+
 def guided_context(store, learner_id, topic_id, actor_id, *, learning_session_id=None,
                    pending_client_message_id=None):
     unavailable = {'available': False, 'reason': 'no_saved_guided_step'}
@@ -46,12 +69,12 @@ def guided_context(store, learner_id, topic_id, actor_id, *, learning_session_id
         current_rows = messages(learning_session_id) if selected_session else []
         visible = [row for row in current_rows if not (row['status'] == 'pending'
                    and row['client_message_id'] == pending_client_message_id)]
-        # A completed ordinary message is a barrier. Failed validation does not
-        # advance the cursor; an unknown or still pending outcome is not skipped.
-        significant = [row for row in visible if row['status'] != 'failed']
-        if selected_session and selected_session['status'] == 'active' and significant:
-            candidate = significant[-1]
-        else:
+        candidate, conversation_continued, blocked = (
+            _saved_step_candidate(visible) if selected_session and selected_session['status'] == 'active'
+            else (None, False, None))
+        if blocked:
+            return dict(unavailable, reason=blocked)
+        if not selected_session or selected_session['status'] != 'active' or candidate is None:
             origin = 'approved_memory'
             cur.execute('''SELECT id,actor_id FROM teachcopilot.learning_sessions WHERE learner_id=%s
                 AND topic_id=%s AND status='completed' ORDER BY completed_at DESC,id DESC LIMIT 1''',
@@ -62,14 +85,12 @@ def guided_context(store, learner_id, topic_id, actor_id, *, learning_session_id
             if str(latest['actor_id']) != str(actor_id):
                 return dict(unavailable, reason='another_actor')
             selected_session = session(str(latest['id']))
-            significant = messages(str(selected_session['id']))
-            if not significant:
-                return unavailable
-            candidate = significant[-1]
-        if candidate['status'] != 'completed' or not isinstance(candidate.get('response'), dict):
+            candidate, previous_conversation, blocked = _saved_step_candidate(messages(str(selected_session['id'])))
+            conversation_continued = conversation_continued or previous_conversation
+            if blocked:
+                return dict(unavailable, reason=blocked)
+        if candidate is None:
             return unavailable
-        if not isinstance(candidate['response'].get('guided_division'), dict):
-            return dict(unavailable, reason='later_message_barrier')
         source_ids, expected, seen = [], candidate, set()
         try:
             for _ in range(256):
@@ -141,6 +162,8 @@ def guided_context(store, learner_id, topic_id, actor_id, *, learning_session_id
             return dict(unavailable, reason='teacher_review_required')
     return {**{key:value for key,value in unavailable.items() if key == 'active_learning_session_id'},
             'available': True, 'origin': origin, 'guided_division': deepcopy(state),
+            'resume_required': conversation_continued,
+            **({'resume_reason': 'conversation_continued'} if conversation_continued else {}),
             'source_learning_session_id': source_session, 'prompt': render_prompt(state)}
 
 
@@ -158,6 +181,8 @@ def guided_response(store, learner_id, topic_id, actor_id, session_id, message_i
                                  pending_client_message_id=message_id)
         if not context.get('available') or context['guided_division']['state_id'] != action['expected_state_id']:
             raise RevisionConflict('guided division cursor changed; reload the current step')
+        if context.get('resume_required') and action['operation'] != 'division_guided_resume':
+            raise RevisionConflict('explicit saved step resume is required after conversation')
         if context['origin'] == 'approved_memory':
             if (action['operation'] != 'division_guided_resume'
                     or action.get('source_learning_session_id') != context['source_learning_session_id']):

@@ -186,6 +186,13 @@ def test_step_tokens_replays_and_reviewed_future_lesson_survive_api_process_rest
         assert result.status_code == 201, result.text
         return result.json()['learning_session_id']
 
+    def recorded_conversation(sid, mid, text):
+        # A persisted controlled conversation fixture, not a model-quality run.
+        actor = store.get_learning_session(sid)['actor_id']
+        store.reserve_chat_message(sid,LEARNER,mid,text,actor)
+        store.complete_chat_message(sid,mid,{'choices':[{'message':{
+            'role':'assistant','content':'Можем вернуться к сохранённому шагу позже.'}}]})
+
     with running_api(store, tmp_path/'process-1') as (client, base, first_pid):
         def login(account):
             result = client.post(base+'/auth/login', json={'email':account['email'],'password':password}, timeout=10)
@@ -208,6 +215,7 @@ def test_step_tokens_replays_and_reviewed_future_lesson_survive_api_process_rest
         state = saved['guided_division']
         assert state['step_index'] == 1 and state['phase'] == 'quotient_digit' and state['status'] == 'paused'
         assert '_guided_division_provenance' not in saved
+        recorded_conversation(sid,'aside','Я вчера построил станцию в Minecraft.')
         source_ids = [row['source_id'] for row in store.list_learning_messages(sid)]
         saved_snapshot = durable_snapshot()
 
@@ -215,10 +223,12 @@ def test_step_tokens_replays_and_reviewed_future_lesson_survive_api_process_rest
         assert second_pid != first_pid
         restored = context(client,base,student_headers)
         assert restored['guided_division'] == state and restored['active_learning_session_id'] == sid
+        assert restored['resume_required'] is True
         replay = send(client,base,student_headers,sid,'pause','division_guided_pause',expected_state_id=before_pause_id)
         assert replay.status_code == 200 and replay.json() == saved
         assert [row['source_id'] for row in store.list_learning_messages(sid)] == source_ids
         assert durable_snapshot() == saved_snapshot
+        assert context(client,base,student_headers)['resume_required'] is True
         denied = client.get(base+f'/learners/{LEARNER}/guided-division', headers=teacher_headers,
                             params={'topic_id':TOPIC,'learning_session_id':sid}, timeout=10)
         assert denied.status_code == 403
@@ -244,7 +254,10 @@ def test_step_tokens_replays_and_reviewed_future_lesson_survive_api_process_rest
         reviewed = context(client,base,student_headers)
         assert reviewed['available'] and reviewed['origin'] == 'approved_memory'
         assert reviewed['guided_division'] == state
+        assert reviewed['resume_required'] is True
         second_sid = new_session(client,base,student_headers)
+        recorded_conversation(second_sid,'greeting','привет')
+        assert context(client,base,student_headers)['resume_required'] is True
         blocked = send(client,base,student_headers,second_sid,'not-resumed','division_guided_answer',
                        expected_state_id=state['state_id'],value=0)
         assert blocked.status_code == 409
