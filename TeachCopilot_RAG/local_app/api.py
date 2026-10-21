@@ -1255,7 +1255,10 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None) -> Fas
             # Remove them before either role's response or cached replay is saved.
             local_diagnostics = response.pop("_local_diagnostics", None)
             if isinstance(local_diagnostics, dict):
-                logger.warning("Chat resolver returned an invalid decision; clarification sent")
+                if local_diagnostics.get('type') == 'InvalidQueryResolutionError':
+                    logger.warning("Chat resolver returned an invalid decision; clarification sent")
+                else:
+                    logger.warning('Chat answer named a different exercise; clarification sent')
             if reserved:
                 response.update(learning_session_id=str(learning_session_id), client_message_id=client_message_id,
                                 memory_version_id=memory_context.get("version_id"), memory_stale=memory_context.get("stale", False))

@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import hashlib
 import inspect
+from copy import deepcopy
 from typing import Any, Sequence
 
 from local_app.answer_adapter import AnswerAdapter, EducationalProjection
@@ -419,6 +420,20 @@ class RagService:
                     title = entry.get('title_ru') or entry.get('title') if isinstance(entry, dict) else None
                     anchored = memory_retrieval_query(latest_query, topic_id, memory_context, topic_title=title)
                     resolved_query, retrieval_context = anchored['query'], anchored['diagnostics']
+                    # The current exchange has priority over old memory. Keep
+                    # only validated literal antecedents, never the rewrite.
+                    current_anchors = []
+                    if selected_learner_question is not None:
+                        current_anchors.append('Earlier learner question: ' + selected_learner_question)
+                    if assistant_anchor is not None:
+                        current_anchors.append('Previous assistant question (not learner evidence): ' + history[assistant_anchor]['content'])
+                    if assistant_turn_anchor is not None:
+                        current_anchors.append('Previous assistant turn (context only, not learner evidence): ' + history[assistant_turn_anchor]['content'])
+                    if sum(map(len, current_anchors)) > 4000:
+                        raise ValueError('Selected current dialogue exceeds the 4000-character retrieval anchor budget')
+                    if current_anchors:
+                        resolved_query += '\n' + '\n'.join(current_anchors)
+                    retrieval_context['current_anchor_count'] = len(current_anchors)
                 sources = self.search(
                     resolved_query.strip(), subject_id, topic_id, grade, limit,
                     _scope_checked=True, _exact_topic=uses_memory,
@@ -557,6 +572,16 @@ class RagService:
         if not isinstance(citation_values, list) or any(not isinstance(value, str) for value in citation_values):
             raise IncompleteCompletionError("Ollama structured answer citations must be a string list")
         answer_text = answer_value.strip()
+        answer_guard = None
+        if uses_memory and selected_learner_question is None and assistant_anchor is None and assistant_turn_anchor is None:
+            from local_app.continuation_guard import foreign_exercise_guard
+            answer_guard = foreign_exercise_guard(latest_query, memory_context, answer_text)
+        if answer_guard:
+            rejected_diagnostic = {'type': 'ForeignExerciseReference',
+                'message': 'A same-task return explicitly named a different exercise.',
+                'model_response': {'rejected_answer': answer_text, 'raw_answer_response': deepcopy(response),
+                    'expected_pair': answer_guard['expected_pair'], 'referenced_pair': answer_guard['referenced_pair']}}
+            answer_text, citation_values, sources = answer_guard['answer'], [], []
         valid_ids = {str(source["id"]) for source in sources if source.get("id") is not None}
         citation_ids = list(dict.fromkeys(
             identifier for identifier in citation_values if identifier in valid_ids
@@ -602,11 +627,15 @@ class RagService:
                 "completion_tokens": response.get("eval_count", 0),
                 "total_tokens": response.get("prompt_eval_count", 0) + response.get("eval_count", 0),
             },
-            "answer_routing": response.get("answer_routing", {"backend": "local"}),
+            "answer_routing": ({'backend':'deterministic_local', 'reason':'foreign_exercise_reference',
+                'model_attempt_backend':response.get('answer_routing', {}).get('backend', 'local')}
+                if answer_guard else response.get("answer_routing", {"backend": "local"})),
             **({'retrieval_context': retrieval_context} if retrieval_context else {}),
             **({"query_resolution": query_resolution} if query_resolution else {}),
             **({'tool_selection': tool_selection,
                 'usage_scope': 'final_answer_only_excludes_scope_and_operation_selection'} if tool_selection else {}),
+            **({'answer_validation':{'status':'clarification','reason':'foreign_exercise_reference'},
+                '_local_diagnostics':rejected_diagnostic, 'usage_scope':'includes_rejected_model_answer'} if answer_guard else {}),
         }
 
     def _social_answer(self, history: Sequence[dict[str, str]], preferences: dict[str, list[str]]) -> dict[str, Any]:

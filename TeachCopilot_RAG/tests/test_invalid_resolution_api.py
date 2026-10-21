@@ -89,7 +89,8 @@ def test_invalid_resolver_diagnostic_is_in_local_job_but_not_response_or_cached_
 
 
 @pytest.mark.parametrize('role', ['teacher', 'student'])
-def test_legacy_chat_removes_private_diagnostics_without_logging_the_raw_decision(role, caplog, monkeypatch):
+@pytest.mark.parametrize('diagnostic_type', ['InvalidQueryResolutionError','ForeignExerciseReference'])
+def test_legacy_chat_removes_private_diagnostics_without_logging_the_raw_decision(role, diagnostic_type, caplog, monkeypatch):
     from types import SimpleNamespace
     from tests.test_local_api import FakeRag, auth, make_client, token
 
@@ -99,7 +100,7 @@ def test_legacy_chat_removes_private_diagnostics_without_logging_the_raw_decisio
     private = 'SYNTHETIC_PRIVATE_RESOLVER_TEXT'
     rag = FakeRag(answer={'choices': [{'message': {'role': 'assistant', 'content': 'Какой шаг непонятен?'}}],
         'query_resolution': {'source': 'invalid_resolver_decision', 'reason': 'resolver_contract_violation'},
-        '_local_diagnostics': {'type': 'InvalidQueryResolutionError', 'message': private,
+        '_local_diagnostics': {'type': diagnostic_type, 'message': private,
                                'model_response': {'resolver_decision': {'search_query': private}}}})
     client, _, _ = make_client(rag=rag)
     with client:
@@ -108,4 +109,5 @@ def test_legacy_chat_removes_private_diagnostics_without_logging_the_raw_decisio
             'learner_id': 'learner-a', 'messages': [{'role': 'user', 'content': 'хз'}]})
     assert response.status_code == 200, response.text
     assert '_local_diagnostics' not in response.json() and private not in response.text
-    assert 'invalid decision' in caplog.text and private not in caplog.text
+    assert ('invalid decision' if diagnostic_type == 'InvalidQueryResolutionError' else 'different exercise') in caplog.text
+    assert private not in caplog.text
