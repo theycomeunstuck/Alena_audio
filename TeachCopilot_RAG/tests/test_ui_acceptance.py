@@ -234,6 +234,24 @@ class BrowserStore:
         row = self.learning_sessions.get(session_id)
         return copy.deepcopy(row) if row and (learner_id is None or row["learner_id"] == learner_id) else None
 
+    def current_learning_session(self, learner_id, actor_id):
+        rows = [row for row in self.learning_sessions.values()
+                if row["learner_id"] == learner_id and row["actor_id"] == actor_id and row["status"] == "active"]
+        if not rows:
+            return {"available": False}
+        session = rows[-1]
+        turns = [row for (sid, _), row in self.learning_messages.items() if sid == session["learning_session_id"]]
+        messages = []
+        for turn in turns[-20:]:
+            messages.append({"role": "user", "content": turn["content"], "delivery_status": turn["status"]})
+            if turn["status"] == "completed":
+                messages.append(copy.deepcopy(turn["response"]["choices"][0]["message"]))
+        statuses = {turn["status"] for turn in turns}
+        return {"available": True, "learning_session_id": session["learning_session_id"],
+                "topic_id": session["topic_id"], "status": "active", "messages": messages,
+                "history_truncated": len(turns) > 20,
+                "unresolved_status": "pending" if "pending" in statuses else "unknown_outcome" if "unknown_outcome" in statuses else None}
+
     def guided_division_context(self, learner_id, topic_id, actor_id, *, learning_session_id=None):
         # Ordinary UI scenarios have no persisted typed steps. Dedicated guided
         # browser tests install controlled transport; PostgreSQL tests use Store.

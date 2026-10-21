@@ -15,6 +15,8 @@
   let toastTimer;
   let loginBusy = false;
   const guidedContexts = new Map();
+  const sessionRecovery = new Map();
+  const sessionClosures = new Map();
   let guidedViewRevision = 0;
   let chatReturnAttempt = null;
   const guidedTopic = 'math.g4.numbers.division_by_1_2_digit';
@@ -50,7 +52,7 @@
     }).catch(() => { $('#demo-login').hidden = true; });
   }
   function signOutLocal() {
-    guidedContexts.clear(); guidedViewRevision++; chatReturnAttempt = null;
+    guidedContexts.clear(); sessionRecovery.clear(); sessionClosures.clear(); guidedViewRevision++; chatReturnAttempt = null;
     state.token = null; state.account = null; state.learnerId = null; sessionStorage.removeItem(tokenKey);
     state.learners = []; state.dashboard = null; state.topics = []; state.task = null; state.proposal = null; state.revision = null; state.chatByLearner.clear(); state.nextStepsByLearner.clear(); state.learningSessionsByLearner.clear(); state.pendingMessages.clear(); state.chatTopicsByLearnerSubject.clear(); state.memoryCorrectionJobs.clear(); state.viewRevision++;
     $('#learner-list').replaceChildren(); $('#learner-count').textContent = '–'; $('#roster-empty').hidden = true; $('#profile-content').hidden = true; $('#loading-state').hidden = true; $('#error-state').hidden = true; $('#empty-profile').hidden = false;
@@ -123,7 +125,7 @@
     guidedViewRevision++; chatReturnAttempt = null;
     if (state.learnerId !== id) resetLearningAction();
     state.learnerId = id; state.dashboard = null; state.task = null; state.proposal = null; renderRoster();
-    if (state.account?.role === 'student') { renderChatHistory(id); renderLearningSession(); }
+    if (state.account?.role === 'student') { renderChatHistory(id); restoreLearningSession(); }
     renderNextStep(); $('#memory-history').replaceChildren(); $('#memory-status').textContent = '';
     $('#profile-content').hidden = true; $('#error-state').hidden = true; $('#empty-profile').hidden = true; $('#loading-state').hidden = false; $('#action-empty').hidden = true;
     $('#task-result').hidden = true; $('#proposal-result').hidden = true;
@@ -550,7 +552,7 @@
       bubble.append(tags);
     }
     $('#chat-log').append(bubble);
-    if (state.learnerId) { const history = state.chatByLearner.get(state.learnerId) || []; history.push({ role, content: text, tool }); state.chatByLearner.set(state.learnerId, history.slice(-20)); }
+    if (state.learnerId) { const history = state.chatByLearner.get(state.learnerId) || []; history.push({ role, content: text, tool }); state.chatByLearner.set(state.learnerId, history.slice(-40)); }
     bubble.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }
   function citationLabel(item) {
@@ -563,13 +565,64 @@
   }
   function renderChatHistory(learnerId) {
     const root = $('#chat-log'); root.replaceChildren(el('div', 'chat-bubble assistant', greeting));
-    (state.chatByLearner.get(learnerId) || []).forEach(message => root.append(chatBubble(message.role, message.content, message.tool)));
+    (state.chatByLearner.get(learnerId) || []).forEach(message => {
+      const bubble = chatBubble(message.role, message.content, message.tool);
+      const status = message.role === 'user' && ({ pending:'Ответ ещё готовится.', unknown_outcome:'Результат запроса неизвестен.', failed:'Сообщение не получило ответа.' })[message.delivery_status];
+      if (status) bubble.append(el('small', 'field-hint', status));
+      root.append(bubble);
+    });
+  }
+  function recoveryBlocksMessages() {
+    if (state.account?.role !== 'student') return false;
+    const recovery = sessionRecovery.get(state.learnerId);
+    return !state.learnerId || sessionClosures.has(state.learnerId) || !recovery || recovery.loading || !!recovery.error ||
+      state.learningSessionsByLearner.get(state.learnerId)?.status === 'active' && !!recovery.unresolved_status;
+  }
+  function validCurrentSession(data) {
+    if (data?.available === false) return true;
+    return data?.available === true && typeof data.learning_session_id === 'string' && !!data.learning_session_id &&
+      typeof data.topic_id === 'string' && !!data.topic_id && typeof data.topic_title === 'string' &&
+      ['math', 'python', 'scratch', 'programming', 'general'].includes(data.subject_id) && data.status === 'active' &&
+      typeof data.history_truncated === 'boolean' && [null, 'pending', 'unknown_outcome'].includes(data.unresolved_status) &&
+      Array.isArray(data.messages) && data.messages.length <= 40 && data.messages.every(message =>
+        ['user', 'assistant'].includes(message?.role) && typeof message.content === 'string' &&
+        (message.delivery_status === undefined || ['completed', 'failed', 'pending', 'unknown_outcome'].includes(message.delivery_status)));
+  }
+  async function restoreLearningSession() {
+    if (state.account?.role !== 'student' || !state.learnerId || sessionClosures.has(state.learnerId) || state.pendingMessages.has(state.learnerId)) return;
+    const learnerId = state.learnerId, token = state.token, viewRevision = state.viewRevision;
+    const recovery = { loading:true };
+    sessionRecovery.set(learnerId, recovery); guidedViewRevision++; chatReturnAttempt = null;
+    renderLearningSession();
+    const currentView = () => token === state.token && learnerId === state.learnerId && viewRevision === state.viewRevision &&
+      state.account?.role === 'student' && sessionRecovery.get(learnerId) === recovery && !state.pendingMessages.has(learnerId);
+    try {
+      const data = await request(`/learners/${encodeURIComponent(learnerId)}/learning-sessions/current`);
+      if (!currentView()) return;
+      if (!validCurrentSession(data)) throw new Error('Сервер не смог восстановить занятие. Обнови его состояние.');
+      if (data.available) {
+        state.learningSessionsByLearner.set(learnerId, { learning_session_id:data.learning_session_id,
+          topic_id:data.topic_id, topic_title:data.topic_title, subject_id:data.subject_id, status:'active' });
+        state.chatByLearner.set(learnerId, data.messages.map(message => ({ role:message.role, content:message.content, delivery_status:message.delivery_status })));
+        sessionRecovery.set(learnerId, { loading:false, unresolved_status:data.unresolved_status, history_truncated:data.history_truncated });
+      } else {
+        const previous = state.learningSessionsByLearner.get(learnerId);
+        if (previous?.status === 'active') state.learningSessionsByLearner.set(learnerId, { ...previous, status:'completed', ended_elsewhere:true });
+        sessionRecovery.set(learnerId, { loading:false, unresolved_status:null, history_truncated:false });
+      }
+      renderChatHistory(learnerId); renderLearningSession();
+      if (state.dashboard) refreshGuided();
+    } catch (error) {
+      if (!currentView()) return;
+      sessionRecovery.set(learnerId, { loading:false, error:errorText(error) });
+      renderLearningSession();
+    }
   }
   const actionLabels = { division_check: 'Проверить деление', division_places: 'Разряды частного', division_practice: 'Дать пример', print_output: 'Вывод Python', division_guided: 'Решать по шагам' };
   function guidedKey() { return `${state.learnerId}:${$('#chat-topic').value}`; }
   function canonicalGuidedKey() { return `${state.learnerId}:${guidedTopic}`; }
   function canReturnFromChat() {
-    if (state.account?.role !== 'student' || !state.learnerId || $('#chat-mode').value !== 'chat' || $('#chat-subject').value !== 'math' || state.pendingMessages.has(state.learnerId)) return false;
+    if (state.account?.role !== 'student' || !state.learnerId || recoveryBlocksMessages() || $('#chat-mode').value !== 'chat' || $('#chat-subject').value !== 'math' || state.pendingMessages.has(state.learnerId)) return false;
     const session = state.learningSessionsByLearner.get(state.learnerId);
     if (session?.status === 'active' && session.topic_id !== guidedTopic) return false;
     const chosen = state.chatTopicsByLearnerSubject.get(`${state.learnerId}:math`);
@@ -629,11 +682,11 @@
     $('#guided-division-resume').hidden = !resuming;
     $('#guided-division-resume').textContent = entry?.resume_required ? 'Вернуться к сохранённому шагу' : 'Продолжить пример';
     $('#guided-division-refresh').hidden = false;
-    $$('#guided-division-panel input, #guided-division-panel button').forEach(field => { field.disabled = !!pending || !!entry?.loading; });
+    $$('#guided-division-panel input, #guided-division-panel button').forEach(field => { field.disabled = !!pending || !!entry?.loading || recoveryBlocksMessages(); });
   }
   async function refreshGuided() {
     const mode = $('#chat-mode').value, inGuided = mode === 'division_guided';
-    if (state.account?.role !== 'student' || !state.learnerId || !inGuided && !canReturnFromChat()) return null;
+    if (state.account?.role !== 'student' || !state.learnerId || recoveryBlocksMessages() || !inGuided && !canReturnFromChat()) return null;
     const learnerId = state.learnerId, key = canonicalGuidedKey(), token = state.token, revision = ++guidedViewRevision;
     if (inGuided && $('#chat-topic').value !== guidedTopic) { renderLearningSession(); return null; }
     const query = new URLSearchParams({ topic_id: guidedTopic });
@@ -685,7 +738,7 @@
   }
   function sendGuided(operation, value) {
     const learnerId = state.learnerId, entry = guidedContexts.get(guidedKey());
-    if (!entry?.available || state.pendingMessages.has(learnerId) || entry.resume_required && operation !== 'division_guided_resume') return;
+    if (!entry?.available || recoveryBlocksMessages() || state.pendingMessages.has(learnerId) || entry.resume_required && operation !== 'division_guided_resume') return;
     const action = { operation, expected_state_id: entry.guided_division.state_id };
     if (operation === 'division_guided_answer') action.value = value;
     if (operation === 'division_guided_resume' && entry.origin === 'approved_memory') action.source_learning_session_id = entry.source_learning_session_id;
@@ -708,6 +761,11 @@
   function renderChatTopicOptions() {
     const select = $('#chat-topic'), session = state.learningSessionsByLearner.get(state.learnerId), pending = state.pendingMessages.get(state.learnerId);
     const active = session?.status === 'active';
+    $$('#chat-subject option[data-restored-subject]').forEach(option => { if (!active || option.value !== session.subject_id) option.remove(); });
+    if (active && session.subject_id && ![...$('#chat-subject').options].some(option => option.value === session.subject_id)) {
+      const option = new Option(subjectTitles[session.subject_id] || 'Учебное занятие', session.subject_id);
+      option.dataset.restoredSubject = 'true'; $('#chat-subject').add(option);
+    }
     if (active && session.subject_id) $('#chat-subject').value = session.subject_id;
     if (pending?.subject_id) $('#chat-subject').value = pending.subject_id;
     const subject = $('#chat-subject').value, key = `${state.learnerId}:${subject}`;
@@ -722,7 +780,7 @@
       select.add(new Option(chosen === guidedTopic ? guidedTopicTitle : topicTitle(session), chosen));
     }
     select.value = [...select.options].some(option => option.value === chosen) ? chosen : subject;
-    select.disabled = active || !!pending;
+    select.disabled = active || !!pending || recoveryBlocksMessages();
   }
   function renderLearningAction(pending) {
     const subject = $('#chat-subject').value;
@@ -747,19 +805,30 @@
       division_guided: 'По одному шагу, без готового ответа. Поддерживается положительное деление без остатка. Проверка шага не означает освоение темы.',
       print_output: 'Покажу точные символы вывода. Поддерживаются до 8 вызовов print со строками, целыми числами, True, False, None и параметрами sep и end. Выражения и переменные здесь не поддерживаются.'
     }[mode] || '';
-    $('#chat-mode').disabled = !!pending;
-    $$('#learning-action-form input, #learning-action-form select, #learning-action-form textarea, #learning-action-form button').forEach(field => { field.disabled = !!pending; });
+    $('#chat-mode').disabled = !!pending || recoveryBlocksMessages();
+    $$('#learning-action-form input, #learning-action-form select, #learning-action-form textarea, #learning-action-form button').forEach(field => { field.disabled = !!pending || recoveryBlocksMessages(); });
     renderGuided(pending);
     renderChatReturn(pending);
   }
   function renderLearningSession() {
     renderChatTopicOptions();
     const session = state.learningSessionsByLearner.get(state.learnerId), pending = state.pendingMessages.get(state.learnerId);
+    const recovery = sessionRecovery.get(state.learnerId), blocked = recoveryBlocksMessages();
     const title = session ? topicTitle({ ...session, topic_id: session.topic_id || session.subject_id }) : '';
-    $('#learning-session-status').textContent = session?.status === 'active' ? `${title} · Занятие идёт. После завершения диалог будет сохранён для просмотра учителем.` : session?.status === 'completed' ? `${title} · Занятие завершено. Обновление памяти поставлено в очередь.` : `${subjectTitles[$('#chat-subject').value] || 'Учебное занятие'} · Занятие начнётся с первого вопроса.`;
-    $('#complete-learning-session').hidden = session?.status !== 'active'; $('#complete-learning-session').disabled = !!pending && !pending.terminal;
-    $('#chat-subject').disabled = session?.status === 'active' || !!pending;
-    $('#send-chat').disabled = !!pending; $('#chat-input').disabled = !!pending;
+    $('#learning-session-status').textContent = session?.status === 'active' ? `${title} · Занятие идёт. После завершения диалог будет сохранён для просмотра учителем.` : session?.ended_elsewhere ? `${title} · Занятие больше не активно. Следующее сообщение начнёт новое.` : session?.status === 'completed' ? `${title} · Занятие завершено. Обновление памяти поставлено в очередь.` : `${subjectTitles[$('#chat-subject').value] || 'Учебное занятие'} · Занятие начнётся с первого вопроса.`;
+    const notes = [];
+    if (sessionClosures.has(state.learnerId)) notes.push('Сохраняем завершение занятия…');
+    else if (recovery?.loading) notes.push('Восстанавливаем занятие и переписку…');
+    else if (recovery?.error) notes.push('Не удалось проверить текущее занятие. Нажми «Обновить занятие», чтобы проверить ещё раз.');
+    else if (session?.status === 'active' && recovery?.unresolved_status === 'pending') notes.push('Предыдущий ответ ещё готовится. Обнови занятие, чтобы проверить результат. Новый вопрос пока недоступен.');
+    else if (session?.status === 'active' && recovery?.unresolved_status === 'unknown_outcome') notes.push('Результат предыдущего запроса неизвестен. Можно обновить занятие или завершить его. Запрос повторно не отправляется.');
+    if (recovery?.history_truncated) notes.push('Показана последняя часть переписки. Ранние сообщения сохранены.');
+    $('#learning-session-recovery-note').textContent = notes.join(' '); $('#learning-session-recovery-note').hidden = !notes.length;
+    $('#refresh-learning-session').disabled = !state.learnerId || !!recovery?.loading || !!pending || sessionClosures.has(state.learnerId);
+    $('#complete-learning-session').hidden = session?.status !== 'active';
+    $('#complete-learning-session').disabled = !!pending && !pending.terminal || !!recovery?.loading || !!recovery?.error || recovery?.unresolved_status === 'pending' || sessionClosures.has(state.learnerId);
+    $('#chat-subject').disabled = session?.status === 'active' || !!pending || blocked;
+    $('#send-chat').disabled = !!pending || blocked; $('#chat-input').disabled = !!pending || blocked;
     $('#chat-retry').hidden = !pending?.error; $('#chat-error').textContent = pending?.error || ''; $('#retry-chat').hidden = !!pending?.terminal;
     renderLearningAction(pending);
   }
@@ -774,6 +843,7 @@
         session = await request(`/learners/${encodeURIComponent(learnerId)}/learning-sessions`, { method: 'POST', body: { topic_id: pending.topic_id || pending.subject_id, client_session_id: pending.client_session_id } });
         if (state.token !== token) return;
         session.subject_id = pending.subject_id; state.learningSessionsByLearner.set(learnerId, session);
+        sessionRecovery.set(learnerId, { loading:false, unresolved_status:null, history_truncated:false });
       }
       const body = { model: 'teachcopilot-rag', learning_session_id: session.learning_session_id, client_message_id: pending.client_message_id, messages: pending.learning_action ? [] : [{ role: 'user', content: pending.content }], metadata: { subject_id: session.subject_id || pending.subject_id } };
       if (pending.learning_action) body.learning_action = pending.learning_action;
@@ -872,7 +942,7 @@
   $('#edit-form').addEventListener('submit', event => { if (event.submitter?.value === 'cancel') return; event.preventDefault(); const button = $('#save-profile'); busy(button, async () => { const p = state.dashboard.profile, rag = p.rag_context || {}; const card = structuredClone(p); card.rag_context = { ...rag, current_goal: { ...(rag.current_goal || {}), goal: $('#edit-goal').value.trim() } }; card.interests = $('#edit-interests').value.split(',').map(x => x.trim()).filter(Boolean); await request(`/learners/${encodeURIComponent(state.learnerId)}`, { method: 'PUT', body: { expected_revision: state.revision || 1, card } }); $('#edit-dialog').close(); toast('Профиль сохранён'); await selectLearner(state.learnerId); }); });
   $('#chat-form').addEventListener('submit', event => {
     event.preventDefault(); const learnerId = state.learnerId, input = $('#chat-input'), content = input.value.trim();
-    if (!learnerId || !content || state.pendingMessages.has(learnerId)) return;
+    if (!learnerId || !content || recoveryBlocksMessages() || state.pendingMessages.has(learnerId)) return;
     if (state.learningSessionsByLearner.get(learnerId)?.status === 'completed') { state.chatByLearner.delete(learnerId); renderChatHistory(learnerId); }
     const client_message_id = crypto.randomUUID();
     state.pendingMessages.set(learnerId, { content, client_message_id, client_session_id: crypto.randomUUID(), subject_id: $('#chat-subject').value, topic_id: $('#chat-topic').value });
@@ -893,7 +963,7 @@
   $('#action-code').addEventListener('input', () => { $('#action-code-count').textContent = `${$('#action-code').value.length} из 4000 символов`; });
   $('#learning-action-form').addEventListener('submit', event => {
     event.preventDefault(); const learnerId = state.learnerId, operation = $('#chat-mode').value;
-    if (!learnerId || !actionLabels[operation] || state.pendingMessages.has(learnerId)) return;
+    if (!learnerId || !actionLabels[operation] || recoveryBlocksMessages() || state.pendingMessages.has(learnerId)) return;
     $('#learning-action-error').hidden = true;
     try {
       const action = { operation }; let content;
@@ -932,13 +1002,26 @@
   $('#guided-division-resume').addEventListener('click', () => sendGuided('division_guided_resume'));
   $('#guided-division-refresh').addEventListener('click', refreshGuided);
   $('#chat-guided-return-button').addEventListener('click', returnFromChat);
-  $('#complete-learning-session').addEventListener('click', () => busy($('#complete-learning-session'), async () => {
+  $('#refresh-learning-session').addEventListener('click', restoreLearningSession);
+  $('#complete-learning-session').addEventListener('click', async () => {
     const learnerId = state.learnerId, session = state.learningSessionsByLearner.get(learnerId), token = state.token;
-    if (!session || state.pendingMessages.get(learnerId)?.sending) return;
-    const result = await request(`/learning-sessions/${encodeURIComponent(session.learning_session_id)}/complete`, { method: 'POST', body: {} });
-    if (state.token !== token) return;
-    session.status = result.status || 'completed'; session.job_id = result.job_id; state.pendingMessages.delete(learnerId); renderLearningSession(); toast('Занятие сохранено. Память обновится в фоне.');
-    refreshGuided();
-  }));
+    const recovery = sessionRecovery.get(learnerId);
+    if (!session || session.status !== 'active' || sessionClosures.has(learnerId) || state.pendingMessages.has(learnerId) && !state.pendingMessages.get(learnerId).terminal || !recovery || recovery.loading || recovery.error || recovery.unresolved_status === 'pending') return;
+    const attempt = {}; sessionClosures.set(learnerId, attempt); guidedViewRevision++; chatReturnAttempt = null; renderLearningSession();
+    try {
+      const result = await request(`/learning-sessions/${encodeURIComponent(session.learning_session_id)}/complete`, { method: 'POST', body: {} });
+      if (state.token !== token || sessionClosures.get(learnerId) !== attempt) return;
+      if (state.learningSessionsByLearner.get(learnerId)?.learning_session_id !== session.learning_session_id) return;
+      state.learningSessionsByLearner.set(learnerId, { ...session, status:result.status || 'completed', job_id:result.job_id });
+      state.pendingMessages.delete(learnerId); sessionRecovery.set(learnerId, { ...recovery, unresolved_status:null });
+      if (state.learnerId === learnerId) toast('Занятие сохранено. Память обновится в фоне.');
+    } catch (error) { if (state.token === token && state.learnerId === learnerId) toast(errorText(error)); }
+    finally {
+      if (sessionClosures.get(learnerId) === attempt) {
+        sessionClosures.delete(learnerId);
+        if (state.token === token && state.learnerId === learnerId) { renderLearningSession(); refreshGuided(); }
+      }
+    }
+  });
   boot();
 })();

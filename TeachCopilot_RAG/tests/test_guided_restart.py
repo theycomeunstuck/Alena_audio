@@ -180,6 +180,12 @@ def test_step_tokens_replays_and_reviewed_future_lesson_survive_api_process_rest
         assert '_guided_division_provenance' not in result.text
         return result.json()
 
+    def current(client, base, headers):
+        result = client.get(base+f'/learners/{LEARNER}/learning-sessions/current', headers=headers, timeout=10)
+        assert result.status_code == 200, result.text
+        assert all(private not in result.text for private in ('_guided_division_provenance', 'source_id', 'usage'))
+        return result.json()
+
     def new_session(client, base, headers):
         result = client.post(base+f'/learners/{LEARNER}/learning-sessions', headers=headers,
                              json={'topic_id':TOPIC}, timeout=10)
@@ -218,9 +224,17 @@ def test_step_tokens_replays_and_reviewed_future_lesson_survive_api_process_rest
         recorded_conversation(sid,'aside','Я вчера построил станцию в Minecraft.')
         source_ids = [row['source_id'] for row in store.list_learning_messages(sid)]
         saved_snapshot = durable_snapshot()
+        saved_current = current(client,base,student_headers)
+        assert saved_current['learning_session_id'] == sid
+        assert saved_current['topic_id'] == TOPIC and saved_current['subject_id'] == 'math'
+        assert saved_current['messages'][-2]['content'] == 'Я вчера построил станцию в Minecraft.'
+        assert saved_current['messages'][-1]['content'] == 'Можем вернуться к сохранённому шагу позже.'
+        assert saved_current['unresolved_status'] is None
+        assert durable_snapshot() == saved_snapshot
 
     with running_api(store, tmp_path/'process-2') as (client, base, second_pid):
         assert second_pid != first_pid
+        assert current(client,base,student_headers) == saved_current
         restored = context(client,base,student_headers)
         assert restored['guided_division'] == state and restored['active_learning_session_id'] == sid
         assert restored['resume_required'] is True
@@ -237,6 +251,7 @@ def test_step_tokens_replays_and_reviewed_future_lesson_survive_api_process_rest
         assert foreign.status_code == 403
         completed = client.post(base+f'/learning-sessions/{sid}/complete', headers=student_headers, timeout=10)
         assert completed.status_code == 202
+        assert current(client,base,student_headers) == {'available':False}
         assert context(client,base,student_headers)['reason'] == 'teacher_review_required'
         runtime = EmptyInterests(0)
         job = MemoryWorker(store,runtime).run_once()
@@ -251,12 +266,17 @@ def test_step_tokens_replays_and_reviewed_future_lesson_survive_api_process_rest
 
     with running_api(store, tmp_path/'process-3') as (client, base, third_pid):
         assert third_pid not in {first_pid,second_pid}
+        assert current(client,base,student_headers) == {'available':False}
         reviewed = context(client,base,student_headers)
         assert reviewed['available'] and reviewed['origin'] == 'approved_memory'
         assert reviewed['guided_division'] == state
         assert reviewed['resume_required'] is True
         second_sid = new_session(client,base,student_headers)
         recorded_conversation(second_sid,'greeting','привет')
+        active = current(client,base,student_headers)
+        assert active['learning_session_id'] == second_sid
+        assert active['messages'][0]['content'] == 'привет'
+        assert len(active['messages']) == 2
         assert context(client,base,student_headers)['resume_required'] is True
         blocked = send(client,base,student_headers,second_sid,'not-resumed','division_guided_answer',
                        expected_state_id=state['state_id'],value=0)

@@ -209,6 +209,52 @@ class MemoryStoreMixin:
             cur.execute(query,values)
             return _row(cur.fetchone())
 
+    def current_learning_session(self, learner_id, actor_id):
+        """Read one actor's active dialogue without replaying or repairing calls.
+
+        The bounded window contains whole message turns. Source text is the
+        only public content; cached responses can contain private diagnostics
+        and typed-action provenance and never enter this projection.
+        """
+        with self._connect() as connection, connection.cursor() as cur:
+            connection.set_session(readonly=True, isolation_level='REPEATABLE READ')
+            cur.execute('''SELECT id,topic_id FROM teachcopilot.learning_sessions
+                WHERE learner_id=%s AND actor_id=%s AND status='active'
+                ORDER BY created_at DESC,id DESC LIMIT 1''', (learner_id,str(actor_id)))
+            session = cur.fetchone()
+            if session is None:
+                return {'available': False}
+            session_id, topic_id = session['id'], session['topic_id']
+            cur.execute('''SELECT bool_or(status='pending') AS pending,
+                bool_or(status='unknown_outcome') AS unknown_outcome
+                FROM teachcopilot.learning_messages WHERE learning_session_id=%s AND learner_id=%s''',
+                (session_id,learner_id))
+            unresolved = cur.fetchone()
+            unresolved_status = ('pending' if unresolved['pending'] else
+                                 'unknown_outcome' if unresolved['unknown_outcome'] else None)
+            cur.execute('''SELECT m.status,s.content AS user_content,a.content AS assistant_content
+                FROM teachcopilot.learning_messages m
+                JOIN teachcopilot.memory_sources s ON s.id=m.source_id AND s.learner_id=m.learner_id
+                    AND s.learning_session_id=m.learning_session_id AND s.topic_id=%s
+                    AND s.actor_id=%s AND s.author_role IN ('student','teacher')
+                LEFT JOIN teachcopilot.memory_sources a ON m.status='completed'
+                    AND a.id=m.assistant_source_id AND a.learner_id=m.learner_id
+                    AND a.learning_session_id=m.learning_session_id AND a.topic_id=s.topic_id
+                    AND a.author_role='assistant'
+                WHERE m.learning_session_id=%s AND m.learner_id=%s
+                ORDER BY s.source_order DESC LIMIT 21''',
+                (topic_id,str(actor_id),session_id,learner_id))
+            turns = cur.fetchall()
+            messages = []
+            for turn in reversed(turns[:20]):
+                messages.append({'role':'user','content':turn['user_content'],
+                                 'delivery_status':turn['status']})
+                if turn['status'] == 'completed' and turn['assistant_content'] is not None:
+                    messages.append({'role':'assistant','content':turn['assistant_content']})
+            return {'available':True,'learning_session_id':str(session_id),'topic_id':topic_id,
+                    'status':'active','messages':messages,'history_truncated':len(turns) > 20,
+                    'unresolved_status':unresolved_status}
+
     def reserve_chat_message(self, session_id, learner_id, client_message_id, content, actor_id, *, author_role="student"):
         if author_role not in ("student", "teacher"):
             raise ValueError("chat source must be student or teacher")

@@ -33,3 +33,4 @@
 .chat-guided-return { margin: 12px 0; padding: 12px; border: 1px solid var(--line); border-radius: 6px; background: #fff; }
 .chat-guided-return-label { margin: 0 0 6px; font-size: 12px; font-weight: 600; color: var(--sea-dark); overflow-wrap: anywhere; }
 .chat-guided-return .review-note { margin: 0 0 10px; }
+.learning-session-controls > .text-button + .text-button { margin-left: 12px; }

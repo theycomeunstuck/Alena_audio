@@ -406,6 +406,27 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None) -> Fas
             memory_error(exc)
         return {"learner_id": learner_id, "version": version, "confirmed": True}
 
+    @app.get('/learners/{learner_id}/learning-sessions/current')
+    def current_learning_session(learner_id: str, user: dict = Depends(require_user)):
+        access(user, learner_id)
+        memory_available()
+        try:
+            result = store.current_learning_session(learner_id, _account_id(user))
+            if not result.get('available'):
+                return {'available':False}
+            from local_app.learning_topics import canonical_topic_subject
+            catalog = store.catalog()
+            topic_id = result['topic_id']
+            generic_topics = {'math','python','scratch','programming','general'}
+            subject_id = canonical_topic_subject(topic_id,catalog)
+            if subject_id is None:
+                subject_id = topic_id if topic_id in generic_topics else 'general'
+            topic_title = (_topic_title(topic_id,catalog) if topic_id in catalog or topic_id in generic_topics
+                           else 'Прошлое занятие')
+            return {**result,'topic_title':topic_title,'subject_id':subject_id}
+        except Exception as exc:
+            memory_error(exc)
+
     @app.post("/learners/{learner_id}/learning-sessions", status_code=201)
     def start_learning_session(learner_id: str, request: LearningSessionRequest,
                                user: dict = Depends(require_user)):
