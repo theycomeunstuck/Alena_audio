@@ -1,0 +1,14 @@
+{
+  "protocol": "additional-memory-assessment-v5",
+  "origin": "agent_authored_synthetic; no human semantic validation",
+  "criteria": ["factual_accuracy", "help_attribution", "action_appropriateness", "source_support", "unknowns_handling"],
+  "verdicts": ["acceptable", "critical_error", "uncertain"],
+  "utilities": ["useful", "limited", "uncertain"],
+  "qualification": ["24 assessed", "all 8 designated critical errors found", "all 8 acceptable answers accepted", "every required utility matched", "all literal evidence and completeness checks passed"],
+  "uncertain_verdict_policy": "diagnostic only; required utility remains mandatory",
+  "sampling_unit": "history; compare methods inside 16 histories",
+  "repair_policy": "no JSON, quote or answer repairs; no paid retry",
+  "development": {"cases": 8, "calls": 8, "allowed_protocol_corrections_after_dev": 1},
+  "calibration": {"cases": 24, "attempts": 1, "post_calibration_tuning": false},
+  "main": {"frozen_rows": 128, "accepted_rows": 94, "technical_failures": 34}
+}
