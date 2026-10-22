@@ -34,3 +34,13 @@
 .chat-guided-return-label { margin: 0 0 6px; font-size: 12px; font-weight: 600; color: var(--sea-dark); overflow-wrap: anywhere; }
 .chat-guided-return .review-note { margin: 0 0 10px; }
 .learning-session-controls > .text-button + .text-button { margin-left: 12px; }
+.learning-archive { border-bottom: 1px solid var(--line); padding: 10px 0; margin-bottom: 12px; font-size: 12px; }
+.learning-archive > summary { cursor: pointer; color: var(--sea-dark); font-weight: 600; }
+.learning-archive-list { display: grid; gap: 8px; margin-bottom: 10px; }
+.learning-archive-item { width: 100%; min-width: 0; text-align: left; padding: 9px; background: #fff; border: 1px solid var(--line); border-radius: 6px; overflow-wrap: anywhere; }
+.learning-archive-item[aria-pressed="true"] { border-color: var(--sea); background: #eaf3f3; }
+.learning-archive-item small { display: block; margin-top: 3px; color: var(--muted); font-size: 11px; }
+.learning-archive-view { border-top: 1px solid var(--line); margin-top: 12px; padding-top: 10px; }
+.learning-archive-view h3 { font-size: 13px; overflow-wrap: anywhere; margin: 0 0 8px; }
+.learning-archive-log { display: flex; flex-direction: column; gap: 10px; max-height: 380px; overflow-y: auto; padding: 4px 8px 4px 0; }
+.learning-archive-log .chat-bubble { font-size: 12px; flex-shrink: 0; }

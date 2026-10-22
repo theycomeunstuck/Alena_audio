@@ -107,6 +107,21 @@
             <select id="chat-topic" class="chat-subject" aria-describedby="chat-topic-hint"><option value="math">Общая беседа по предмету</option></select>
             <p id="chat-topic-hint" class="review-note">Выбери тему или общую беседу. Внутри занятия тема остаётся одной.</p>
             <div class="learning-session-controls"><p id="learning-session-status" class="review-note" role="status">Занятие начнётся с первого вопроса.</p><p id="learning-session-recovery-note" class="review-note" role="status" hidden></p><button id="refresh-learning-session" type="button" class="text-button">Обновить занятие</button><button id="complete-learning-session" type="button" class="text-button" hidden>Завершить занятие</button></div>
+            <details id="learning-archive" class="learning-archive">
+              <summary>Прошлые занятия</summary>
+              <p class="review-note">Здесь можно перечитать завершённые диалоги. Текущее занятие продолжится отдельно.</p>
+              <button id="refresh-learning-archive" type="button" class="text-button">Обновить список</button>
+              <p id="learning-archive-status" class="review-note" role="status"></p>
+              <div id="learning-archive-list" class="learning-archive-list"></div>
+              <button id="more-learning-sessions" type="button" class="button secondary wide" hidden>Ещё занятия</button>
+              <section id="learning-archive-view" class="learning-archive-view" aria-labelledby="learning-archive-title" hidden>
+                <h3 id="learning-archive-title"></h3>
+                <p id="learning-archive-detail-status" class="review-note" role="status"></p>
+                <button id="older-learning-messages" type="button" class="text-button" hidden>Более ранние сообщения</button>
+                <div id="learning-archive-log" class="learning-archive-log" aria-label="Переписка прошлого занятия"></div>
+                <button id="close-learning-archive" type="button" class="text-button">Закрыть переписку</button>
+              </section>
+            </details>
             <div id="chat-log" class="chat-log" aria-live="polite"><div class="chat-bubble assistant">Привет! Расскажи, что разбираете, и я помогу найти следующий шаг.</div></div>
             <div id="learning-action-picker" class="learning-action-picker">
               <label for="chat-mode">Что сделать</label>

@@ -15,6 +15,7 @@ import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
+from uuid import uuid4
 
 import pytest
 
@@ -224,7 +225,7 @@ class BrowserStore:
         for row in self.learning_sessions.values():
             if row["client_session_id"] == client_session_id and row["actor_id"] == actor_id:
                 return copy.deepcopy(row)
-        session_id = f"learning-ui-{len(self.learning_sessions) + 1}"
+        session_id = str(uuid4())
         row = {"learning_session_id": session_id, "learner_id": learner_id, "actor_id": actor_id, "topic_id": topic_id, "client_session_id": client_session_id, "status": "active"}
         self.learning_sessions[session_id] = row
         self.learning_turns[session_id] = []
@@ -257,6 +258,36 @@ class BrowserStore:
         # browser tests install controlled transport; PostgreSQL tests use Store.
         return {"available": False, "reason": "no_saved_guided_step"}
 
+    def list_completed_learning_sessions(self, learner_id, actor_id, *, before=None):
+        sessions = [row for row in reversed(list(self.learning_sessions.values()))
+                    if row['learner_id'] == learner_id and row['actor_id'] == actor_id and row['status'] == 'completed']
+        offset = int(before) if before else 0
+        rows = [{'learning_session_id':row['learning_session_id'],'topic_id':row['topic_id'],
+                 'completed_at':row.get('completed_at') or '2026-10-22T01:00:00+00:00'}
+                for row in sessions[offset:offset+10]]
+        return {'sessions':rows,'next_cursor':str(offset+10) if offset+10<len(sessions) else None}
+
+    def completed_learning_session_history(self, learner_id, session_id, actor_id, *, before=None):
+        from local_app.memory_store import LearningSessionNotCompletedError
+        session = self.get_learning_session(session_id, learner_id)
+        if session is None:
+            raise KeyError(session_id)
+        if session['actor_id'] != actor_id:
+            raise PermissionError('archived conversation belongs to another actor')
+        if session['status'] != 'completed':
+            raise LearningSessionNotCompletedError('only completed sessions have archived history')
+        turns = [row for (sid, _), row in self.learning_messages.items() if sid == session_id]
+        end = int(before) if before else len(turns)
+        start = max(0, end-20)
+        messages = []
+        for turn in turns[start:end]:
+            messages.append({'role':'user','content':turn['content'],'delivery_status':turn['status']})
+            if turn['status'] == 'completed':
+                message = turn['response']['choices'][0]['message']
+                messages.append({'role':'assistant','content':message['content']})
+        return {'learning_session_id':session_id,'topic_id':session['topic_id'],'status':'completed',
+                'messages':messages,'next_cursor':str(start) if start else None}
+
     def reserve_chat_message(self, session_id, learner_id, client_message_id, content, actor_id, author_role="student"):
         key = (session_id, client_message_id)
         if key in self.learning_messages:
@@ -278,6 +309,7 @@ class BrowserStore:
 
     def complete_learning_session(self, session_id, learner_id, actor_id):
         self.learning_sessions[session_id]["status"] = "completed"
+        self.learning_sessions[session_id]["completed_at"] = datetime.now(timezone.utc).isoformat()
         return {**copy.deepcopy(self.learning_sessions[session_id]), "job_id": "ui-memory-update"}
 
     def ping(self):

@@ -7,7 +7,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+import base64
+from datetime import datetime, timezone
 from typing import Any
+from uuid import UUID
 
 from psycopg2.extras import Json
 
@@ -22,6 +25,45 @@ class MemoryQueueFullError(RuntimeError):
 
 class MemoryIdempotencyConflict(ValueError):
     """An existing client identifier was reused for different input."""
+
+
+class LearningSessionNotCompletedError(RuntimeError):
+    """An active conversation cannot be opened as a completed archive."""
+
+
+def _archive_cursor(kind, learner_id, actor_id, **values):
+    payload = {"kind":kind,"learner":learner_id,"actor":str(actor_id),**values}
+    return base64.urlsafe_b64encode(json.dumps(payload,separators=(',',':')).encode()).decode().rstrip('=')
+
+
+def _read_archive_cursor(value, kind, learner_id, actor_id, *, session_id=None):
+    if value is None:
+        return None
+    try:
+        if not isinstance(value,str) or not 0 < len(value) <= 1024:
+            raise ValueError()
+        raw = base64.b64decode(value + '=' * (-len(value) % 4),altchars=b'-_',validate=True)
+        if base64.urlsafe_b64encode(raw).decode().rstrip('=') != value:
+            raise ValueError()
+        payload = json.loads(raw)
+        keys = {'kind','learner','actor','time','id'} if kind == 'sessions' else {'kind','learner','actor','session','order'}
+        if (not isinstance(payload,dict) or set(payload) != keys or payload['kind'] != kind
+                or payload['learner'] != learner_id or payload['actor'] != str(actor_id)):
+            raise ValueError()
+        if kind == 'sessions':
+            if (not isinstance(payload['time'],str) or not isinstance(payload['id'],str)
+                    or str(UUID(payload['id'])) != payload['id']):
+                raise ValueError()
+            timestamp = datetime.fromisoformat(payload['time'])
+            if timestamp.tzinfo is None:
+                raise ValueError()
+            return timestamp.astimezone(timezone.utc),payload['id']
+        if (payload['session'] != str(session_id) or type(payload['order']) is not int
+                or not 0 < payload['order'] <= 9223372036854775807):
+            raise ValueError()
+        return payload['order']
+    except (ValueError,TypeError,KeyError,UnicodeError,OverflowError) as exc:
+        raise ValueError('invalid archive cursor for this conversation') from exc
 
 
 def _row(value):
@@ -254,6 +296,69 @@ class MemoryStoreMixin:
             return {'available':True,'learning_session_id':str(session_id),'topic_id':topic_id,
                     'status':'active','messages':messages,'history_truncated':len(turns) > 20,
                     'unresolved_status':unresolved_status}
+
+    def list_completed_learning_sessions(self, learner_id, actor_id, *, before=None):
+        """List only the actor's completed conversations using stable keyset pages."""
+        boundary = _read_archive_cursor(before,'sessions',learner_id,actor_id)
+        with self._connect() as connection, connection.cursor() as cur:
+            connection.set_session(readonly=True,isolation_level='REPEATABLE READ')
+            query = '''SELECT id,topic_id,COALESCE(completed_at,created_at) AS ended_at
+                FROM teachcopilot.learning_sessions
+                WHERE learner_id=%s AND actor_id=%s AND status='completed' '''
+            values = [learner_id,str(actor_id)]
+            if boundary is not None:
+                query += 'AND (COALESCE(completed_at,created_at),id)<(%s,%s::uuid) '
+                values.extend(boundary)
+            cur.execute(query+'ORDER BY COALESCE(completed_at,created_at) DESC,id DESC LIMIT 11',values)
+            rows = cur.fetchall()
+            sessions = [{'learning_session_id':str(row['id']),'topic_id':row['topic_id'],
+                         'completed_at':row['ended_at'].isoformat()} for row in rows[:10]]
+            next_cursor = None
+            if len(rows) > 10:
+                last = rows[9]
+                next_cursor = _archive_cursor('sessions',learner_id,actor_id,
+                    time=last['ended_at'].isoformat(),id=str(last['id']))
+            return {'sessions':sessions,'next_cursor':next_cursor}
+
+    def completed_learning_session_history(self, learner_id, session_id, actor_id, *, before=None):
+        """Read canonical archived turns, never a cached model response or a replay."""
+        boundary = _read_archive_cursor(before,'history',learner_id,actor_id,session_id=session_id)
+        with self._connect() as connection, connection.cursor() as cur:
+            connection.set_session(readonly=True,isolation_level='REPEATABLE READ')
+            cur.execute('''SELECT actor_id,topic_id,status FROM teachcopilot.learning_sessions
+                WHERE id=%s AND learner_id=%s''',(session_id,learner_id))
+            session = cur.fetchone()
+            if session is None:
+                raise KeyError(session_id)
+            if str(session['actor_id']) != str(actor_id):
+                raise PermissionError('archived conversation belongs to another actor')
+            if session['status'] != 'completed':
+                raise LearningSessionNotCompletedError('only completed sessions have archived history')
+            query = '''SELECT m.status,s.source_order,s.content AS user_content,a.content AS assistant_content
+                FROM teachcopilot.learning_messages m
+                JOIN teachcopilot.memory_sources s ON s.id=m.source_id AND s.learner_id=m.learner_id
+                    AND s.learning_session_id=m.learning_session_id AND s.topic_id=%s
+                    AND s.actor_id=%s AND s.author_role IN ('student','teacher')
+                LEFT JOIN teachcopilot.memory_sources a ON m.status='completed'
+                    AND a.id=m.assistant_source_id AND a.learner_id=m.learner_id
+                    AND a.learning_session_id=m.learning_session_id AND a.topic_id=s.topic_id
+                    AND a.author_role='assistant'
+                WHERE m.learning_session_id=%s AND m.learner_id=%s '''
+            values = [session['topic_id'],str(actor_id),session_id,learner_id]
+            if boundary is not None:
+                query += 'AND s.source_order<%s '
+                values.append(boundary)
+            cur.execute(query+'ORDER BY s.source_order DESC LIMIT 21',values)
+            rows = cur.fetchall()
+            messages = []
+            for turn in reversed(rows[:20]):
+                messages.append({'role':'user','content':turn['user_content'],'delivery_status':turn['status']})
+                if turn['status'] == 'completed' and turn['assistant_content'] is not None:
+                    messages.append({'role':'assistant','content':turn['assistant_content']})
+            next_cursor = (_archive_cursor('history',learner_id,actor_id,session=str(session_id),
+                            order=rows[19]['source_order']) if len(rows) > 20 else None)
+            return {'learning_session_id':str(session_id),'topic_id':session['topic_id'],
+                    'status':'completed','messages':messages,'next_cursor':next_cursor}
 
     def reserve_chat_message(self, session_id, learner_id, client_message_id, content, actor_id, *, author_role="student"):
         if author_role not in ("student", "teacher"):

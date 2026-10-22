@@ -17,6 +17,7 @@
   const guidedContexts = new Map();
   const sessionRecovery = new Map();
   const sessionClosures = new Map();
+  let learningArchive = null;
   let guidedViewRevision = 0;
   let chatReturnAttempt = null;
   const guidedTopic = 'math.g4.numbers.division_by_1_2_digit';
@@ -53,6 +54,7 @@
   }
   function signOutLocal() {
     guidedContexts.clear(); sessionRecovery.clear(); sessionClosures.clear(); guidedViewRevision++; chatReturnAttempt = null;
+    resetLearningArchive();
     state.token = null; state.account = null; state.learnerId = null; sessionStorage.removeItem(tokenKey);
     state.learners = []; state.dashboard = null; state.topics = []; state.task = null; state.proposal = null; state.revision = null; state.chatByLearner.clear(); state.nextStepsByLearner.clear(); state.learningSessionsByLearner.clear(); state.pendingMessages.clear(); state.chatTopicsByLearnerSubject.clear(); state.memoryCorrectionJobs.clear(); state.viewRevision++;
     $('#learner-list').replaceChildren(); $('#learner-count').textContent = '–'; $('#roster-empty').hidden = true; $('#profile-content').hidden = true; $('#loading-state').hidden = true; $('#error-state').hidden = true; $('#empty-profile').hidden = false;
@@ -125,6 +127,7 @@
     guidedViewRevision++; chatReturnAttempt = null;
     if (state.learnerId !== id) resetLearningAction();
     state.learnerId = id; state.dashboard = null; state.task = null; state.proposal = null; renderRoster();
+    resetLearningArchive();
     if (state.account?.role === 'student') { renderChatHistory(id); restoreLearningSession(); }
     renderNextStep(); $('#memory-history').replaceChildren(); $('#memory-status').textContent = '';
     $('#profile-content').hidden = true; $('#error-state').hidden = true; $('#empty-profile').hidden = true; $('#loading-state').hidden = false; $('#action-empty').hidden = true;
@@ -618,6 +621,104 @@
       renderLearningSession();
     }
   }
+  function resetLearningArchive() {
+    learningArchive = null; $('#learning-archive').open = false;
+    $('#learning-archive-list').replaceChildren(); $('#learning-archive-log').replaceChildren();
+    $('#learning-archive-status').textContent = ''; $('#learning-archive-detail-status').textContent = '';
+    $('#learning-archive-view').hidden = true; $('#more-learning-sessions').hidden = true;
+    $('#older-learning-messages').hidden = true; $('#refresh-learning-archive').disabled = false;
+  }
+  function archiveIsCurrent(view) {
+    return view === learningArchive && view.token === state.token && view.learnerId === state.learnerId &&
+      view.viewRevision === state.viewRevision && state.account?.role === 'student';
+  }
+  function archiveDate(value) {
+    const date = new Date(value);
+    return Number.isFinite(date.getTime()) ? new Intl.DateTimeFormat('ru-RU', { day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' }).format(date) : 'Дата не указана';
+  }
+  function validArchiveCursor(cursor) { return cursor === null || typeof cursor === 'string' && cursor.length > 0 && cursor.length <= 1024; }
+  function validSavedMessages(messages) {
+    return Array.isArray(messages) && messages.length <= 40 && messages.every(message =>
+      ['user', 'assistant'].includes(message?.role) && typeof message.content === 'string' &&
+      (message.delivery_status === undefined || ['completed', 'failed', 'pending', 'unknown_outcome'].includes(message.delivery_status)));
+  }
+  function renderLearningArchive() {
+    const view = learningArchive;
+    if (!view || !archiveIsCurrent(view)) return;
+    $('#refresh-learning-archive').disabled = view.listLoading;
+    $('#learning-archive-status').textContent = view.listError || (view.listLoading ? 'Загружаем прошлые занятия…' : view.loaded && !view.sessions.length ? 'Завершённых занятий пока нет.' : '');
+    const list = $('#learning-archive-list'); list.replaceChildren();
+    view.sessions.forEach(session => {
+      const button = el('button', 'learning-archive-item'); button.type = 'button';
+      button.setAttribute('aria-pressed', String(view.selection?.id === session.learning_session_id));
+      button.append(el('span', '', session.topic_title), el('small', '', archiveDate(session.completed_at)));
+      button.addEventListener('click', () => openArchivedSession(session)); list.append(button);
+    });
+    $('#more-learning-sessions').hidden = !view.next_cursor; $('#more-learning-sessions').disabled = view.listLoading;
+    const selected = view.selection; $('#learning-archive-view').hidden = !selected;
+    if (!selected) { $('#learning-archive-log').replaceChildren(); return; }
+    $('#learning-archive-title').textContent = selected.title;
+    $('#learning-archive-detail-status').textContent = selected.error || (selected.loading ? 'Загружаем переписку…' : selected.olderLoading ? 'Загружаем ранние сообщения…' : selected.messages.length ? 'Завершённое занятие. Это просмотр прошлой переписки.' : 'В этом занятии нет доступных сообщений.');
+    $('#older-learning-messages').hidden = !selected.next_cursor; $('#older-learning-messages').disabled = selected.loading || selected.olderLoading;
+    const log = $('#learning-archive-log'); log.replaceChildren();
+    selected.messages.forEach(message => {
+      const bubble = chatBubble(message.role, message.content);
+      const status = message.role === 'user' && ({ pending:'Ответ не был завершён.', unknown_outcome:'Результат запроса остался неизвестным.', failed:'Сообщение не получило ответа.' })[message.delivery_status];
+      if (status) bubble.append(el('small', 'field-hint', status));
+      log.append(bubble);
+    });
+  }
+  async function loadLearningArchive(more = false) {
+    if (state.account?.role !== 'student' || !state.learnerId) return;
+    if (!learningArchive) learningArchive = { learnerId:state.learnerId, token:state.token, viewRevision:state.viewRevision,
+      sessions:[], loaded:false, next_cursor:null, listLoading:false, selection:null };
+    const view = learningArchive;
+    if (!archiveIsCurrent(view) || view.listLoading || more && !view.next_cursor) return;
+    const before = more ? view.next_cursor : null;
+    view.listLoading = true; view.listError = null; renderLearningArchive();
+    try {
+      const query = before ? `?${new URLSearchParams({ before })}` : '';
+      const data = await request(`/learners/${encodeURIComponent(view.learnerId)}/learning-sessions${query}`);
+      if (!archiveIsCurrent(view)) return;
+      const valid = Array.isArray(data.sessions) && data.sessions.length <= 10 && validArchiveCursor(data.next_cursor) &&
+        data.sessions.every(session => typeof session?.learning_session_id === 'string' && !!session.learning_session_id &&
+          typeof session.topic_id === 'string' && typeof session.topic_title === 'string' && typeof session.subject_id === 'string' && typeof session.completed_at === 'string');
+      if (!valid || before && data.next_cursor === before) throw new Error('Список занятий не удалось прочитать. Обнови список.');
+      const sessions = more ? [...view.sessions, ...data.sessions] : data.sessions;
+      if (new Set(sessions.map(session => session.learning_session_id)).size !== sessions.length) throw new Error('Список занятий изменился. Обнови список.');
+      view.sessions = sessions; view.next_cursor = data.next_cursor; view.loaded = true;
+    } catch (error) { if (archiveIsCurrent(view)) view.listError = 'Не удалось загрузить прошлые занятия. Нажми «Обновить список», чтобы попробовать ещё раз.'; }
+    finally { if (archiveIsCurrent(view)) { view.listLoading = false; renderLearningArchive(); } }
+  }
+  function openArchivedSession(session) {
+    const view = learningArchive;
+    if (!view || !archiveIsCurrent(view)) return;
+    view.selection = { id:session.learning_session_id, title:session.topic_title, messages:[], next_cursor:null, loading:false };
+    loadArchivedMessages();
+  }
+  async function loadArchivedMessages(older = false) {
+    const view = learningArchive, selected = view?.selection;
+    if (!view || !archiveIsCurrent(view) || !selected || selected.loading || selected.olderLoading || older && !selected.next_cursor) return;
+    const before = older ? selected.next_cursor : null;
+    selected[older ? 'olderLoading' : 'loading'] = true; selected.error = null; renderLearningArchive();
+    const current = () => archiveIsCurrent(view) && view.selection === selected;
+    try {
+      const query = before ? `?${new URLSearchParams({ before })}` : '';
+      const data = await request(`/learners/${encodeURIComponent(view.learnerId)}/learning-sessions/${encodeURIComponent(selected.id)}/history${query}`);
+      if (!current()) return;
+      if (data.learning_session_id !== selected.id || data.status !== 'completed' || typeof data.topic_title !== 'string' ||
+          !validSavedMessages(data.messages) || !validArchiveCursor(data.next_cursor) || before && data.next_cursor === before) throw new Error('Переписку не удалось прочитать. Открой занятие ещё раз.');
+      selected.title = data.topic_title; selected.messages = older ? [...data.messages, ...selected.messages] : data.messages;
+      selected.next_cursor = data.next_cursor;
+    } catch (error) {
+      if (current()) {
+        selected.error = [403, 404, 409].includes(error.status) ? 'Эта переписка сейчас недоступна. Обнови список занятий.' : 'Не удалось загрузить переписку. Открой занятие ещё раз.';
+        if ([403, 404, 409].includes(error.status)) { selected.messages = []; selected.next_cursor = null; }
+      }
+    } finally {
+      if (current()) { selected.loading = false; selected.olderLoading = false; renderLearningArchive(); }
+    }
+  }
   const actionLabels = { division_check: 'Проверить деление', division_places: 'Разряды частного', division_practice: 'Дать пример', print_output: 'Вывод Python', division_guided: 'Решать по шагам' };
   function guidedKey() { return `${state.learnerId}:${$('#chat-topic').value}`; }
   function canonicalGuidedKey() { return `${state.learnerId}:${guidedTopic}`; }
@@ -1003,6 +1104,15 @@
   $('#guided-division-refresh').addEventListener('click', refreshGuided);
   $('#chat-guided-return-button').addEventListener('click', returnFromChat);
   $('#refresh-learning-session').addEventListener('click', restoreLearningSession);
+  $('#learning-archive').addEventListener('toggle', () => {
+    if ($('#learning-archive').open && !learningArchive?.loaded) loadLearningArchive();
+  });
+  $('#refresh-learning-archive').addEventListener('click', () => loadLearningArchive());
+  $('#more-learning-sessions').addEventListener('click', () => loadLearningArchive(true));
+  $('#older-learning-messages').addEventListener('click', () => loadArchivedMessages(true));
+  $('#close-learning-archive').addEventListener('click', () => {
+    if (learningArchive && archiveIsCurrent(learningArchive)) { learningArchive.selection = null; renderLearningArchive(); }
+  });
   $('#complete-learning-session').addEventListener('click', async () => {
     const learnerId = state.learnerId, session = state.learningSessionsByLearner.get(learnerId), token = state.token;
     const recovery = sessionRecovery.get(learnerId);

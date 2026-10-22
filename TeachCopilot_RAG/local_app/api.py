@@ -5,8 +5,9 @@ import time
 from datetime import date
 from pathlib import Path
 from typing import Any, Literal
+from uuid import UUID
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Request
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field, StrictBool
@@ -54,6 +55,17 @@ def _topic_title(topic_id: str | None, catalog: dict) -> str:
         "math": "Математика", "python": "Python", "programming": "Программирование",
         "scratch": "Scratch", "general": "Общее занятие",
     }.get(topic_id) or topic_id or "Тема не указана")
+
+
+def _learning_session_topic(topic_id: str, catalog: dict) -> dict:
+    from local_app.learning_topics import canonical_topic_subject
+    generic_topics = {'math','python','scratch','programming','general'}
+    subject_id = canonical_topic_subject(topic_id,catalog)
+    if subject_id is None:
+        subject_id = topic_id if topic_id in generic_topics else 'general'
+    return {'subject_id':subject_id,
+            'topic_title':(_topic_title(topic_id,catalog) if topic_id in catalog or topic_id in generic_topics
+                           else 'Прошлое занятие')}
 
 
 def _chat_subject(query: str, requested: str | None = None) -> str | None:
@@ -414,16 +426,37 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None) -> Fas
             result = store.current_learning_session(learner_id, _account_id(user))
             if not result.get('available'):
                 return {'available':False}
-            from local_app.learning_topics import canonical_topic_subject
+            return {**result,**_learning_session_topic(result['topic_id'],store.catalog())}
+        except Exception as exc:
+            memory_error(exc)
+
+    @app.get('/learners/{learner_id}/learning-sessions')
+    def completed_learning_sessions(learner_id: str,
+            before: str | None = Query(default=None,min_length=1,max_length=1024),
+            user: dict = Depends(require_user)):
+        access(user,learner_id)
+        memory_available()
+        try:
+            result = store.list_completed_learning_sessions(learner_id,_account_id(user),before=before)
             catalog = store.catalog()
-            topic_id = result['topic_id']
-            generic_topics = {'math','python','scratch','programming','general'}
-            subject_id = canonical_topic_subject(topic_id,catalog)
-            if subject_id is None:
-                subject_id = topic_id if topic_id in generic_topics else 'general'
-            topic_title = (_topic_title(topic_id,catalog) if topic_id in catalog or topic_id in generic_topics
-                           else 'Прошлое занятие')
-            return {**result,'topic_title':topic_title,'subject_id':subject_id}
+            return {**result,'sessions':[{**session,**_learning_session_topic(session['topic_id'],catalog)}
+                                         for session in result['sessions']]}
+        except Exception as exc:
+            memory_error(exc)
+
+    @app.get('/learners/{learner_id}/learning-sessions/{learning_session_id}/history')
+    def completed_learning_session_history(learner_id: str, learning_session_id: UUID,
+            before: str | None = Query(default=None,min_length=1,max_length=1024),
+            user: dict = Depends(require_user)):
+        from local_app.memory_store import LearningSessionNotCompletedError
+        access(user,learner_id)
+        memory_available()
+        try:
+            result = store.completed_learning_session_history(learner_id,str(learning_session_id),
+                                                               _account_id(user),before=before)
+            return {**result,**_learning_session_topic(result['topic_id'],store.catalog())}
+        except LearningSessionNotCompletedError as exc:
+            raise HTTPException(status_code=409,detail=str(exc)) from exc
         except Exception as exc:
             memory_error(exc)
 
