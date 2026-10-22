@@ -12,7 +12,7 @@ from research_assessment_v5.workflow import freeze, prepare, report, run_phase
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("phase", choices=("prepare", "dev", "freeze", "calibrate", "assess", "report"))
+    parser.add_argument("phase", choices=("prepare", "dev", "complete-dev", "freeze", "calibrate", "assess", "report"))
     parser.add_argument("--workspace", required=True, type=Path)
     parser.add_argument("--config", type=Path, default=Path(".local/research_memory/budget_v5_20261022/evaluation.json"))
     parser.add_argument("--authorization", type=Path, default=Path(".local/research_memory/budget_v5_20261022/receipt.json"))
@@ -26,7 +26,7 @@ def main():
     elif args.phase == "report":
         result = report(args.workspace)
     else:
-        phase = {"calibrate": "calibration", "assess": "main"}.get(args.phase, args.phase)
+        phase = {"complete-dev": "dev_completion", "calibrate": "calibration", "assess": "main"}.get(args.phase, args.phase)
         result = run_phase(args.workspace, phase, args.config, args.authorization, execute=args.execute)
     print(json.dumps(result, ensure_ascii=False, indent=2))
 

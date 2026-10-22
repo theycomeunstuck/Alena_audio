@@ -8,7 +8,7 @@ import json
 from pathlib import Path
 import random
 import shutil
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
 
 from research_memory.clients import CompletionValidationError
 from research_memory.spiderssense import BudgetError, ProviderRequestError
@@ -113,21 +113,114 @@ def _settings(config):
             "Evaluation must use the separate $16 / 126-call authorization")
 
 
+def _tree_hashes(directory):
+    directory = Path(directory)
+    return {str(path.relative_to(directory)): sha(path) for path in sorted(directory.rglob("*")) if path.is_file()}
+
+
+def _completion_proof(workspace, config_path, authorization_path):
+    """Only the two never attempted tail cases may consume the remaining dev calls."""
+    workspace = Path(workspace)
+    require(not (workspace / "frozen_protocol.json").exists(), "Dev cannot be completed after protocol freeze")
+    original = workspace / "dev"
+    manifest = read(original / "manifest.json")
+    cases = rows(workspace / "inputs/dev.cases.jsonl")
+    outcomes = rows(original / "judgements.jsonl")
+    require(len(cases) == len(outcomes) == 8 and manifest["attempted_calls"] == 6
+            and manifest["status"] == "completed_with_errors", "Only the original six-call interrupted dev is eligible")
+    require([row["answer_code"] for row in outcomes] == [case["answer_code"] for case in cases], "Original dev IDs changed")
+    require(manifest["configuration_sha256"] == sha(config_path)
+            and manifest["authorization_sha256"] == sha(authorization_path), "Original dev settings/authorization changed")
+    require(manifest["cases_sha256"] == sha(workspace / "inputs/dev.cases.jsonl")
+            and read(original / "settings.json") == read(config_path)
+            and read(original / "schema.json") == SCHEMA, "Original dev cases/schema/settings changed")
+    for name in ("prompt.txt", "rubric.json", "protocol.py"):
+        require(manifest["protocol_sha256"][str((ROOT / name).relative_to(PROJECT))] == sha(ROOT / name),
+                "Completion cannot change prompt, rubric, validator or schema")
+    claims = Path(authorization_path).resolve().parent / "assessment_v5_execution_claims"
+    claim = read(claims / "dev.json")
+    require(Path(claim["workspace"]).resolve() == workspace.resolve(), "Completion cannot reuse another workspace's dev claim")
+    selected = []
+    for number, (case, outcome) in enumerate(zip(cases, outcomes), 1):
+        step = original / "calls" / f"{number:03d}"
+        if number <= 6:
+            require((step / "attempt.json").is_file() and outcome.get("new_reserved_calls") == 1
+                    and outcome["status"] in {"assessed", "judge_error"}, "An attempted original dev case lacks durable proof")
+            continue
+        require(outcome["status"] == "not_assessed" and outcome.get("error", {}).get("code") == "batch_stopped_no_retry"
+                and outcome.get("new_reserved_calls", 0) == 0 and outcome.get("judgement") is None,
+                "Completion only accepts never attempted outcomes")
+        require(step.is_dir() and {path.name for path in step.iterdir()} == {"request.json"},
+                "Never attempted proof failed: original case has attempt, HTTP, completion or outcome artifacts")
+        expected_messages = [{"role": "system", "content": (ROOT / "prompt.txt").read_text(encoding="utf-8")},
+                             {"role": "user", "content": json.dumps(case["payload"], ensure_ascii=False)}]
+        original_request = read(step / "request.json")
+        require(original_request["messages"] == expected_messages and original_request["schema"] == SCHEMA
+                and original_request["settings"] == read(config_path), "Unsent original request differs from completion request")
+        selected.append(case)
+    require(len(selected) == 2 and outcomes[5].get("error", {}).get("code") == "provider_connection_error",
+            "Completion scope must retain the sixth unknown outcome and only call cases seven/eight")
+    return selected, {"original_dev_sha256": _tree_hashes(original), "original_attempted_calls": 6,
+                      "never_attempted_answer_codes": [case["answer_code"] for case in selected],
+                      "retained_unknown_answer_code": outcomes[5]["answer_code"], "maximum_total_dev_calls": 8}
+
+
+def _dev_receipt(workspace):
+    workspace = Path(workspace)
+    original = read(workspace / "dev/manifest.json")
+    merged_path = workspace / "dev_merged/receipt.json"
+    if not merged_path.exists():
+        return original, workspace / "dev/judgements.jsonl", None
+    merged = read(merged_path)
+    require(_tree_hashes(workspace / "dev") == merged["original_dev_sha256"]
+            and _tree_hashes(workspace / "dev_completion") == merged["completion_sha256"], "Dev source bytes changed after merging")
+    result_path = workspace / "dev_merged/judgements.jsonl"
+    require(sha(result_path) == merged["merged_judgements_sha256"], "Merged dev outcomes changed")
+    require(len(rows(result_path)) == len({row["answer_code"] for row in rows(result_path)}) == 8,
+            "Merged dev must retain eight unique outcomes")
+    return {**original, "attempted_calls": merged["attempted_calls"], "status": merged["status"]}, result_path, merged
+
+
+def _merge_dev(workspace, proof):
+    workspace = Path(workspace)
+    require(_tree_hashes(workspace / "dev") == proof["original_dev_sha256"], "Original dev bytes changed during completion")
+    completion = read(workspace / "dev_completion/manifest.json")
+    require(completion["attempted_calls"] == 2 and completion["status"] in {"completed", "completed_with_errors"},
+            "Both never attempted dev cases must have a single terminal attempt")
+    original = rows(workspace / "dev/judgements.jsonl")
+    new = rows(workspace / "dev_completion/judgements.jsonl")
+    require([row["answer_code"] for row in new] == proof["never_attempted_answer_codes"], "Completion IDs changed")
+    require(all(row.get("new_reserved_calls") == 1 for row in new)
+            and completion["before_accounting"]["calls_reserved"] == 6
+            and completion["after_accounting"]["calls_reserved"] == 8, "Completion must retain exactly eight total dev reservations")
+    merged_rows = original[:6] + new
+    require(len({row["answer_code"] for row in merged_rows}) == 8, "Dev completion duplicates an attempted case")
+    target = workspace / "dev_merged"
+    target.mkdir(exist_ok=False)
+    lines(target / "judgements.jsonl", merged_rows)
+    receipt = {**proof, "completion_sha256": _tree_hashes(workspace / "dev_completion"), "attempted_calls": 8,
+               "status": "completed_with_errors", "paid_retries": 0,
+               "merged_judgements_sha256": sha(target / "judgements.jsonl"),
+               "cost_policy": "latest shared ledger total; original/completion ledger snapshots are not added"}
+    write(target / "receipt.json", receipt)
+    return receipt
+
+
 def freeze(workspace, config_path, authorization_path, *, correction_note=None):
     workspace = Path(workspace)
     check_inputs(workspace)
-    dev = read(workspace / "dev/manifest.json")
+    dev, dev_path, dev_receipt = _dev_receipt(workspace)
     require(dev["phase"] == "dev" and dev["attempted_calls"] == 8 and dev["status"] in {"completed", "completed_with_errors"},
             "Freeze requires the one complete eight-call development run")
     require(not (workspace / "frozen_protocol.json").exists(), "Protocol already frozen; calibration cannot be retuned")
     config = read(config_path)
     _settings(config)
-    protocol_files = [ROOT / "prompt.txt", ROOT / "rubric.json", ROOT / "protocol.py", ROOT / "workflow.py",
-                      PROJECT / "scripts/run_assessment_v5.py", PROJECT / "local_app/budget_authorization.py"]
+    protocol_files = _protocol_files()
     current = {str(path.relative_to(PROJECT)): sha(path) for path in protocol_files}
     dev_hashes = dev["protocol_sha256"]
     changed = {name for name in current if current[name] != dev_hashes.get(name)}
-    require(not changed or bool(correction_note and correction_note.strip()), "The single dev correction needs an explicit note")
+    corrected = bool(changed or dev_receipt)
+    require(not corrected or bool(correction_note and correction_note.strip()), "The single dev correction needs an explicit note")
     snapshot = workspace / "protocol_snapshot"
     snapshot.mkdir(exist_ok=False)
     for path in protocol_files:
@@ -141,8 +234,8 @@ def freeze(workspace, config_path, authorization_path, *, correction_note=None):
               "schema_sha256": digest(SCHEMA), "configuration_sha256": sha(config_path),
               "authorization_sha256": sha(authorization_path), "configuration": config,
               "prepared_inputs": read(workspace / "preparation.json")["input_sha256"],
-              "dev_sha256": sha(workspace / "dev/judgements.jsonl"),
-              "correction_count": int(bool(changed)), "correction_note": correction_note,
+              "dev_sha256": sha(dev_path), "dev_receipt": dev_receipt,
+              "correction_count": int(corrected), "correction_note": correction_note,
               "calibration_attempts_allowed": 1, "post_calibration_tuning": False}
     write(workspace / "frozen_protocol.json", result)
     return result
@@ -150,12 +243,22 @@ def freeze(workspace, config_path, authorization_path, *, correction_note=None):
 
 def check_freeze(workspace, config_path, authorization_path):
     frozen = read(Path(workspace) / "frozen_protocol.json")
+    _, dev_path, dev_receipt = _dev_receipt(workspace)
+    require(sha(dev_path) == frozen["dev_sha256"] and dev_receipt == frozen.get("dev_receipt"), "Frozen dev receipt changed")
     for name, expected in frozen["protocol_sha256"].items():
         require(sha(PROJECT / name) == expected, "Protocol changed after freeze; no calibration retuning allowed")
     require(sha(config_path) == frozen["configuration_sha256"] and
             sha(authorization_path) == frozen["authorization_sha256"] and digest(SCHEMA) == frozen["schema_sha256"],
             "Frozen provider configuration, authorization or schema changed")
     return frozen
+
+
+def _transport_diagnostic(directory, exc, key, stage):
+    reason = getattr(exc, "reason", exc)
+    write(Path(directory) / "http.transport.error.json", {
+        "type": type(exc).__name__, "reason_type": type(reason).__name__, "stage": stage,
+        "reason": str(reason).replace(key.decode(), "[REDACTED_CREDENTIAL]")[:2048],
+        "errno": getattr(reason, "errno", None), "reservation_policy": "retain unknown; no retry"})
 
 
 class _RecordedResponse:
@@ -170,7 +273,11 @@ class _RecordedResponse:
         return self.response.__exit__(*args)
 
     def read(self, count=-1):
-        value = self.response.read(count)
+        try:
+            value = self.response.read(count)
+        except (URLError, TimeoutError, OSError) as exc:
+            _transport_diagnostic(self.path.parent, exc, self.key, "read")
+            raise
         self.path.write_bytes(value.replace(self.key, b"[REDACTED_CREDENTIAL]") if self.key else value)
         write(self.path.with_suffix(".sha256.json"), {"original_body_sha256": __import__("hashlib").sha256(value).hexdigest(),
               "credential_redacted": bool(self.key and self.key in value)})
@@ -195,27 +302,36 @@ class _RecordingOpener:
                 "original_body_sha256": __import__("hashlib").sha256(body).hexdigest(),
                 "credential_redacted": key in body, "http_status": exc.code})
             raise
+        except (URLError, TimeoutError, OSError) as exc:
+            _transport_diagnostic(self.directory, exc, key, "open")
+            raise
         return _RecordedResponse(response, self.directory / "http.response.body.raw", key)
 
 
+def _protocol_files():
+    return [ROOT / "prompt.txt", ROOT / "rubric.json", *sorted(ROOT.rglob("*.py")),
+            PROJECT / "scripts/run_assessment_v5.py", PROJECT / "local_app/budget_authorization.py"]
+
+
 def _protocol_hashes():
-    return {str(path.relative_to(PROJECT)): sha(path) for path in
-            (ROOT / "prompt.txt", ROOT / "rubric.json", ROOT / "protocol.py", ROOT / "workflow.py",
-             PROJECT / "scripts/run_assessment_v5.py", PROJECT / "local_app/budget_authorization.py")}
+    return {str(path.relative_to(PROJECT)): sha(path) for path in _protocol_files()}
 
 
 def run_phase(workspace, phase, config_path, authorization_path, *, execute=False, client=None):
-    require(phase in {"dev", "calibration", "main"}, "Unknown phase")
+    require(phase in {"dev", "dev_completion", "calibration", "main"}, "Unknown phase")
     workspace = Path(workspace)
     check_inputs(workspace)
     config = read(config_path)
     _settings(config)
-    path = workspace / "inputs" / ("main.cases.jsonl" if phase == "main" else f"{phase}.cases.jsonl")
+    path = workspace / "inputs" / ("dev.cases.jsonl" if phase == "dev_completion" else f"{phase}.cases.jsonl")
     cases = rows(path)
-    require(len(cases) == {"dev": 8, "calibration": 24, "main": 94}[phase], "Phase case count changed")
+    completion_proof = None
+    if phase == "dev_completion":
+        cases, completion_proof = _completion_proof(workspace, config_path, authorization_path)
+    require(len(cases) == {"dev": 8, "dev_completion": 2, "calibration": 24, "main": 94}[phase], "Phase case count changed")
     for case in cases:
         sources(case)
-    if phase != "dev":
+    if phase not in {"dev", "dev_completion"}:
         check_freeze(workspace, config_path, authorization_path)
     if phase == "main":
         gate = read(workspace / "calibration/qualification.json")
@@ -234,6 +350,8 @@ def run_phase(workspace, phase, config_path, authorization_path, *, execute=Fals
         client = build_authorized_client(config_path, authorization_path, purpose="evaluation")
     preflight = client.preflight()
     require(not preflight["blocked"], "Authorized budget ledger is blocked")
+    if phase == "dev_completion":
+        require(preflight["calls_reserved"] == 6, "Dev completion requires exactly six existing reserved calls, including unknown case six")
     claims = Path(authorization_path).resolve().parent / "assessment_v5_execution_claims"
     claims.mkdir(exist_ok=True)
     global_claim = claims / f"{phase}.json"
@@ -259,6 +377,8 @@ def run_phase(workspace, phase, config_path, authorization_path, *, execute=Fals
                 "protocol_sha256": _protocol_hashes(), "cases_sha256": sha(path),
                 "configuration_sha256": sha(config_path), "authorization_sha256": sha(authorization_path),
                 "before_accounting": preflight, "assessment_origin": "machine_only; not human expertise"}
+    if completion_proof:
+        manifest["completion_proof"] = completion_proof
     write(target / "manifest.json", manifest)
     answers = []
     stopped = False
@@ -298,8 +418,9 @@ def run_phase(workspace, phase, config_path, authorization_path, *, execute=Fals
                                    "type": type(exc).__name__, "http_status": getattr(exc, "http_status", None),
                                    "ledger_call_id": getattr(exc, "ledger_call_id", None)})
                         manifest["errors"] += 1
-                        # Schema errors consume their one call; a budget/transport unknown ends the finite batch.
-                        stopped = isinstance(exc, (BudgetError, ProviderRequestError))
+                        # Each independent case has one attempt. Unknown outcomes retain their reservation.
+                        # The original dev behavior is retained to reproduce its one documented completion path.
+                        stopped = isinstance(exc, BudgetError) or phase == "dev" and isinstance(exc, ProviderRequestError)
                     after_call = client.preflight()
                     row["charged_or_reserved_usd"] = str(Decimal(after_call["charged_or_reserved_usd"])
                                                          - Decimal(before_call["charged_or_reserved_usd"]))
@@ -327,13 +448,15 @@ def run_phase(workspace, phase, config_path, authorization_path, *, execute=Fals
         write(target / "qualification.json", qualification)
         if not qualification["qualified"]:
             human_packet(workspace)
-    elif phase == "dev":
+    elif phase in {"dev", "dev_completion"}:
         expected = {row["answer_code"]: row for row in rows(workspace / "inputs/dev.expected.private.jsonl")}
         write(target / "review.private.json", {"origin": "agent authored expected labels; not human review",
               "tuning_scope": "only these eight development results; no repeat calls",
               "cases": [{"answer_code": row["answer_code"], "status": row["status"],
                          "expected": expected[row["answer_code"]], "actual": row["judgement"],
                          "error": row["error"]} for row in answers]})
+        if phase == "dev_completion":
+            _merge_dev(workspace, completion_proof)
     report(workspace)
     return manifest
 
@@ -403,16 +526,18 @@ def report(workspace):
             "verdict": judgement["verdict"] if judgement else None,
             "utility": judgement["utility"] if judgement else None,
             "substantial_distortion": judgement["substantial_distortion"] if judgement else None})
-    phases = {name: read(workspace / name / "manifest.json") for name in ("dev", "calibration", "main")
+    phases = {name: read(workspace / name / "manifest.json") for name in ("dev", "dev_completion", "calibration", "main")
               if (workspace / name / "manifest.json").exists()}
     after = list(phases.values())[-1].get("after_accounting") if phases else None
+    merged_dev = _dev_receipt(workspace)[2] if (workspace / "dev_merged/receipt.json").exists() else None
     result = {"protocol": "additional-memory-assessment-v5", "assessment_origin": "additional automatic evaluation; no human expertise",
               "frozen_rows": 128, "technical_ok": 94, "technical_failures": 34,
               "calibration_qualified": calibration["qualified"] if calibration else None,
               "assessed": sum(row["status"] == "assessed" for row in main_rows),
               "coverage_denominator": 128, "technical_eligible_denominator": 94,
               "methods": dict(by_method), "within_history": dict(history_comparison),
-              "cost_accounting": after, "phase_statuses": {name: value["status"] for name, value in phases.items()},
+              "cost_accounting": after, "dev_completion_receipt": merged_dev,
+              "phase_statuses": {name: value["status"] for name, value in phases.items()},
               "paid_retries": 0, "winner_claimed": False, "independent_observations": "16 histories, not 128 rows"}
     write(workspace / "report.json", result)
     text = ["# Дополнительная автоматическая оценка сохранённых ответов\n\n",
