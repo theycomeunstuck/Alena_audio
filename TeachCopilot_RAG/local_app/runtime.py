@@ -5,12 +5,14 @@ from __future__ import annotations
 import hashlib
 import json
 import threading
+import time
 from copy import deepcopy
 from contextlib import contextmanager
 from typing import Any, Sequence
 from urllib.parse import urlparse
 
 import requests
+from local_app.generation_run_budget import GenerationRunBudgetExceeded
 
 _GENERATION_STATE = threading.local()
 
@@ -74,6 +76,10 @@ class InvalidQueryResolutionError(IncompleteCompletionError):
     """Complete resolver JSON violates its decision contract after parsing."""
 
 
+class _RunDeadlineBeforeHTTP(GenerationRunBudgetExceeded):
+    """The admitted run expired before its HTTP request could start."""
+
+
 class OllamaRuntime:
     """Use Ollama's native chat and embedding APIs on loopback only."""
 
@@ -121,8 +127,15 @@ class OllamaRuntime:
         self.embedding_prompt_hash = hashlib.sha256(query_prompt.encode("utf-8")).hexdigest()
 
     def _post(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
+        timeout = self.timeout
+        deadline = getattr(_GENERATION_STATE, "request_deadline", None)
+        if deadline is not None:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise _RunDeadlineBeforeHTTP("Local generation run expired before the HTTP request")
+            timeout = min(timeout, remaining)
         response = self.session.post(
-            f"{self.base_url}{path}", json=payload, timeout=self.timeout, allow_redirects=False
+            f"{self.base_url}{path}", json=payload, timeout=timeout, allow_redirects=False
         )
         if 300 <= int(getattr(response, "status_code", 200)) < 400:
             raise RuntimeError(f"Ollama {path} attempted a redirect; local calls cannot redirect")
@@ -146,25 +159,37 @@ class OllamaRuntime:
 
     def _run_budget_post(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
         """Reserve once immediately before HTTP; failures keep their reservation."""
-        call_id = self._reserve_budget_call(path, payload)
-        return self._post_reserved_call(path, payload, call_id)
+        reservation = self._reserve_budget_call(path, payload)
+        return self._post_reserved_call(path, payload, reservation)
 
-    def _reserve_budget_call(self, path: str, payload: dict[str, Any]) -> int | None:
+    def _reserve_budget_call(self, path: str, payload: dict[str, Any]) -> tuple[int, float] | None:
         budget = self.generation_run_budget
         if budget is None:
             return None
-        return (budget.reserve_generation(payload) if path == "/api/chat" else
-                budget.record_embedding(payload, item_count=len(payload["input"])))
+        call_id = (budget.reserve_generation(payload) if path == "/api/chat" else
+                   budget.record_embedding(payload, item_count=len(payload["input"])))
+        # Derive a per-request monotonic deadline after the durable reservation,
+        # so waiting for shared admission cannot extend the package deadline.
+        remaining = budget.snapshot()["remaining_seconds"]
+        if remaining <= 0:
+            raise _RunDeadlineBeforeHTTP("Local generation run expired before the HTTP request")
+        return call_id, time.monotonic() + remaining
 
-    def _post_reserved_call(self, path: str, payload: dict[str, Any], call_id: int | None) -> dict[str, Any]:
+    def _post_reserved_call(self, path: str, payload: dict[str, Any], reservation: tuple[int, float] | None) -> dict[str, Any]:
         budget = self.generation_run_budget
         if budget is None:
             return self._post(path, payload)
+        call_id, deadline = reservation
+        previous = getattr(_GENERATION_STATE, "request_deadline", None)
+        _GENERATION_STATE.request_deadline = deadline
         try:
-            response = self._post(path, payload)
-        except BaseException as exc:
-            budget.finish(call_id, error=exc)
-            raise
+            try:
+                response = self._post(path, payload)
+            except BaseException as exc:
+                budget.finish(call_id, error=exc)
+                raise
+        finally:
+            _GENERATION_STATE.request_deadline = previous
         budget.finish(call_id, response=response)
         return response
 
@@ -305,13 +330,16 @@ class OllamaRuntime:
             authorization_error = None
             with self.generation_scheduler.acquire("local", priority=priority):
                 try:
-                    call_id = self._reserve_budget_call("/api/chat", payload)
+                    reservation = self._reserve_budget_call("/api/chat", payload)
                 except BaseException as exc:
                     # No HTTP call was admitted. Release the normal admission
                     # without incorrectly retaining an unknown provider slot.
                     authorization_error = exc
                 else:
-                    response = self._post_reserved_call("/api/chat", payload, call_id)
+                    try:
+                        response = self._post_reserved_call("/api/chat", payload, reservation)
+                    except _RunDeadlineBeforeHTTP as exc:
+                        authorization_error = exc
             if authorization_error is not None:
                 raise authorization_error
         else:

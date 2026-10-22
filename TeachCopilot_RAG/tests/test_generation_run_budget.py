@@ -94,10 +94,12 @@ def test_deadline_is_persistent_and_embedding_count_is_separate(tmp_path, monkey
 class _HTTP:
     def __init__(self, error=None):
         self.calls = []
+        self.timeouts = []
         self.error = error
 
     def post(self, url, *, json, **kwargs):
         self.calls.append((url, json))
+        self.timeouts.append(kwargs["timeout"])
         if self.error:
             raise self.error
         data = ({"embeddings": [[1.0, 0.0] for _ in json["input"]]} if url.endswith("/api/embed")
@@ -196,3 +198,83 @@ def test_settings_optional_environment_and_secret_repr(monkeypatch):
     assert settings.generation_scheduler_dsn == "postgresql://secret-value"
     assert settings.generation_run_budget_path == "synthetic/run.sqlite3"
     assert "secret-value" not in repr(settings)
+
+
+def test_http_timeout_uses_remaining_deadline_after_admission_and_failure_stays_unknown(tmp_path, monkeypatch):
+    clock = {"wall": 1000.0, "mono": 100.0}
+    monkeypatch.setattr("local_app.generation_run_budget.time.time", lambda: clock["wall"])
+    monkeypatch.setattr("local_app.generation_run_budget.time.monotonic", lambda: clock["mono"])
+    events = []
+
+    class Scheduler:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        @contextmanager
+        def acquire(self, *args, **kwargs):
+            clock["wall"] += 59
+            clock["mono"] += 59
+            try:
+                yield
+            except BaseException:
+                events.append("unknown_outcome")
+                raise
+            else:
+                events.append("released")
+
+    monkeypatch.setattr("local_app.generation_scheduler.GenerationScheduler", Scheduler)
+    path = tmp_path / "run.sqlite3"
+    journal = GenerationRunBudget(path)
+    journal.initialize(max_seconds=60)
+    http = _HTTP(error=TimeoutError("synthetic deadline-limited transport timeout"))
+    runtime = OllamaRuntime(_settings(str(path), "synthetic-dsn"), session=http)
+    with pytest.raises(TimeoutError):
+        runtime.chat([{"role": "user", "content": "synthetic"}])
+    assert len(http.calls) == 1 and 0 < http.timeouts[0] <= 1
+    assert events == ["unknown_outcome"]
+    assert journal.snapshot()["generation_calls"] == 1
+    assert _rows(path)[0]["outcome"] == "unknown_outcome"
+
+
+@pytest.mark.parametrize("expire_before_reservation", [True, False])
+def test_deadline_without_http_releases_admission_cleanly(tmp_path, monkeypatch, expire_before_reservation):
+    clock = {"wall": 1000.0, "mono": 100.0}
+    monkeypatch.setattr("local_app.generation_run_budget.time.time", lambda: clock["wall"])
+    monkeypatch.setattr("local_app.generation_run_budget.time.monotonic", lambda: clock["mono"])
+    events = []
+
+    def expire():
+        clock["wall"], clock["mono"] = 1061.0, 161.0
+
+    class Scheduler:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        @contextmanager
+        def acquire(self, *args, **kwargs):
+            if expire_before_reservation:
+                expire()
+            try:
+                yield
+            except BaseException:
+                events.append("unknown_outcome")
+                raise
+            else:
+                events.append("released")
+
+    class DelayedRuntime(OllamaRuntime):
+        def _post(self, *args, **kwargs):
+            expire()
+            return super()._post(*args, **kwargs)
+
+    monkeypatch.setattr("local_app.generation_scheduler.GenerationScheduler", Scheduler)
+    path = tmp_path / "run.sqlite3"
+    journal = GenerationRunBudget(path)
+    journal.initialize(max_seconds=60)
+    http = _HTTP()
+    runtime = DelayedRuntime(_settings(str(path), "synthetic-dsn"), session=http)
+    with pytest.raises(GenerationRunBudgetExceeded):
+        runtime.chat([{"role": "user", "content": "synthetic"}])
+    assert not http.calls and events == ["released"]
+    assert journal.snapshot()["deadline_reached"] is True
+    assert journal.snapshot()["generation_calls"] == (0 if expire_before_reservation else 1)

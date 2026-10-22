@@ -138,6 +138,7 @@ class GenerationRunBudget:
                 "max_seconds": row["max_seconds"], "generation_calls": generation_calls,
                 "embedding_calls": embeddings["calls"], "embedding_items": embeddings["items"],
                 "remaining_generations": max(0, row["max_generations"] - generation_calls),
+                "remaining_seconds": max(0.0, row["deadline_at"] - now),
                 "deadline_reached": now >= row["deadline_at"], "unknown_outcomes": unresolved}
 
     def _reserve(self, kind: str, payload: dict, *, item_count: int = 1) -> int:
