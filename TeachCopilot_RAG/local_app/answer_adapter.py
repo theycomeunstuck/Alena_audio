@@ -22,6 +22,7 @@ from local_app.checked_division_context import (
     validate_checked_division_context,
 )
 from research_memory.spiderssense import SpiderssenseClient
+from local_app.budget_authorization import validate_budget_authorization
 
 
 _EXTERNAL_SLOTS = threading.BoundedSemaphore(4)
@@ -258,9 +259,15 @@ class AnswerAdapter:
         if config_path is None:
             return cls(local_runtime)
         config = json.loads(Path(config_path).read_text(encoding="utf-8"))
-        if not isinstance(config, dict) or set(config) != {"kind", "enabled", "spiderssense"}:
+        if not isinstance(config, dict):
             raise ValueError("Invalid external answer configuration")
-        if config["kind"] != "local_app_external_answers_v1" or type(config["enabled"]) is not bool:
+        kind = config.get("kind")
+        fields = {"kind", "enabled", "spiderssense"}
+        if kind == "local_app_external_answers_v2":
+            fields.add("budget_authorization_path")
+        if set(config) != fields:
+            raise ValueError("Invalid external answer configuration")
+        if kind not in {"local_app_external_answers_v1", "local_app_external_answers_v2"} or type(config["enabled"]) is not bool:
             raise ValueError("Explicit external answer configuration version/flag required")
         if not config["enabled"]:
             return cls(local_runtime)
@@ -274,14 +281,24 @@ class AnswerAdapter:
             cost = Decimal(str(client_config["max_cost_usd"]))
         except InvalidOperation:
             raise ValueError("Integration budget must be a finite decimal amount") from None
-        if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 20:
-            raise ValueError("Integration call limit must be between 1 and 20")
-        if not cost.is_finite() or not Decimal("0") < cost <= Decimal("0.40"):
-            raise ValueError("Integration budget must be positive and at most USD 0.40")
+        cap, call_cap = (Decimal("4"), 6) if kind == "local_app_external_answers_v2" else (Decimal("0.40"), 20)
+        if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= call_cap:
+            raise ValueError(f"Integration call limit must be between 1 and {call_cap}")
+        if not cost.is_finite() or not Decimal("0") < cost <= cap:
+            raise ValueError(f"Integration budget must be positive and at most USD {cap}")
         if int(client_config.get("max_output_tokens", 1536)) > 1536:
             raise ValueError("Integration answer output limit must not exceed 1536 tokens")
         client_config = {"max_output_tokens": 1536, **client_config}
-        return cls(local_runtime, SpiderssenseClient(**client_config))
+        authorization = None
+        if kind == "local_app_external_answers_v2":
+            authorization = validate_budget_authorization(client_config, config["budget_authorization_path"], phase="integration")
+        client = SpiderssenseClient(**client_config)
+        if authorization is not None:
+            state = client.preflight()
+            if (state["configuration_hash"] != authorization["allocations"]["integration"].get("configuration_hash")
+                    or state["blocked"]):
+                raise ValueError("Integration ledger differs from its active authorization")
+        return cls(local_runtime, client)
 
     @classmethod
     def from_env(cls, local_runtime: Any) -> "AnswerAdapter":
