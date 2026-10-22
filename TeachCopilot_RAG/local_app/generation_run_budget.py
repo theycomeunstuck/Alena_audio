@@ -48,11 +48,12 @@ class GenerationRunBudget:
         self._clock_anchor_mono = time.monotonic()
 
     @contextmanager
-    def _connect(self, *, create: bool = False) -> Iterator[sqlite3.Connection]:
+    def _connect(self, *, create: bool = False, readonly: bool = False) -> Iterator[sqlite3.Connection]:
         if not create and not self.path.is_file():
             raise GenerationRunBudgetError("Local generation run journal must be explicitly initialized")
         try:
-            conn = sqlite3.connect(self.path, timeout=30, isolation_level=None)
+            conn = sqlite3.connect(self.path.as_uri() + "?mode=ro" if readonly else self.path,
+                                   uri=readonly, timeout=30, isolation_level=None)
             conn.row_factory = sqlite3.Row
             conn.execute("PRAGMA busy_timeout=30000")
         except sqlite3.Error as exc:
@@ -133,7 +134,7 @@ class GenerationRunBudget:
         if (len(extensions) != 1 or extension["previous_deadline_at"] != row["deadline_at"]
                 or extension["extension_seconds"] != self.EXTENSION_SECONDS
                 or extension["deadline_at"] != extension["applied_at"] + self.EXTENSION_SECONDS
-                or row["max_generations"] != self.MAX_GENERATIONS):
+                or row["max_generations"] != self.MAX_GENERATIONS or row["max_seconds"] != self.MAX_SECONDS):
             raise GenerationRunBudgetError("Local run extension does not match its immutable original limits")
         return extension["deadline_at"], extensions
 
@@ -180,7 +181,7 @@ class GenerationRunBudget:
     def preview_authorized_extension(self, authorization_path: str | Path) -> dict:
         """Validate a receipt without modifying the journal or starting its window."""
         authorization, _, digest = self._extension_authorization(authorization_path)
-        with self._connect() as conn:
+        with self._connect(readonly=True) as conn:
             conn.execute("BEGIN")
             row = self._run(conn)
             now = max(time.time(), row["last_observed_at"])
