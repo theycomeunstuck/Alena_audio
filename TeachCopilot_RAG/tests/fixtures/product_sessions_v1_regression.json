@@ -1,0 +1,42 @@
+{
+  "schema_version": "product_sessions_v1_regression",
+  "independent_experiment": false,
+  "max_engineering_iterations": 1,
+  "sessions": [
+    {
+      "learner_code": "L01", "code": "L01R1",
+      "topic_id": "math.g4.numbers.division_by_1_2_digit", "topic_title": "Деление в столбик", "subject_id": "math",
+      "events": [
+        {"kind": "message", "text": "Вернёмся к моему сохранённому примеру 3636 на 12 и точному шагу. С прошлого занятия я дальше не решал."},
+        {"kind": "message", "text": "хз"},
+        {"kind": "message", "text": "ага"},
+        {"kind": "message", "text": "Станция в Minecraft – мой интерес, но сейчас вернёмся к заданию. Футбольного сюжета не надо. Условия помощи пока неизвестны."},
+        {"kind": "action", "operation": "division_guided_resume"},
+        {"kind": "action", "operation": "division_guided_answer", "value": 3},
+        {"kind": "action", "operation": "division_guided_hint"},
+        {"kind": "action", "operation": "division_guided_pause"}
+      ],
+      "facts": ["Это продолжение того же пилота после единственной инженерной итерации.", "Состояние берётся из подтверждённого занятия L01S2.", "Свободный разговор не продвигает шаг."],
+      "allowed_results": ["Возврат к тому же примеру и сохранение точного состояния."],
+      "forbidden_claims": ["Повтор является независимым опытом.", "Компетенция подтверждена."],
+      "review_preferences": {"add": [], "avoid": []},
+      "expected_final_interests": ["Minecraft"], "expected_final_avoided": ["футбол"],
+      "expected_guided": {"dividend": 3636, "divisor": 12, "step_index": 2, "phase": "remainder", "status": "paused"}
+    },
+    {
+      "learner_code": "L02", "code": "L02R1",
+      "topic_id": "math.g4.fractions.numerator_denominator", "topic_title": "Числитель и знаменатель дроби", "subject_id": "math",
+      "events": [
+        {"kind": "message", "text": "Вернёмся к моему кругу с одной закрашенной частью из четырёх. Старую заметку про три самостоятельных решения преподаватель исправил."},
+        {"kind": "message", "text": "4?"},
+        {"kind": "message", "text": "ага"},
+        {"kind": "message", "text": "Я люблю рисовать комиксы. Minecraft и станция – история другого ученика. Исправление записи не означает новый успех, условия помощи неизвестны."}
+      ],
+      "facts": ["Отозванная самостоятельность не возвращается после смены темы.", "Пример 1/4 относится к L02.", "Интерес L01 не переносится к L02."],
+      "allowed_results": ["Уточнение про знаменатель и целое без приписывания освоения."],
+      "forbidden_claims": ["Исправление является новым прогрессом.", "L02 строит станции в Minecraft."],
+      "review_preferences": {"add": [], "avoid": []},
+      "expected_final_interests": ["рисование"], "expected_final_avoided": ["футбол"]
+    }
+  ]
+}

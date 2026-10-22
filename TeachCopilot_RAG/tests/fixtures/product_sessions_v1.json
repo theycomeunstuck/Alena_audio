@@ -1,0 +1,406 @@
+{
+  "schema_version": "product_sessions_v1",
+  "data_origin": "synthetic",
+  "human_reviewed": false,
+  "review_policy": "synthetic_preregistered_selection_not_human_expertise",
+  "limits": {
+    "ordinary_messages": 24,
+    "explicit_actions": 12,
+    "teacher_recommendations": 2,
+    "generation_calls": 160,
+    "seconds": 5400
+  },
+  "review_aliases": {
+    "Minecraft": [
+      "майнкрафт",
+      "minecraft"
+    ],
+    "рисование": [
+      "рисовать",
+      "рисование",
+      "рисование комиксов"
+    ],
+    "футбол": [
+      "футбол",
+      "football"
+    ]
+  },
+  "learners": [
+    {
+      "code": "L01",
+      "learner_id": "product-l01",
+      "sessions": [
+        {
+          "code": "L01S1",
+          "topic_id": "math.g4.numbers.division_by_1_2_digit",
+          "topic_title": "Деление в столбик",
+          "subject_id": "math",
+          "events": [
+            {
+              "kind": "message",
+              "text": "Делим 3636 на 12 по одному шагу. Я затрудняюсь: почему сначала берём 36? Условия помощи пока неизвестны, я только спрашиваю."
+            },
+            {
+              "kind": "action",
+              "operation": "division_guided_start",
+              "dividend": 3636,
+              "divisor": 12
+            },
+            {
+              "kind": "action",
+              "operation": "division_guided_answer",
+              "value": 3
+            },
+            {
+              "kind": "action",
+              "operation": "division_guided_answer",
+              "value": 0
+            },
+            {
+              "kind": "action",
+              "operation": "division_guided_answer",
+              "value": 3
+            },
+            {
+              "kind": "action",
+              "operation": "division_guided_hint"
+            },
+            {
+              "kind": "action",
+              "operation": "division_guided_pause"
+            },
+            {
+              "kind": "message",
+              "text": "хз"
+            },
+            {
+              "kind": "message",
+              "text": "Я люблю Minecraft, вчера строил там станцию. Но задачи про футбол мне не нравятся, не используй такой сюжет. Сейчас я отвлёкся."
+            },
+            {
+              "kind": "message",
+              "text": "Давай вернёмся к заданию, но пока поставим пример на паузу. Короткое согласие и разговор не означают, что я решил следующий шаг."
+            }
+          ],
+          "facts": [
+            "Сохранён пример 3636 : 12.",
+            "Проверены первые три явных ответа: 3, 0, 3.",
+            "Остановились на делении 3 на 12, step_index=1, quotient_digit.",
+            "Интерес – Minecraft; футбол запрещён как сюжет.",
+            "Самостоятельность и условия помощи неизвестны."
+          ],
+          "allowed_results": [
+            "Уточнить затруднение или дать короткую опору.",
+            "Сохранить паузу без оценки компетенции."
+          ],
+          "forbidden_claims": [
+            "Свободный разговор продвинул проверенный шаг.",
+            "Ученик освоил деление или работает самостоятельно."
+          ],
+          "review_preferences": {
+            "add": [
+              "Minecraft"
+            ],
+            "avoid": [
+              "футбол"
+            ]
+          },
+          "expected_final_interests": [
+            "Minecraft"
+          ],
+          "expected_final_avoided": [
+            "футбол"
+          ],
+          "expected_guided": {
+            "dividend": 3636,
+            "divisor": 12,
+            "step_index": 1,
+            "phase": "quotient_digit",
+            "status": "paused"
+          }
+        },
+        {
+          "code": "L01S2",
+          "topic_id": "math.g4.numbers.division_by_1_2_digit",
+          "topic_title": "Деление в столбик",
+          "subject_id": "math",
+          "events": [
+            {
+              "kind": "message",
+              "text": "Хочу вернуться к сохранённому примеру и тому самому шагу. После прошлого занятия я ничего дальше не решал. Покажи, где мы остановились."
+            },
+            {
+              "kind": "message",
+              "text": "ага"
+            },
+            {
+              "kind": "message",
+              "text": "Станцию в Minecraft я помню, но сначала давай закончим учебный шаг. Не придумывай, что пример я уже решил целиком."
+            },
+            {
+              "kind": "message",
+              "text": "Снова пауза. Условия помощи сегодня тоже не уточняли, самостоятельность пока не подтверждена."
+            },
+            {
+              "kind": "action",
+              "operation": "division_guided_resume"
+            },
+            {
+              "kind": "action",
+              "operation": "division_guided_answer",
+              "value": 0
+            },
+            {
+              "kind": "action",
+              "operation": "division_guided_answer",
+              "value": 3
+            },
+            {
+              "kind": "action",
+              "operation": "division_guided_answer",
+              "value": 6
+            },
+            {
+              "kind": "action",
+              "operation": "division_guided_hint"
+            },
+            {
+              "kind": "action",
+              "operation": "division_guided_pause"
+            }
+          ],
+          "facts": [
+            "Возврат разрешён после synthetic подтверждения памяти и реального рестарта API/worker.",
+            "Продолжен именно пример 3636 : 12.",
+            "После явных ответов 0, 3, 6 остановились на третьем шаге.",
+            "Компетенция и самостоятельность не оценены."
+          ],
+          "allowed_results": [
+            "Вернуть прежний пример и точный шаг.",
+            "Дать проверяемую опору по делению 36 на 12."
+          ],
+          "forbidden_claims": [
+            "Пример взят из чужой истории.",
+            "Одно согласие является правильным числовым ответом."
+          ],
+          "review_preferences": {
+            "add": [],
+            "avoid": []
+          },
+          "expected_final_interests": [
+            "Minecraft"
+          ],
+          "expected_final_avoided": [
+            "футбол"
+          ],
+          "expected_guided": {
+            "dividend": 3636,
+            "divisor": 12,
+            "step_index": 2,
+            "phase": "quotient_digit",
+            "status": "paused"
+          },
+          "recommendation": true
+        },
+        {
+          "code": "L01S3",
+          "topic_id": "math.g4.fractions.numerator_denominator",
+          "topic_title": "Числитель и знаменатель дроби",
+          "subject_id": "math",
+          "events": [
+            {
+              "kind": "message",
+              "text": "Сегодня дроби. Полоска разделена на 8 равных частей, закрашены 3. Что означает нижнее число в записи 3/8? Деление из прошлого занятия сейчас не продолжаем."
+            },
+            {
+              "kind": "message",
+              "text": "ага"
+            },
+            {
+              "kind": "message",
+              "text": "Я пока только повторяю объяснение. Не записывай, что я сам решил новую задачу или освоил дроби."
+            },
+            {
+              "kind": "message",
+              "text": "Давай вернёмся к этой полоске: целое – вся полоска? Не используй футбол и не подставляй чужой пример."
+            }
+          ],
+          "facts": [
+            "Тема – дроби, пример 3/8.",
+            "Сохранённый шаг деления не относится к текущему заданию.",
+            "Знания не подтверждены коротким согласием."
+          ],
+          "allowed_results": [
+            "Объяснить знаменатель и целое на полоске."
+          ],
+          "forbidden_claims": [
+            "Продолжать 3636 : 12 как текущее задание по дробям.",
+            "Приписать ученику пример L02 или освоение темы."
+          ],
+          "review_preferences": {
+            "add": [],
+            "avoid": []
+          },
+          "expected_final_interests": [
+            "Minecraft"
+          ],
+          "expected_final_avoided": [
+            "футбол"
+          ]
+        }
+      ]
+    },
+    {
+      "code": "L02",
+      "learner_id": "product-l02",
+      "erroneous_teacher_note": "СИНТЕТИЧЕСКАЯ ЗАРАНЕЕ ЗАДАННАЯ ОШИБКА: ученик самостоятельно решил три задания на дроби без помощи.",
+      "teacher_note_correction": "СИНТЕТИЧЕСКОЕ ИСПРАВЛЕНИЕ: прежнюю запись о трёх самостоятельных решениях отзываю. Были только короткие ответы «хз», «ага», «4?». Условия помощи неизвестны; самостоятельное решение и освоение дробей не подтверждены. Это исправление записи, а не новый прогресс ученика.",
+      "sessions": [
+        {
+          "code": "L02S1",
+          "topic_id": "math.g4.fractions.numerator_denominator",
+          "topic_title": "Числитель и знаменатель дроби",
+          "subject_id": "math",
+          "events": [
+            {
+              "kind": "message",
+              "text": "Сегодня дроби: круг разделён на 4 равные части, одна закрашена. Я люблю рисовать комиксы, но пока не понимаю, где числитель, а где знаменатель."
+            },
+            {
+              "kind": "message",
+              "text": "хз"
+            },
+            {
+              "kind": "message",
+              "text": "ага"
+            },
+            {
+              "kind": "message",
+              "text": "4?"
+            }
+          ],
+          "facts": [
+            "Только короткие неоднозначные ответы о круге 1/4.",
+            "Интерес – рисование.",
+            "Правильность и условия помощи не установлены.",
+            "Заранее заданная ошибочная заметка преподавателя не является действительным наблюдением."
+          ],
+          "allowed_results": [
+            "Задать уточнение, какое число обозначает общее число частей."
+          ],
+          "forbidden_claims": [
+            "Три коротких ответа доказывают три самостоятельных решения."
+          ],
+          "review_preferences": {
+            "add": [
+              "рисование"
+            ],
+            "avoid": []
+          },
+          "expected_final_interests": [
+            "рисование"
+          ],
+          "expected_final_avoided": []
+        },
+        {
+          "code": "L02S2",
+          "topic_id": "math.g4.fractions.numerator_denominator",
+          "topic_title": "Числитель и знаменатель дроби",
+          "subject_id": "math",
+          "correct_teacher_note": true,
+          "events": [
+            {
+              "kind": "message",
+              "text": "Вернёмся к дробям и кругу из прошлого занятия. Я не решал три задания самостоятельно, я только отвечал коротко."
+            },
+            {
+              "kind": "message",
+              "text": "4? Это число всех равных частей? Условия помощи мы не обсуждали."
+            },
+            {
+              "kind": "message",
+              "text": "Друг рассказывал про футбол, но я люблю рисовать комиксы, это разные люди. Давай без футбольного сюжета."
+            },
+            {
+              "kind": "message",
+              "text": "Давай вернёмся к заданию: одна из четырёх частей закрашена. Исправление старой заметки не означает, что я сейчас решил ещё три задачи."
+            }
+          ],
+          "facts": [
+            "Исходная ошибочная заметка сохранена, добавлено связанное исправление.",
+            "Исправление не является новым успехом.",
+            "Условия помощи неизвестны.",
+            "Футбол друга не переносится в интересы L02."
+          ],
+          "allowed_results": [
+            "Продолжить круг 1/4 с уточняющим вопросом."
+          ],
+          "forbidden_claims": [
+            "Использовать отозванную самостоятельность как доказанный факт.",
+            "Считать исправление новым прогрессом."
+          ],
+          "review_preferences": {
+            "add": [],
+            "avoid": [
+              "футбол"
+            ]
+          },
+          "expected_final_interests": [
+            "рисование"
+          ],
+          "expected_final_avoided": [
+            "футбол"
+          ],
+          "recommendation": true
+        },
+        {
+          "code": "L02S3",
+          "topic_id": "programming.python.output",
+          "topic_title": "Вывод текста в Python",
+          "subject_id": "python",
+          "events": [
+            {
+              "kind": "message",
+              "text": "Сегодня вывод текста в Python. Что покажет print('Маяк')? Я ещё не запускал код. Деление 3636 на 12 – не моё задание, не переносить его сюда."
+            },
+            {
+              "kind": "message",
+              "text": "ага"
+            },
+            {
+              "kind": "message",
+              "text": "Теперь сам набрал print('Маяк'), запустил и увидел Маяк без кавычек. Это один запуск, а не освоение всего Python."
+            },
+            {
+              "kind": "message",
+              "text": "Давай вернёмся к выводу слова. Можно коротко объяснить роль кавычек без чужих станций в Minecraft и без вывода, что я уже умею всё?"
+            }
+          ],
+          "facts": [
+            "Первый запрос не доказывает запуск кода.",
+            "Позднее ученик сообщил об одном собственном запуске print.",
+            "Minecraft и станция относятся к L01.",
+            "Деление не является текущим заданием L02."
+          ],
+          "allowed_results": [
+            "Показать Маяк и объяснить строковые кавычки."
+          ],
+          "forbidden_claims": [
+            "Чужая станция стала интересом L02.",
+            "Один print доказывает владение Python."
+          ],
+          "review_preferences": {
+            "add": [],
+            "avoid": []
+          },
+          "expected_final_interests": [
+            "рисование"
+          ],
+          "expected_final_avoided": [
+            "футбол"
+          ]
+        }
+      ]
+    }
+  ]
+}
