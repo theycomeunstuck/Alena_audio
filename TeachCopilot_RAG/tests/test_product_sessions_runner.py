@@ -8,7 +8,7 @@ import sys
 
 import pytest
 
-from scripts.run_product_sessions_v1 import (FIXTURE, load_fixture, load_regression_fixture,
+from scripts.run_product_sessions_v1 import (FIXTURE, Pilot, load_fixture, load_regression_fixture,
                                            make_card, require_owned_database, run)
 from local_app.guided_division import start_state, transition
 
@@ -49,6 +49,45 @@ def test_regression_is_one_dependent_bounded_iteration():
     assert fixture["independent_experiment"] is False
     assert fixture["max_engineering_iterations"] == 1
     assert [s["learner_code"] for s in fixture["sessions"]] == ["L01", "L02"]
+
+
+def test_synthetic_review_selects_actual_drawing_candidate_without_selecting_foreign_interest(tmp_path):
+    """Exercise the approval boundary that previously dropped this real phrase."""
+    from types import SimpleNamespace
+    fixture, _ = load_fixture()
+    learner = fixture["learners"][1]
+    session = learner["sessions"][0]
+    version = {"version_id": "drawing-version", "job_id": "drawing-job", "context": {"interest_candidates": [
+        {"candidate_id": "drawing-candidate", "operation": "add", "interest": "рисовать комиксы"},
+        {"candidate_id": "unselected-foreign-interest", "operation": "add", "interest": "Minecraft"}]}}
+    store = SimpleNamespace(get_revision=lambda learner_id: 7)
+    pilot = Pilot(store, fixture, None, tmp_path, None, {"checks": []})
+    pilot.teacher_headers = {"Authorization": "synthetic test token"}
+    pilot.wait_job = lambda job_id: {"status": "completed"}
+    pilot.memory = lambda learner_id, topic_id: {"revision": 7, "versions": [version]}
+    requests = []
+
+    def confirm(method, path, **kwargs):
+        requests.append({"method": method, "path": path, "payload": kwargs["payload"]})
+        return {"confirmed": True, "version": version}
+
+    pilot.request = confirm
+    assert pilot.approve(learner, session, "drawing-job") == version
+    assert len(requests) == 2  # Confirmation and the existing idempotency check.
+    assert all(r["payload"]["interest_candidate_ids"] == ["drawing-candidate"] for r in requests)
+    candidate_check = next(c for c in pilot.report["checks"] if c["name"] == "L02S1-interest-candidates")
+    assert candidate_check["passed"] is True and candidate_check["missing"] == []
+    assert candidate_check["human_reviewed"] is False
+
+
+def test_dependent_regression_explicitly_covers_the_two_deferred_l02_facts():
+    fixture, _ = load_regression_fixture()
+    session = next(s for s in fixture["sessions"] if s["learner_code"] == "L02")
+    final = session["events"][-1]["text"]
+    assert "Я люблю рисовать комиксы." in final
+    assert "Футбольный сюжет мне не нравится, не используй его." in final
+    assert "вернёмся к кругу" in final
+    assert session["review_preferences"] == {"add": ["рисование"], "avoid": ["футбол"]}
 
 
 @pytest.mark.parametrize("name", ["teachcopilot_local", "teachcopilot_product_sessions_123", "teachcopilot_product_sessions_" + "a" * 13,
