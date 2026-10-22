@@ -1,0 +1,198 @@
+"""Free synthetic checks of durable local-run accounting and runtime opt-in."""
+from __future__ import annotations
+
+from contextlib import contextmanager
+import hashlib
+import json
+import multiprocessing
+import sqlite3
+from types import SimpleNamespace
+
+import pytest
+
+from local_app.config import Settings
+from local_app.generation_run_budget import (
+    GenerationRunBudget, GenerationRunBudgetError, GenerationRunBudgetExceeded,
+)
+from local_app.runtime import OllamaRuntime
+
+
+def _reserve_many(path, count, events):
+    journal = GenerationRunBudget(path)
+    accepted = 0
+    for _ in range(count):
+        try:
+            journal.reserve_generation({"model": "synthetic", "messages": []})
+            accepted += 1
+        except GenerationRunBudgetExceeded:
+            pass
+    events.put(accepted)
+
+
+def _rows(path):
+    with sqlite3.connect(path) as conn:
+        conn.row_factory = sqlite3.Row
+        return [dict(row) for row in conn.execute("SELECT * FROM calls ORDER BY id")]
+
+
+def test_concurrent_processes_share_limit_and_unknown_reservations(tmp_path):
+    path = tmp_path / "run.sqlite3"
+    journal = GenerationRunBudget(path)
+    original = journal.initialize(max_calls=9)
+    context = multiprocessing.get_context("spawn")
+    events = context.Queue()
+    processes = [context.Process(target=_reserve_many, args=(path, 8, events)) for _ in range(2)]
+    try:
+        for process in processes:
+            process.start()
+        for process in processes:
+            process.join(15)
+        assert all(process.exitcode == 0 for process in processes)
+        assert sum(events.get(timeout=2) for _ in processes) == 9
+    finally:
+        for process in processes:
+            if process.is_alive():
+                process.terminate()
+            process.join(5)
+    reopened = GenerationRunBudget(path)
+    after = reopened.initialize(max_calls=9)
+    assert after["generation_calls"] == 9
+    assert after["unknown_outcomes"] == 9
+    assert after["deadline_at"] == original["deadline_at"]
+    with pytest.raises(GenerationRunBudgetExceeded):
+        reopened.reserve_generation({})
+    with pytest.raises(GenerationRunBudgetError, match="cannot be changed"):
+        reopened.initialize(max_calls=10)
+
+
+def test_deadline_is_persistent_and_embedding_count_is_separate(tmp_path, monkeypatch):
+    monkeypatch.setattr("local_app.generation_run_budget.time.time", lambda: 1000.0)
+    monkeypatch.setattr("local_app.generation_run_budget.time.monotonic", lambda: 100.0)
+    path = tmp_path / "run.sqlite3"
+    journal = GenerationRunBudget(path)
+    journal.initialize(max_calls=1, max_seconds=60)
+    call_id = journal.reserve_generation({"messages": [{"role": "user", "content": "synthetic"}]})
+    embedding_id = journal.record_embedding({"input": ["a", "b"]}, item_count=2)
+    journal.finish_embedding(embedding_id, response={"embeddings": [[1], [2]]})
+    journal.finish_generation(call_id, error=TimeoutError("synthetic unknown transport outcome"))
+    state = journal.snapshot()
+    assert (state["generation_calls"], state["embedding_calls"], state["embedding_items"]) == (1, 1, 2)
+    assert state["unknown_outcomes"] == 1
+    with pytest.raises(GenerationRunBudgetError, match="already finalized"):
+        journal.finish_generation(call_id, response={})
+    monkeypatch.setattr("local_app.generation_run_budget.time.time", lambda: 1061.0)
+    with pytest.raises(GenerationRunBudgetExceeded, match="deadline"):
+        journal.record_embedding({"input": ["c"]}, item_count=1)
+    # A restart and a backward wall clock cannot replace the original deadline.
+    monkeypatch.setattr("local_app.generation_run_budget.time.time", lambda: 900.0)
+    restarted = GenerationRunBudget(path)
+    assert restarted.initialize(max_calls=1, max_seconds=60)["deadline_reached"] is True
+    with pytest.raises(GenerationRunBudgetExceeded, match="deadline"):
+        restarted.reserve_generation({})
+
+
+class _HTTP:
+    def __init__(self, error=None):
+        self.calls = []
+        self.error = error
+
+    def post(self, url, *, json, **kwargs):
+        self.calls.append((url, json))
+        if self.error:
+            raise self.error
+        data = ({"embeddings": [[1.0, 0.0] for _ in json["input"]]} if url.endswith("/api/embed")
+                else {"message": {"content": "Synthetic answer"}, "done_reason": "stop"})
+        return SimpleNamespace(status_code=200, json=lambda: data, raise_for_status=lambda: None)
+
+
+def _settings(path=None, dsn=None, scheduler_dsn=None):
+    return SimpleNamespace(database_url=dsn, generation_scheduler_dsn=scheduler_dsn,
+        generation_run_budget_path=path, ollama_url="http://127.0.0.1:11435",
+        chat_model="synthetic", embedding_model="synthetic-embedding",
+        request_timeout=5, context_tokens=8192)
+
+
+def test_runtime_records_exact_payload_response_and_never_retries(tmp_path):
+    path = tmp_path / "run.sqlite3"
+    journal = GenerationRunBudget(path)
+    journal.initialize(max_calls=2)
+    http = _HTTP()
+    runtime = OllamaRuntime(_settings(str(path)), session=http)
+    runtime.chat([{"role": "user", "content": "synthetic learner"}])
+    runtime.embed(["a", "b"])
+    failing_http = _HTTP(error=TimeoutError("synthetic timeout"))
+    restarted = OllamaRuntime(_settings(str(path)), session=failing_http)
+    with pytest.raises(TimeoutError):
+        restarted.chat([{"role": "user", "content": "synthetic continuation"}])
+    with pytest.raises(GenerationRunBudgetExceeded):
+        restarted.chat([{"role": "user", "content": "must not reach HTTP"}])
+    assert len(http.calls) == 2 and len(failing_http.calls) == 1
+    rows = _rows(path)
+    assert [row["outcome"] for row in rows] == ["returned", "returned", "unknown_outcome"]
+    for row, (_, payload) in zip(rows, http.calls + failing_http.calls):
+        assert json.loads(row["request_json"]) == payload
+        assert row["request_sha256"] == hashlib.sha256(row["request_json"].encode("utf-8")).hexdigest()
+    assert json.loads(rows[2]["error_json"])["type"] == "TimeoutError"
+    assert journal.snapshot()["generation_calls"] == 2
+    assert journal.snapshot()["embedding_calls"] == 1
+
+
+def test_runtime_fail_closed_before_initialization_and_before_http(tmp_path):
+    http = _HTTP()
+    path = tmp_path / "absent.sqlite3"
+    with pytest.raises(GenerationRunBudgetError, match="explicitly initialized"):
+        OllamaRuntime(_settings(str(path)), session=http)
+    assert not path.exists() and not http.calls
+    journal = GenerationRunBudget(path)
+    journal.initialize()
+    runtime = OllamaRuntime(_settings(str(path)), session=http)
+    with pytest.raises(ValueError, match="At least one"):
+        runtime.chat([])
+    assert journal.snapshot()["generation_calls"] == 0 and not http.calls
+
+
+def test_scheduler_override_is_explicit_and_exhaustion_releases_cleanly(tmp_path, monkeypatch):
+    events = []
+
+    class Scheduler:
+        def __init__(self, dsn, **kwargs):
+            self.dsn = dsn
+
+        @contextmanager
+        def acquire(self, *args, **kwargs):
+            events.append("entered")
+            try:
+                yield
+            except BaseException:
+                events.append("unknown_outcome")
+                raise
+            else:
+                events.append("released")
+
+    monkeypatch.setattr("local_app.generation_scheduler.GenerationScheduler", Scheduler)
+    default = OllamaRuntime(_settings(dsn="isolated-synthetic-dsn"), session=_HTTP())
+    assert default.generation_scheduler.dsn == "isolated-synthetic-dsn"
+    path = tmp_path / "run.sqlite3"
+    journal = GenerationRunBudget(path)
+    journal.initialize(max_calls=1)
+    runtime = OllamaRuntime(_settings(str(path), "isolated-synthetic-dsn", "shared-synthetic-dsn"), session=_HTTP())
+    assert runtime.generation_scheduler.dsn == "shared-synthetic-dsn"
+    runtime.chat([{"role": "user", "content": "synthetic"}])
+    with pytest.raises(GenerationRunBudgetExceeded):
+        runtime.chat([{"role": "user", "content": "synthetic"}])
+    assert events == ["entered", "released", "entered", "released"]
+    assert "shared-synthetic-dsn" not in json.dumps(runtime.manifest())
+
+
+def test_settings_optional_environment_and_secret_repr(monkeypatch):
+    monkeypatch.setattr("dotenv.load_dotenv", lambda *args, **kwargs: None)
+    monkeypatch.delenv("LOCAL_GENERATION_SCHEDULER_DSN", raising=False)
+    monkeypatch.delenv("LOCAL_GENERATION_RUN_BUDGET_PATH", raising=False)
+    assert Settings.from_env().generation_scheduler_dsn is None
+    assert Settings.from_env().generation_run_budget_path is None
+    monkeypatch.setenv("LOCAL_GENERATION_SCHEDULER_DSN", "postgresql://secret-value")
+    monkeypatch.setenv("LOCAL_GENERATION_RUN_BUDGET_PATH", "synthetic/run.sqlite3")
+    settings = Settings.from_env()
+    assert settings.generation_scheduler_dsn == "postgresql://secret-value"
+    assert settings.generation_run_budget_path == "synthetic/run.sqlite3"
+    assert "secret-value" not in repr(settings)

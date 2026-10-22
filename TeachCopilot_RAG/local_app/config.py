@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -32,6 +32,8 @@ class Settings:
     checked_division_context_enabled: bool = False
     demo_login_enabled: bool = False
     demo_credentials_file: str = str(Path(__file__).resolve().parents[1] / ".local" / "rich-demo-credentials.json")
+    generation_scheduler_dsn: str | None = field(default=None, repr=False)
+    generation_run_budget_path: str | None = None
 
     def __post_init__(self):
         require_local_url(self.ollama_url)
@@ -58,4 +60,6 @@ class Settings:
             checked_division_context_enabled=os.getenv('LOCAL_CHECKED_DIVISION_CONTEXT', '0') == '1',
             demo_login_enabled=os.getenv('LOCAL_DEMO_LOGIN', '0') == '1',
             demo_credentials_file=os.getenv('LOCAL_DEMO_CREDENTIALS_FILE', cls.demo_credentials_file),
+            generation_scheduler_dsn=os.getenv('LOCAL_GENERATION_SCHEDULER_DSN') or None,
+            generation_run_budget_path=os.getenv('LOCAL_GENERATION_RUN_BUDGET_PATH') or None,
         )

@@ -98,10 +98,16 @@ class OllamaRuntime:
         configured_output = int(getattr(settings, "max_output_tokens", 1024))
         self.max_output_tokens = max(128, min(configured_output, self.context_tokens // 3))
         self.generation_scheduler = None
-        if getattr(settings, "database_url", None):
+        scheduler_dsn = getattr(settings, "generation_scheduler_dsn", None) or getattr(settings, "database_url", None)
+        if scheduler_dsn:
             from local_app.generation_scheduler import GenerationScheduler
-            self.generation_scheduler = GenerationScheduler(settings.database_url,
+            self.generation_scheduler = GenerationScheduler(scheduler_dsn,
                 wait_timeout=self.timeout, request_timeout=self.timeout)
+        self.generation_run_budget = None
+        if getattr(settings, "generation_run_budget_path", None):
+            from local_app.generation_run_budget import GenerationRunBudget
+            self.generation_run_budget = GenerationRunBudget(settings.generation_run_budget_path)
+            self.generation_run_budget.snapshot()  # An opt-in runtime must never create or reset the run.
         self.embedding_prompt_recipe = (
             "qwen3-retrieval-instruction-v1"
             if str(settings.embedding_model).casefold().startswith("qwen3-embedding")
@@ -137,6 +143,30 @@ class OllamaRuntime:
         if not isinstance(data, dict):
             raise RuntimeError(f"Ollama {path} returned a non-object response")
         return data
+
+    def _run_budget_post(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
+        """Reserve once immediately before HTTP; failures keep their reservation."""
+        call_id = self._reserve_budget_call(path, payload)
+        return self._post_reserved_call(path, payload, call_id)
+
+    def _reserve_budget_call(self, path: str, payload: dict[str, Any]) -> int | None:
+        budget = self.generation_run_budget
+        if budget is None:
+            return None
+        return (budget.reserve_generation(payload) if path == "/api/chat" else
+                budget.record_embedding(payload, item_count=len(payload["input"])))
+
+    def _post_reserved_call(self, path: str, payload: dict[str, Any], call_id: int | None) -> dict[str, Any]:
+        budget = self.generation_run_budget
+        if budget is None:
+            return self._post(path, payload)
+        try:
+            response = self._post(path, payload)
+        except BaseException as exc:
+            budget.finish(call_id, error=exc)
+            raise
+        budget.finish(call_id, response=response)
+        return response
 
     def _available_models(self) -> dict[str, dict[str, str]]:
         response = self._get("/api/tags")
@@ -208,7 +238,7 @@ class OllamaRuntime:
         items = [texts] if isinstance(texts, str) else list(texts)
         if not items:
             return []
-        response = self._post(
+        response = self._run_budget_post(
             "/api/embed",
             {"model": self.settings.embedding_model, "input": items},
         )
@@ -272,12 +302,22 @@ class OllamaRuntime:
             payload["format"] = response_format
         if self.generation_scheduler is not None:
             priority = getattr(_GENERATION_STATE, "priority", "interactive")
+            authorization_error = None
             with self.generation_scheduler.acquire("local", priority=priority):
-                response = self._post("/api/chat", payload)
+                try:
+                    call_id = self._reserve_budget_call("/api/chat", payload)
+                except BaseException as exc:
+                    # No HTTP call was admitted. Release the normal admission
+                    # without incorrectly retaining an unknown provider slot.
+                    authorization_error = exc
+                else:
+                    response = self._post_reserved_call("/api/chat", payload, call_id)
+            if authorization_error is not None:
+                raise authorization_error
         else:
             # Injected runtimes without a DB keep the lightweight offline gate.
             with _GENERATION_GATE.acquire():
-                response = self._post("/api/chat", payload)
+                response = self._run_budget_post("/api/chat", payload)
         raw_response = deepcopy(response)
         done_reason = str(response.get("done_reason") or "").casefold()
         if done_reason in {"length", "max_tokens", "max_output_tokens", "limit"}:
