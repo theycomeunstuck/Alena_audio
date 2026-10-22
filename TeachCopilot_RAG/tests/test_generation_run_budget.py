@@ -6,6 +6,7 @@ import hashlib
 import json
 import multiprocessing
 import sqlite3
+from datetime import datetime
 from types import SimpleNamespace
 
 import pytest
@@ -278,3 +279,106 @@ def test_deadline_without_http_releases_admission_cleanly(tmp_path, monkeypatch,
     assert not http.calls and events == ["released"]
     assert journal.snapshot()["deadline_reached"] is True
     assert journal.snapshot()["generation_calls"] == (0 if expire_before_reservation else 1)
+
+
+def _extension_receipt(tmp_path, journal, original, **overrides):
+    receipt = {"schema_version": "local_generation_time_extension_v1", "authorization_id": "synthetic-user-recovery",
+               "authorized_by": "user", "authorized_at": "1970-01-01T01:46:40+00:00",
+               "authorization_text": "Разрешить ещё 60 минут, общий предел 160 сохранить",
+               "scope": "operational_recovery_after_usage_interruption", "ledger_path": str(journal.path),
+               "original_started_at": original["started_at"], "original_deadline_at": original["deadline_at"],
+               "extension_seconds": 3600, "max_generations": 160, **overrides}
+    path = tmp_path / "authorization.json"
+    path.write_text(json.dumps(receipt, ensure_ascii=False, indent=2), encoding="utf-8")
+    return path
+
+
+def test_explicit_extension_preserves_all_calls_original_limits_and_unknown_once(tmp_path, monkeypatch):
+    clock = {"wall": 1000.0, "mono": 100.0}
+    monkeypatch.setattr("local_app.generation_run_budget.time.time", lambda: clock["wall"])
+    monkeypatch.setattr("local_app.generation_run_budget.time.monotonic", lambda: clock["mono"])
+    path = tmp_path / "run.sqlite3"
+    journal = GenerationRunBudget(path)
+    original = journal.initialize()
+    for index in range(30):
+        call_id = journal.reserve_generation({"synthetic": index})
+        if index:
+            journal.finish_generation(call_id, response={"synthetic": index})
+    for index in range(10):
+        call_id = journal.record_embedding({"input": [str(index)]}, item_count=1)
+        journal.finish_embedding(call_id, response={"embeddings": [[1.0]]})
+    before_calls = _rows(path)
+    clock["wall"], clock["mono"] = 6500.0, 5600.0
+    assert journal.snapshot()["deadline_reached"]
+    authorization = _extension_receipt(tmp_path, journal, original)
+    with sqlite3.connect(path) as conn:
+        before_run = conn.execute("SELECT * FROM run").fetchall()
+    preview = journal.preview_authorized_extension(authorization)
+    assert preview["journal_modified"] is False and preview["generation_calls"] == 30
+    with sqlite3.connect(path) as conn:
+        assert conn.execute("SELECT * FROM run").fetchall() == before_run
+        assert not conn.execute("SELECT 1 FROM sqlite_master WHERE name='authorized_extensions'").fetchone()
+    after = journal.extend_authorized(authorization)
+    assert (after["generation_calls"], after["embedding_calls"], after["unknown_outcomes"]) == (30, 10, 1)
+    assert _rows(path) == before_calls
+    assert after["started_at"] == original["started_at"] and after["max_seconds"] == 5400
+    assert after["max_generations"] == 160 and after["remaining_generations"] == 130
+    assert after["original_deadline_at"] == original["deadline_at"]
+    assert datetime.fromisoformat(after["deadline_at"]).timestamp() == 6500.0 + 3600
+    assert len(after["authorized_extensions"]) == 1
+    assert after["authorized_extensions"][0]["authorization_sha256"] == hashlib.sha256(authorization.read_bytes()).hexdigest()
+    reopened = GenerationRunBudget(path)
+    assert reopened.initialize()["deadline_at"] == after["deadline_at"]
+    with pytest.raises(GenerationRunBudgetError, match="already been used"):
+        reopened.extend_authorized(authorization)
+    for statement in ("DELETE FROM authorized_extensions", "UPDATE authorized_extensions SET deadline_at=99999"):
+        with sqlite3.connect(path) as conn, pytest.raises(sqlite3.IntegrityError, match="append-only"):
+            conn.execute(statement)
+    for index in range(130):
+        reopened.reserve_generation({"new_synthetic": index})
+    with pytest.raises(GenerationRunBudgetExceeded, match="generation limit"):
+        reopened.reserve_generation({})
+    assert reopened.snapshot()["generation_calls"] == 160
+    clock["wall"], clock["mono"] = 10101.0, 9201.0
+    with pytest.raises(GenerationRunBudgetExceeded, match="deadline"):
+        reopened.record_embedding({"input": ["late"]}, item_count=1)
+
+
+@pytest.mark.parametrize("overrides", [
+    {"authorization_text": "Просто продолжить"}, {"authorized_by": "agent"}, {"extension_seconds": 3601},
+    {"max_generations": 161}, {"authorized_at": "1970-01-01"}, {"authorized_at": "2999-01-01T00:00:00+00:00"},
+    {"original_deadline_at": "1970-01-01T00:00:00+00:00"}, {"ledger_path": "another-run.sqlite3"},
+])
+def test_extension_rejects_wrong_authorization_without_any_history_change(tmp_path, monkeypatch, overrides):
+    monkeypatch.setattr("local_app.generation_run_budget.time.time", lambda: 1000.0)
+    monkeypatch.setattr("local_app.generation_run_budget.time.monotonic", lambda: 100.0)
+    path = tmp_path / "run.sqlite3"
+    journal = GenerationRunBudget(path)
+    original = journal.initialize()
+    journal.reserve_generation({"synthetic_unknown": True})
+    monkeypatch.setattr("local_app.generation_run_budget.time.time", lambda: 6500.0)
+    authorization = _extension_receipt(tmp_path, journal, original, **overrides)
+    with pytest.raises(GenerationRunBudgetError):
+        journal.extend_authorized(authorization)
+    state = journal.snapshot()
+    assert state["authorized_extensions"] == []
+    assert state["deadline_at"] == original["deadline_at"]
+    assert state["generation_calls"] == state["unknown_outcomes"] == 1
+
+
+def test_extension_cannot_start_before_expiry_or_on_changed_original_limit(tmp_path, monkeypatch):
+    clock = {"wall": 1000.0}
+    monkeypatch.setattr("local_app.generation_run_budget.time.time", lambda: clock["wall"])
+    monkeypatch.setattr("local_app.generation_run_budget.time.monotonic", lambda: 100.0)
+    journal = GenerationRunBudget(tmp_path / "run.sqlite3")
+    original = journal.initialize()
+    authorization = _extension_receipt(tmp_path, journal, original, authorized_at="1970-01-01T00:16:40+00:00")
+    with pytest.raises(GenerationRunBudgetError, match="already expired"):
+        journal.extend_authorized(authorization)
+    clock["wall"] = 6500.0
+    other = GenerationRunBudget(tmp_path / "smaller-run.sqlite3")
+    smaller = other.initialize(max_calls=159)
+    clock["wall"] = 12000.0
+    authorization = _extension_receipt(tmp_path, other, smaller, authorized_at="1970-01-01T01:48:20+00:00")
+    with pytest.raises(GenerationRunBudgetError, match="original local run"):
+        other.extend_authorized(authorization)

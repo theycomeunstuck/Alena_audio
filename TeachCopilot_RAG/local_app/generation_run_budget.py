@@ -34,11 +34,13 @@ def _json(value: Any) -> str:
 
 
 class GenerationRunBudget:
-    """Append-only actual-call accounting, with a single immutable deadline."""
+    """Append-only actual-call accounting with explicit, recorded time recovery."""
 
     SCHEMA_VERSION = 1
     MAX_GENERATIONS = 160
     MAX_SECONDS = 90 * 60
+    EXTENSION_SECONDS = 60 * 60
+    EXTENSION_AUTHORIZATION_TEXT = "Разрешить ещё 60 минут, общий предел 160 сохранить"
 
     def __init__(self, path: str | Path):
         self.path = Path(path).resolve()
@@ -118,12 +120,114 @@ class GenerationRunBudget:
         conn.execute("UPDATE run SET last_observed_at=? WHERE id=1", (now,))
         return now
 
+    @staticmethod
+    def _extensions(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+        exists = conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='authorized_extensions'").fetchone()
+        return list(conn.execute("SELECT * FROM authorized_extensions ORDER BY id")) if exists else []
+
+    def _effective_deadline(self, conn: sqlite3.Connection, row: sqlite3.Row) -> tuple[float, list[sqlite3.Row]]:
+        extensions = self._extensions(conn)
+        if not extensions:
+            return row["deadline_at"], []
+        extension = extensions[0]
+        if (len(extensions) != 1 or extension["previous_deadline_at"] != row["deadline_at"]
+                or extension["extension_seconds"] != self.EXTENSION_SECONDS
+                or extension["deadline_at"] != extension["applied_at"] + self.EXTENSION_SECONDS
+                or row["max_generations"] != self.MAX_GENERATIONS):
+            raise GenerationRunBudgetError("Local run extension does not match its immutable original limits")
+        return extension["deadline_at"], extensions
+
+    def _extension_authorization(self, authorization_path: str | Path) -> tuple[dict, str, str]:
+        raw = Path(authorization_path).read_bytes()
+        authorization = json.loads(raw.decode("utf-8"))
+        required = {"schema_version", "authorization_id", "authorized_by", "authorized_at",
+                    "authorization_text", "scope", "ledger_path", "original_started_at",
+                    "original_deadline_at", "extension_seconds", "max_generations"}
+        if (not isinstance(authorization, dict) or set(authorization) != required
+                or authorization["schema_version"] != "local_generation_time_extension_v1"
+                or authorization["authorized_by"] != "user"
+                or authorization["authorization_text"] != self.EXTENSION_AUTHORIZATION_TEXT
+                or authorization["scope"] != "operational_recovery_after_usage_interruption"
+                or type(authorization["extension_seconds"]) is not int
+                or authorization["extension_seconds"] != self.EXTENSION_SECONDS
+                or type(authorization["max_generations"]) is not int
+                or authorization["max_generations"] != self.MAX_GENERATIONS
+                or not isinstance(authorization["authorization_id"], str)
+                or not authorization["authorization_id"].strip()
+                or Path(authorization["ledger_path"]).resolve() != self.path):
+            raise GenerationRunBudgetError("Explicit user authorization for this exact local run is required")
+        try:
+            authorized_at = datetime.fromisoformat(authorization["authorized_at"])
+            if authorized_at.tzinfo is None:
+                raise ValueError("Authorization timestamp needs a timezone")
+        except (TypeError, ValueError) as exc:
+            raise GenerationRunBudgetError("User authorization needs a dated timezone-aware timestamp") from exc
+        return authorization, raw.decode("utf-8"), hashlib.sha256(raw).hexdigest()
+
+    def _validate_extension(self, conn: sqlite3.Connection, row: sqlite3.Row, authorization: dict, now: float) -> None:
+        if self._extensions(conn):
+            raise GenerationRunBudgetError("The single authorized local run extension has already been used")
+        if (row["max_generations"] != self.MAX_GENERATIONS or row["max_seconds"] != self.MAX_SECONDS
+                or authorization["original_started_at"] != _utc(row["started_at"])
+                or authorization["original_deadline_at"] != _utc(row["deadline_at"])):
+            raise GenerationRunBudgetError("User authorization does not match the original local run")
+        authorized_at = datetime.fromisoformat(authorization["authorized_at"]).timestamp()
+        if not row["started_at"] <= authorized_at <= now:
+            raise GenerationRunBudgetError("User authorization date must belong to this local run's history")
+        if now < row["deadline_at"]:
+            raise GenerationRunBudgetError("Operational recovery may extend only an already expired local run")
+
+    def preview_authorized_extension(self, authorization_path: str | Path) -> dict:
+        """Validate a receipt without modifying the journal or starting its window."""
+        authorization, _, digest = self._extension_authorization(authorization_path)
+        with self._connect() as conn:
+            conn.execute("BEGIN")
+            row = self._run(conn)
+            now = max(time.time(), row["last_observed_at"])
+            self._validate_extension(conn, row, authorization, now)
+            count = conn.execute("SELECT count(*) FROM calls WHERE kind='generation'").fetchone()[0]
+        return {"status": "dry_run", "ledger_path": str(self.path), "authorization_sha256": digest,
+                "authorization_id": authorization["authorization_id"], "extension_seconds": self.EXTENSION_SECONDS,
+                "original_deadline_at": _utc(row["deadline_at"]), "proposed_deadline_at": _utc(now + self.EXTENSION_SECONDS),
+                "generation_calls": count, "max_generations": row["max_generations"], "journal_modified": False}
+
+    def extend_authorized(self, authorization_path: str | Path) -> dict:
+        """Consume one explicit user recovery authorization; never reset a call."""
+        authorization, raw, digest = self._extension_authorization(authorization_path)
+        with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            try:
+                row = self._run(conn)
+                now = self._now(conn, row)
+                self._validate_extension(conn, row, authorization, now)
+                conn.execute("""CREATE TABLE IF NOT EXISTS authorized_extensions (
+                    id INTEGER PRIMARY KEY CHECK(id=1), applied_at REAL NOT NULL,
+                    previous_deadline_at REAL NOT NULL, deadline_at REAL NOT NULL,
+                    extension_seconds INTEGER NOT NULL CHECK(extension_seconds=3600),
+                    authorization_id TEXT NOT NULL UNIQUE, authorization_json TEXT NOT NULL,
+                    authorization_sha256 TEXT NOT NULL)""")
+                conn.execute("""CREATE TRIGGER IF NOT EXISTS authorized_extensions_no_update
+                    BEFORE UPDATE ON authorized_extensions BEGIN
+                    SELECT RAISE(ABORT,'Authorized extensions are append-only'); END""")
+                conn.execute("""CREATE TRIGGER IF NOT EXISTS authorized_extensions_no_delete
+                    BEFORE DELETE ON authorized_extensions BEGIN
+                    SELECT RAISE(ABORT,'Authorized extensions are append-only'); END""")
+                conn.execute("INSERT INTO authorized_extensions VALUES (1,?,?,?,?,?,?,?)",
+                             (now, row["deadline_at"], now + self.EXTENSION_SECONDS, self.EXTENSION_SECONDS,
+                              authorization["authorization_id"], raw, digest))
+                conn.commit()
+            except BaseException:
+                conn.rollback()
+                raise
+        return self.snapshot()
+
     def snapshot(self) -> dict[str, Any]:
         with self._connect() as conn:
             conn.execute("BEGIN IMMEDIATE")
             try:
                 row = self._run(conn)
                 now = self._now(conn, row)
+                deadline, extensions = self._effective_deadline(conn, row)
                 counts = {item["kind"]: item for item in conn.execute(
                     "SELECT kind,count(*) AS calls,sum(item_count) AS items FROM calls GROUP BY kind")}
                 generation_calls = counts.get("generation", {"calls": 0})["calls"]
@@ -134,12 +238,17 @@ class GenerationRunBudget:
                 conn.rollback()
                 raise
         return {"schema_version": row["schema_version"], "started_at": _utc(row["started_at"]),
-                "deadline_at": _utc(row["deadline_at"]), "max_generations": row["max_generations"],
+                "deadline_at": _utc(deadline), "original_deadline_at": _utc(row["deadline_at"]),
+                "authorized_extensions": [{"authorization_id": item["authorization_id"],
+                    "authorization_sha256": item["authorization_sha256"], "applied_at": _utc(item["applied_at"]),
+                    "previous_deadline_at": _utc(item["previous_deadline_at"]), "deadline_at": _utc(item["deadline_at"]),
+                    "extension_seconds": item["extension_seconds"]} for item in extensions],
+                "max_generations": row["max_generations"],
                 "max_seconds": row["max_seconds"], "generation_calls": generation_calls,
                 "embedding_calls": embeddings["calls"], "embedding_items": embeddings["items"],
                 "remaining_generations": max(0, row["max_generations"] - generation_calls),
-                "remaining_seconds": max(0.0, row["deadline_at"] - now),
-                "deadline_reached": now >= row["deadline_at"], "unknown_outcomes": unresolved}
+                "remaining_seconds": max(0.0, deadline - now),
+                "deadline_reached": now >= deadline, "unknown_outcomes": unresolved}
 
     def _reserve(self, kind: str, payload: dict, *, item_count: int = 1) -> int:
         encoded = _json(payload)
@@ -148,7 +257,8 @@ class GenerationRunBudget:
             try:
                 row = self._run(conn)
                 now = self._now(conn, row)
-                if now >= row["deadline_at"]:
+                deadline, _ = self._effective_deadline(conn, row)
+                if now >= deadline:
                     raise GenerationRunBudgetExceeded("Local generation run reached its persistent deadline")
                 if kind == "generation":
                     count = conn.execute("SELECT count(*) FROM calls WHERE kind='generation'").fetchone()[0]
