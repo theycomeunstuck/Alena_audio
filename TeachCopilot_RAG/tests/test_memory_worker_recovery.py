@@ -20,6 +20,7 @@ from psycopg2.extensions import make_dsn, parse_dsn
 import pytest
 
 from local_app.memory_service import MemoryWorker
+from local_app.memory_response_journal import MemoryResponseJournal
 from scripts.load_memory import ControlledRuntime
 from tests.test_memory_load import queue_store, seed_queue_learner  # noqa: F401
 
@@ -133,10 +134,12 @@ def test_db_loss_after_response_never_replays_or_overwrites_result(queue_store, 
     seed_queue_learner(store, "response-db-loss")
     job = store.enqueue_memory_job("response-db-loss", "synthetic", "next_step", provider=provider)
     real_connect = psycopg2.connect
+    received = []
 
     class Runtime(ControlledRuntime):
         def chat(self, *args, **kwargs):
             response = super().chat(*args, **kwargs)
+            received.append(response)
 
             def fail_one_connection(*args, **kwargs):
                 monkeypatch.setattr(psycopg2, "connect", real_connect)
@@ -165,6 +168,11 @@ def test_db_loss_after_response_never_replays_or_overwrites_result(queue_store, 
     else:
         assert len(store.get_learner_memory("response-db-loss", "synthetic")["versions"]) == 1
     assert len(runtime.calls) == 1
+    reopened = MemoryResponseJournal(worker.response_journal.path,
+                                     database_identity=worker.response_journal.database_identity)
+    saved = reopened.list_calls(job_id=job["id"])
+    assert len(saved) == 1 and saved[0]["raw_response"] == received[0]
+    assert saved[0]["outcome"] == "returned"
 
 
 def lose_commit(monkeypatch, *, phase, statement=None):
@@ -264,6 +272,23 @@ def test_finite_worker_exits_on_db_loss_without_silent_retry(queue_store, tmp_pa
         assert gate.refused.is_set()
     log = (tmp_path / "worker.log").read_text(encoding="utf-8")
     assert "finite worker stopped without replay" in log
+    assert "Traceback" not in log
+
+
+def test_daemon_stops_before_provider_when_response_journal_is_unavailable(queue_store, tmp_path, monkeypatch):
+    store = queue_store
+    seed_queue_learner(store, "journal-unavailable")
+    job = store.enqueue_memory_job("journal-unavailable", "synthetic", "next_step")
+    blocked = tmp_path / "not-a-directory"
+    blocked.write_bytes(b"preserve this file")
+    monkeypatch.setenv("LOCAL_MEMORY_RESPONSE_JOURNAL", str(blocked / "responses.sqlite3"))
+    with running_worker(store.dsn, tmp_path) as process:
+        assert process.wait(timeout=10) == 1
+    saved = store.get_memory_job(job["id"])
+    assert saved["status"] == "running" and saved["call_started_at"] is None
+    assert blocked.read_bytes() == b"preserve this file"
+    log = (tmp_path / "worker.log").read_text(encoding="utf-8")
+    assert "response journal unavailable" in log and "stopped without replay" in log
     assert "Traceback" not in log
 
 

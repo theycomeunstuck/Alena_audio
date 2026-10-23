@@ -35,6 +35,7 @@ class Settings:
     demo_credentials_file: str = str(Path(__file__).resolve().parents[1] / ".local" / "rich-demo-credentials.json")
     generation_scheduler_dsn: str | None = field(default=None, repr=False)
     generation_run_budget_path: str | None = None
+    memory_response_journal_path: str = str(Path(__file__).resolve().parents[1] / ".local" / "memory-worker-responses.sqlite3")
 
     def __post_init__(self):
         require_local_url(self.ollama_url)
@@ -64,4 +65,5 @@ class Settings:
             demo_credentials_file=os.getenv('LOCAL_DEMO_CREDENTIALS_FILE', cls.demo_credentials_file),
             generation_scheduler_dsn=os.getenv('LOCAL_GENERATION_SCHEDULER_DSN') or None,
             generation_run_budget_path=os.getenv('LOCAL_GENERATION_RUN_BUDGET_PATH') or None,
+            memory_response_journal_path=os.getenv('LOCAL_MEMORY_RESPONSE_JOURNAL', cls.memory_response_journal_path),
         )

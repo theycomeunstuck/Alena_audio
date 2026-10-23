@@ -12,6 +12,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 from local_app.config import Settings
 from local_app.memory_service import MemoryWorker
+from local_app.memory_response_journal import MemoryResponseJournal, ResponseJournalError, database_fingerprint
 from local_app.runtime import OllamaRuntime
 from local_app.store import Store
 
@@ -24,13 +25,23 @@ def main():
     if args.max_jobs < 0 or not 0 < args.idle_seconds <= 30:
         parser.error("invalid job or polling limit")
     settings = Settings.from_env()
-    worker = MemoryWorker(Store(settings.database_url), OllamaRuntime(settings))
+    try:
+        journal = MemoryResponseJournal(settings.memory_response_journal_path,
+                                         database_identity=database_fingerprint(settings.database_url))
+        worker = MemoryWorker(Store(settings.database_url), OllamaRuntime(settings), response_journal=journal)
+    except ResponseJournalError:
+        print("Worker response journal unavailable; worker stopped without replay.", file=sys.stderr, flush=True)
+        return 1
     processed = 0
     retry_seconds = args.idle_seconds
     database_unavailable = False
     while not args.max_jobs or processed < args.max_jobs:
         try:
             result = worker.run_once()
+        except ResponseJournalError:
+            # A local storage failure needs operator attention, not another call.
+            print("Worker response journal unavailable; worker stopped without replay.", file=sys.stderr, flush=True)
+            return 1
         except (OperationalError, InterfaceError):
             # Resume queue polling, never an in-memory job or provider request.
             # Persisted leases and call markers decide whether a job can return.

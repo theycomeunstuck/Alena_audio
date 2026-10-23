@@ -21,6 +21,8 @@ from research_memory.methods import METHODS, Memory, messages
 from .conversation_memory import (interest_messages, interest_schema, preference_projection,
                                   validate_interest_candidates)
 from .memory_store import DIALOGUE_CONTEXT_CHARS, SESSION_END_CONTEXT_CHARS
+from .memory_response_journal import (MemoryResponseJournal, ResponseJournalError,
+                                      database_fingerprint, default_journal_path)
 
 
 MEMORY_BUDGET = 4000
@@ -209,9 +211,11 @@ def profile_projection(card: dict, topic_id: str) -> dict:
 
 
 class MemoryWorker:
-    def __init__(self, store, runtime, worker_id: str | None = None):
+    def __init__(self, store, runtime, worker_id: str | None = None, *, response_journal=None):
         self.store, self.runtime = store, runtime
         self.worker_id = worker_id or "memory-" + uuid.uuid4().hex
+        self.response_journal = response_journal if response_journal is not None else MemoryResponseJournal(
+            default_journal_path(), database_identity=database_fingerprint(getattr(store, "dsn", None)))
         self.calls: list[dict] = []
         self._active_job: dict | None = None
 
@@ -234,9 +238,24 @@ class MemoryWorker:
                 job_id = self._active_job["job_id"]
                 if not self.store.heartbeat_memory_job(job_id, self.worker_id, lease_seconds=600):
                     raise ValueError("memory_job_lease_expired")
+            call_id = self.response_journal.prepare(
+                job_id=str((self._active_job or {}).get("job_id") or "unbound"),
+                worker_id=self.worker_id, purpose=purpose, call_index=len(self.calls))
+            event["response_journal_id"] = call_id
+            if self._active_job and hasattr(self.store, "start_memory_job_call"):
                 self.store.start_memory_job_call(job_id, self.worker_id)
-            response = self.runtime.chat(prompt_messages, response_format=schema,
-                                         max_output_tokens=1536, truncate_history=False)
+            try:
+                response = self.runtime.chat(prompt_messages, response_format=schema,
+                                             max_output_tokens=1536, truncate_history=False)
+            except Exception as exc:
+                self.response_journal.record(call_id, outcome="raised",
+                    raw_response=getattr(exc, "raw_response", None), error_type=type(exc).__name__,
+                    elapsed_seconds=time.perf_counter() - started)
+                raise
+            else:
+                # Commit locally before parsing or any PostgreSQL completion.
+                self.response_journal.record(call_id, outcome="returned", raw_response=response,
+                                             elapsed_seconds=time.perf_counter() - started)
             text = response.get("message", {}).get("content")
             event.update(raw_response=response, prompt_tokens=response.get("prompt_eval_count"),
                          completion_tokens=response.get("eval_count"))
@@ -345,9 +364,9 @@ class MemoryWorker:
             raw = self._call(interest_messages(sources), "conversation_interests", interest_schema(sources))
             context["interest_candidates"] = validate_interest_candidates(raw, sources)
             context["interest_extraction"] = {"status": "ready", "learning_session_id": session_id}
-        except (OperationalError, InterfaceError):
-            # Losing the call-marker acknowledgement must stop this job even
-            # when interest extraction is otherwise an optional draft.
+        except (OperationalError, InterfaceError, ResponseJournalError):
+            # DB acknowledgement and local durability failures must stop this
+            # job even when interest extraction is otherwise an optional draft.
             raise
         except Exception as exc:
             # A new conversational draft must never discard a ready academic tail.
@@ -398,10 +417,10 @@ class MemoryWorker:
                 result["calls"] = self.calls
                 self.store.finish_memory_job(job["job_id"], result=result, memory_state=state,
                     next_step=action, context=context, worker_id=self.worker_id, approved=False)
-        except (OperationalError, InterfaceError):
-            # A failed DB acknowledgement cannot prove whether the transaction
-            # committed. Preserve the durable lease/call marker for recovery;
-            # never turn this into a second finish or a repeated generation.
+        except (OperationalError, InterfaceError, ResponseJournalError):
+            # Neither a lost DB acknowledgement nor a journal failure permits
+            # a second finish or generation. Persisted lease/call markers keep
+            # their conservative recovery semantics.
             raise
         except Exception as exc:
             # Preserve failed/truncated responses and diagnostics. No repair,
