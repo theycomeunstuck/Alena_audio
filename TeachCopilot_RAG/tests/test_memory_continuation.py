@@ -108,8 +108,13 @@ def test_brief_current_reply_has_a_question_antecedent_but_not_learner_evidence(
     assert packed["prior_learner_questions_untrusted"] == [{
         "turn_index": 0, "content": "Путаюсь в числителе и знаменателе."}]
     assert result["query_resolution"] == {"source": "assistant_question", "turn_index": 1}
-    prompt = session.requests[-1]["messages"][0]["content"]
-    assert "один уточняющий вопрос" in prompt and "по словам «ага»" in prompt
+    if reply in {"ага", "ну вроде"}:
+        assert len(session.requests) == 1
+        assert result["answer_validation"]["reason"] == "learner_answer_missing"
+        assert result["citations"] == result["sources"] == []
+    else:
+        prompt = session.requests[-1]["messages"][0]["content"]
+        assert "один уточняющий вопрос" in prompt and "по словам «ага»" in prompt
 
 
 @pytest.mark.parametrize("prior,index", [

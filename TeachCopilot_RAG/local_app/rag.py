@@ -364,6 +364,23 @@ class RagService:
                                + (["approved_memory"] if uses_memory else []))
                 if len(antecedents) > 1:
                     query_resolution = {"source": "combined_context", "antecedents": antecedents, "topic_id": topic_id}
+                from local_app.learner_reply import unanswered_question_followup
+                followup = unanswered_question_followup(latest_query,
+                    history[latest_user_index - 1]["content"] if latest_user_index > 0
+                    and history[latest_user_index - 1]["role"] == "assistant" else "")
+                if followup is not None:
+                    return {
+                        "id": None, "object": "chat.completion", "created": None,
+                        "model": self.settings.chat_model,
+                        "choices": [{"index": 0, "message": {"role": "assistant", "content": followup},
+                                     "finish_reason": "stop"}],
+                        "citations": [], "sources": [],
+                        "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+                        "usage_scope": "deterministic_clarification_excludes_resolver",
+                        "answer_routing": {"backend": "deterministic_local", "reason": "brief_agreement_not_answer"},
+                        "answer_validation": {"status": "clarification", "reason": "learner_answer_missing"},
+                        **({"query_resolution": query_resolution} if query_resolution else {}),
+                    }
                 from local_app.learning_tools import verified_learning_response
                 verified = verified_learning_response(latest_query, subject_id,
                                                       previous_messages=history[:latest_user_index])

@@ -201,6 +201,49 @@ def test_ordinary_conversation_keeps_bookmark_but_requires_explicit_resume(guide
     assert store.get_card(LEARNER).get('knowledge') == knowledge
 
 
+def test_real_rag_asks_for_a_missing_answer_and_replay_preserves_guided_state(guided):
+    from local_app.rag import RagService
+
+    client, store, student, _, _ = guided
+    sid = session(client, student)
+    state = advance_to_zero(client, student, sid)
+    knowledge = deepcopy(store.get_card(LEARNER).get('knowledge'))
+    original_sources = store.list_learning_messages(sid)
+
+    class ScopeOnly:
+        calls = 0
+
+        def resolve_chat_query(self, query, prior, subject_id, **kwargs):
+            self.calls += 1
+            assert query == 'ага' and prior[-1]['role'] == 'assistant'
+            return {'in_scope': True, 'uses_prior_context': False,
+                    'prior_assistant_question_index': len(prior) - 1, 'search_query': 'Деление по шагам'}
+
+        def chat(self, *args, **kwargs):
+            raise AssertionError('A bare agreement must not generate a correct numerical answer')
+
+    runtime = ScopeOnly()
+    client.app.state.rag_service = RagService(store, runtime, Settings())
+    request = {'learning_session_id': sid, 'client_message_id': 'agreement-not-answer',
+               'messages': [{'role': 'user', 'content': 'ага'}]}
+    response = client.post('/v1/chat/completions', headers=student, json=request)
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert 'Напиши свой ответ' in body['choices'][0]['message']['content']
+    assert body['answer_validation']['reason'] == 'learner_answer_missing'
+    assert body['citations'] == body['sources'] == []
+    saved_sources = store.list_learning_messages(sid)
+    assert len(saved_sources) == len(original_sources) + 2
+    assert [row['author_role'] for row in saved_sources[-2:]] == ['student', 'assistant']
+    assert saved_sources[-2]['content'] == 'ага'
+    replay = client.post('/v1/chat/completions', headers=student, json=request)
+    assert replay.status_code == 200 and replay.json() == body
+    assert runtime.calls == 1 and store.list_learning_messages(sid) == saved_sources
+    bookmark = context(client, student, sid)
+    assert bookmark['guided_division'] == state and bookmark['resume_required'] is True
+    assert store.get_card(LEARNER).get('knowledge') == knowledge
+
+
 def ordinary(store, sid, text='Кстати, люблю кометы.', *, mid='aside', status='completed'):
     actor = store.get_learning_session(sid)['actor_id']
     store.reserve_chat_message(sid,LEARNER,mid,text,actor)
