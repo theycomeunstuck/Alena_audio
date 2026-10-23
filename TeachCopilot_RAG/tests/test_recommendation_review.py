@@ -27,7 +27,7 @@ def review(sources, cited=(), **extra):
 def test_worker_exposes_explicit_unknowns_that_are_missing_from_the_model_output():
     store = WorkerStore()
     store.snapshot["sources"] = [
-        source("unknown-conditions", "Условия помощи неизвестны; самостоятельное решение и освоение дробей не подтверждены.", "teacher"),
+        source("unknown-conditions", "Снова пауза. Условия помощи сегодня тоже не уточняли, самостоятельность пока не подтверждена.", "teacher"),
         source("pause", "Приостановить сохранённый пример."),
     ]
     action = {**ACTION, "action": "continue_work", "reason": "Вернуться к сохранённому примеру.",
@@ -80,6 +80,8 @@ def test_a_correction_and_its_chain_remain_one_review_group():
 @pytest.mark.parametrize("text,conditions", [
     ("Помощь: unknown. independent_work=unknown.", {"support", "independence"}),
     ("Условия помощи пока неизвестны.", {"support"}),
+    ("Условия помощи сегодня тоже не уточняли, самостоятельность пока не подтверждена.", {"support", "independence"}),
+    ("Условия помощи не уточнены.", {"support"}),
     ("Самостоятельная перепроверка не подтверждена.", {"independence"}),
     ("Условия помощи известны, самостоятельность неизвестна.", {"independence"}),
     ("Самостоятельность подтверждена, помощь неизвестна.", {"support"}),
