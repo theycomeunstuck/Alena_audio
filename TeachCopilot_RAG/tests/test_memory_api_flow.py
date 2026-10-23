@@ -112,6 +112,12 @@ def test_student_session_teacher_approval_and_next_step_share_real_sources(flow_
     job = browser.get("/memory/jobs/" + queued.json()["job_id"], headers=teacher_headers).json()
     assert job["result"]["review_required"] is True and job["result"]["next_step_id"]
     assert set(job["result"]["evidence_turn_ids"]) <= {source["source_id"] for source in snapshot["sources"]}
+    review = job["result"]["evidence_review"]
+    assert review["version"] == "recommendation-source-review-v1" and review["meaning_verified"] is False
+    visible_ids = {source["source_id"] for source in snapshot["sources"]}
+    assert {source["source_id"] for source in review["sources"]} <= visible_ids
+    assert {note["source_id"] for note in review["source_unknowns"]} <= visible_ids
+    assert browser.get("/memory/jobs/" + queued.json()["job_id"], headers=student_headers).status_code == 403
 
 
 def test_explicitly_reviewed_interests_cross_topics_without_copying_academic_sources(flow_store):

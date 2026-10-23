@@ -271,7 +271,17 @@
       const sourceRole = source.role || source.author_role;
       const role = ({ user: 'Ученик', student: 'Ученик', teacher: 'Учитель', assistant: 'Помощник' })[sourceRole] || sourceRole || '';
       row.append(el('small', '', [role, source.topic_id || source.topic_title ? topicTitle(source) : '', safeDate(source.observed_on || source.created_at)].filter(Boolean).join(' · ')));
-      row.append(el('p', '', source.text || source.content || source.quote || 'Текст источника недоступен.'));
+      if (options.showDialogueContext && source.cited === false) row.append(el('small', '', 'Связанная запись для проверки исправления; в ссылках черновика не указана.'));
+      if (options.showDialogueContext && Array.isArray(source.corrected_by) && source.corrected_by.length) row.append(el('p', 'review-note', `Запись исправлена: ${source.corrected_by.join(', ')}. Сверьте её с исправлениями.`));
+      const dialogueContext = options.showDialogueContext && source.dialogue_context;
+      if (dialogueContext?.role === 'assistant' && dialogueContext.usage === 'context_only' && typeof dialogueContext.text === 'string') {
+        const context = el('div', 'recommendation-dialogue-context');
+        context.append(el('small', '', 'Реплика помощника перед ответом ученика'), el('blockquote', 'memory-text', dialogueContext.text), el('small', '', 'Контекст вопроса. Слова помощника не подтверждают результат ученика.'));
+        if (dialogueContext.truncated) context.append(el('small', '', 'Показан только конец реплики помощника.'));
+        row.append(context);
+      }
+      if (options.showDialogueContext) row.append(el('small', '', 'Буквальная реплика источника'));
+      row.append(el(options.showDialogueContext ? 'blockquote' : 'p', 'memory-text', source.text || source.content || source.quote || 'Текст источника недоступен.'));
       const sessionEndContext = source.session_end_context;
       if (sessionEndContext?.role === 'assistant' && sessionEndContext.usage === 'context_only' && typeof sessionEndContext.text === 'string' && sessionEndContext.text) {
         const context = el('div', 'memory-session-end-context');
@@ -446,8 +456,27 @@
     $('#request-next-step').textContent = current?.job_id && !current.finished ? 'Проверить состояние' : 'Предложить следующий шаг';
     if (!current?.result) return;
     const data = current.result;
-    root.append(el('h3', '', 'Предложенное действие'), el('p', 'review-note', topicTitle(topicById(data.topic_id) || { topic_id: data.topic_id })), el('p', 'next-step-action', data.action || 'Действие не указано.'), el('p', '', data.reason || 'Обоснование не указано.'));
+    const actionTitles = { enough_data_next_task: 'Предложить следующую задачу', independent_check: 'Провести самостоятельную проверку', continue_work: 'Продолжить работу', clarify_missing_observation: 'Уточнить недостающее наблюдение' };
+    const actionTitle = Object.hasOwn(actionTitles, data.action) ? actionTitles[data.action] : data.action;
+    root.append(el('h3', '', 'Предложенное действие'), el('p', 'review-note', topicTitle(topicById(data.topic_id) || { topic_id: data.topic_id })), el('p', 'next-step-action', actionTitle || 'Действие не указано.'), el('strong', '', 'Черновик обоснования'), el('p', '', data.reason || 'Обоснование не указано.'));
     if (Array.isArray(data.unknowns) && data.unknowns.length) { root.append(el('strong', '', 'Что нужно уточнить')); const list = el('ul'); data.unknowns.forEach(item => list.append(el('li', '', item))); root.append(list); }
+    else root.append(el('p', 'review-note recommendation-empty-unknowns', 'В черновике неизвестные условия не перечислены. Это не подтверждает самостоятельность или освоение.'));
+    const review = data.evidence_review;
+    if (review?.version === 'recommendation-source-review-v1') {
+      if (Array.isArray(review.source_unknowns) && review.source_unknowns.length) {
+        const notes = el('section', 'recommendation-source-unknowns'); notes.append(el('strong', '', 'Неопределённость, отмеченная в источниках'));
+        review.source_unknowns.forEach(item => {
+          const row = el('article', 'memory-record');
+          row.append(el('small', '', `${item.condition === 'support' ? 'Условия помощи' : 'Самостоятельность'} · ${item.source_id}`), el('blockquote', '', item.quote));
+          if (item.cited === false) row.append(el('small', '', 'Источник не указан в ссылках черновика.'));
+          notes.append(row);
+        }); root.append(notes);
+      }
+      if (Array.isArray(review.sources) && review.sources.length) {
+        const evidence = sourceDetails(review.sources, 'Реплики для проверки обоснования', { showDialogueContext: true }); evidence.classList.add('recommendation-evidence'); root.append(evidence);
+      }
+      root.append(el('p', 'review-note', 'Сверьте обоснование с репликами. Допустимая ссылка сама по себе не подтверждает верность вывода.'));
+    }
     if (data.review_required) root.append(el('p', 'review-note', 'Требуется просмотр преподавателем.'));
     if (data.stale) root.append(el('p', 'review-note', 'Использована последняя готовая память. Есть ещё не обработанные занятия.'));
     if (Array.isArray(data.sources) && data.sources.length) root.append(sourceDetails(data.sources));

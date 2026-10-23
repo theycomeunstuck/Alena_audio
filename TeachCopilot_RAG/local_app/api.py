@@ -942,6 +942,9 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None) -> Fas
                     def complete(prompt, system_prompt=""):
                         import json
                         reviewed = next_step.get("result") or next_step.get("recommendation") or {}
+                        # Display-only provenance duplicates literal sources;
+                        # keep it out of the next model prompt.
+                        reviewed = {key: value for key, value in reviewed.items() if key != "evidence_review"}
                         return original_complete(prompt + "\nRecommendation draft for teacher review: " +
                             json.dumps(reviewed, ensure_ascii=False), system_prompt=system_prompt)
                 card = design_task_card(request.learner_id, request.topic_id, count=task_count, store=store, rag_service=app.state.rag_service, complete=complete)

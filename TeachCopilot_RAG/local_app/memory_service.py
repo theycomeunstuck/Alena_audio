@@ -383,6 +383,8 @@ class MemoryWorker:
                     raw = self._call(messages("action", payload), "action",
                                      action_schema(set(context["evidence_ids"])))
                     action = validate_action(raw, set(context["evidence_ids"]))
+                    from .recommendation_review import recommendation_source_review
+                    action["evidence_review"] = recommendation_source_review(action, context)
                     action.update(sources=context["sources"], method=job.get("method", "tail"),
                                   learner_id=job["learner_id"], topic_id=topic_id,
                                   revision=job.get("base_revision"), stale=bool(context.get("stale")))
