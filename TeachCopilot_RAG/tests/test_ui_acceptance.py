@@ -221,12 +221,14 @@ class BrowserStore:
         job["status"] = "unknown_outcome" if kwargs.get("unknown_outcome") else "failed" if kwargs.get("error") else "completed"
         return copy.deepcopy(job)
 
-    def create_learning_session(self, learner_id, actor_id, topic_id, client_session_id=None):
+    def create_learning_session(self, learner_id, actor_id, topic_id, client_session_id=None, mode="standard"):
         for row in self.learning_sessions.values():
             if row["client_session_id"] == client_session_id and row["actor_id"] == actor_id:
+                if row["topic_id"] != topic_id or row.get("session_mode", "standard") != mode:
+                    raise ValueError("session identifier belongs to another topic or mode")
                 return copy.deepcopy(row)
         session_id = str(uuid4())
-        row = {"learning_session_id": session_id, "learner_id": learner_id, "actor_id": actor_id, "topic_id": topic_id, "client_session_id": client_session_id, "status": "active"}
+        row = {"learning_session_id": session_id, "learner_id": learner_id, "actor_id": actor_id, "topic_id": topic_id, "client_session_id": client_session_id, "status": "active", "session_mode": mode}
         self.learning_sessions[session_id] = row
         self.learning_turns[session_id] = []
         return copy.deepcopy(row)
@@ -249,7 +251,7 @@ class BrowserStore:
                 messages.append(copy.deepcopy(turn["response"]["choices"][0]["message"]))
         statuses = {turn["status"] for turn in turns}
         return {"available": True, "learning_session_id": session["learning_session_id"],
-                "topic_id": session["topic_id"], "status": "active", "messages": messages,
+                "topic_id": session["topic_id"], "session_mode": session.get("session_mode", "standard"), "status": "active", "messages": messages,
                 "history_truncated": len(turns) > 20,
                 "unresolved_status": "pending" if "pending" in statuses else "unknown_outcome" if "unknown_outcome" in statuses else None}
 
@@ -257,6 +259,10 @@ class BrowserStore:
         # Ordinary UI scenarios have no persisted typed steps. Dedicated guided
         # browser tests install controlled transport; PostgreSQL tests use Store.
         return {"available": False, "reason": "no_saved_guided_step"}
+
+    def autonomous_division_context(self, learner_id, topic_id, actor_id, *, learning_session_id=None):
+        return {"learning_protocol": "autonomous-division-v1", "available": False,
+                "reason": "no_saved_autonomous_step"}
 
     def list_completed_learning_sessions(self, learner_id, actor_id, *, before=None):
         sessions = [row for row in reversed(list(self.learning_sessions.values()))
@@ -310,6 +316,8 @@ class BrowserStore:
     def complete_learning_session(self, session_id, learner_id, actor_id):
         self.learning_sessions[session_id]["status"] = "completed"
         self.learning_sessions[session_id]["completed_at"] = datetime.now(timezone.utc).isoformat()
+        if self.learning_sessions[session_id].get("session_mode") == "autonomous_division":
+            return {**copy.deepcopy(self.learning_sessions[session_id]), "job": None, "job_id": None}
         return {**copy.deepcopy(self.learning_sessions[session_id]), "job_id": "ui-memory-update"}
 
     def ping(self):
@@ -406,7 +414,7 @@ def ui_server(monkeypatch):
     calls = _install_pipeline_stubs(monkeypatch)
     store = BrowserStore()
     rag = BrowserRag()
-    settings = SimpleNamespace(session_hours=2, rag_limit=3, database_url="postgresql://local-ui-test/unused")
+    settings = SimpleNamespace(session_hours=2, rag_limit=3, database_url="postgresql://local-ui-test/unused", autonomous_division_enabled=True)
     app = create_app(settings=settings, store=store, runtime=BrowserRuntime(), rag_service=rag)
     config = uvicorn.Config(app, host="127.0.0.1", port=0, log_level="error", access_log=False)
     server = uvicorn.Server(config)

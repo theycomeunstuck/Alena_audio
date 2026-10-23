@@ -30,6 +30,7 @@ class Settings:
     minimum_similarity: float = 0.35
     learning_operation_selection_enabled: bool = False
     checked_division_context_enabled: bool = False
+    autonomous_division_enabled: bool = False
     demo_login_enabled: bool = False
     demo_credentials_file: str = str(Path(__file__).resolve().parents[1] / ".local" / "rich-demo-credentials.json")
     generation_scheduler_dsn: str | None = field(default=None, repr=False)
@@ -58,6 +59,7 @@ class Settings:
             minimum_similarity=float(os.getenv("LOCAL_MIN_SIMILARITY", "0.35")),
             learning_operation_selection_enabled=os.getenv('LOCAL_LEARNING_OPERATION_SELECTION', '0') == '1',
             checked_division_context_enabled=os.getenv('LOCAL_CHECKED_DIVISION_CONTEXT', '0') == '1',
+            autonomous_division_enabled=os.getenv('LOCAL_AUTONOMOUS_DIVISION_ENABLED', '0') == '1',
             demo_login_enabled=os.getenv('LOCAL_DEMO_LOGIN', '0') == '1',
             demo_credentials_file=os.getenv('LOCAL_DEMO_CREDENTIALS_FILE', cls.demo_credentials_file),
             generation_scheduler_dsn=os.getenv('LOCAL_GENERATION_SCHEDULER_DSN') or None,

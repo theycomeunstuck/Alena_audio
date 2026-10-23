@@ -132,6 +132,7 @@
                 <option value="division_practice">Дать пример</option>
                 <option value="print_output">Вывод Python</option>
                 <option value="division_guided">Решать по шагам</option>
+                <option value="autonomous_division" hidden>Самостоятельно делить</option>
               </select>
             </div>
             <p id="learning-action-availability" class="review-note" hidden>Для Scratch можно задать обычный вопрос. Действия с числами доступны в математике, с print – в Python и программировании.</p>
@@ -157,6 +158,29 @@
                   <button id="guided-division-pause" class="text-button" type="button" hidden>Пауза</button>
                   <button id="guided-division-resume" class="button secondary wide" type="button" hidden>Продолжить пример</button>
                   <button id="guided-division-refresh" class="text-button" type="button" hidden>Обновить шаг</button>
+                </div>
+              </section>
+              <section id="autonomous-division-panel" class="guided-division-panel" aria-label="Самостоятельная практика деления" hidden>
+                <p id="autonomous-division-status" class="review-note" role="status"></p>
+                <p id="autonomous-division-example" class="guided-division-example" hidden></p>
+                <p id="autonomous-division-prompt" class="guided-division-prompt" hidden></p>
+                <form id="autonomous-division-answer-form" class="learning-action-form" novalidate hidden>
+                  <div class="action-fields"><label for="autonomous-division-answer">Ответ на этот шаг</label><input id="autonomous-division-answer" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="off" aria-describedby="learning-action-error"></div>
+                  <button id="autonomous-division-check" class="button primary wide" type="submit">Проверить ответ</button>
+                </form>
+                <div class="action-fields">
+                  <label for="autonomous-division-digits">Делитель в следующем примере</label>
+                  <select id="autonomous-division-digits"><option value="1">Однозначный, включая 1</option><option value="2">Двузначный</option></select>
+                </div>
+                <div class="guided-division-buttons">
+                  <button id="autonomous-division-start" class="button primary wide" type="button">Начать пример</button>
+                  <button id="autonomous-division-explain" class="button secondary" type="button" hidden>Объяснить правило</button>
+                  <button id="autonomous-division-show-step" class="button secondary" type="button" hidden>Показать этот шаг</button>
+                  <button id="autonomous-division-pause" class="text-button" type="button" hidden>Пауза</button>
+                  <button id="autonomous-division-resume" class="button secondary wide" type="button" hidden>Продолжить пример</button>
+                  <button id="autonomous-division-next" class="button primary wide" type="button" hidden>Следующий пример</button>
+                  <button id="autonomous-division-switch" class="text-button" type="button" hidden>Прервать и выбрать другой пример</button>
+                  <button id="autonomous-division-refresh" class="text-button" type="button">Обновить состояние</button>
                 </div>
               </section>
               <form id="learning-action-form" class="learning-action-form" novalidate>

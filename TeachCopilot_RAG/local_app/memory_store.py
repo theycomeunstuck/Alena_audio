@@ -124,6 +124,10 @@ class MemoryStoreMixin:
         from .guided_division_store import guided_context
         return guided_context(self, learner_id, topic_id, actor_id, **kwargs)
 
+    def autonomous_division_context(self, learner_id, topic_id, actor_id, **kwargs):
+        from .autonomous_division_store import autonomous_context
+        return autonomous_context(self, learner_id, topic_id, actor_id, **kwargs)
+
     @staticmethod
     def _memory_learner(cur, learner_id, expected_revision=None, lock="UPDATE"):
         if lock not in ("UPDATE", "SHARE"):
@@ -225,20 +229,26 @@ class MemoryStoreMixin:
                 method="tail",idempotency_key=f"source:{source['id']}")
             return {"source":source,"job_id":job["id"],"learner_id":learner_id,"topic_id":target["topic_id"]}
 
-    def create_learning_session(self, learner_id, actor_id, topic_id, client_session_id=None):
+    def create_learning_session(self, learner_id, actor_id, topic_id, client_session_id=None, mode="standard"):
         if not topic_id or not str(topic_id).strip():
             raise ValueError("topic_id is required")
+        if mode not in {"standard", "autonomous_division"}:
+            raise ValueError("unknown learning session mode")
+        if mode == "autonomous_division":
+            from .autonomous_division import TOPIC as AUTONOMOUS_DIVISION_TOPIC
+            if topic_id != AUTONOMOUS_DIVISION_TOPIC:
+                raise ValueError("autonomous division requires its supported math topic")
         with self._connect() as conn, conn.cursor() as cur:
             self._memory_learner(cur,learner_id)
-            cur.execute("""INSERT INTO teachcopilot.learning_sessions(learner_id,actor_id,topic_id,client_session_id)
-                VALUES (%s,%s,%s,%s) ON CONFLICT(learner_id,actor_id,client_session_id) DO NOTHING RETURNING *""",
-                (learner_id,str(actor_id),topic_id,client_session_id))
+            cur.execute("""INSERT INTO teachcopilot.learning_sessions(learner_id,actor_id,topic_id,client_session_id,session_mode)
+                VALUES (%s,%s,%s,%s,%s) ON CONFLICT(learner_id,actor_id,client_session_id) DO NOTHING RETURNING *""",
+                (learner_id,str(actor_id),topic_id,client_session_id,mode))
             session = cur.fetchone()
             if session is None:
                 cur.execute("SELECT * FROM teachcopilot.learning_sessions WHERE learner_id=%s AND actor_id=%s AND client_session_id=%s", (learner_id,str(actor_id),client_session_id))
                 session = cur.fetchone()
-                if session["topic_id"] != topic_id:
-                    raise MemoryIdempotencyConflict("session identifier belongs to another topic")
+                if session["topic_id"] != topic_id or session["session_mode"] != mode:
+                    raise MemoryIdempotencyConflict("session identifier belongs to another topic or mode")
             return _row(session)
 
     def get_learning_session(self, session_id, learner_id=None):
@@ -260,7 +270,7 @@ class MemoryStoreMixin:
         """
         with self._connect() as connection, connection.cursor() as cur:
             connection.set_session(readonly=True, isolation_level='REPEATABLE READ')
-            cur.execute('''SELECT id,topic_id FROM teachcopilot.learning_sessions
+            cur.execute('''SELECT id,topic_id,session_mode FROM teachcopilot.learning_sessions
                 WHERE learner_id=%s AND actor_id=%s AND status='active'
                 ORDER BY created_at DESC,id DESC LIMIT 1''', (learner_id,str(actor_id)))
             session = cur.fetchone()
@@ -294,7 +304,7 @@ class MemoryStoreMixin:
                 if turn['status'] == 'completed' and turn['assistant_content'] is not None:
                     messages.append({'role':'assistant','content':turn['assistant_content']})
             return {'available':True,'learning_session_id':str(session_id),'topic_id':topic_id,
-                    'status':'active','messages':messages,'history_truncated':len(turns) > 20,
+                    'session_mode':session['session_mode'],'status':'active','messages':messages,'history_truncated':len(turns) > 20,
                     'unresolved_status':unresolved_status}
 
     def list_completed_learning_sessions(self, learner_id, actor_id, *, before=None):
@@ -302,7 +312,7 @@ class MemoryStoreMixin:
         boundary = _read_archive_cursor(before,'sessions',learner_id,actor_id)
         with self._connect() as connection, connection.cursor() as cur:
             connection.set_session(readonly=True,isolation_level='REPEATABLE READ')
-            query = '''SELECT id,topic_id,COALESCE(completed_at,created_at) AS ended_at
+            query = '''SELECT id,topic_id,session_mode,COALESCE(completed_at,created_at) AS ended_at
                 FROM teachcopilot.learning_sessions
                 WHERE learner_id=%s AND actor_id=%s AND status='completed' '''
             values = [learner_id,str(actor_id)]
@@ -312,6 +322,7 @@ class MemoryStoreMixin:
             cur.execute(query+'ORDER BY COALESCE(completed_at,created_at) DESC,id DESC LIMIT 11',values)
             rows = cur.fetchall()
             sessions = [{'learning_session_id':str(row['id']),'topic_id':row['topic_id'],
+                         'session_mode':row['session_mode'],
                          'completed_at':row['ended_at'].isoformat()} for row in rows[:10]]
             next_cursor = None
             if len(rows) > 10:
@@ -325,7 +336,7 @@ class MemoryStoreMixin:
         boundary = _read_archive_cursor(before,'history',learner_id,actor_id,session_id=session_id)
         with self._connect() as connection, connection.cursor() as cur:
             connection.set_session(readonly=True,isolation_level='REPEATABLE READ')
-            cur.execute('''SELECT actor_id,topic_id,status FROM teachcopilot.learning_sessions
+            cur.execute('''SELECT actor_id,topic_id,status,session_mode FROM teachcopilot.learning_sessions
                 WHERE id=%s AND learner_id=%s''',(session_id,learner_id))
             session = cur.fetchone()
             if session is None:
@@ -358,6 +369,7 @@ class MemoryStoreMixin:
             next_cursor = (_archive_cursor('history',learner_id,actor_id,session=str(session_id),
                             order=rows[19]['source_order']) if len(rows) > 20 else None)
             return {'learning_session_id':str(session_id),'topic_id':session['topic_id'],
+                    'session_mode':session.get('session_mode','standard'),
                     'status':'completed','messages':messages,'next_cursor':next_cursor}
 
     def reserve_chat_message(self, session_id, learner_id, client_message_id, content, actor_id, *, author_role="student"):
@@ -482,6 +494,8 @@ class MemoryStoreMixin:
                 cur.execute("UPDATE teachcopilot.learning_sessions SET status='completed',completed_at=now() WHERE id=%s RETURNING *", (session_id,))
                 session = cur.fetchone()
                 cur.execute("UPDATE teachcopilot.learners SET memory_source_revision=memory_source_revision+1 WHERE learner_id=%s", (learner_id,))
+            if session.get("session_mode") == "autonomous_division":
+                return dict(_row(session),job=None,job_id=None)
             job = self._enqueue_memory_job(cur,learner_id,session["topic_id"],"memory_update",{"learning_session_id":str(session_id)},actor_id,idempotency_key=f"session:{session_id}",method="tail")
             return dict(_row(session),job=job,job_id=job["id"])
 

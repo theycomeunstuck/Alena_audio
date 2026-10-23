@@ -16,7 +16,7 @@ from tests.test_memory_api_flow import flow_store  # noqa: F401
 LEARNER = "demo-nika-04"
 TOPIC = "math.g4.fractions.numerator_denominator"
 ROOT_KEYS = {"available", "learning_session_id", "topic_id", "topic_title", "subject_id",
-             "status", "messages", "history_truncated", "unresolved_status"}
+             "session_mode", "status", "messages", "history_truncated", "unresolved_status"}
 
 
 class ForbiddenGeneration:
@@ -128,6 +128,7 @@ def test_current_projects_literal_sources_and_never_private_response(history_app
     })
     restored = _current(app)
     assert set(restored) == ROOT_KEYS
+    assert restored["session_mode"] == "standard"
     assert restored["messages"] == [
         {"role": "user", "content": user_text, "delivery_status": "completed"},
         {"role": "assistant", "content": assistant_text},

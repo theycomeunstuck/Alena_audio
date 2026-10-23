@@ -142,7 +142,9 @@ def _safe_student_completion(response: dict) -> dict:
 
 def _public_chat_completion(response: dict) -> dict:
     # The action chain is retained in PostgreSQL, never in either role's chat.
-    return {key: value for key, value in response.items() if key != '_guided_division_provenance'}
+    return {key: value for key, value in response.items()
+            if key not in {'_guided_division_provenance', '_autonomous_division_provenance',
+                           '_autonomous_division_state'}}
 
 
 def create_app(settings=None, store=None, runtime=None, rag_service=None) -> FastAPI:
@@ -272,6 +274,7 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None) -> Fas
     class LearningSessionRequest(BaseModel):
         topic_id: str | None = Field(default=None, max_length=180)
         client_session_id: str | None = Field(default=None, max_length=180)
+        mode: Literal["standard", "autonomous_division"] = "standard"
 
     class MemoryConfirmRequest(BaseModel):
         expected_revision: int = Field(..., ge=1)
@@ -465,15 +468,28 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None) -> Fas
                                user: dict = Depends(require_user)):
         access(user, learner_id)
         memory_available()
+        session_topic = request.topic_id or "general"
+        if request.mode == "autonomous_division":
+            if not _value(settings, "autonomous_division_enabled", default=False):
+                raise HTTPException(status_code=404, detail="autonomous division is not enabled")
+            if _role(user) != "student":
+                raise HTTPException(status_code=403, detail="autonomous division is available to student accounts")
+            from local_app.autonomous_division import TOPIC as AUTONOMOUS_DIVISION_TOPIC
+            if request.topic_id not in (None, AUTONOMOUS_DIVISION_TOPIC):
+                raise HTTPException(status_code=422, detail="autonomous division requires its supported math topic")
+            session_topic = request.topic_id or AUTONOMOUS_DIVISION_TOPIC
         try:
-            session = store.create_learning_session(learner_id, _account_id(user), request.topic_id or "general",
-                                                    client_session_id=request.client_session_id)
+            options = {"client_session_id": request.client_session_id}
+            if request.mode != "standard":
+                options["mode"] = request.mode
+            session = store.create_learning_session(learner_id, _account_id(user), session_topic, **options)
             return {**session, "topic_title": _topic_title(session.get("topic_id"), store.catalog())}
         except Exception as exc:
             memory_error(exc)
 
     @app.get('/learners/{learner_id}/guided-division')
     def guided_division_context(learner_id: str, topic_id: str, learning_session_id: str | None = None,
+                                protocol: str = "guided-division-v1",
                                 user: dict = Depends(require_user)):
         access(user, learner_id)
         memory_available()
@@ -481,6 +497,15 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None) -> Fas
             if learning_session_id:
                 from uuid import UUID
                 learning_session_id = str(UUID(learning_session_id))
+            if protocol == "autonomous-division-v1":
+                if not _value(settings, "autonomous_division_enabled", default=False):
+                    raise HTTPException(status_code=404, detail="autonomous division is not enabled")
+                if _role(user) != "student":
+                    raise HTTPException(status_code=403, detail="autonomous division is available to student accounts")
+                return store.autonomous_division_context(learner_id, topic_id, _account_id(user),
+                    learning_session_id=learning_session_id)
+            if protocol != "guided-division-v1":
+                raise HTTPException(status_code=422, detail="unsupported learning protocol")
             return store.guided_division_context(learner_id, topic_id, _account_id(user),
                                                  learning_session_id=learning_session_id)
         except Exception as exc:
@@ -581,6 +606,8 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None) -> Fas
             "display_name": user.get("display_name"),
             "role": _role(user),
             "learner_id": user.get("learner_id"),
+        }, "features": {
+            "autonomous_division": _value(settings, "autonomous_division_enabled", default=False) is True,
         }}
 
     @app.get("/catalog")
@@ -1135,6 +1162,7 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None) -> Fas
         messages = payload.get("messages")
         explicit = 'learning_action' in payload
         action = None
+        action_text = None
         if explicit:
             from local_app.explicit_learning_actions import validate_action
             if messages is not None and messages != [] or 'messages' in payload and messages is None:
@@ -1156,6 +1184,9 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None) -> Fas
             raise HTTPException(status_code=422, detail="message content must be nonempty text within 12000 characters")
         learning_session_id = payload.get("learning_session_id") or meta.get("learning_session_id")
         client_message_id = payload.get("client_message_id") or meta.get("client_message_id")
+        from local_app.autonomous_division import VERSION as AUTONOMOUS_DIVISION_VERSION
+        if payload.get("learning_protocol") == AUTONOMOUS_DIVISION_VERSION and not learning_session_id:
+            raise HTTPException(status_code=409, detail="autonomous protocol requires an autonomous learning session")
         if explicit and not learning_session_id:
             raise HTTPException(status_code=422, detail="Для учебного действия требуется learning_session_id.")
         reserved = False
@@ -1173,6 +1204,26 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None) -> Fas
                 raise HTTPException(status_code=404, detail="learning session not found for this learner")
             if str(session.get("actor_id")) != _account_id(user):
                 raise HTTPException(status_code=403, detail="learning session belongs to another account")
+            from local_app.autonomous_division import OPERATIONS as AUTONOMOUS_DIVISION_OPERATIONS
+            from local_app.autonomous_division import VERSION as AUTONOMOUS_DIVISION_VERSION
+            autonomous_session = session.get("session_mode", "standard") == "autonomous_division"
+            autonomous_action = bool(explicit and action["operation"] in AUTONOMOUS_DIVISION_OPERATIONS)
+            if autonomous_session:
+                if not _value(settings, "autonomous_division_enabled", default=False):
+                    raise HTTPException(status_code=404, detail="autonomous division is not enabled")
+                if _role(user) != "student":
+                    raise HTTPException(status_code=403, detail="autonomous division is available to student accounts")
+                if payload.get("learning_protocol") != AUTONOMOUS_DIVISION_VERSION:
+                    raise HTTPException(status_code=409, detail="learning protocol does not match this session")
+                if explicit and not autonomous_action:
+                    raise HTTPException(status_code=409, detail="this session accepts only autonomous division actions")
+                if not explicit:
+                    action = {"operation": "autonomous_division_clarify"}
+                    action_text = next(message["content"] for message in reversed(clean_messages)
+                                       if message["role"] == "user")
+                    explicit = True
+            elif (payload.get("learning_protocol") == AUTONOMOUS_DIVISION_VERSION or autonomous_action):
+                raise HTTPException(status_code=409, detail="learning protocol does not match this session")
             from local_app.learning_topics import bind_session_subject
             try:
                 catalog_reader = getattr(store, "catalog", None)
@@ -1180,7 +1231,7 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None) -> Fas
                                                       catalog_reader() if callable(catalog_reader) else {})
             except (ValueError, TypeError) as exc:
                 raise HTTPException(status_code=422, detail=str(exc)) from exc
-            if explicit:
+            if explicit and not (autonomous_session and action["operation"] == "autonomous_division_clarify"):
                 from local_app.explicit_learning_actions import validate_subject
                 try:
                     validate_subject(action, session.get('topic_id'), meta.get('subject_id'), store.catalog())
@@ -1197,9 +1248,12 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None) -> Fas
                     cached = reservation["response"]
                     from local_app.explicit_learning_actions import VERSION, GUIDED_OPERATIONS, GUIDED_VERSION
                     guided = explicit and action['operation'] in GUIDED_OPERATIONS
-                    version = GUIDED_VERSION if guided else VERSION
+                    version = (AUTONOMOUS_DIVISION_VERSION if autonomous_session else
+                               GUIDED_VERSION if guided else VERSION)
                     expected_action = {'operation': action['operation'], 'request_text': action_text, 'version': version} if explicit else None
-                    if (cached.get('learning_action') != expected_action or guided and
+                    autonomous_replay_ok = (not autonomous_session or
+                        cached.get("learning_protocol") == AUTONOMOUS_DIVISION_VERSION)
+                    if (cached.get('learning_action') != expected_action or not autonomous_replay_ok or guided and
                             (cached.get('_guided_division_provenance') or {}).get('action') != action):
                         raise HTTPException(status_code=409, detail="client_message_id was reused for a different request mode")
                     cached = _public_chat_completion(cached)
@@ -1210,18 +1264,19 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None) -> Fas
                 detail = "message is already processing" if reservation.get("status") == "pending" else "previous message outcome is unavailable; automatic retry is disabled"
                 raise HTTPException(status_code=status_code, detail=detail)
             reserved = True
-            try:
-                chat_job = admit_chat(target, session.get("topic_id") or "general",
-                    {"learning_session_id": str(learning_session_id), "client_message_id": client_message_id},
-                    _account_id(user), chat_worker_id, idempotency_key=f"chat:{learning_session_id}:{client_message_id}")
-            except HTTPException:
-                store.fail_chat_message(str(learning_session_id), client_message_id,
-                                        error="chat admission rejected", unknown_outcome=False)
-                raise
-            except Exception as exc:
-                store.fail_chat_message(str(learning_session_id), client_message_id,
-                                        error=type(exc).__name__, unknown_outcome=False)
-                memory_error(exc)
+            if not autonomous_session:
+                try:
+                    chat_job = admit_chat(target, session.get("topic_id") or "general",
+                        {"learning_session_id": str(learning_session_id), "client_message_id": client_message_id},
+                        _account_id(user), chat_worker_id, idempotency_key=f"chat:{learning_session_id}:{client_message_id}")
+                except HTTPException:
+                    store.fail_chat_message(str(learning_session_id), client_message_id,
+                                            error="chat admission rejected", unknown_outcome=False)
+                    raise
+                except Exception as exc:
+                    store.fail_chat_message(str(learning_session_id), client_message_id,
+                                            error=type(exc).__name__, unknown_outcome=False)
+                    memory_error(exc)
             clean_messages = [{"role": row["role"], "content": row["content"]}
                               for row in store.list_learning_messages(str(learning_session_id))]
         else:
@@ -1237,7 +1292,11 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None) -> Fas
         if explicit:
             from local_app.explicit_learning_actions import action_response, GUIDED_OPERATIONS
             try:
-                if action['operation'] in GUIDED_OPERATIONS:
+                if session and session.get("session_mode", "standard") == "autonomous_division":
+                    from local_app.autonomous_division_store import autonomous_response
+                    response = autonomous_response(store, target, session['topic_id'], _account_id(user),
+                        str(learning_session_id), client_message_id, action, action_text)
+                elif action['operation'] in GUIDED_OPERATIONS:
                     from local_app.guided_division_store import guided_response
                     response = guided_response(store, target, session['topic_id'], _account_id(user),
                         str(learning_session_id), client_message_id, action, action_text)
@@ -1245,13 +1304,15 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None) -> Fas
                     response = action_response(action, action_text, clean_messages)
                 response.update(learning_session_id=str(learning_session_id), client_message_id=client_message_id,
                                 memory_version_id=None, memory_stale=False)
-                finished = store.finish_memory_job(chat_job['job_id'], result={'response_ready': True}, worker_id=chat_worker_id)
-                if finished.get('status') != 'completed':
-                    raise ValueError('chat context changed or job lease expired during action')
+                if chat_job:
+                    finished = store.finish_memory_job(chat_job['job_id'], result={'response_ready': True}, worker_id=chat_worker_id)
+                    if finished.get('status') != 'completed':
+                        raise ValueError('chat context changed or job lease expired during action')
                 store.complete_chat_message(str(learning_session_id), client_message_id, response)
             except Exception as exc:
                 store.fail_chat_message(str(learning_session_id), client_message_id, error=type(exc).__name__, unknown_outcome=False)
-                store.finish_memory_job(chat_job['job_id'], error=type(exc).__name__, worker_id=chat_worker_id, unknown_outcome=False)
+                if chat_job:
+                    store.finish_memory_job(chat_job['job_id'], error=type(exc).__name__, worker_id=chat_worker_id, unknown_outcome=False)
                 memory_error(exc)
             response = _public_chat_completion(response)
             return JSONResponse(content=_safe_student_completion(response) if _role(user) == 'student' else response)

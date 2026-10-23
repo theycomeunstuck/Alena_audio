@@ -71,8 +71,9 @@ def test_archive_list_keysets_are_stable_with_tied_timestamps_and_later_completi
         cur.execute("UPDATE teachcopilot.learning_sessions SET completed_at='2026-01-01T00:00:00Z' WHERE learner_id=%s",(LEARNER,))
     first = _get(app)
     assert len(first['sessions']) == 10 and first['next_cursor']
-    assert all(set(row) == {'learning_session_id','topic_id','topic_title','subject_id','completed_at'}
+    assert all(set(row) == {'learning_session_id','topic_id','topic_title','subject_id','session_mode','completed_at'}
                for row in first['sessions'])
+    assert all(row['session_mode'] == 'standard' for row in first['sessions'])
     assert all(row['topic_title'] == 'Дробь, числитель и знаменатель' for row in first['sessions'])
     later = _session(app)
     _close(app,later)
@@ -105,7 +106,8 @@ def test_archive_history_pages_preserve_every_whole_turn_in_source_order(history
     messages = [message for page in reversed(pages) for message in page['messages']]
     assert [(m['role'],m['content']) for m in messages] == [
         pair for index in range(45) for pair in [('user',f'ну {index}?'),('assistant',f'Один шаг {index}.')]]
-    assert set(pages[0]) == {'learning_session_id','topic_id','topic_title','subject_id','status','messages','next_cursor'}
+    assert set(pages[0]) == {'learning_session_id','topic_id','topic_title','subject_id','session_mode','status','messages','next_cursor'}
+    assert pages[0]['session_mode'] == 'standard'
     assert _get(app,sid) == pages[0]
 
 

@@ -3,7 +3,7 @@
   const API = '';
   const tokenKey = 'teachcopilot.session';
   const greeting = 'Привет! Расскажи, что разбираете, и я помогу найти следующий шаг.';
-  const state = { token: sessionStorage.getItem(tokenKey), account: null, learners: [], learnerId: null, dashboard: null, topics: [], task: null, proposal: null, revision: null, chatByLearner: new Map(), nextStepsByLearner: new Map(), learningSessionsByLearner: new Map(), pendingMessages: new Map(), chatTopicsByLearnerSubject: new Map(), memoryCorrectionJobs: new Map(), memoryViewRevision: 0, viewRevision: 0 };
+  const state = { token: sessionStorage.getItem(tokenKey), account: null, features: {}, learners: [], learnerId: null, dashboard: null, topics: [], task: null, proposal: null, revision: null, chatByLearner: new Map(), nextStepsByLearner: new Map(), learningSessionsByLearner: new Map(), pendingMessages: new Map(), chatTopicsByLearnerSubject: new Map(), memoryCorrectionJobs: new Map(), memoryViewRevision: 0, viewRevision: 0 };
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
   const el = (tag, cls, value) => { const node = document.createElement(tag); if (cls) node.className = cls; if (value !== undefined) node.textContent = value; return node; };
@@ -15,6 +15,7 @@
   let toastTimer;
   let loginBusy = false;
   const guidedContexts = new Map();
+  const autonomousContexts = new Map();
   const sessionRecovery = new Map();
   const sessionClosures = new Map();
   let learningArchive = null;
@@ -22,6 +23,7 @@
   let chatReturnAttempt = null;
   const guidedTopic = 'math.g4.numbers.division_by_1_2_digit';
   const guidedTopicTitle = 'Деление на однозначное и двузначное число';
+  const autonomousProtocol = 'autonomous-division-v1';
 
   async function request(path, options = {}) {
     const requestToken = state.token;
@@ -53,9 +55,9 @@
     }).catch(() => { $('#demo-login').hidden = true; });
   }
   function signOutLocal() {
-    guidedContexts.clear(); sessionRecovery.clear(); sessionClosures.clear(); guidedViewRevision++; chatReturnAttempt = null;
+    guidedContexts.clear(); autonomousContexts.clear(); sessionRecovery.clear(); sessionClosures.clear(); guidedViewRevision++; chatReturnAttempt = null;
     resetLearningArchive();
-    state.token = null; state.account = null; state.learnerId = null; sessionStorage.removeItem(tokenKey);
+    state.token = null; state.account = null; state.features = {}; state.learnerId = null; sessionStorage.removeItem(tokenKey);
     state.learners = []; state.dashboard = null; state.topics = []; state.task = null; state.proposal = null; state.revision = null; state.chatByLearner.clear(); state.nextStepsByLearner.clear(); state.learningSessionsByLearner.clear(); state.pendingMessages.clear(); state.chatTopicsByLearnerSubject.clear(); state.memoryCorrectionJobs.clear(); state.viewRevision++;
     $('#learner-list').replaceChildren(); $('#learner-count').textContent = '–'; $('#roster-empty').hidden = true; $('#profile-content').hidden = true; $('#loading-state').hidden = true; $('#error-state').hidden = true; $('#empty-profile').hidden = false;
     $('#account-name').textContent = ''; $('#role-label').textContent = ''; $('#learner-name').textContent = ''; $('#learner-avatar').textContent = ''; $('#profile-grade').textContent = ''; $('#profile-meta').textContent = ''; $('#current-goal').textContent = ''; $('#goal-subject').textContent = ''; $('#revision-label').textContent = ''; $('#zone-map').replaceChildren(); $('#history-list').replaceChildren(); $('#task-cards').replaceChildren(); $('#task-result').hidden = true; $('#proposal-result').replaceChildren(); $('#proposal-result').hidden = true;
@@ -71,7 +73,10 @@
   async function boot() {
     if (!state.token) return showLogin();
     try {
-      const data = await request('/auth/me'); state.account = data.account;
+      const data = await request('/auth/me'); state.account = data.account; state.features = data.features || {};
+      const autonomousOption = $('#chat-mode option[value="autonomous_division"]');
+      autonomousOption.hidden = !state.features.autonomous_division;
+      autonomousOption.disabled = !state.features.autonomous_division;
       if (!state.account || !['teacher', 'student'].includes(state.account.role)) throw new Error('Для этой учётной записи рабочее место недоступно.');
       $('#login-view').hidden = true; $('#workspace').hidden = false;
       $('#account-name').textContent = displayName(state.account); $('#role-label').textContent = state.account.role === 'teacher' ? 'Учитель' : 'Ученик';
@@ -139,7 +144,10 @@
       renderDashboard(data); $('#loading-state').hidden = true; $('#profile-content').hidden = false;
       $('#action-empty').hidden = true;
       fillTopicOptions();
-      if (state.account?.role === 'student') { renderLearningSession(); refreshGuided(); }
+      if (state.account?.role === 'student') {
+        renderLearningSession();
+        if ($('#chat-mode').value === 'autonomous_division') refreshAutonomous(); else refreshGuided();
+      }
       renderNextStep();
       if (state.account?.role === 'teacher') { loadMemory(); const pending = state.nextStepsByLearner.get(id); if (pending?.job_id && !pending.result && !pending.finished) pollNextStep(id, pending.job_id, viewRevision); }
     } catch (error) { if (viewRevision !== state.viewRevision) return; showError(error); $('#action-empty').hidden = true; }
@@ -614,6 +622,7 @@
     if (data?.available === false) return true;
     return data?.available === true && typeof data.learning_session_id === 'string' && !!data.learning_session_id &&
       typeof data.topic_id === 'string' && !!data.topic_id && typeof data.topic_title === 'string' &&
+      (data.session_mode === undefined || ['standard', 'autonomous_division'].includes(data.session_mode)) &&
       ['math', 'python', 'scratch', 'programming', 'general'].includes(data.subject_id) && data.status === 'active' &&
       typeof data.history_truncated === 'boolean' && [null, 'pending', 'unknown_outcome'].includes(data.unresolved_status) &&
       Array.isArray(data.messages) && data.messages.length <= 40 && data.messages.every(message =>
@@ -634,7 +643,12 @@
       if (!validCurrentSession(data)) throw new Error('Сервер не смог восстановить занятие. Обнови его состояние.');
       if (data.available) {
         state.learningSessionsByLearner.set(learnerId, { learning_session_id:data.learning_session_id,
-          topic_id:data.topic_id, topic_title:data.topic_title, subject_id:data.subject_id, status:'active' });
+          topic_id:data.topic_id, topic_title:data.topic_title, subject_id:data.subject_id, status:'active',
+          session_mode:data.session_mode || 'standard' });
+        if (data.session_mode === 'autonomous_division') {
+          state.chatTopicsByLearnerSubject.set(`${learnerId}:math`, guidedTopic);
+          $('#chat-subject').value = 'math'; $('#chat-topic').value = guidedTopic; $('#chat-mode').value = 'autonomous_division';
+        }
         state.chatByLearner.set(learnerId, data.messages.map(message => ({ role:message.role, content:message.content, delivery_status:message.delivery_status })));
         sessionRecovery.set(learnerId, { loading:false, unresolved_status:data.unresolved_status, history_truncated:data.history_truncated });
       } else {
@@ -643,7 +657,10 @@
         sessionRecovery.set(learnerId, { loading:false, unresolved_status:null, history_truncated:false });
       }
       renderChatHistory(learnerId); renderLearningSession();
-      if (state.dashboard) refreshGuided();
+      if (state.dashboard) {
+        if ($('#chat-mode').value === 'autonomous_division') refreshAutonomous();
+        else refreshGuided();
+      }
     } catch (error) {
       if (!currentView()) return;
       sessionRecovery.set(learnerId, { loading:false, error:errorText(error) });
@@ -748,7 +765,7 @@
       if (current()) { selected.loading = false; selected.olderLoading = false; renderLearningArchive(); }
     }
   }
-  const actionLabels = { division_check: 'Проверить деление', division_places: 'Разряды частного', division_practice: 'Дать пример', print_output: 'Вывод Python', division_guided: 'Решать по шагам' };
+  const actionLabels = { division_check: 'Проверить деление', division_places: 'Разряды частного', division_practice: 'Дать пример', print_output: 'Вывод Python', division_guided: 'Решать по шагам', autonomous_division: 'Самостоятельно делить' };
   function guidedKey() { return `${state.learnerId}:${$('#chat-topic').value}`; }
   function canonicalGuidedKey() { return `${state.learnerId}:${guidedTopic}`; }
   function canReturnFromChat() {
@@ -845,6 +862,100 @@
       return null;
     }
   }
+  function autonomousKey() { return `${state.learnerId}:${guidedTopic}`; }
+  function renderAutonomous(pending) {
+    const shown = $('#chat-mode').value === 'autonomous_division';
+    $('#autonomous-division-panel').hidden = !shown;
+    if (!shown) return;
+    const entry = autonomousContexts.get(autonomousKey());
+    const cursor = entry?.state;
+    const ready = entry?.available === true && cursor && !entry.loading && !entry.error;
+    const resumed = ready && !entry.resume_required && cursor.status === 'active';
+    const canStart = !entry?.loading && !entry?.error && (!entry || entry.reason === 'no_saved_autonomous_step');
+    $('#autonomous-division-example').hidden = !cursor;
+    let displayStatus;
+    if (entry?.loading) displayStatus = '\u0412\u043e\u0441\u0441\u0442\u0430\u043d\u0430\u0432\u043b\u0438\u0432\u0430\u0435\u043c \u043f\u0440\u0438\u043c\u0435\u0440\u2026';
+    else if (entry?.error) displayStatus = entry.error;
+    else if (entry?.reason === 'no_saved_autonomous_step') displayStatus = '\u0421\u043e\u0445\u0440\u0430\u043d\u0451\u043d\u043d\u043e\u0433\u043e \u043f\u0440\u0438\u043c\u0435\u0440\u0430 \u043d\u0435\u0442. \u041c\u043e\u0436\u043d\u043e \u043d\u0430\u0447\u0430\u0442\u044c \u043d\u043e\u0432\u044b\u0439. \u041e\u0442\u0432\u0435\u0442\u044b \u0437\u0434\u0435\u0441\u044c \u043d\u0435 \u043f\u043e\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0430\u044e\u0442 \u043e\u0441\u0432\u043e\u0435\u043d\u0438\u0435 \u0442\u0435\u043c\u044b.';
+    else if (!ready) displayStatus = entry?.reason === 'unknown_outcome' ? '\u0420\u0435\u0437\u0443\u043b\u044c\u0442\u0430\u0442 \u043f\u0440\u043e\u0448\u043b\u043e\u0433\u043e \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u044f \u043d\u0435\u0438\u0437\u0432\u0435\u0441\u0442\u0435\u043d. \u041e\u0431\u043d\u043e\u0432\u0438 \u0441\u043e\u0441\u0442\u043e\u044f\u043d\u0438\u0435 \u2013 \u043f\u0440\u0435\u0436\u043d\u0438\u0439 \u0448\u0430\u0433 \u043d\u0435 \u043f\u043e\u0434\u0441\u0442\u0430\u0432\u043b\u044f\u0435\u0442\u0441\u044f.' : '\u0421\u043e\u0445\u0440\u0430\u043d\u0451\u043d\u043d\u044b\u0435 \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u044f \u043d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u043f\u0440\u043e\u0432\u0435\u0440\u0438\u0442\u044c. \u041f\u0440\u043e\u0434\u043e\u043b\u0436\u0435\u043d\u0438\u0435 \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u043e.';
+    else if (entry.resume_required) displayStatus = '\u041f\u0440\u0438\u043c\u0435\u0440 \u0441\u043e\u0445\u0440\u0430\u043d\u0451\u043d \u0432 \u043f\u0440\u043e\u0448\u043b\u043e\u043c \u0437\u0430\u043d\u044f\u0442\u0438\u0438. \u0415\u0433\u043e \u043c\u043e\u0436\u043d\u043e \u043f\u0440\u043e\u0434\u043e\u043b\u0436\u0438\u0442\u044c \u0438\u043b\u0438 \u044f\u0432\u043d\u043e \u043f\u0440\u0435\u0440\u0432\u0430\u0442\u044c.';
+    else if (cursor.status === 'paused') displayStatus = '\u041f\u0440\u0438\u043c\u0435\u0440 \u043d\u0430 \u043f\u0430\u0443\u0437\u0435. \u041c\u0435\u0441\u0442\u043e \u043e\u0441\u0442\u0430\u043d\u043e\u0432\u043a\u0438 \u0441\u043e\u0445\u0440\u0430\u043d\u0435\u043d\u043e.';
+    else if (cursor.status === 'completed') displayStatus = '\u041f\u0440\u0438\u043c\u0435\u0440 \u0437\u0430\u0432\u0435\u0440\u0448\u0451\u043d. \u041c\u043e\u0436\u043d\u043e \u0432\u044b\u0431\u0440\u0430\u0442\u044c \u0441\u043b\u0435\u0434\u0443\u044e\u0449\u0438\u0439.';
+    else if (entry.limit_reached) displayStatus = '\u0414\u043e\u0441\u0442\u0438\u0433\u043d\u0443\u0442 \u043f\u0440\u0435\u0434\u0435\u043b \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u0439 \u0434\u043b\u044f \u044d\u0442\u043e\u0433\u043e \u043f\u0440\u0438\u043c\u0435\u0440\u0430. \u041c\u043e\u0436\u043d\u043e \u044f\u0432\u043d\u043e \u0432\u044b\u0431\u0440\u0430\u0442\u044c \u043d\u043e\u0432\u044b\u0439.';
+    else displayStatus = '\u041e\u0434\u0438\u043d \u0432\u043e\u043f\u0440\u043e\u0441 \u0437\u0430 \u0440\u0430\u0437. \u041c\u043e\u0436\u043d\u043e \u043f\u043e\u043f\u0440\u043e\u0441\u0438\u0442\u044c \u043e\u0431\u044a\u044f\u0441\u043d\u0438\u0442\u044c \u043f\u0440\u0430\u0432\u0438\u043b\u043e \u0438\u043b\u0438 \u043f\u043e\u043a\u0430\u0437\u0430\u0442\u044c \u0442\u043e\u043b\u044c\u043a\u043e \u0442\u0435\u043a\u0443\u0449\u0438\u0439 \u0448\u0430\u0433.';
+    $('#autonomous-division-status').textContent = displayStatus;
+    $('#autonomous-division-example').textContent = cursor ? `${cursor.dividend} : ${cursor.divisor} · Разряд ${cursor.question_number} из ${cursor.question_count}` : '';
+    $('#autonomous-division-prompt').hidden = !entry?.prompt;
+    $('#autonomous-division-prompt').textContent = entry?.prompt || '';
+    $('#autonomous-division-answer-form').hidden = !(resumed && !entry.limit_reached);
+    $('#autonomous-division-start').hidden = !canStart;
+    $('#autonomous-division-explain').hidden = !(resumed && !entry.limit_reached);
+    $('#autonomous-division-show-step').hidden = !(resumed && !entry.limit_reached);
+    $('#autonomous-division-pause').hidden = !(resumed && !entry.limit_reached);
+    $('#autonomous-division-resume').hidden = !(ready && (entry.resume_required || cursor.status === 'paused'));
+    $('#autonomous-division-next').hidden = !(ready && cursor.status === 'completed');
+    $('#autonomous-division-switch').hidden = !(ready && cursor.status !== 'completed');
+    const disabled = !!pending || !!entry?.loading || recoveryBlocksMessages();
+    $$('#autonomous-division-panel input, #autonomous-division-panel select, #autonomous-division-panel button')
+      .forEach(field => { field.disabled = disabled; });
+  }
+  async function refreshAutonomous() {
+    const mode = $('#chat-mode').value;
+    if (state.account?.role !== 'student' || !state.learnerId || mode !== 'autonomous_division' ||
+        recoveryBlocksMessages() || state.pendingMessages.has(state.learnerId)) return null;
+    const learnerId = state.learnerId, key = autonomousKey(), token = state.token;
+    const revision = ++guidedViewRevision, viewRevision = state.viewRevision;
+    const session = state.learningSessionsByLearner.get(learnerId);
+    const sessionIdentity = JSON.stringify([session?.learning_session_id, session?.status, session?.session_mode]);
+    const query = new URLSearchParams({ topic_id: guidedTopic, protocol: autonomousProtocol });
+    if (session?.status === 'active') query.set('learning_session_id', session.learning_session_id);
+    const current = () => revision === guidedViewRevision && token === state.token && learnerId === state.learnerId &&
+      viewRevision === state.viewRevision && $('#chat-mode').value === mode &&
+      JSON.stringify([state.learningSessionsByLearner.get(learnerId)?.learning_session_id,
+        state.learningSessionsByLearner.get(learnerId)?.status,
+        state.learningSessionsByLearner.get(learnerId)?.session_mode]) === sessionIdentity &&
+      !state.pendingMessages.has(learnerId);
+    autonomousContexts.set(key, { loading: true }); renderLearningSession();
+    try {
+      const data = await request(`/learners/${encodeURIComponent(learnerId)}/guided-division?${query}`);
+      if (!current()) return null;
+      autonomousContexts.set(key, data); renderLearningSession(); return data;
+    } catch (error) {
+      if (!current()) return null;
+      autonomousContexts.set(key, { error: errorText(error) }); renderLearningSession(); return null;
+    }
+  }
+  function sendAutonomous(operation, value) {
+    const learnerId = state.learnerId, entry = autonomousContexts.get(autonomousKey());
+    if (!learnerId || recoveryBlocksMessages() || state.pendingMessages.has(learnerId) || entry?.loading || entry?.error) return;
+    const action = { operation };
+    if (operation !== 'autonomous_division_start') {
+      if (!entry?.available || !entry.state?.state_id) return;
+      action.expected_state_id = entry.state.state_id;
+    }
+    if (['autonomous_division_start', 'autonomous_division_next', 'autonomous_division_switch'].includes(operation)) {
+      action.divisor_digits = Number($('#autonomous-division-digits').value);
+    }
+    if (operation === 'autonomous_division_answer') action.value = value;
+    const labels = {
+      autonomous_division_start: 'Начать новый пример.',
+      autonomous_division_answer: `Мой ответ на шаг: ${value}.`,
+      autonomous_division_explain: 'Объясни правило текущего шага.',
+      autonomous_division_show_step: 'Покажи только текущий шаг.',
+      autonomous_division_pause: 'Сделаю паузу.',
+      autonomous_division_resume: 'Продолжу сохранённый пример.',
+      autonomous_division_next: 'Перейду к следующему примеру.',
+      autonomous_division_switch: 'Явно прерву этот пример и выберу новый.'
+    };
+    if (state.learningSessionsByLearner.get(learnerId)?.status === 'completed') {
+      state.chatByLearner.delete(learnerId); renderChatHistory(learnerId);
+    }
+    state.chatTopicsByLearnerSubject.set(`${learnerId}:math`, guidedTopic);
+    state.pendingMessages.set(learnerId, { content: labels[operation], learning_action: Object.freeze(action),
+      client_message_id: crypto.randomUUID(), client_session_id: crypto.randomUUID(),
+      subject_id: 'math', topic_id: guidedTopic, session_mode: 'autonomous_division' });
+    updateChat('user', labels[operation]); sendPendingMessage();
+  }
   async function returnFromChat() {
     const entry = guidedContexts.get(canonicalGuidedKey());
     if (chatReturnAttempt || !canReturnFromChat() || !usableGuidedBookmark(entry)) return;
@@ -906,7 +1017,7 @@
     select.replaceChildren(new Option('Общая беседа по предмету', subject));
     candidates.forEach(topic => select.add(new Option(`${topicTitle(topic)}${topic.grade ? ` · ${topic.grade} класс` : ''}`, topic.topic_id || topic.id)));
     const chosen = active ? session.topic_id : pending?.topic_id || state.chatTopicsByLearnerSubject.get(key) || (goal?.topic_id && matches(goal) ? goal.topic_id : subject);
-    if (chosen && ![...select.options].some(option => option.value === chosen) && (active || chosen === guidedTopic && $('#chat-mode').value === 'division_guided')) {
+    if (chosen && ![...select.options].some(option => option.value === chosen) && (active || chosen === guidedTopic && ['division_guided', 'autonomous_division'].includes($('#chat-mode').value))) {
       select.add(new Option(chosen === guidedTopic ? guidedTopicTitle : topicTitle(session), chosen));
     }
     select.value = [...select.options].some(option => option.value === chosen) ? chosen : subject;
@@ -914,10 +1025,17 @@
   }
   function renderLearningAction(pending) {
     const subject = $('#chat-subject').value;
+    const session = state.learningSessionsByLearner.get(state.learnerId);
+    const autonomousOption = $('#chat-mode option[value="autonomous_division"]');
+    const autonomousEnabled = state.features.autonomous_division === true && state.account?.role === 'student';
+    autonomousOption.hidden = !autonomousEnabled && session?.session_mode !== 'autonomous_division';
+    autonomousOption.disabled = !autonomousEnabled && session?.session_mode !== 'autonomous_division';
     $$('#chat-mode option').forEach(option => {
       option.disabled = option.value === 'print_output' ? !['python', 'programming'].includes(subject) : option.value !== 'chat' && subject !== 'math';
       if (option.value === 'division_guided' && state.learningSessionsByLearner.get(state.learnerId)?.status === 'active' && $('#chat-topic').value !== guidedTopic) option.disabled = true;
+      if (session?.status === 'active' && session.session_mode === 'autonomous_division' && option.value !== 'autonomous_division') option.disabled = true;
     });
+    autonomousOption.disabled = !autonomousEnabled;
     if ($('#chat-mode').selectedOptions[0]?.disabled && !pending) $('#chat-mode').value = 'chat';
     const mode = $('#chat-mode').value, isAction = mode !== 'chat';
     $('#chat-form').hidden = isAction; $('#learning-action-panel').hidden = !isAction;
@@ -927,25 +1045,30 @@
     $('#action-practice-fields').hidden = mode !== 'division_practice';
     $('#action-print-fields').hidden = mode !== 'print_output';
     $('#learning-action-title').textContent = actionLabels[mode] || '';
+    $('#learning-action-form').hidden = mode === 'autonomous_division';
     $('#send-learning-action').textContent = pending?.sending ? 'Проверяем…' : mode === 'division_guided' ? 'Начать новый пример' : actionLabels[mode] || 'Выполнить';
     $('#learning-action-hint').textContent = {
       division_check: 'Покажу результат и проверку умножением. Можно указать свой ответ. Для деления с остатком покажу остаток.',
       division_places: 'Покажу всё частное и значение каждой его цифры.',
       division_practice: 'Деление без остатка. В частном три цифры, ноль в десятках и ненулевые единицы. Ответ останется тебе.',
       division_guided: 'По одному шагу, без готового ответа. Поддерживается положительное деление без остатка. Проверка шага не означает освоение темы.',
+      autonomous_division: 'Примеры и объяснения рассчитаны кодом. Доступны положительные делимые до 999999 и делители от 1 до 99. Можно попросить правило или показать один шаг.',
       print_output: 'Покажу точные символы вывода. Поддерживаются до 8 вызовов print со строками, целыми числами, True, False, None и параметрами sep и end. Выражения и переменные здесь не поддерживаются.'
     }[mode] || '';
     $('#chat-mode').disabled = !!pending || recoveryBlocksMessages();
     $$('#learning-action-form input, #learning-action-form select, #learning-action-form textarea, #learning-action-form button').forEach(field => { field.disabled = !!pending || recoveryBlocksMessages(); });
     renderGuided(pending);
+    renderAutonomous(pending);
     renderChatReturn(pending);
   }
   function renderLearningSession() {
+    const activeSession = state.learningSessionsByLearner.get(state.learnerId);
+    if (activeSession?.status === 'active' && activeSession.session_mode === 'autonomous_division') $('#chat-mode').value = 'autonomous_division';
     renderChatTopicOptions();
     const session = state.learningSessionsByLearner.get(state.learnerId), pending = state.pendingMessages.get(state.learnerId);
     const recovery = sessionRecovery.get(state.learnerId), blocked = recoveryBlocksMessages();
     const title = session ? topicTitle({ ...session, topic_id: session.topic_id || session.subject_id }) : '';
-    $('#learning-session-status').textContent = session?.status === 'active' ? `${title} · Занятие идёт. После завершения диалог будет сохранён для просмотра учителем.` : session?.ended_elsewhere ? `${title} · Занятие больше не активно. Следующее сообщение начнёт новое.` : session?.status === 'completed' ? `${title} · Занятие завершено. Обновление памяти поставлено в очередь.` : `${subjectTitles[$('#chat-subject').value] || 'Учебное занятие'} · Занятие начнётся с первого вопроса.`;
+    $('#learning-session-status').textContent = session?.session_mode === 'autonomous_division' ? `${title} · Самостоятельная практика. Прогресс сохраняется без подтверждения памяти.` : session?.status === 'active' ? `${title} · Занятие идёт. После завершения диалог будет сохранён для просмотра учителем.` : session?.ended_elsewhere ? `${title} · Занятие больше не активно. Следующее сообщение начнёт новое.` : session?.status === 'completed' ? `${title} · Занятие завершено. Обновление памяти поставлено в очередь.` : `${subjectTitles[$('#chat-subject').value] || 'Учебное занятие'} · Занятие начнётся с первого вопроса.`;
     const notes = [];
     if (sessionClosures.has(state.learnerId)) notes.push('Сохраняем завершение занятия…');
     else if (recovery?.loading) notes.push('Восстанавливаем занятие и переписку…');
@@ -970,12 +1093,13 @@
     try {
       let session = state.learningSessionsByLearner.get(learnerId);
       if (!session || session.status !== 'active') {
-        session = await request(`/learners/${encodeURIComponent(learnerId)}/learning-sessions`, { method: 'POST', body: { topic_id: pending.topic_id || pending.subject_id, client_session_id: pending.client_session_id } });
+        session = await request(`/learners/${encodeURIComponent(learnerId)}/learning-sessions`, { method: 'POST', body: { topic_id: pending.topic_id || pending.subject_id, client_session_id: pending.client_session_id, mode: pending.session_mode || 'standard' } });
         if (state.token !== token) return;
         session.subject_id = pending.subject_id; state.learningSessionsByLearner.set(learnerId, session);
         sessionRecovery.set(learnerId, { loading:false, unresolved_status:null, history_truncated:false });
       }
       const body = { model: 'teachcopilot-rag', learning_session_id: session.learning_session_id, client_message_id: pending.client_message_id, messages: pending.learning_action ? [] : [{ role: 'user', content: pending.content }], metadata: { subject_id: session.subject_id || pending.subject_id } };
+      if (session.session_mode === 'autonomous_division') body.learning_protocol = autonomousProtocol;
       if (pending.learning_action) body.learning_action = pending.learning_action;
       const data = await request('/v1/chat/completions', { method: 'POST', body });
       if (state.token !== token) return;
@@ -983,19 +1107,29 @@
       if (!message) throw new Error('В ответе нет объяснения. Повторите этот же вопрос, чтобы проверить результат запроса.');
       guidedViewRevision++; chatReturnAttempt = null;
       const guideKey = `${learnerId}:${session.topic_id}`;
-      if (data.guided_division) guidedContexts.set(guideKey, { available: data.guided_division.status !== 'completed', origin: 'current_session', guided_division: data.guided_division, source_learning_session_id: session.learning_session_id, prompt: message });
+      if (data.learning_protocol === autonomousProtocol) {
+        const cursor = data.autonomous_division;
+        autonomousContexts.set(`${learnerId}:${guidedTopic}`, { available: !!cursor, reason: cursor ? null : 'no_saved_autonomous_step',
+          state: cursor || null, prompt: cursor ? message : '', resume_required: false, limit_reached: data.limit_reached === true });
+      }
+      else if (data.guided_division) guidedContexts.set(guideKey, { available: data.guided_division.status !== 'completed', origin: 'current_session', guided_division: data.guided_division, source_learning_session_id: session.learning_session_id, prompt: message });
       else { guidedContexts.delete(guideKey); ordinaryReplyReady = true; }
       state.pendingMessages.delete(learnerId);
       if (state.learnerId === learnerId) updateChat('assistant', message, data.citations || data.sources || [], data.learning_tool);
       else { const history = state.chatByLearner.get(learnerId) || []; history.push({ role: 'assistant', content: message, tool: data.learning_tool }); state.chatByLearner.set(learnerId, history); }
     } catch (error) {
       if (state.token === token) {
-        if (pending.learning_action && ([400, 422].includes(error.status) || error.status === 409 && pending.learning_action.operation.startsWith('division_guided_') && !/automatic retry is disabled|already processing/.test(error.detail || ''))) {
+        if (pending.learning_action && ([400, 422].includes(error.status) || error.status === 409 &&
+            /^(division_guided_|autonomous_division_)/.test(pending.learning_action.operation) &&
+            !/automatic retry is disabled|already processing|previous message outcome is unavailable/.test(error.detail || ''))) {
           state.pendingMessages.delete(learnerId);
           const history = state.chatByLearner.get(learnerId) || []; history.pop(); state.chatByLearner.set(learnerId, history);
           if (state.learnerId === learnerId) {
             renderChatHistory(learnerId); $('#learning-action-error').textContent = error.detail || errorText(error); $('#learning-action-error').hidden = false;
-            if (error.status === 409) { $('#learning-action-error').textContent = 'Сохранённый шаг изменился. Обновите его перед следующим ответом.'; await refreshGuided(); }
+            if (error.status === 409) {
+              $('#learning-action-error').textContent = 'Состояние примера изменилось. Обнови его перед следующим действием.';
+              if (pending.session_mode === 'autonomous_division') await refreshAutonomous(); else await refreshGuided();
+            }
           }
         } else {
           pending.terminal = error.status === 409 && /automatic retry is disabled/.test(error.detail || '');
@@ -1080,10 +1214,12 @@
   });
   $('#chat-mode').addEventListener('change', () => {
     guidedViewRevision++; chatReturnAttempt = null; $('#learning-action-error').hidden = true;
-    if ($('#chat-mode').value === 'division_guided' && state.learningSessionsByLearner.get(state.learnerId)?.status !== 'active') {
+    if (['division_guided', 'autonomous_division'].includes($('#chat-mode').value) && state.learningSessionsByLearner.get(state.learnerId)?.status !== 'active') {
       state.chatTopicsByLearnerSubject.set(`${state.learnerId}:math`, guidedTopic);
     }
-    renderLearningSession(); refreshGuided();
+    if ($('#chat-mode').value === 'autonomous_division') { $('#chat-subject').value = 'math'; $('#chat-topic').value = guidedTopic; }
+    renderLearningSession();
+    if ($('#chat-mode').value === 'autonomous_division') refreshAutonomous(); else refreshGuided();
   });
   $('#chat-subject').addEventListener('change', () => { guidedViewRevision++; chatReturnAttempt = null; resetLearningAction(); renderLearningSession(); refreshGuided(); });
   $('#chat-topic').addEventListener('change', () => {
@@ -1131,6 +1267,20 @@
   $('#guided-division-pause').addEventListener('click', () => sendGuided('division_guided_pause'));
   $('#guided-division-resume').addEventListener('click', () => sendGuided('division_guided_resume'));
   $('#guided-division-refresh').addEventListener('click', refreshGuided);
+  $('#autonomous-division-answer-form').addEventListener('submit', event => {
+    event.preventDefault(); const text = $('#autonomous-division-answer').value;
+    if (!/^[0-9]{1,6}$/.test(text)) { $('#learning-action-error').textContent = 'Введи одно целое число от 0 до 999999.'; $('#learning-action-error').hidden = false; return; }
+    $('#learning-action-error').hidden = true; $('#autonomous-division-answer').value = '';
+    sendAutonomous('autonomous_division_answer', Number(text));
+  });
+  $('#autonomous-division-start').addEventListener('click', () => sendAutonomous('autonomous_division_start'));
+  $('#autonomous-division-explain').addEventListener('click', () => sendAutonomous('autonomous_division_explain'));
+  $('#autonomous-division-show-step').addEventListener('click', () => sendAutonomous('autonomous_division_show_step'));
+  $('#autonomous-division-pause').addEventListener('click', () => sendAutonomous('autonomous_division_pause'));
+  $('#autonomous-division-resume').addEventListener('click', () => sendAutonomous('autonomous_division_resume'));
+  $('#autonomous-division-next').addEventListener('click', () => sendAutonomous('autonomous_division_next'));
+  $('#autonomous-division-switch').addEventListener('click', () => sendAutonomous('autonomous_division_switch'));
+  $('#autonomous-division-refresh').addEventListener('click', refreshAutonomous);
   $('#chat-guided-return-button').addEventListener('click', returnFromChat);
   $('#refresh-learning-session').addEventListener('click', restoreLearningSession);
   $('#learning-archive').addEventListener('toggle', () => {
@@ -1153,7 +1303,7 @@
       if (state.learningSessionsByLearner.get(learnerId)?.learning_session_id !== session.learning_session_id) return;
       state.learningSessionsByLearner.set(learnerId, { ...session, status:result.status || 'completed', job_id:result.job_id });
       state.pendingMessages.delete(learnerId); sessionRecovery.set(learnerId, { ...recovery, unresolved_status:null });
-      if (state.learnerId === learnerId) toast('Занятие сохранено. Память обновится в фоне.');
+      if (state.learnerId === learnerId) toast(session.session_mode === 'autonomous_division' ? '\u0410\u0432\u0442\u043e\u043d\u043e\u043c\u043d\u0430\u044f \u043f\u0440\u0430\u043a\u0442\u0438\u043a\u0430 \u0441\u043e\u0445\u0440\u0430\u043d\u0435\u043d\u0430.' : 'Занятие сохранено. Память обновится в фоне.');
     } catch (error) { if (state.token === token && state.learnerId === learnerId) toast(errorText(error)); }
     finally {
       if (sessionClosures.get(learnerId) === attempt) {

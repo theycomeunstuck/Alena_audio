@@ -9,9 +9,10 @@ from local_app.learning_tools import _completion
 from local_app.guided_division import (
     GUIDED_OPERATIONS, GUIDED_VERSION, validate_answer, validate_identifier, validate_operands,
 )
+from local_app.autonomous_division import OPERATIONS as AUTONOMOUS_OPERATIONS
 
 VERSION = 'explicit-learning-action-v1'
-MATH_OPERATIONS = {'division_check', 'division_places', 'division_practice'} | GUIDED_OPERATIONS
+MATH_OPERATIONS = {'division_check', 'division_places', 'division_practice'} | GUIDED_OPERATIONS | AUTONOMOUS_OPERATIONS
 
 
 def validate_action(value: object) -> tuple[dict, str]:
@@ -20,6 +21,9 @@ def validate_action(value: object) -> tuple[dict, str]:
     operation = value.get('operation')
     if not isinstance(operation, str) or operation not in MATH_OPERATIONS | {'print_output'}:
         raise ValueError('Неизвестное учебное действие.')
+    if operation in AUTONOMOUS_OPERATIONS:
+        from local_app.autonomous_division import validate_action as validate_autonomous_action
+        return validate_autonomous_action(value)
     allowed = {'operation'}
     if operation in GUIDED_OPERATIONS:
         if operation == 'division_guided_start':

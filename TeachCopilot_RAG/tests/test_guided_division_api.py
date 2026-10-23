@@ -1,4 +1,6 @@
 from copy import deepcopy
+from pathlib import Path
+import shutil
 
 import pytest
 from fastapi.testclient import TestClient
@@ -8,6 +10,8 @@ from local_app.auth import hash_password
 from local_app.config import Settings
 from local_app.memory_service import MemoryWorker
 from local_app.store import Store
+from local_app.autonomous_division import VERSION as AUTONOMOUS_PROTOCOL
+from local_app.learning_math import division_facts
 from scripts.load_memory import ControlledRuntime
 from tests.test_memory_api_flow import flow_store  # noqa: F401
 
@@ -30,7 +34,7 @@ def guided(flow_store):
     store.assign_learner(teacher['id'], LEARNER)
     student = store.create_student_account('guided-student@synthetic.test', 'Student', hash_password(password), LEARNER, teacher['id'])
     def browser(store):
-        return TestClient(create_app(settings=Settings(), store=store, runtime=Forbidden(), rag_service=Forbidden()))
+        return TestClient(create_app(settings=Settings(autonomous_division_enabled=True), store=store, runtime=Forbidden(), rag_service=Forbidden()))
     client = browser(store)
     def auth(account):
         response = client.post('/auth/login', json={'email':account['email'], 'password':password})
@@ -44,6 +48,40 @@ def session(client, headers):
     result = client.post(f'/learners/{LEARNER}/learning-sessions', headers=headers, json={'topic_id':TOPIC})
     assert result.status_code == 201, result.text
     return result.json()['learning_session_id']
+
+
+def autonomous_session(client, headers, client_session_id='autonomous-session'):
+    result = client.post(f'/learners/{LEARNER}/learning-sessions', headers=headers, json={
+        'topic_id': TOPIC, 'client_session_id': client_session_id, 'mode': 'autonomous_division'})
+    assert result.status_code == 201, result.text
+    assert result.json()['session_mode'] == 'autonomous_division'
+    return result.json()['learning_session_id']
+
+
+def autonomous_action(client, headers, sid, mid, operation, **values):
+    return client.post('/v1/chat/completions', headers=headers, json={
+        'learning_session_id': sid, 'client_message_id': mid,
+        'learning_protocol': AUTONOMOUS_PROTOCOL,
+        'learning_action': {'operation': operation, **values}})
+
+
+def autonomous_context(client, headers, sid=None):
+    query = {'topic_id': TOPIC, 'protocol': AUTONOMOUS_PROTOCOL}
+    if sid:
+        query['learning_session_id'] = sid
+    result = client.get(f'/learners/{LEARNER}/guided-division', headers=headers, params=query)
+    assert result.status_code == 200, result.text
+    return result.json()
+
+
+def correct_value(state):
+    facts = division_facts(state['dividend'], state['divisor'])
+    step = facts['long_division_steps'][state['step_index']]
+    if state['phase'] == 'quotient_digit':
+        return step['quotient_digit']
+    if state['phase'] == 'remainder':
+        return step['remainder']
+    return facts['long_division_steps'][state['step_index'] + 1]['brought_down_digit']
 
 
 def action(client, headers, sid, mid, operation, **values):
@@ -377,6 +415,276 @@ def test_new_unreviewed_completed_lesson_prevents_reviving_an_older_cursor(guide
     start(client,student,second)
     assert client.post(f'/learning-sessions/{second}/complete', headers=student).status_code == 202
     assert not context(client,student)['available']
+
+
+def test_autonomous_protocol_isolated_from_guided_mode_and_default_flag_is_off(guided):
+    client, store, student, teacher, browser = guided
+    protocol_without_session = client.post('/v1/chat/completions', headers=student, json={
+        'learning_protocol': AUTONOMOUS_PROTOCOL,
+        'messages': [{'role': 'user', 'content': 'Can you solve this?'}]})
+    assert protocol_without_session.status_code == 409
+    standard = client.post(f'/learners/{LEARNER}/learning-sessions', headers=student,
+        json={'topic_id': TOPIC, 'client_session_id': 'same-session-id'})
+    assert standard.status_code == 201
+    assert standard.json()['session_mode'] == 'standard'
+    conflict = client.post(f'/learners/{LEARNER}/learning-sessions', headers=student,
+        json={'topic_id': TOPIC, 'client_session_id': 'same-session-id', 'mode': 'autonomous_division'})
+    assert conflict.status_code == 409
+    default_topic = client.post(f'/learners/{LEARNER}/learning-sessions', headers=student,
+        json={'client_session_id': 'auto-default-topic', 'mode': 'autonomous_division'})
+    assert default_topic.status_code == 201
+    assert default_topic.json()['topic_id'] == TOPIC
+
+    disabled = TestClient(create_app(settings=Settings(), store=store, runtime=Forbidden(), rag_service=Forbidden()))
+    try:
+        response = disabled.post(f'/learners/{LEARNER}/learning-sessions', headers=student,
+            json={'topic_id': TOPIC, 'client_session_id': 'disabled-auto', 'mode': 'autonomous_division'})
+        assert response.status_code == 404
+        assert disabled.get('/auth/me', headers=student).json()['features']['autonomous_division'] is False
+    finally:
+        disabled.close()
+
+
+def test_autonomous_api_rejects_ambiguous_text_and_persists_only_public_fields(guided):
+    client, store, student, _, browser = guided
+    sid = autonomous_session(client, student, 'ambiguous-session')
+    start_request = {'learning_session_id': sid, 'client_message_id': 'auto-start',
+        'learning_protocol': AUTONOMOUS_PROTOCOL,
+        'learning_action': {'operation': 'autonomous_division_start'}}
+    started = client.post('/v1/chat/completions', headers=student, json=start_request)
+    assert started.status_code == 200, started.text
+    first = started.json()
+    assert first['learning_protocol'] == AUTONOMOUS_PROTOCOL
+    assert first['learning_tool']['facts'] == {}
+    assert '_autonomous_division_state' not in first
+    assert '_autonomous_division_provenance' not in first
+    replay = client.post('/v1/chat/completions', headers=student, json=start_request)
+    assert replay.status_code == 200 and replay.json() == first
+    assert len(store.list_learning_messages(sid)) == 2
+
+    cursor = first['autonomous_division']
+    saved_position = (cursor['step_index'], cursor['phase'])
+    for index, text in enumerate(('Ага', 'хз', '4?')):
+        response = client.post('/v1/chat/completions', headers=student, json={
+            'learning_session_id': sid, 'client_message_id': f'ambiguous-{index}',
+            'learning_protocol': AUTONOMOUS_PROTOCOL,
+            'messages': [{'role': 'user', 'content': text}]})
+        assert response.status_code == 200, f'index={index}, cursor={cursor}, body={response.text}'
+        assert response.json()['learning_action']['operation'] == 'autonomous_division_clarify'
+        assert 'не могу проверить этот текст как числовой ответ' in response.json()['choices'][0]['message']['content']
+        assert (response.json()['autonomous_division']['step_index'],
+                response.json()['autonomous_division']['phase']) == saved_position
+        cursor = response.json()['autonomous_division']
+    restored = autonomous_context(client, student, sid)
+    assert restored['state']['state_id'] == cursor['state_id']
+    assert restored['available_actions'] == ['answer', 'explain', 'show_step', 'pause', 'switch']
+    assert 'source_session_id' not in restored and 'origin' not in restored
+
+    show = autonomous_action(client, student, sid, 'auto-show', 'autonomous_division_show_step',
+                              expected_state_id=cursor['state_id'])
+    assert show.status_code == 200, show.text
+    show_text = show.json()['choices'][0]['message']['content']
+    assert 'Текущий шаг:' in show_text
+    assert str(division_facts(cursor['dividend'], cursor['divisor'])['quotient']) not in show_text
+    assert show.json()['autonomous_division']['phase'] == cursor['phase']
+    assert show.json()['learning_tool']['facts'] == {}
+    assert '_autonomous_division_state' not in show.json()
+
+    bad_action = autonomous_action(client, student, sid, 'bad-ambiguous', 'autonomous_division_answer',
+                                   expected_state_id=show.json()['autonomous_division']['state_id'], value='4?')
+    assert bad_action.status_code == 422
+    wrong_value = correct_value(show.json()['autonomous_division']) + 1
+    wrong = autonomous_action(client, student, sid, 'auto-wrong', 'autonomous_division_answer',
+        expected_state_id=show.json()['autonomous_division']['state_id'], value=wrong_value)
+    assert wrong.status_code == 200 and wrong.json()['autonomous_assessment']['status'] == 'incorrect'
+    assert (wrong.json()['autonomous_division']['step_index'], wrong.json()['autonomous_division']['phase']) == saved_position
+    assert wrong.json()['autonomous_assessment']['competence_assessed'] is False
+    assert wrong.json()['autonomous_assessment']['independent_work'] == 'unknown'
+
+
+def test_autonomous_continuation_pause_next_example_and_no_memory_worker_job(guided):
+    client, store, student, _, browser = guided
+    first_session = autonomous_session(client, student, 'continuation-1')
+    started = autonomous_action(client, student, first_session, 'first-start', 'autonomous_division_start')
+    assert started.status_code == 200, started.text
+    state = started.json()['autonomous_division']
+    pause = autonomous_action(client, student, first_session, 'first-pause', 'autonomous_division_pause',
+                              expected_state_id=state['state_id'])
+    assert pause.status_code == 200
+    paused = pause.json()['autonomous_division']
+    in_session = autonomous_context(client, student, first_session)
+    assert in_session['state']['state_id'] == paused['state_id']
+    ended = client.post(f'/learning-sessions/{first_session}/complete', headers=student)
+    assert ended.status_code == 202 and ended.json()['job'] is None and ended.json()['job_id'] is None
+    with store._connect() as connection, connection.cursor() as cursor:
+        cursor.execute("SELECT count(*) AS n FROM teachcopilot.memory_jobs WHERE idempotency_key=%s",
+                       (f'session:{first_session}',))
+        assert cursor.fetchone()['n'] == 0
+
+    second_session = autonomous_session(client, student, 'continuation-2')
+    restored = autonomous_context(client, student, second_session)
+    assert restored['available'] and restored['resume_required'] is True
+    assert restored['state']['state_id'] == paused['state_id']
+    assert restored['state']['phase'] == paused['phase']
+    resumed = autonomous_action(client, student, second_session, 'second-resume', 'autonomous_division_resume',
+                                expected_state_id=restored['state']['state_id'])
+    assert resumed.status_code == 200, resumed.text
+    state = resumed.json()['autonomous_division']
+    assert state['status'] == 'active' and state['step_index'] == paused['step_index']
+    assert resumed.json()['autonomous_assessment']['status'] == 'not_assessed'
+
+    while state['status'] != 'completed':
+        answer = autonomous_action(client, student, second_session, f"complete-{state['state_id']}",
+            'autonomous_division_answer', expected_state_id=state['state_id'], value=correct_value(state))
+        assert answer.status_code == 200, f"state={state}, body={answer.text}"
+        state = answer.json()['autonomous_division']
+    ended_again = client.post(f'/learning-sessions/{second_session}/complete', headers=student)
+    assert ended_again.status_code == 202 and ended_again.json()['job_id'] is None
+
+    third_session = autonomous_session(client, student, 'continuation-3')
+    completed = autonomous_context(client, student, third_session)
+    assert completed['available'] and completed['state']['status'] == 'completed'
+    next_problem = autonomous_action(client, student, third_session, 'third-next', 'autonomous_division_next',
+                                     expected_state_id=completed['state']['state_id'])
+    assert next_problem.status_code == 200, next_problem.text
+    assert next_problem.json()['autonomous_division']['status'] == 'active'
+    assert next_problem.json()['autonomous_division']['state_id'] == 'third-next'
+    assert next_problem.json()['learning_tool']['facts'] == {}
+    with store._connect() as connection, connection.cursor() as cursor:
+        cursor.execute("SELECT response->'_autonomous_division_state'->>'example_kind' AS kind "
+            "FROM teachcopilot.learning_messages WHERE learning_session_id=%s AND client_message_id='third-next'",
+            (third_session,))
+        assert cursor.fetchone()['kind'] in {'ordinary', 'internal_zero', 'terminal_zero'}
+
+
+def test_new_example_chain_is_independent_of_corrections_to_older_example(guided):
+    client, store, student, teacher, _ = guided
+    sid = autonomous_session(client, student, 'independent-example-chain')
+    started = autonomous_action(client, student, sid, 'chain-start', 'autonomous_division_start')
+    assert started.status_code == 200
+    state = started.json()['autonomous_division']
+    index = 0
+    while state['status'] != 'completed':
+        response = autonomous_action(client, student, sid, f'chain-answer-{index}',
+            'autonomous_division_answer', expected_state_id=state['state_id'], value=correct_value(state))
+        assert response.status_code == 200, f'index={index}, state={state}, body={response.text}'
+        state = response.json()['autonomous_division']
+        index += 1
+    next_example = autonomous_action(client, student, sid, 'chain-next', 'autonomous_division_next',
+        expected_state_id=state['state_id'])
+    assert next_example.status_code == 200, next_example.text
+    current_id = next_example.json()['autonomous_division']['state_id']
+    completed_session = client.post(f'/learning-sessions/{sid}/complete', headers=student)
+    assert completed_session.status_code == 202 and completed_session.json()['job_id'] is None
+
+    old_start_source = store.list_learning_messages(sid)[0]['source_id']
+    snapshot = store.get_learner_memory(LEARNER, TOPIC)
+    correction = client.post(f'/learners/{LEARNER}/memory/sources/{old_start_source}/corrections',
+        headers=teacher, json={'text': 'Correction to the previous division example.',
+            'expected_revision': snapshot['revision'],
+            'expected_source_revision': snapshot['source_revision'],
+            'client_correction_id': 'old-autonomous-example-fix'})
+    assert correction.status_code == 202, correction.text
+    restored = autonomous_context(client, student, sid)
+    assert restored['available'] is True
+    assert restored['state']['state_id'] == current_id
+
+
+def test_autonomous_two_tabs_stale_state_unknown_outcome_and_foreign_access(guided):
+    client, store, student, teacher, browser = guided
+    second_tab = browser(Store(store.dsn))
+    try:
+        sid = autonomous_session(client, student, 'two-tabs')
+        started = autonomous_action(client, student, sid, 'tab-start', 'autonomous_division_start')
+        assert started.status_code == 200
+        old_cursor = started.json()['autonomous_division']
+        correct = correct_value(old_cursor)
+        first = autonomous_action(client, student, sid, 'tab-one-answer', 'autonomous_division_answer',
+                                  expected_state_id=old_cursor['state_id'], value=correct)
+        second = autonomous_action(second_tab, student, sid, 'tab-two-answer', 'autonomous_division_answer',
+                                   expected_state_id=old_cursor['state_id'], value=correct)
+        assert first.status_code == 200
+        assert second.status_code == 409
+        assert autonomous_context(second_tab, student, sid)['state']['state_id'] == 'tab-one-answer'
+
+        ordinary(store, sid, 'unresolved action', mid='autonomous-unknown', status='unknown_outcome')
+        blocked = autonomous_context(client, student, sid)
+        assert blocked['available'] is False and blocked['reason'] == 'unknown_outcome'
+        denied = autonomous_action(client, student, sid, 'after-unknown', 'autonomous_division_start')
+        assert denied.status_code == 409
+        assert autonomous_context(client, student, sid)['reason'] == 'unknown_outcome'
+
+        assert client.get(f'/learners/foreign/guided-division', headers=student,
+            params={'topic_id': TOPIC, 'protocol': AUTONOMOUS_PROTOCOL}).status_code == 403
+        assert client.get(f'/learners/{LEARNER}/guided-division', headers=teacher,
+            params={'topic_id': TOPIC, 'protocol': AUTONOMOUS_PROTOCOL, 'learning_session_id': sid}).status_code == 403
+    finally:
+        second_tab.close()
+
+
+def test_six_sequential_autonomous_sessions_for_two_synthetic_learners(guided, tmp_path):
+    client, store, student, teacher, browser = guided
+    password = 'Synthetic autonomous division password 123'
+    second_learner = 'demo-luna-03'
+    learner_card = Path(__file__).resolve().parents[2] / 'learner-data/demo/learners/demo-luna-03.json'
+    shutil.copy(learner_card, tmp_path / 'learner-data/learners' / learner_card.name)
+    store.import_repository(tmp_path)
+    teacher_account = store.get_account(email='guided-teacher@synthetic.test')
+    store.assign_learner(teacher_account['id'], second_learner)
+    store.create_student_account('autonomous-luna@synthetic.test', 'Synthetic Luna', hash_password(password),
+                                 second_learner, teacher_account['id'])
+    second_account = client.post('/auth/login', json={'email': 'autonomous-luna@synthetic.test', 'password': password})
+    assert second_account.status_code == 200
+    second_student = {'Authorization': 'Bearer ' + second_account.json()['access_token']}
+
+    for learner_id, headers in ((LEARNER, student), (second_learner, second_student)):
+        prior_session = None
+        for lesson in range(3):
+            client_session_id = f'six-session-{learner_id}-{lesson}'
+            created = client.post(f'/learners/{learner_id}/learning-sessions', headers=headers, json={
+                'topic_id': TOPIC, 'client_session_id': client_session_id, 'mode': 'autonomous_division'})
+            assert created.status_code == 201, created.text
+            sid = created.json()['learning_session_id']
+            if prior_session is None:
+                initial = client.get(f'/learners/{learner_id}/guided-division', headers=headers,
+                    params={'topic_id': TOPIC, 'protocol': AUTONOMOUS_PROTOCOL, 'learning_session_id': sid}).json()
+                assert initial['available'] is False
+                start = client.post('/v1/chat/completions', headers=headers, json={
+                    'learning_session_id': sid, 'client_message_id': f'six-start-{learner_id}',
+                    'learning_protocol': AUTONOMOUS_PROTOCOL,
+                    'learning_action': {'operation': 'autonomous_division_start'}})
+                assert start.status_code == 200, start.text
+                cursor = start.json()['autonomous_division']
+            else:
+                restored = client.get(f'/learners/{learner_id}/guided-division', headers=headers,
+                    params={'topic_id': TOPIC, 'protocol': AUTONOMOUS_PROTOCOL, 'learning_session_id': sid})
+                assert restored.status_code == 200 and restored.json()['available']
+                assert restored.json()['resume_required'] is True
+                resume = client.post('/v1/chat/completions', headers=headers, json={
+                    'learning_session_id': sid, 'client_message_id': f'six-resume-{learner_id}-{lesson}',
+                    'learning_protocol': AUTONOMOUS_PROTOCOL,
+                    'learning_action': {'operation': 'autonomous_division_resume',
+                                        'expected_state_id': restored.json()['state']['state_id']}})
+                assert resume.status_code == 200, resume.text
+                cursor = resume.json()['autonomous_division']
+            wrong = client.post('/v1/chat/completions', headers=headers, json={
+                'learning_session_id': sid, 'client_message_id': f'six-wrong-{learner_id}-{lesson}',
+                'learning_protocol': AUTONOMOUS_PROTOCOL,
+                'learning_action': {'operation': 'autonomous_division_answer',
+                    'expected_state_id': cursor['state_id'], 'value': correct_value(cursor) + 1}})
+            assert wrong.status_code == 200 and wrong.json()['autonomous_assessment']['status'] == 'incorrect'
+            cursor = wrong.json()['autonomous_division']
+            help_result = autonomous_action(client, headers, sid, f'six-help-{learner_id}-{lesson}',
+                'autonomous_division_explain', expected_state_id=cursor['state_id'])
+            assert help_result.status_code == 200
+            assert help_result.json()['autonomous_division']['phase'] == cursor['phase']
+            cursor = help_result.json()['autonomous_division']
+            paused = autonomous_action(client, headers, sid, f'six-pause-{learner_id}-{lesson}',
+                'autonomous_division_pause', expected_state_id=cursor['state_id'])
+            assert paused.status_code == 200
+            ended = client.post(f'/learning-sessions/{sid}/complete', headers=headers)
+            assert ended.status_code == 202 and ended.json()['job'] is None and ended.json()['job_id'] is None
+            prior_session = sid
 
 
 def test_concurrent_answers_accept_only_one_transition(guided):
