@@ -648,6 +648,9 @@
         if (data.session_mode === 'autonomous_division') {
           state.chatTopicsByLearnerSubject.set(`${learnerId}:math`, guidedTopic);
           $('#chat-subject').value = 'math'; $('#chat-topic').value = guidedTopic; $('#chat-mode').value = 'autonomous_division';
+          if (data.unresolved_status) autonomousContexts.set(`${learnerId}:${guidedTopic}`, {
+            available: false, reason: data.unresolved_status
+          });
         }
         state.chatByLearner.set(learnerId, data.messages.map(message => ({ role:message.role, content:message.content, delivery_status:message.delivery_status })));
         sessionRecovery.set(learnerId, { loading:false, unresolved_status:data.unresolved_status, history_truncated:data.history_truncated });
@@ -1308,7 +1311,10 @@
     finally {
       if (sessionClosures.get(learnerId) === attempt) {
         sessionClosures.delete(learnerId);
-        if (state.token === token && state.learnerId === learnerId) { renderLearningSession(); refreshGuided(); }
+        if (state.token === token && state.learnerId === learnerId) {
+          renderLearningSession();
+          if (session.session_mode === 'autonomous_division') refreshAutonomous(); else refreshGuided();
+        }
       }
     }
   });
