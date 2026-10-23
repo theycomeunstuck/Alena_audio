@@ -13,6 +13,8 @@ import json
 import time
 import uuid
 
+from psycopg2 import InterfaceError, OperationalError
+
 from research_memory.contracts import action_schema, validate_action
 from research_memory.clients import input_budget_diagnostic
 from research_memory.methods import METHODS, Memory, messages
@@ -343,6 +345,10 @@ class MemoryWorker:
             raw = self._call(interest_messages(sources), "conversation_interests", interest_schema(sources))
             context["interest_candidates"] = validate_interest_candidates(raw, sources)
             context["interest_extraction"] = {"status": "ready", "learning_session_id": session_id}
+        except (OperationalError, InterfaceError):
+            # Losing the call-marker acknowledgement must stop this job even
+            # when interest extraction is otherwise an optional draft.
+            raise
         except Exception as exc:
             # A new conversational draft must never discard a ready academic tail.
             # Raw model outputs are kept in the job call diagnostics, without retry.
@@ -392,6 +398,11 @@ class MemoryWorker:
                 result["calls"] = self.calls
                 self.store.finish_memory_job(job["job_id"], result=result, memory_state=state,
                     next_step=action, context=context, worker_id=self.worker_id, approved=False)
+        except (OperationalError, InterfaceError):
+            # A failed DB acknowledgement cannot prove whether the transaction
+            # committed. Preserve the durable lease/call marker for recovery;
+            # never turn this into a second finish or a repeated generation.
+            raise
         except Exception as exc:
             # Preserve failed/truncated responses and diagnostics. No repair,
             # citation deduplication or hidden repeated model request occurs.
