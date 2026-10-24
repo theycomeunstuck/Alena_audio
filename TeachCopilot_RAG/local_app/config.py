@@ -1,10 +1,12 @@
 """Explicit local settings; importing the API never starts services."""
 from __future__ import annotations
 
+import json
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import urlsplit
+from uuid import UUID
 
 
 def require_local_url(value: str) -> str:
@@ -14,6 +16,19 @@ def require_local_url(value: str) -> str:
     if parsed.username or parsed.password or parsed.query or parsed.fragment:
         raise ValueError("Ollama URL must not contain credentials, query or fragment")
     return value.rstrip("/")
+
+
+def _autonomous_accounts_from_env() -> tuple[str, ...] | None:
+    value = os.getenv("LOCAL_AUTONOMOUS_DIVISION_ACCOUNT_IDS")
+    if value is None:
+        return None
+    try:
+        accounts = json.loads(value)
+    except (ValueError, TypeError) as exc:
+        raise ValueError("Autonomous division account IDs must be a JSON array of canonical UUIDs") from exc
+    if not isinstance(accounts, list):
+        raise ValueError("Autonomous division account IDs must be a JSON array of canonical UUIDs")
+    return tuple(accounts)
 
 
 @dataclass(frozen=True)
@@ -31,6 +46,7 @@ class Settings:
     learning_operation_selection_enabled: bool = False
     checked_division_context_enabled: bool = False
     autonomous_division_enabled: bool = False
+    autonomous_division_account_ids: tuple[str, ...] | None = field(default=None, repr=False)
     demo_login_enabled: bool = False
     demo_credentials_file: str = str(Path(__file__).resolve().parents[1] / ".local" / "rich-demo-credentials.json")
     generation_scheduler_dsn: str | None = field(default=None, repr=False)
@@ -44,6 +60,16 @@ class Settings:
             raise ValueError("Invalid context/output token limits")
         if self.request_timeout <= 0 or not 1 <= self.session_hours <= 168:
             raise ValueError("Invalid timeout/session lifetime")
+        accounts = self.autonomous_division_account_ids
+        if accounts is not None:
+            if not isinstance(accounts, tuple):
+                raise ValueError("Autonomous division account IDs must be a tuple of canonical UUIDs")
+            try:
+                valid = all(isinstance(account, str) and str(UUID(account)) == account for account in accounts)
+            except (ValueError, TypeError, AttributeError):
+                valid = False
+            if not valid or len(set(accounts)) != len(accounts):
+                raise ValueError("Autonomous division account IDs must be unique canonical UUIDs")
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -62,6 +88,7 @@ class Settings:
             learning_operation_selection_enabled=os.getenv('LOCAL_LEARNING_OPERATION_SELECTION', '0') == '1',
             checked_division_context_enabled=os.getenv('LOCAL_CHECKED_DIVISION_CONTEXT', '0') == '1',
             autonomous_division_enabled=os.getenv('LOCAL_AUTONOMOUS_DIVISION_ENABLED', '0') == '1',
+            autonomous_division_account_ids=_autonomous_accounts_from_env(),
             demo_login_enabled=os.getenv('LOCAL_DEMO_LOGIN', '0') == '1',
             demo_credentials_file=os.getenv('LOCAL_DEMO_CREDENTIALS_FILE', cls.demo_credentials_file),
             generation_scheduler_dsn=os.getenv('LOCAL_GENERATION_SCHEDULER_DSN') or None,

@@ -143,3 +143,122 @@ def test_student_completes_autonomous_practice_without_teacher_or_memory_job(chr
 def test_autonomous_mode_is_hidden_when_server_flag_is_off():
     from local_app.config import Settings
     assert Settings().autonomous_division_enabled is False
+
+
+def test_excluded_student_cannot_select_or_start_autonomous_mode(chromium, ui_server):
+    from test_ui_acceptance import _login
+
+    page = chromium.new_page()
+    autonomous_requests = []
+
+    def excluded_account(route):
+        response = route.fetch()
+        body = response.json()
+        body["features"]["autonomous_division"] = False
+        route.fulfill(response=response, json=body)
+
+    page.route("**/auth/me", excluded_account)
+    page.on("request", lambda request: autonomous_requests.append(request.url) if
+        "/guided-division?" in request.url and "autonomous-division-v1" in request.url or
+        request.method == "POST" and ("/v1/chat/completions" in request.url or "/learning-sessions" in request.url) else None)
+    try:
+        _login(page, ui_server.base_url, "student.ui@example.test")
+        expect(page.locator("#send-chat")).to_be_enabled()
+        option = page.locator('#chat-mode option[value="autonomous_division"]')
+        expect(option).to_be_hidden()
+        expect(option).to_be_disabled()
+        page.locator("#chat-mode").evaluate("node => { node.value = 'autonomous_division'; node.dispatchEvent(new Event('change', {bubbles:true})); }")
+        expect(page.locator("#chat-mode")).to_have_value("chat")
+        expect(page.locator("#autonomous-division-panel")).to_be_hidden()
+        assert not autonomous_requests and not ui_server.store.learning_sessions and not ui_server.rag.calls
+    finally:
+        page.close()
+
+
+def test_revoked_autonomous_session_stays_readable_and_can_be_closed(chromium, ui_server):
+    """A restored autonomous session cannot silently turn into ordinary chat."""
+    from test_ui_acceptance import _login
+
+    session = ui_server.store.create_learning_session("demo-nika-04", "student-ui",
+        "math.g4.numbers.division_by_1_2_digit", client_session_id="revoked-session",
+        mode="autonomous_division")
+    sid = session["learning_session_id"]
+    ui_server.store.reserve_chat_message(sid, "demo-nika-04", "saved-answer", "Сделаю паузу.", "student-ui")
+    ui_server.store.complete_chat_message(sid, "saved-answer",
+        {"choices": [{"message": {"role": "assistant", "content": "Место остановки сохранено."}}]})
+    page = chromium.new_page()
+    reads, writes, errors = [], [], []
+
+    def excluded_account(route):
+        response = route.fetch()
+        body = response.json()
+        body["features"]["autonomous_division"] = False
+        route.fulfill(response=response, json=body)
+
+    page.route("**/auth/me", excluded_account)
+    page.on("request", lambda request: reads.append(request.url) if "/guided-division?" in request.url else None)
+    page.on("request", lambda request: writes.append(request.url) if request.method == "POST" and
+        ("/v1/chat/completions" in request.url or "/learning-sessions" in request.url) else None)
+    page.on("pageerror", lambda error: errors.append(str(error)))
+    try:
+        _login(page, ui_server.base_url, "student.ui@example.test")
+        expect(page.locator("#chat-mode")).to_have_value("autonomous_division")
+        expect(page.locator("#chat-mode")).to_be_disabled()
+        expect(page.locator("#chat-form")).to_be_hidden()
+        expect(page.locator("#autonomous-division-panel")).to_be_visible()
+        expect(page.locator("#autonomous-division-status")).to_contain_text("недоступна для этой учётной записи")
+        expect(page.locator("#autonomous-division-start")).to_be_disabled()
+        expect(page.locator("#chat-log")).to_contain_text("Место остановки сохранено")
+        expect(page.locator("#complete-learning-session")).to_be_enabled()
+
+        # Even a stale form event cannot submit an ordinary question in this session.
+        page.locator("#chat-input").evaluate("node => { node.value = 'Объясни деление'; node.form.dispatchEvent(new Event('submit', {bubbles:true, cancelable:true})); }")
+        page.locator("#autonomous-division-start").dispatch_event("click")
+        page.locator("#complete-learning-session").click()
+        expect(page.locator("#toast")).to_contain_text("Автономная практика сохранена")
+        assert ui_server.store.learning_sessions[sid]["status"] == "completed"
+        assert len(writes) == 1 and writes[0].endswith(f"/learning-sessions/{sid}/complete")
+        assert not reads and not ui_server.rag.calls and not ui_server.store.memory_jobs
+
+        page.locator("#learning-archive > summary").click()
+        page.locator("#learning-archive-list button").first.click()
+        expect(page.locator("#learning-archive-log")).to_contain_text("Место остановки сохранено")
+        assert not errors
+    finally:
+        page.close()
+
+
+def test_stale_tab_loses_autonomous_actions_without_retry_or_chat_fallback(chromium, ui_server):
+    from test_ui_acceptance import _login
+
+    page = chromium.new_page()
+    transport = install_autonomous_transport(page, ui_server)
+    errors = []
+    page.on("pageerror", lambda error: errors.append(str(error)))
+    try:
+        _login(page, ui_server.base_url, "student.ui@example.test")
+        page.locator("#chat-mode").select_option("autonomous_division")
+        page.locator("#autonomous-division-digits").select_option("2")
+        page.locator("#autonomous-division-start").click()
+        expect(page.locator("#autonomous-division-explain")).to_be_enabled()
+        rejected = []
+
+        def reject_action(route):
+            rejected.append(route.request.post_data_json)
+            route.fulfill(status=404, json={"detail": "autonomous division is not enabled for this account"})
+
+        page.route("**/v1/chat/completions", reject_action)
+        page.locator("#autonomous-division-explain").click()
+        expect(page.locator("#autonomous-division-status")).to_contain_text("недоступна для этой учётной записи")
+        expect(page.locator("#chat-form")).to_be_hidden()
+        expect(page.locator("#chat-mode")).to_have_value("autonomous_division")
+        expect(page.locator("#autonomous-division-explain")).to_be_disabled()
+        expect(page.locator("#retry-chat")).to_be_hidden()
+        expect(page.locator("#complete-learning-session")).to_be_enabled()
+        page.locator("#retry-chat").dispatch_event("click")
+        page.locator("#complete-learning-session").click()
+        expect(page.locator("#toast")).to_contain_text("Автономная практика сохранена")
+        assert len(rejected) == 1 and len(transport["sent"]) == 1
+        assert not ui_server.rag.calls and not ui_server.store.memory_jobs and not errors
+    finally:
+        page.close()

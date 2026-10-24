@@ -130,6 +130,7 @@ def environment():
     from local_app.config import Settings
 
     settings = replace(Settings.from_env(), autonomous_division_enabled=True,
+                       autonomous_division_account_ids=None,
                        demo_login_enabled=False)
     return settings, artifacts
 

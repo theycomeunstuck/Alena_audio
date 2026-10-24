@@ -229,6 +229,20 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None, chat_r
             raise HTTPException(status_code=403, detail="teacher role required")
         return user
 
+    def autonomous_division_allowed(user: dict) -> bool:
+        accounts = _value(settings, "autonomous_division_account_ids")
+        return (_value(settings, "autonomous_division_enabled", default=False) is True
+                and _role(user) == "student"
+                and (accounts is None or _account_id(user) in accounts))
+
+    def require_autonomous_division(user: dict) -> None:
+        if _value(settings, "autonomous_division_enabled", default=False) is not True:
+            raise HTTPException(status_code=404, detail="autonomous division is not enabled")
+        if _role(user) != "student":
+            raise HTTPException(status_code=403, detail="autonomous division is available to student accounts")
+        if not autonomous_division_allowed(user):
+            raise HTTPException(status_code=404, detail="autonomous division is not enabled for this account")
+
     def access(user: dict, learner_id: str) -> None:
         if _role(user) == "student":
             if student_learner_id(user) != learner_id or not store.authorize_learner_access(_account_id(user), learner_id):
@@ -484,10 +498,7 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None, chat_r
         memory_available()
         session_topic = request.topic_id or "general"
         if request.mode == "autonomous_division":
-            if not _value(settings, "autonomous_division_enabled", default=False):
-                raise HTTPException(status_code=404, detail="autonomous division is not enabled")
-            if _role(user) != "student":
-                raise HTTPException(status_code=403, detail="autonomous division is available to student accounts")
+            require_autonomous_division(user)
             from local_app.autonomous_division import TOPIC as AUTONOMOUS_DIVISION_TOPIC
             if request.topic_id not in (None, AUTONOMOUS_DIVISION_TOPIC):
                 raise HTTPException(status_code=422, detail="autonomous division requires its supported math topic")
@@ -512,10 +523,7 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None, chat_r
                 from uuid import UUID
                 learning_session_id = str(UUID(learning_session_id))
             if protocol == "autonomous-division-v1":
-                if not _value(settings, "autonomous_division_enabled", default=False):
-                    raise HTTPException(status_code=404, detail="autonomous division is not enabled")
-                if _role(user) != "student":
-                    raise HTTPException(status_code=403, detail="autonomous division is available to student accounts")
+                require_autonomous_division(user)
                 return store.autonomous_division_context(learner_id, topic_id, _account_id(user),
                     learning_session_id=learning_session_id)
             if protocol != "guided-division-v1":
@@ -621,7 +629,7 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None, chat_r
             "role": _role(user),
             "learner_id": user.get("learner_id"),
         }, "features": {
-            "autonomous_division": _value(settings, "autonomous_division_enabled", default=False) is True,
+            "autonomous_division": autonomous_division_allowed(user),
         }}
 
     @app.get("/catalog")
@@ -1223,10 +1231,7 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None, chat_r
             autonomous_session = session.get("session_mode", "standard") == "autonomous_division"
             autonomous_action = bool(explicit and action["operation"] in AUTONOMOUS_DIVISION_OPERATIONS)
             if autonomous_session:
-                if not _value(settings, "autonomous_division_enabled", default=False):
-                    raise HTTPException(status_code=404, detail="autonomous division is not enabled")
-                if _role(user) != "student":
-                    raise HTTPException(status_code=403, detail="autonomous division is available to student accounts")
+                require_autonomous_division(user)
                 if payload.get("learning_protocol") != AUTONOMOUS_DIVISION_VERSION:
                     raise HTTPException(status_code=409, detail="learning protocol does not match this session")
                 if explicit and not autonomous_action:
