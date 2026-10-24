@@ -7,7 +7,7 @@ import json
 import threading
 import time
 from copy import deepcopy
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from typing import Any, Sequence
 from urllib.parse import urlparse
 
@@ -134,16 +134,41 @@ class OllamaRuntime:
             if remaining <= 0:
                 raise _RunDeadlineBeforeHTTP("Local generation run expired before the HTTP request")
             timeout = min(timeout, remaining)
-        response = self.session.post(
-            f"{self.base_url}{path}", json=payload, timeout=timeout, allow_redirects=False
-        )
-        if 300 <= int(getattr(response, "status_code", 200)) < 400:
-            raise RuntimeError(f"Ollama {path} attempted a redirect; local calls cannot redirect")
-        response.raise_for_status()
-        data = response.json()
-        if not isinstance(data, dict):
-            raise RuntimeError(f"Ollama {path} returned a non-object response")
-        return data
+        from local_app.chat_response_journal import captured_call
+        scope = captured_call("ollama_chat", "local") if path == "/api/chat" else nullcontext(None)
+        with scope as capture:
+            response = None
+            try:
+                response = self.session.post(
+                    f"{self.base_url}{path}", json=payload, timeout=timeout, allow_redirects=False
+                )
+                if 300 <= int(getattr(response, "status_code", 200)) < 400:
+                    raise RuntimeError(f"Ollama {path} attempted a redirect; local calls cannot redirect")
+                response.raise_for_status()
+                data = response.json()
+            except Exception as exc:
+                if capture is not None:
+                    raw = getattr(exc, "raw_response", None)
+                    body = getattr(response, "text", None) if response is not None else None
+                    if isinstance(body, str):
+                        raw = {"http_status": int(getattr(response, "status_code", 200)), "body": body}
+                    capture.raised(exc, raw_response=raw)
+                raise
+            if capture is not None:
+                # Commit before budget settlement, validation or text normalization.
+                try:
+                    json.dumps(data, ensure_ascii=True, allow_nan=False)
+                except (TypeError, ValueError, OverflowError, RecursionError):
+                    body = getattr(response, "text", None)
+                    if not isinstance(body, str):
+                        body = json.dumps(data, ensure_ascii=True)
+                    capture.returned({"http_status": int(getattr(response, "status_code", 200)),
+                                      "body": body})
+                    raise RuntimeError(f"Ollama {path} returned unsupported JSON values") from None
+                capture.returned(data)
+            if not isinstance(data, dict):
+                raise RuntimeError(f"Ollama {path} returned a non-object response")
+            return data
 
     def _get(self, path: str) -> dict[str, Any]:
         response = self.session.get(

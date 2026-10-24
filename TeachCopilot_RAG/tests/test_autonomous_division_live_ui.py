@@ -10,6 +10,7 @@ import socket
 import subprocess
 import sys
 import time
+import traceback
 from uuid import uuid4
 
 import psutil
@@ -190,7 +191,8 @@ class LiveStack:
         state = body["autonomous_division"]
         assert set(state) == PUBLIC_STATE_FIELDS
         saved = self.saved(body["learning_session_id"], body["client_message_id"])
-        assert all(saved[key] == state[key] for key in state if key in saved)
+        assert all(saved[key] == state[key] for key in state if key in saved), {
+            "public_state": state, "saved_fields": {key: saved[key] for key in state if key in saved}}
         assert state["question_count"] == len(independent_steps(state["dividend"], state["divisor"]))
         assert body["learning_tool"]["facts"] == {}
         assert body["autonomous_assessment"]["competence_assessed"] is False
@@ -308,7 +310,9 @@ def browser_lesson(chromium, stack, learner_index, lesson):
         page.locator("#chat-mode").select_option("autonomous_division")
         expect(page.locator("#autonomous-division-refresh")).to_be_enabled()
         yield page
-    except BaseException:
+    except BaseException as error:
+        stack.checkpoints.append({"event": "browser_failure", "lesson": label,
+            "error_type": type(error).__name__, "traceback": traceback.format_exc()})
         page.screenshot(path=str(stack.artifacts / (label + "-failure.png")), full_page=True)
         raise
     finally:

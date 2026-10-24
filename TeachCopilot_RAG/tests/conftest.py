@@ -5,6 +5,7 @@ import pytest
 @pytest.fixture(autouse=True)
 def isolated_worker_response_journal(tmp_path, monkeypatch):
     monkeypatch.setenv("LOCAL_MEMORY_RESPONSE_JOURNAL", str(tmp_path / "worker-responses.sqlite3"))
+    monkeypatch.setenv("LOCAL_CHAT_RESPONSE_JOURNAL", str(tmp_path / "chat-responses.sqlite3"))
 
 
 @pytest.fixture(scope='session')

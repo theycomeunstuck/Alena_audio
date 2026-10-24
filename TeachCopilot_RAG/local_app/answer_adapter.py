@@ -23,6 +23,7 @@ from local_app.checked_division_context import (
 )
 from research_memory.spiderssense import SpiderssenseClient
 from local_app.budget_authorization import validate_budget_authorization
+from local_app.memory_response_journal import ResponseJournalError
 
 
 _EXTERNAL_SLOTS = threading.BoundedSemaphore(4)
@@ -514,6 +515,8 @@ class AnswerAdapter:
                 if (not isinstance(decision, dict) or set(decision) != {"safe_to_send", "uncertain"}
                         or decision["safe_to_send"] is not True or decision["uncertain"] is not False):
                     local_reason = "privacy_uncertain"
+        except ResponseJournalError:
+            raise
         except (ProjectionError, TypeError, ValueError, AttributeError, KeyError):
             local_reason = "projection_or_check_invalid"
         except Exception:

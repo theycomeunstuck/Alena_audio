@@ -147,7 +147,7 @@ def _public_chat_completion(response: dict) -> dict:
                            '_autonomous_division_state'}}
 
 
-def create_app(settings=None, store=None, runtime=None, rag_service=None) -> FastAPI:
+def create_app(settings=None, store=None, runtime=None, rag_service=None, chat_response_journal=None) -> FastAPI:
     """Build an app with injectable settings, DB store and local model services.
 
     This factory does not migrate the DB or make network calls. Constructors and
@@ -177,6 +177,20 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None) -> Fas
     app.state.store = store
     app.state.runtime = runtime
     app.state.rag_service = rag_service
+    app.state.chat_response_journal = chat_response_journal
+
+    def private_chat_journal():
+        from local_app.chat_response_journal import ChatResponseJournal, default_chat_journal_path
+        from local_app.memory_response_journal import ResponseJournalError, database_fingerprint
+        if app.state.chat_response_journal is None:
+            path = _value(settings, "chat_response_journal_path")
+            if path is None:
+                path = default_chat_journal_path()
+            identity = database_fingerprint(dsn)
+            if not identity:
+                raise ResponseJournalError("Chat response journal requires an explicit database identity")
+            app.state.chat_response_journal = ChatResponseJournal(path, database_identity=identity)
+        return app.state.chat_response_journal
 
     from local_app.generation_scheduler import GenerationCapacityError
 
@@ -1363,10 +1377,19 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None) -> Fas
                                         **({"corrects_source_id":row["corrects_source_id"]}
                                            if row.get("corrects_source_id") is not None else {})}
                                        for row in memory_context.get("sources", [])])
-            if chat_job:
-                store.start_memory_job_call(chat_job["job_id"], chat_worker_id)
-                call_started = True
-            response = app.state.rag_service.answer(clean_messages, **answer_kwargs)
+            from local_app.chat_response_journal import journal_request, captured_call
+            with journal_request(private_chat_journal(), actor_id=_account_id(user), learner_id=target,
+                    job_id=str(chat_job["job_id"]) if chat_job else None,
+                    learning_session_id=str(learning_session_id) if learning_session_id else None,
+                    client_message_id=client_message_id if learning_session_id else None):
+                if chat_job:
+                    store.start_memory_job_call(chat_job["job_id"], chat_worker_id)
+                    call_started = True
+                with captured_call("rag_answer", "service") as captured:
+                    response = app.state.rag_service.answer(clean_messages, **answer_kwargs)
+                    # Preserve the complete service result before validation,
+                    # projection, mutation or any PostgreSQL completion write.
+                    captured.returned(response)
             if not isinstance(response, dict) or not isinstance(response.get("choices"), list):
                 raise ValueError("chat service returned an invalid response")
             # Raw resolver decisions belong only in the protected local job.
@@ -1390,23 +1413,37 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None) -> Fas
             if reserved:
                 store.complete_chat_message(str(learning_session_id), client_message_id, response)
         except HTTPException:
-            if reserved:
-                store.fail_chat_message(str(learning_session_id), client_message_id, error="chat request rejected", unknown_outcome=call_started)
-            if chat_job:
-                store.finish_memory_job(chat_job["job_id"], error="chat request rejected", worker_id=chat_worker_id, unknown_outcome=call_started)
+            try:
+                if reserved:
+                    store.fail_chat_message(str(learning_session_id), client_message_id, error="chat request rejected", unknown_outcome=call_started)
+                if chat_job:
+                    store.finish_memory_job(chat_job["job_id"], error="chat request rejected", worker_id=chat_worker_id, unknown_outcome=call_started)
+            except Exception as cleanup_error:
+                logger.error("Chat cleanup unavailable (%s); no replay attempted", type(cleanup_error).__name__)
             raise
         except Exception as exc:
+            from local_app.memory_response_journal import ResponseJournalError
             capacity = _is_generation_capacity(exc)
-            if reserved:
-                store.fail_chat_message(str(learning_session_id), client_message_id, error=type(exc).__name__, unknown_outcome=call_started and not capacity)
-            if chat_job:
-                raw_failure = getattr(exc, "raw_response", None)
-                diagnostic = ({"type": type(exc).__name__, "message": str(exc), "model_response": raw_failure}
-                              if isinstance(raw_failure, dict) else type(exc).__name__)
-                store.finish_memory_job(chat_job["job_id"], error=diagnostic, worker_id=chat_worker_id, unknown_outcome=call_started and not capacity)
+            # Lost PostgreSQL acknowledgement can follow a committed result.
+            # Do not issue another terminal write or replace it with a failure.
+            database_failure = psycopg2 is not None and isinstance(exc, psycopg2.Error)
+            if not database_failure:
+                try:
+                    if reserved:
+                        store.fail_chat_message(str(learning_session_id), client_message_id, error=type(exc).__name__, unknown_outcome=call_started and not capacity)
+                    if chat_job:
+                        raw_failure = getattr(exc, "raw_response", None)
+                        diagnostic = ({"type": type(exc).__name__, "message": str(exc), "model_response": raw_failure}
+                                      if isinstance(raw_failure, dict) else type(exc).__name__)
+                        store.finish_memory_job(chat_job["job_id"], error=diagnostic, worker_id=chat_worker_id, unknown_outcome=call_started and not capacity)
+                except Exception as cleanup_error:
+                    logger.error("Chat cleanup unavailable (%s); no replay attempted", type(cleanup_error).__name__)
             if capacity:
                 raise HTTPException(status_code=429, detail="generation queue is full; retry later", headers={"Retry-After": "10"}) from exc
-            logger.exception("Chat/RAG request failed")
+            if isinstance(exc, ResponseJournalError):
+                logger.error("Chat response journal unavailable; no replay attempted")
+                raise HTTPException(status_code=503, detail="local response journal is unavailable; automatic replay is disabled") from exc
+            logger.error("Chat/RAG request failed (%s)", type(exc).__name__)
             code = 503 if _is_dependency_unavailable(exc) else 502
             detail = "local database or model service is unavailable" if code == 503 else "chat service returned an error"
             raise HTTPException(status_code=code, detail=detail) from exc

@@ -4,11 +4,13 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from decimal import Decimal, InvalidOperation
+import base64
 import hashlib
 import json
 import math
 import os
 from pathlib import Path
+import re
 import sqlite3
 import time
 from typing import Any, Iterator
@@ -66,6 +68,71 @@ def _token_count(value: Any) -> int | None:
     if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
         return value
     return None
+
+
+def _redact_credential_text(value: str, key: str) -> str:
+    """Inspect bounded JSON escape layers without retaining an encoded key."""
+    replacement = next(value for value in ("[REDACTED_CREDENTIAL]", "###", "***", "") if key not in value)
+    candidate = value
+    modified = False
+    for _ in range(16):
+        if key in candidate:
+            candidate = candidate.replace(key, replacement)
+            modified = True
+
+        def decode(match):
+            try:
+                return json.loads('"' + match.group(0) + '"')
+            except (ValueError, TypeError):
+                return match.group(0)
+
+        decoded = re.sub(r'\\(?:u[0-9a-fA-F]{4}|[\\/"bfnrt])', decode, candidate)
+        if decoded == candidate:
+            return candidate if modified else value
+        candidate = decoded
+    marker = "[REDACTED_UNINSPECTABLE_CREDENTIAL_ENCODING]"
+    return marker if key not in marker else replacement
+
+
+def _journal_body(raw: bytes, key: str, *, http_status: int | None = None) -> dict:
+    """Keep provider bytes and JSON before interpretation, never a reflected key."""
+    replacement = "[REDACTED_CREDENTIAL]"
+    # Inspect complete JSON string tokens even if the surrounding body is
+    # malformed, too deeply nested or contains non-finite numbers. This removes
+    # reflected credentials encoded with JSON escapes without rewriting the
+    # other provider bytes. surrogateescape preserves invalid UTF-8 bytes.
+    text = raw.decode("utf-8", errors="surrogateescape")
+
+    def redact_token(match: re.Match[str]) -> str:
+        token = match.group(0)
+        try:
+            value = json.loads(token)
+        except (ValueError, TypeError):
+            return token
+        safe_value = _redact_credential_text(value, key)
+        if safe_value != value:
+            return json.dumps(safe_value, ensure_ascii=True)
+        return token
+
+    safe_text = re.sub(r'"(?:[^"\\]|\\.)*"', redact_token, text)
+    safe_text = _redact_credential_text(safe_text, key)
+    # Retain invalid UTF-8 bytes, while escaping any decoded lone surrogate.
+    safe_text = re.sub(r"[\ud800-\udc7f\udd00-\udfff]",
+                       lambda match: "\\u%04x" % ord(match.group(0)), safe_text)
+    safe_raw = safe_text.encode("utf-8", errors="surrogateescape")
+    result = {"body_base64": base64.b64encode(safe_raw).decode("ascii"),
+              "body_text": safe_raw.decode("utf-8", errors="replace")}
+    try:
+        parsed = json.loads(safe_raw.decode("utf-8"))
+        # Some JSON decoders admit NaN or numeric overflow. Keep such bytes as
+        # raw evidence without allowing non-finite values into journal JSON.
+        json.dumps(parsed, ensure_ascii=True, allow_nan=False)
+        result["parsed"] = parsed
+    except (UnicodeDecodeError, ValueError, TypeError, RecursionError):
+        pass
+    if type(http_status) is int:
+        result["http_status"] = http_status
+    return result
 
 
 class SpiderssenseClient:
@@ -289,24 +356,56 @@ class SpiderssenseClient:
                     + json.dumps(response_schema, ensure_ascii=False, sort_keys=True)})
         body = json.dumps(payload, ensure_ascii=False, allow_nan=False).encode("utf-8")
         key = self._key()
+        # Lazy import keeps the standalone research client independent until a
+        # call is made. Outside an API journal request this context yields None.
+        from local_app.chat_response_journal import captured_call
+        with captured_call(purpose=purpose, backend="spiderssense") as capture:
+            return self._complete_request(body, key, purpose, capture)
+
+    def _complete_request(self, body: bytes, key: str, purpose: str,
+                          capture: Any) -> Completion:
         call_id, reservation, input_bound = self._reserve(len(body))
         request = Request(BASE_URL + "/chat/completions", data=body,
                           headers={"Content-Type": "application/json", "Authorization": "Bearer " + key}, method="POST")
         started = time.perf_counter()
+        raw = None
+        http_status = None
         try:
             with self._opener.open(request, timeout=self.timeout) as response:
                 raw = response.read(MAX_RESPONSE_BYTES + 1)
+                if capture is not None:
+                    http_status = getattr(response, "status", None)
         except HTTPError as exc:
-            raise ProviderRequestError(f"Spiderssense returned HTTP {exc.code}; reservation retained",
-                                       code="provider_http_error", http_status=exc.code,
-                                       ledger_call_id=call_id) from None
-        except (URLError, TimeoutError, OSError):
-            raise ProviderRequestError("Spiderssense connection failed; reservation retained",
-                                       code="provider_connection_error", ledger_call_id=call_id) from None
-        except Exception:
-            raise ProviderRequestError("Spiderssense transport failed; reservation retained",
-                                       code="provider_transport_error", ledger_call_id=call_id) from None
+            error = ProviderRequestError(f"Spiderssense returned HTTP {exc.code}; reservation retained",
+                                         code="provider_http_error", http_status=exc.code,
+                                         ledger_call_id=call_id)
+            if capture is not None:
+                try:
+                    error_body = exc.read(MAX_RESPONSE_BYTES + 1)
+                except Exception as read_error:
+                    error_body = getattr(read_error, "partial", None)
+                capture.raised(error, raw_response=_journal_body(error_body, key, http_status=exc.code)
+                               if isinstance(error_body, bytes) else None)
+            raise error from None
+        except (URLError, TimeoutError, OSError) as exc:
+            error = ProviderRequestError("Spiderssense connection failed; reservation retained",
+                                         code="provider_connection_error", ledger_call_id=call_id)
+            if capture is not None:
+                partial = raw if isinstance(raw, bytes) else getattr(exc, "partial", None)
+                capture.raised(error, raw_response=_journal_body(partial, key, http_status=http_status)
+                               if isinstance(partial, bytes) else None)
+            raise error from None
+        except Exception as exc:
+            error = ProviderRequestError("Spiderssense transport failed; reservation retained",
+                                         code="provider_transport_error", ledger_call_id=call_id)
+            if capture is not None:
+                partial = raw if isinstance(raw, bytes) else getattr(exc, "partial", None)
+                capture.raised(error, raw_response=_journal_body(partial, key, http_status=http_status)
+                               if isinstance(partial, bytes) else None)
+            raise error from None
         elapsed = time.perf_counter() - started
+        if capture is not None:
+            capture.returned(_journal_body(raw, key, http_status=http_status))
         if len(raw) > MAX_RESPONSE_BYTES:
             raise ValueError("Spiderssense response exceeds 8 MiB; reservation retained")
         try:
@@ -321,8 +420,8 @@ class SpiderssenseClient:
         choice = choices[0] if isinstance(choices, list) and len(choices) == 1 and isinstance(choices[0], dict) else {}
         message = choice.get("message") if isinstance(choice.get("message"), dict) else {}
         text = message.get("content")
-        credential_echo = isinstance(text, str) and key in text
-        safe_text = text.replace(key, "[REDACTED_CREDENTIAL]") if isinstance(text, str) else ""
+        safe_text = _redact_credential_text(text, key) if isinstance(text, str) else ""
+        credential_echo = isinstance(text, str) and safe_text != text
         finish_reason = choice.get("finish_reason")
         completion = Completion(text=safe_text, usage=accounted_usage,
                                 elapsed_seconds=elapsed, metadata={
