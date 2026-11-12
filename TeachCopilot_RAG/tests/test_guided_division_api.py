@@ -254,7 +254,7 @@ def test_real_rag_asks_for_a_missing_answer_and_replay_preserves_guided_state(gu
         def resolve_chat_query(self, query, prior, subject_id, **kwargs):
             self.calls += 1
             assert query == 'ага' and prior[-1]['role'] == 'assistant'
-            return {'in_scope': True, 'uses_prior_context': False,
+            return {'in_scope': True, 'uses_prior_context': False, 'personal_memory_recall': False,
                     'prior_assistant_question_index': len(prior) - 1, 'search_query': 'Деление по шагам'}
 
         def chat(self, *args, **kwargs):

@@ -99,12 +99,13 @@ def test_material_models_and_filtered_rrf_search(store):
 def test_embedding_refresh_is_snapshot_checked_and_atomic(store):
     suffix=uuid.uuid4().hex
     model="snapshot-model-"+suffix
+    source_name="snapshot-refresh-"+suffix+".json"  # unique per run: the rows persist in the test database
     chunks=[
-        {"id":"refresh-a-"+suffix,"content":"original A","source_file":"snapshot-refresh.json","source_version":"v1","embedding":[1.0,0.0]},
-        {"id":"refresh-b-"+suffix,"content":"original B","source_file":"snapshot-refresh.json","source_version":"v1","embedding":[0.0,1.0]},
+        {"id":"refresh-a-"+suffix,"content":"original A","source_file":source_name,"source_version":"v1","embedding":[1.0,0.0]},
+        {"id":"refresh-b-"+suffix,"content":"original B","source_file":source_name,"source_version":"v1","embedding":[0.0,1.0]},
     ]
     store.upsert_chunks(chunks,embedding_model=model,embedding_dimension=2)
-    snapshots=store.material_rows({"source_file":"snapshot-refresh.json"})
+    snapshots=store.material_rows({"source_file":source_name})
     for row in snapshots: row["embedding"]=[0.5,0.5]
     stale=dict(snapshots[1],content="changed while embedding")
     with pytest.raises(StaleMaterialSnapshotError):
@@ -156,16 +157,17 @@ def test_removed_material_membership_is_deactivated_and_history_is_append_only(s
         assert dict(cur.fetchone()) == {"total":3,"active":1,"current_points":4}
 
     root=Path(tmp_path); (root/"knowledge-data").mkdir()
-    source=root/"knowledge-data"/"membership.json"
+    membership_name="membership-"+uuid.uuid4().hex+".json"  # unique per run: the rows persist in the test database
+    source=root/"knowledge-data"/membership_name
     tasks=[{"task_id":"member-a-"+uuid.uuid4().hex,"content":"A"},{"task_id":"member-b-"+uuid.uuid4().hex,"content":"B"}]
     source.write_text(json.dumps({"tasks":tasks}),encoding="utf-8")
     store.import_materials(root)
     source.write_text(json.dumps({"tasks":tasks[:1]}),encoding="utf-8")
     store.import_materials(root)
-    rows=store.material_rows({"source_file":"knowledge-data/membership.json"})
+    rows=store.material_rows({"source_file":"knowledge-data/"+membership_name})
     assert [row["id"] for row in rows] == [tasks[0]["task_id"]]
     with store._connect() as conn, conn.cursor() as cur:
-        cur.execute("SELECT count(*) AS n FROM teachcopilot.materials WHERE source_file='knowledge-data/membership.json' AND NOT active")
+        cur.execute("SELECT count(*) AS n FROM teachcopilot.materials WHERE source_file=%s AND NOT active",("knowledge-data/"+membership_name,))
         assert cur.fetchone()["n"] == 1
 
 

@@ -104,7 +104,7 @@ class _HTTP:
         if self.error:
             raise self.error
         data = ({"embeddings": [[1.0, 0.0] for _ in json["input"]]} if url.endswith("/api/embed")
-                else {"message": {"content": "Synthetic answer"}, "done_reason": "stop"})
+                else {"message": {"content": "Synthetic answer"}, "done": True, "done_reason": "stop"})
         return SimpleNamespace(status_code=200, json=lambda: data, raise_for_status=lambda: None)
 
 

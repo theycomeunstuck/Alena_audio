@@ -6,6 +6,7 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 import psycopg2
+from psycopg2.extensions import parse_dsn
 from psycopg2.extras import Json, RealDictCursor
 from local_app.memory_store import MemoryStoreMixin
 
@@ -23,7 +24,8 @@ class StaleMaterialSnapshotError(RuntimeError):
 
 @contextmanager
 def connect(dsn: str):
-    conn = psycopg2.connect(dsn, cursor_factory=RealDictCursor)
+    options = parse_dsn(dsn).get("options", "") + " -c timezone=UTC"
+    conn = psycopg2.connect(dsn, cursor_factory=RealDictCursor, options=options.strip())
     try:
         yield conn
         conn.commit()
@@ -431,7 +433,7 @@ class Store(MemoryStoreMixin):
         if role not in {"teacher","student","admin"}: raise ValueError("invalid role")
         with self._connect() as conn, conn.cursor() as cur:
             cur.execute("""INSERT INTO teachcopilot.accounts(email,display_name,password_hash,role,payload)
-                VALUES (%s,%s,%s,%s,%s) RETURNING id,email,display_name,role,active,created_at,payload""",
+                VALUES (%s,%s,%s,%s,%s) RETURNING id,email,display_name,role,active,created_at,payload,display_timezone""",
                 (email.strip().lower(),display_name,password_hash,role,Json(payload or {})))
             return dict(cur.fetchone())
 
@@ -445,7 +447,7 @@ class Store(MemoryStoreMixin):
             if not teacher or teacher["role"] not in ("teacher","admin"):
                 raise PermissionError("teacher must have access to the learner")
             cur.execute("""INSERT INTO teachcopilot.accounts(email,display_name,password_hash,role)
-                VALUES (%s,%s,%s,'student') RETURNING id,email,display_name,role,active,created_at,payload""",
+                VALUES (%s,%s,%s,'student') RETURNING id,email,display_name,role,active,created_at,payload,display_timezone""",
                 (email.strip().lower(),display_name,password_hash))
             account=dict(cur.fetchone())
             cur.execute("INSERT INTO teachcopilot.account_learners(account_id,learner_id,relationship) VALUES (%s,%s,'student')",(account["id"],learner_id))
@@ -469,7 +471,7 @@ class Store(MemoryStoreMixin):
         if (email is None)==(account_id is None): raise ValueError("provide email or account_id")
         field,value=("email",email.strip().lower()) if email is not None else ("id",account_id)
         with self._connect() as conn, conn.cursor() as cur:
-            cur.execute(f"SELECT id,email,display_name,password_hash,role,active,created_at,payload FROM teachcopilot.accounts WHERE {field}=%s",(value,))
+            cur.execute(f"SELECT id,email,display_name,password_hash,role,active,created_at,payload,display_timezone FROM teachcopilot.accounts WHERE {field}=%s",(value,))
             row=cur.fetchone()
             return dict(row) if row else None
 
@@ -480,11 +482,40 @@ class Store(MemoryStoreMixin):
 
     def get_session(self,token_hash):
         with self._connect() as conn, conn.cursor() as cur:
-            cur.execute("""SELECT s.id AS session_id,s.account_id,s.expires_at,a.email,a.display_name,a.role,a.active
+            cur.execute("""SELECT s.id AS session_id,s.account_id,s.expires_at,a.email,a.display_name,a.role,a.active,a.display_timezone
                 FROM teachcopilot.sessions s JOIN teachcopilot.accounts a ON a.id=s.account_id
                 WHERE s.token_hash=%s AND s.expires_at>now() AND a.active""",(token_hash,))
             row=cur.fetchone()
             return dict(row) if row else None
+
+    def get_account_display_timezone(self, account_id):
+        from .timezones import validate_timezone
+        with self._connect() as conn, conn.cursor() as cur:
+            cur.execute("SELECT display_timezone FROM teachcopilot.accounts WHERE id=%s", (account_id,))
+            row = cur.fetchone()
+            if row is None:
+                raise KeyError(account_id)
+            return validate_timezone(row["display_timezone"])
+
+    def set_account_display_timezone(self, account_id, display_timezone):
+        from .timezones import validate_timezone
+        zone = validate_timezone(display_timezone)
+        with self._connect() as conn, conn.cursor() as cur:
+            cur.execute("""UPDATE teachcopilot.accounts SET display_timezone=%s
+                WHERE id=%s RETURNING display_timezone""", (zone, account_id))
+            row = cur.fetchone()
+            if row is None:
+                raise KeyError(account_id)
+            return {"display_timezone": row["display_timezone"]}
+
+    def get_learner_learning_timezone(self, learner_id):
+        from .timezones import validate_timezone
+        with self._connect() as conn, conn.cursor() as cur:
+            cur.execute("SELECT learning_timezone FROM teachcopilot.learners WHERE learner_id=%s", (learner_id,))
+            row = cur.fetchone()
+            if row is None:
+                raise KeyError(learner_id)
+            return validate_timezone(row["learning_timezone"])
 
     def revoke_session(self,token_hash):
         with self._connect() as conn, conn.cursor() as cur:
@@ -619,15 +650,16 @@ class Store(MemoryStoreMixin):
                 FROM teachcopilot.materials WHERE active AND embedding_model=%s AND embedding_dimension=%s"""
             params=[vec,query,query,embedding_model,len(query_embedding)]
             if where: sql+=" AND "+" AND ".join(where); params.extend(pred_params)
-            sql+="""), vr AS (SELECT id,row_number() OVER (ORDER BY similarity DESC) AS rank FROM eligible),
-                tr AS (SELECT id,row_number() OVER (ORDER BY text_score DESC) AS rank FROM eligible WHERE text_score>0),
+            # id is the final tie-break everywhere, so equal scores give the same order on every run.
+            sql+="""), vr AS (SELECT id,row_number() OVER (ORDER BY similarity DESC,id) AS rank FROM eligible),
+                tr AS (SELECT id,row_number() OVER (ORDER BY text_score DESC,id) AS rank FROM eligible WHERE text_score>0),
                 fused AS (SELECT vr.id,1.0/(60+vr.rank)+COALESCE(1.0/(60+tr.rank),0) AS rrf FROM vr LEFT JOIN tr USING(id))
-                SELECT e.*,f.rrf AS score FROM eligible e JOIN fused f USING(id) ORDER BY f.rrf DESC LIMIT %s"""
+                SELECT e.*,f.rrf AS score FROM eligible e JOIN fused f USING(id) ORDER BY f.rrf DESC,e.id LIMIT %s"""
             params.append(lim)
         else:
             sql="SELECT id,content,source_file,topic_id,grade,subject_id,source_version,metadata,ts_rank(search_document,plainto_tsquery('russian',%s)||plainto_tsquery('simple',%s)) AS score FROM teachcopilot.materials WHERE active"
             if where: sql+=" AND "+" AND ".join(where)
-            sql+=" ORDER BY score DESC LIMIT %s"
+            sql+=" ORDER BY score DESC,id LIMIT %s"
             params=[query,query,*pred_params,lim]
         with self._connect() as conn, conn.cursor() as cur:
             if query_embedding is not None:

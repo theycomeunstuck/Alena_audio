@@ -6,17 +6,22 @@ and learner predicates additionally prevent mixing sources across learners.
 from __future__ import annotations
 
 import hashlib
+import inspect
 import json
 import base64
+import re
 from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
 
 from psycopg2.extras import Json
 
+from .timezones import DEFAULT_DISPLAY_TIMEZONE, utc_datetime, validate_timezone
+
 
 DIALOGUE_CONTEXT_CHARS = 600
 SESSION_END_CONTEXT_CHARS = 1200
+ARCHIVE_MEMORY_METHODS = ("personal_graph", "personal_memory")
 
 
 class MemoryQueueFullError(RuntimeError):
@@ -88,6 +93,43 @@ def _row(value):
     return result
 
 
+def _history_message(turn, role):
+    prefix = "user" if role == "user" else "assistant"
+    message = {"role": role, "content": turn[prefix + "_content"]}
+    if role == "user":
+        message["delivery_status"] = turn["status"]
+    for field in ("source_id", "created_at", "event_timezone", "activity_timezone", "activity_day"):
+        key = prefix + "_" + field
+        if key not in turn:
+            continue
+        value = turn[key]
+        if value is not None and field == "created_at":
+            value = utc_datetime(value).isoformat()
+        elif value is not None and field == "activity_day":
+            value = value.isoformat()
+        message[field] = value
+    return message
+
+
+def get_learner_memory_snapshot(store, learner_id, topic_id=None, *, include_personal_graph_snapshot=False):
+    """Use the optional learner-wide read only for archive workflows and review."""
+    reader = store.get_learner_memory
+    if include_personal_graph_snapshot:
+        try:
+            parameters = inspect.signature(reader).parameters
+        except (TypeError, ValueError):
+            parameters = {}
+        if ("include_personal_graph_snapshot" not in parameters
+                and not any(item.kind == inspect.Parameter.VAR_KEYWORD for item in parameters.values())):
+            raise RuntimeError("personal_graph_source_snapshot_unavailable")
+        snapshot = reader(learner_id, topic_id, include_personal_graph_snapshot=True)
+        if (not isinstance(snapshot, dict) or not isinstance(snapshot.get("personal_graph_sources"), list)
+                or not isinstance(snapshot.get("personal_graph_snapshot_fingerprint"), str)):
+            raise RuntimeError("personal_graph_source_snapshot_unavailable")
+        return snapshot
+    return reader(learner_id, topic_id)
+
+
 def _revision_error(message):
     # Store imports this mixin before declaring its public exception.
     from .store import RevisionConflict
@@ -102,6 +144,12 @@ def _approved_memory_source_ids(version):
     checks instead of being silently treated as current.
     """
     state = version.get("state")
+    if version.get("approved") and isinstance(state,dict) and state.get("method") in ARCHIVE_MEMORY_METHODS:
+        ids = state.get("source_ids")
+        if (isinstance(ids,list) and all(isinstance(item,str) and item for item in ids)
+                and len(ids) == len(set(ids))):
+            return set(ids)
+        return None
     if (not version.get("approved") or not isinstance(state,dict)
             or state.get("method") not in {"profile_only", "tail", "summary", "structured"}
             or not isinstance(state.get("topic_id"),str) or not state["topic_id"]
@@ -117,6 +165,102 @@ def _approved_memory_source_ids(version):
            for source_id,source in sources.items()):
         return None
     return set(sources)
+
+
+def _personal_memory_validation_problem(state, context, learner_id, topic_id, source_revision,
+                                        sources, snapshot_fingerprint, *, approved=False):
+    """Validate a personal-memory grant against the current canonical archive.
+
+    Selected IDs include both ends of every correction chain. The fingerprint
+    covers ordered source content and attached dialogue, not just identifiers.
+    The return value distinguishes changed snapshots from malformed drafts.
+    """
+    from .personal_memory_contract import (PERSONAL_MEMORY_CONTEXT_PROTOCOL,
+        PERSONAL_MEMORY_RETRIEVAL_MODES, PERSONAL_MEMORY_SELECTION_VERSION)
+
+    if (not isinstance(state,dict) or state.get("method") != "personal_memory"
+            or state.get("learner_id") != learner_id or state.get("topic_id") != topic_id):
+        return "invalid", "personal memory identity does not match the learner and topic"
+    if state.get("source_context_protocol") != PERSONAL_MEMORY_CONTEXT_PROTOCOL:
+        return "stale", "personal memory protocol changed"
+    if state.get("selection_version") != PERSONAL_MEMORY_SELECTION_VERSION:
+        return "stale", "personal memory selection version changed"
+    if (not isinstance(state.get("retrieval_mode"),str)
+            or state["retrieval_mode"] not in PERSONAL_MEMORY_RETRIEVAL_MODES):
+        return "invalid", "personal memory retrieval mode is invalid"
+    identities = state.get("model_identities")
+    if not isinstance(identities,dict) or not all(
+            isinstance(identities.get(kind),dict)
+            and isinstance(identities[kind].get("name"),str) and identities[kind]["name"]
+            and isinstance(identities[kind].get("digest"),str)
+            and re.fullmatch(r"(?:sha256:)?[0-9a-fA-F]{64}",identities[kind]["digest"])
+            for kind in ("chat","embedding")):
+        return "invalid", "personal memory model identities are invalid"
+    recipe = state.get("selection_recipe_fingerprint")
+    if not isinstance(recipe,str) or not re.fullmatch(r"[0-9a-f]{64}",recipe):
+        return "invalid", "personal memory selection recipe is invalid"
+    if type(state.get("source_revision")) is not int or state["source_revision"] != source_revision:
+        return "stale", "personal memory source revision changed"
+    fingerprint = state.get("archive_snapshot_fingerprint")
+    if (not isinstance(fingerprint,str) or len(fingerprint) != 64
+            or any(char not in "0123456789abcdef" for char in fingerprint)
+            or state.get("source_snapshot_id") != "personal-memory-" + fingerprint):
+        return "invalid", "personal memory archive fingerprint is invalid"
+    if fingerprint != snapshot_fingerprint:
+        return "stale", "personal memory archive changed"
+
+    state_ids = state.get("source_ids")
+    if (not isinstance(state_ids,list) or not all(isinstance(item,str) and item for item in state_ids)
+            or len(state_ids) != len(set(state_ids))):
+        return "invalid", "personal memory archive source IDs are invalid"
+    source_map = {source["source_id"]:source for source in sources}
+    if set(state_ids) != set(source_map):
+        return "stale", "personal memory archive source IDs changed"
+    if (not isinstance(context,dict) or context.get("method") != "personal_memory"
+            or context.get("topic_id") != topic_id):
+        return "invalid", "personal memory context does not match the topic"
+    evidence_ids = context.get("evidence_ids")
+    if (not isinstance(evidence_ids,list) or not all(isinstance(item,str) and item for item in evidence_ids)
+            or len(evidence_ids) != len(set(evidence_ids)) or not set(evidence_ids) <= set(state_ids)):
+        return "invalid", "personal memory selected source IDs are invalid"
+
+    projected = context.get("sources")
+    if not isinstance(projected,list) or any(not isinstance(item,dict) for item in projected):
+        return "invalid", "personal memory selected sources are invalid"
+    projected_ids = [item.get("source_id") for item in projected]
+    if (not all(isinstance(item,str) and item for item in projected_ids)
+            or len(projected_ids) != len(set(projected_ids)) or set(projected_ids) != set(evidence_ids)):
+        return "invalid", "personal memory selected sources do not match the evidence IDs"
+    for item in projected:
+        source = source_map[item["source_id"]]
+        if (item.get("role") != source.get("author_role") or item.get("text") != source.get("text")
+                or item.get("topic_id") != (source.get("topic_id") or "general")
+                or item.get("corrects_source_id") != source.get("corrects_source_id")):
+            return "invalid", "personal memory selected source differs from the archive"
+
+    selected = set(evidence_ids)
+    for source_id,source in source_map.items():
+        target = source.get("corrects_source_id")
+        if target is not None and ((source_id in selected) != (target in selected)):
+            return "invalid", "personal memory selected sources omit a linked correction"
+
+    if approved:
+        access = context.get("source_access")
+        if not isinstance(access,dict):
+            return "invalid", "personal memory source approval is missing"
+        access_ids = access.get("source_ids")
+        if (not isinstance(access_ids,list) or not all(isinstance(item,str) and item for item in access_ids)
+                or len(access_ids) != len(set(access_ids))):
+            return "invalid", "personal memory approved source IDs are invalid"
+        if access.get("mode") == "selected_context":
+            if set(access_ids) != selected or access.get("snapshot_fingerprint") is not None:
+                return "invalid", "personal memory selected-context approval is invalid"
+        elif access.get("mode") == "full_archive":
+            if set(access_ids) != set(state_ids) or access.get("snapshot_fingerprint") != fingerprint:
+                return "invalid", "personal memory full-archive approval is invalid"
+        else:
+            return "invalid", "personal memory source approval mode is invalid"
+    return None
 
 
 class MemoryStoreMixin:
@@ -141,20 +285,24 @@ class MemoryStoreMixin:
         return learner
 
     @staticmethod
-    def _memory_source(cur, learner_id, topic_id, actor_id, content, *, author_role="teacher", session_id=None, approved=False, observed_on=None, source_key=None, corrects_source_id=None):
+    def _memory_source(cur, learner_id, topic_id, actor_id, content, *, author_role="teacher", session_id=None, approved=False, observed_on=None, source_key=None, corrects_source_id=None, event_timezone=None, activity_timezone=None):
         if author_role not in ("student", "teacher", "assistant"):
             raise ValueError("invalid source author")
         if not isinstance(content, str) or not content.strip():
             raise ValueError("source content is required")
+        event_timezone = validate_timezone(DEFAULT_DISPLAY_TIMEZONE if event_timezone is None else event_timezone)
+        if activity_timezone is not None:
+            activity_timezone = validate_timezone(activity_timezone)
         if corrects_source_id is not None:
             if author_role != "teacher" or approved is not True:
                 raise ValueError("a source correction must be an approved teacher note")
             MemoryStoreMixin._correction_target(cur,learner_id,corrects_source_id,topic_id)
         cur.execute("""INSERT INTO teachcopilot.memory_sources
-            (learner_id,topic_id,actor_id,content,author_role,learning_session_id,approved,observed_on,source_key,corrects_source_id)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            (learner_id,topic_id,actor_id,content,author_role,learning_session_id,approved,observed_on,source_key,corrects_source_id,event_timezone,activity_timezone)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,
+                COALESCE(%s,(SELECT learning_timezone FROM teachcopilot.learners WHERE learner_id=%s)))
             ON CONFLICT(learner_id,source_key) DO NOTHING RETURNING *""",
-            (learner_id,topic_id,str(actor_id),content,author_role,session_id,approved,observed_on,source_key,corrects_source_id))
+            (learner_id,topic_id,str(actor_id),content,author_role,session_id,approved,observed_on,source_key,corrects_source_id,event_timezone,activity_timezone,learner_id))
         source = cur.fetchone()
         if source is None:
             cur.execute("SELECT * FROM teachcopilot.memory_sources WHERE learner_id=%s AND source_key=%s", (learner_id,source_key))
@@ -166,10 +314,10 @@ class MemoryStoreMixin:
             cur.execute("UPDATE teachcopilot.learners SET memory_source_revision=memory_source_revision+1 WHERE learner_id=%s", (learner_id,))
         return _row(source)
 
-    def add_memory_source(self, learner_id, topic_id, content, actor_id, *, author_role="teacher", approved=False, observed_on=None, source_key=None, expected_revision=None, corrects_source_id=None):
+    def add_memory_source(self, learner_id, topic_id, content, actor_id, *, author_role="teacher", approved=False, observed_on=None, source_key=None, expected_revision=None, corrects_source_id=None, event_timezone=None):
         with self._connect() as conn, conn.cursor() as cur:
             self._memory_learner(cur,learner_id,expected_revision)
-            return self._memory_source(cur,learner_id,topic_id,actor_id,content,author_role=author_role,approved=approved,observed_on=observed_on,source_key=source_key,corrects_source_id=corrects_source_id)
+            return self._memory_source(cur,learner_id,topic_id,actor_id,content,author_role=author_role,approved=approved,observed_on=observed_on,source_key=source_key,corrects_source_id=corrects_source_id,event_timezone=event_timezone)
 
     @staticmethod
     def _correction_target(cur, learner_id, source_id, topic_id=None):
@@ -229,20 +377,21 @@ class MemoryStoreMixin:
                 method="tail",idempotency_key=f"source:{source['id']}")
             return {"source":source,"job_id":job["id"],"learner_id":learner_id,"topic_id":target["topic_id"]}
 
-    def create_learning_session(self, learner_id, actor_id, topic_id, client_session_id=None, mode="standard"):
+    def create_learning_session(self, learner_id, actor_id, topic_id, client_session_id=None, mode="standard", event_timezone=None):
         if not topic_id or not str(topic_id).strip():
             raise ValueError("topic_id is required")
         if mode not in {"standard", "autonomous_division"}:
             raise ValueError("unknown learning session mode")
+        event_timezone = validate_timezone(DEFAULT_DISPLAY_TIMEZONE if event_timezone is None else event_timezone)
         if mode == "autonomous_division":
             from .autonomous_division import TOPIC as AUTONOMOUS_DIVISION_TOPIC
             if topic_id != AUTONOMOUS_DIVISION_TOPIC:
                 raise ValueError("autonomous division requires its supported math topic")
         with self._connect() as conn, conn.cursor() as cur:
             self._memory_learner(cur,learner_id)
-            cur.execute("""INSERT INTO teachcopilot.learning_sessions(learner_id,actor_id,topic_id,client_session_id,session_mode)
-                VALUES (%s,%s,%s,%s,%s) ON CONFLICT(learner_id,actor_id,client_session_id) DO NOTHING RETURNING *""",
-                (learner_id,str(actor_id),topic_id,client_session_id,mode))
+            cur.execute("""INSERT INTO teachcopilot.learning_sessions(learner_id,actor_id,topic_id,client_session_id,session_mode,event_timezone)
+                VALUES (%s,%s,%s,%s,%s,%s) ON CONFLICT(learner_id,actor_id,client_session_id) DO NOTHING RETURNING *""",
+                (learner_id,str(actor_id),topic_id,client_session_id,mode,event_timezone))
             session = cur.fetchone()
             if session is None:
                 cur.execute("SELECT * FROM teachcopilot.learning_sessions WHERE learner_id=%s AND actor_id=%s AND client_session_id=%s", (learner_id,str(actor_id),client_session_id))
@@ -250,6 +399,27 @@ class MemoryStoreMixin:
                 if session["topic_id"] != topic_id or session["session_mode"] != mode:
                     raise MemoryIdempotencyConflict("session identifier belongs to another topic or mode")
             return _row(session)
+
+    def ensure_conversation_session(self, learner_id, actor_id, topic_id, event_timezone=None):
+        """Reuse an actor's standard dialogue channel for the ordinary chat API."""
+        if not isinstance(topic_id, str) or not topic_id.strip():
+            raise ValueError("topic_id is required")
+        zone = validate_timezone(DEFAULT_DISPLAY_TIMEZONE if event_timezone is None else event_timezone)
+        with self._connect() as conn, conn.cursor() as cur:
+            # Session creation takes this same lock, so concurrent ordinary
+            # requests cannot create duplicate active channels for this scope.
+            self._memory_learner(cur, learner_id)
+            cur.execute("""SELECT * FROM teachcopilot.learning_sessions
+                WHERE learner_id=%s AND actor_id=%s AND topic_id=%s
+                    AND status='active' AND session_mode='standard'
+                ORDER BY created_at DESC,id DESC LIMIT 1""", (learner_id, str(actor_id), topic_id))
+            existing = cur.fetchone()
+            if existing is not None:
+                return _row(existing)
+            cur.execute("""INSERT INTO teachcopilot.learning_sessions
+                (learner_id,actor_id,topic_id,session_mode,event_timezone)
+                VALUES (%s,%s,%s,'standard',%s) RETURNING *""", (learner_id, str(actor_id), topic_id, zone))
+            return _row(cur.fetchone())
 
     def get_learning_session(self, session_id, learner_id=None):
         with self._connect() as conn, conn.cursor() as cur:
@@ -284,7 +454,11 @@ class MemoryStoreMixin:
             unresolved = cur.fetchone()
             unresolved_status = ('pending' if unresolved['pending'] else
                                  'unknown_outcome' if unresolved['unknown_outcome'] else None)
-            cur.execute('''SELECT m.status,s.content AS user_content,a.content AS assistant_content
+            cur.execute('''SELECT m.status,s.content AS user_content,a.content AS assistant_content,
+                s.id AS user_source_id,s.created_at AS user_created_at,s.event_timezone AS user_event_timezone,
+                s.activity_timezone AS user_activity_timezone,s.activity_day AS user_activity_day,
+                a.id AS assistant_source_id,a.created_at AS assistant_created_at,a.event_timezone AS assistant_event_timezone,
+                a.activity_timezone AS assistant_activity_timezone,a.activity_day AS assistant_activity_day
                 FROM teachcopilot.learning_messages m
                 JOIN teachcopilot.memory_sources s ON s.id=m.source_id AND s.learner_id=m.learner_id
                     AND s.learning_session_id=m.learning_session_id AND s.topic_id=%s
@@ -299,10 +473,9 @@ class MemoryStoreMixin:
             turns = cur.fetchall()
             messages = []
             for turn in reversed(turns[:20]):
-                messages.append({'role':'user','content':turn['user_content'],
-                                 'delivery_status':turn['status']})
+                messages.append(_history_message(turn, "user"))
                 if turn['status'] == 'completed' and turn['assistant_content'] is not None:
-                    messages.append({'role':'assistant','content':turn['assistant_content']})
+                    messages.append(_history_message(turn, "assistant"))
             return {'available':True,'learning_session_id':str(session_id),'topic_id':topic_id,
                     'session_mode':session['session_mode'],'status':'active','messages':messages,'history_truncated':len(turns) > 20,
                     'unresolved_status':unresolved_status}
@@ -312,7 +485,7 @@ class MemoryStoreMixin:
         boundary = _read_archive_cursor(before,'sessions',learner_id,actor_id)
         with self._connect() as connection, connection.cursor() as cur:
             connection.set_session(readonly=True,isolation_level='REPEATABLE READ')
-            query = '''SELECT id,topic_id,session_mode,COALESCE(completed_at,created_at) AS ended_at
+            query = '''SELECT id,topic_id,session_mode,created_at,event_timezone,COALESCE(completed_at,created_at) AS ended_at
                 FROM teachcopilot.learning_sessions
                 WHERE learner_id=%s AND actor_id=%s AND status='completed' '''
             values = [learner_id,str(actor_id)]
@@ -323,7 +496,9 @@ class MemoryStoreMixin:
             rows = cur.fetchall()
             sessions = [{'learning_session_id':str(row['id']),'topic_id':row['topic_id'],
                          'session_mode':row['session_mode'],
-                         'completed_at':row['ended_at'].isoformat()} for row in rows[:10]]
+                         'completed_at':row['ended_at'].isoformat(),
+                         **({'created_at':utc_datetime(row['created_at']).isoformat()} if row.get('created_at') else {}),
+                         **({'event_timezone':row['event_timezone']} if 'event_timezone' in row else {})} for row in rows[:10]]
             next_cursor = None
             if len(rows) > 10:
                 last = rows[9]
@@ -345,7 +520,11 @@ class MemoryStoreMixin:
                 raise PermissionError('archived conversation belongs to another actor')
             if session['status'] != 'completed':
                 raise LearningSessionNotCompletedError('only completed sessions have archived history')
-            query = '''SELECT m.status,s.source_order,s.content AS user_content,a.content AS assistant_content
+            query = '''SELECT m.status,s.source_order,s.content AS user_content,a.content AS assistant_content,
+                s.id AS user_source_id,s.created_at AS user_created_at,s.event_timezone AS user_event_timezone,
+                s.activity_timezone AS user_activity_timezone,s.activity_day AS user_activity_day,
+                a.id AS assistant_source_id,a.created_at AS assistant_created_at,a.event_timezone AS assistant_event_timezone,
+                a.activity_timezone AS assistant_activity_timezone,a.activity_day AS assistant_activity_day
                 FROM teachcopilot.learning_messages m
                 JOIN teachcopilot.memory_sources s ON s.id=m.source_id AND s.learner_id=m.learner_id
                     AND s.learning_session_id=m.learning_session_id AND s.topic_id=%s
@@ -363,22 +542,24 @@ class MemoryStoreMixin:
             rows = cur.fetchall()
             messages = []
             for turn in reversed(rows[:20]):
-                messages.append({'role':'user','content':turn['user_content'],'delivery_status':turn['status']})
+                messages.append(_history_message(turn, "user"))
                 if turn['status'] == 'completed' and turn['assistant_content'] is not None:
-                    messages.append({'role':'assistant','content':turn['assistant_content']})
+                    messages.append(_history_message(turn, "assistant"))
             next_cursor = (_archive_cursor('history',learner_id,actor_id,session=str(session_id),
                             order=rows[19]['source_order']) if len(rows) > 20 else None)
             return {'learning_session_id':str(session_id),'topic_id':session['topic_id'],
                     'session_mode':session.get('session_mode','standard'),
                     'status':'completed','messages':messages,'next_cursor':next_cursor}
 
-    def reserve_chat_message(self, session_id, learner_id, client_message_id, content, actor_id, *, author_role="student"):
+    def reserve_chat_message(self, session_id, learner_id, client_message_id, content, actor_id, *, author_role="student", event_timezone=None):
         if author_role not in ("student", "teacher"):
             raise ValueError("chat source must be student or teacher")
         if not client_message_id or len(client_message_id) > 200:
             raise ValueError("client_message_id must contain 1..200 characters")
         if not isinstance(content,str) or not content.strip():
             raise ValueError("message content is required")
+        if event_timezone is not None:
+            event_timezone = validate_timezone(event_timezone)
         digest = hashlib.sha256(content.encode("utf-8")).hexdigest()
         with self._connect() as conn, conn.cursor() as cur:
             cur.execute("SELECT * FROM teachcopilot.learning_sessions WHERE id=%s AND learner_id=%s FOR UPDATE", (session_id,learner_id))
@@ -400,7 +581,7 @@ class MemoryStoreMixin:
             cur.execute("SELECT 1 FROM teachcopilot.learning_messages WHERE learning_session_id=%s AND status='pending'", (session_id,))
             if cur.fetchone():
                 raise ValueError("another message in this session is still pending")
-            source = self._memory_source(cur,learner_id,session["topic_id"],actor_id,content,author_role=author_role,session_id=session_id,approved=author_role=="teacher",source_key=f"chat:{session_id}:{client_message_id}:student")
+            source = self._memory_source(cur,learner_id,session["topic_id"],actor_id,content,author_role=author_role,session_id=session_id,approved=author_role=="teacher",source_key=f"chat:{session_id}:{client_message_id}:student",event_timezone=session.get("event_timezone") or event_timezone)
             cur.execute("""INSERT INTO teachcopilot.learning_messages(learning_session_id,learner_id,client_message_id,source_id,content_hash)
                 VALUES (%s,%s,%s,%s,%s) RETURNING *""", (session_id,learner_id,client_message_id,source["id"],digest))
             return dict(_row(cur.fetchone()),created=True)
@@ -423,7 +604,13 @@ class MemoryStoreMixin:
                 text = str(response["choices"][0].get("message",{}).get("content") or "")
             else:
                 text = next((str(response[key]) for key in ("answer","response","content","text") if isinstance(response,dict) and response.get(key)),json.dumps(response,ensure_ascii=False))
-            source = self._memory_source(cur,message["learner_id"],session["topic_id"],"assistant",text,author_role="assistant",session_id=session_id,source_key=f"chat:{session_id}:{client_message_id}:assistant")
+            event_timezone = session.get("event_timezone")
+            if event_timezone is None:
+                cur.execute("SELECT event_timezone FROM teachcopilot.memory_sources WHERE id=%s AND learner_id=%s",
+                            (message["source_id"], message["learner_id"]))
+                original = cur.fetchone()
+                event_timezone = original.get("event_timezone") if original else None
+            source = self._memory_source(cur,message["learner_id"],session["topic_id"],"assistant",text,author_role="assistant",session_id=session_id,source_key=f"chat:{session_id}:{client_message_id}:assistant",event_timezone=event_timezone)
             cur.execute("""UPDATE teachcopilot.learning_messages SET status='completed',response=%s,assistant_source_id=%s,completed_at=now()
                 WHERE id=%s RETURNING *""", (Json(response),source["id"],message["id"]))
             return _row(cur.fetchone())
@@ -474,9 +661,102 @@ class MemoryStoreMixin:
     def list_learning_messages(self, session_id):
         with self._connect() as conn, conn.cursor() as cur:
             cur.execute("""SELECT id AS source_id,learning_session_id AS session_id,author_role,
-                CASE WHEN author_role IN ('student','teacher') THEN 'user' ELSE author_role END AS role,content,created_at
+                CASE WHEN author_role IN ('student','teacher') THEN 'user' ELSE author_role END AS role,content,created_at,event_timezone
                 FROM teachcopilot.memory_sources WHERE learning_session_id=%s ORDER BY source_order""", (session_id,))
             return [_row(row) for row in cur.fetchall()]
+
+    def get_own_conversation_messages(self, learner_id, actor_id, *, limit=20,
+                                      active_day_limit=None, learning_timezone=None,
+                                      exclude_source_id=None, before_source_order=None, as_of=None):
+        """Read one actor's own messages and associated assistant context.
+
+        Every actual student message remains eligible even if generation failed.
+        Assistant text requires its completed pair or a recorded shown check-in.
+        The limit counts individual messages. Day windows use immutable activity
+        dates captured at insertion, independently of display preferences.
+        """
+        if limit is not None and (type(limit) is not int or not 1 <= limit <= 10000):
+            raise ValueError("message limit must be between 1 and 10000")
+        if active_day_limit is not None and (type(active_day_limit) is not int or not 1 <= active_day_limit <= 366):
+            raise ValueError("active day limit must be between 1 and 366")
+        if before_source_order is not None and (type(before_source_order) is not int
+                or not 1 <= before_source_order <= 9223372036854775807):
+            raise ValueError("message boundary must be a positive source order")
+        if exclude_source_id is not None and (not isinstance(exclude_source_id, str) or not exclude_source_id):
+            raise ValueError("excluded source ID must be nonempty")
+        if learning_timezone is not None:
+            validate_timezone(learning_timezone)
+        cutoff = utc_datetime(as_of) if as_of is not None else datetime.now(timezone.utc)
+        values = {"learner": learner_id, "actor": str(actor_id), "limit": limit,
+                  "day_limit": active_day_limit, "excluded": exclude_source_id,
+                  "before": before_source_order, "cutoff": cutoff}
+        with self._connect() as connection, connection.cursor() as cur:
+            connection.set_session(readonly=True, isolation_level="REPEATABLE READ")
+            cur.execute("""WITH own_pairs AS (
+                SELECT m.*,s.topic_id,s.actor_id,account.role AS actor_role
+                FROM teachcopilot.learning_messages m
+                JOIN teachcopilot.learning_sessions ls ON ls.id=m.learning_session_id
+                    AND ls.learner_id=m.learner_id AND ls.actor_id=%(actor)s
+                JOIN teachcopilot.accounts account ON account.id::text=ls.actor_id AND account.role IN ('student','teacher')
+                JOIN teachcopilot.memory_sources s ON s.id=m.source_id AND s.learner_id=m.learner_id
+                    AND s.learning_session_id=m.learning_session_id AND s.topic_id=ls.topic_id
+                    AND s.actor_id=ls.actor_id
+                    AND (s.author_role=account.role OR (account.role='teacher' AND s.author_role='student'))
+                WHERE m.learner_id=%(learner)s
+                    AND (%(excluded)s::text IS NULL OR m.source_id<>%(excluded)s)
+            ), own_messages AS (
+                SELECT s.id AS source_id,s.source_order,m.actor_role AS author_role,'user'::text AS role,
+                    s.content AS text,s.created_at,s.learning_session_id,s.topic_id,
+                    s.event_timezone,s.activity_timezone,s.activity_day,
+                    'self_report'::text AS usage,m.status AS delivery_status,
+                    m.source_id AS pair_source_id,
+                    CASE WHEN m.status='completed' AND m.completed_at<=%(cutoff)s
+                        THEN m.assistant_source_id END AS paired_source_id,
+                    m.actor_role,s.author_role AS original_source_role,
+                    s.learner_id AS learner_id,s.actor_id AS actor_id
+                FROM own_pairs m JOIN teachcopilot.memory_sources s
+                    ON s.id=m.source_id AND s.learner_id=m.learner_id
+                UNION ALL
+                SELECT a.id,a.source_order,a.author_role,'assistant',a.content,a.created_at,
+                    a.learning_session_id,a.topic_id,a.event_timezone,a.activity_timezone,a.activity_day,
+                    'context_only',m.status,m.source_id,m.source_id,m.actor_role,a.author_role,
+                    a.learner_id AS learner_id,m.actor_id AS actor_id
+                FROM own_pairs m JOIN teachcopilot.memory_sources a
+                    ON a.id=m.assistant_source_id AND a.learner_id=m.learner_id
+                    AND a.learning_session_id=m.learning_session_id AND a.topic_id=m.topic_id
+                    AND a.author_role='assistant'
+                WHERE m.status='completed' AND m.completed_at<=%(cutoff)s
+                UNION ALL
+                SELECT a.id,a.source_order,a.author_role,'assistant',a.content,a.created_at,
+                    a.learning_session_id,a.topic_id,a.event_timezone,a.activity_timezone,a.activity_day,
+                    'context_only','shown',NULL::text,NULL::text,account.role,a.author_role,
+                    a.learner_id AS learner_id,c.actor_id AS actor_id
+                FROM teachcopilot.daily_checkins c
+                JOIN teachcopilot.accounts account ON account.id::text=c.actor_id AND account.role='student'
+                JOIN teachcopilot.memory_sources a ON a.id=c.assistant_source_id
+                    AND a.learner_id=c.learner_id
+                    AND a.learning_session_id IS NOT DISTINCT FROM c.learning_session_id
+                    AND a.author_role='assistant'
+                WHERE c.learner_id=%(learner)s AND c.actor_id=%(actor)s
+                    AND c.shown_at IS NOT NULL AND c.shown_at<=%(cutoff)s
+            ), eligible AS (
+                SELECT * FROM own_messages
+                WHERE created_at<=%(cutoff)s
+                    AND (%(before)s::bigint IS NULL OR source_order<%(before)s)
+            ), selected_days AS (
+                SELECT DISTINCT activity_day FROM eligible
+                ORDER BY activity_day DESC LIMIT %(day_limit)s
+            ) SELECT * FROM eligible
+                WHERE %(day_limit)s::integer IS NULL OR activity_day IN (SELECT activity_day FROM selected_days)
+                ORDER BY source_order DESC LIMIT %(limit)s""", values)
+            rows = cur.fetchall()
+        messages = []
+        for row in reversed(rows):
+            message = _row(row)
+            message["created_at"] = utc_datetime(message["created_at"])
+            message["content"] = message["text"]
+            messages.append(message)
+        return messages
 
     def complete_learning_session(self, session_id, learner_id, actor_id):
         with self._connect() as conn, conn.cursor() as cur:
@@ -500,8 +780,12 @@ class MemoryStoreMixin:
             return dict(_row(session),job=job,job_id=job["id"])
 
     def _enqueue_memory_job(self, cur, learner_id, topic_id, kind, payload=None, actor_id="system", expected_revision=None, method="tail", idempotency_key=None, provider="local"):
-        if kind not in ("memory_update","next_step","chat") or method not in ("profile_only","tail","summary","structured") or provider not in ("local","external"):
+        if kind not in ("memory_update","next_step","chat") or method not in ("profile_only","tail","summary","structured","structured_v2","personal_graph","personal_memory") or provider not in ("local","external"):
             raise ValueError("invalid memory job options")
+        if method == "structured_v2" and kind != "next_step":
+            raise ValueError("structured_v2_is_teacher_next_step_only")
+        if method in ARCHIVE_MEMORY_METHODS and (kind != "next_step" or provider != "local"):
+            raise ValueError(f"{method}_is_local_teacher_next_step_only")
         learner = self._memory_learner(cur,learner_id,expected_revision)
         cur.execute("SELECT pg_advisory_xact_lock(hashtextextended('teachcopilot_memory_queue',0))")
         self._recover_chat_messages(cur)
@@ -671,7 +955,68 @@ class MemoryStoreMixin:
         return contexts
 
     @staticmethod
-    def _assert_memory_references(cur, learner_id, value, *, topic_id=None):
+    def _remove_orphaned_memory_corrections(sources):
+        """Drop correction chains whose target was excluded from the source snapshot."""
+        source_ids = {source["source_id"] for source in sources}
+        while True:
+            orphaned = {source["source_id"] for source in sources
+                if source["source_id"] in source_ids and source.get("corrects_source_id") is not None
+                and source["corrects_source_id"] not in source_ids}
+            if not orphaned:
+                break
+            source_ids.difference_update(orphaned)
+        return [source for source in sources if source["source_id"] in source_ids]
+
+    @staticmethod
+    def _current_personal_graph_sources(cur, learner_id):
+        """Read only graph-eligible archived sources under the caller's transaction."""
+        cur.execute("""SELECT s.id AS source_id,s.learning_session_id AS session_id,s.author_role,s.content AS text,
+                s.observed_on,s.created_at,s.topic_id,s.approved,s.corrects_source_id,
+                CASE WHEN preceding.author_role='assistant' AND preceding.topic_id=s.topic_id AND s.topic_id=ls.topic_id
+                    THEN right(preceding.content,%s) END AS preceding_assistant_text,
+                CASE WHEN preceding.author_role='assistant' AND preceding.topic_id=s.topic_id AND s.topic_id=ls.topic_id
+                    THEN length(preceding.content)>%s ELSE FALSE END AS preceding_assistant_truncated
+            FROM teachcopilot.memory_sources s
+            LEFT JOIN teachcopilot.learning_sessions ls ON ls.id=s.learning_session_id AND ls.learner_id=s.learner_id
+            LEFT JOIN LATERAL (
+                SELECT previous.author_role,previous.content,previous.topic_id
+                FROM teachcopilot.memory_sources previous
+                WHERE s.author_role='student' AND previous.learner_id=s.learner_id
+                    AND previous.learning_session_id=s.learning_session_id AND previous.source_order<s.source_order
+                ORDER BY previous.source_order DESC LIMIT 1
+            ) preceding ON TRUE
+            WHERE s.learner_id=%s AND s.author_role <> 'assistant'
+                AND ((s.author_role='teacher' AND s.approved AND (s.learning_session_id IS NULL OR ls.status='completed'))
+                     OR (s.author_role='student' AND ls.status='completed'))
+                AND NOT EXISTS (SELECT 1 FROM teachcopilot.learning_messages m
+                    WHERE m.source_id=s.id AND m.learner_id=s.learner_id AND m.status <> 'completed')
+            ORDER BY s.source_order""", (DIALOGUE_CONTEXT_CHARS,DIALOGUE_CONTEXT_CHARS,learner_id))
+        candidate_sources = [_row(row) for row in cur.fetchall()]
+        sources = MemoryStoreMixin._remove_orphaned_memory_corrections(candidate_sources)
+        visible_source_ids = {source["source_id"] for source in sources}
+        hidden_correction_count = sum(1 for source in candidate_sources
+            if source.get("corrects_source_id") is not None
+            and source["source_id"] not in visible_source_ids)
+        ending_contexts = MemoryStoreMixin._latest_session_end_context(cur,learner_id,None)
+        for source in sources:
+            preceding_text = source.pop("preceding_assistant_text")
+            truncated = source.pop("preceding_assistant_truncated")
+            if preceding_text:
+                source["dialogue_context"] = {"role":"assistant", "usage":"context_only", "text":preceding_text,
+                    "excerpt_mode":"tail", "truncated":bool(truncated)}
+            source.update(ending_contexts.get(source["source_id"],{}))
+        return sources, hidden_correction_count
+
+    @staticmethod
+    def _current_personal_graph_snapshot(cur, learner_id):
+        """Read the current eligible archive under the caller's transaction."""
+        from .personal_graph_contract import personal_graph_snapshot_fingerprint
+        sources, _ = MemoryStoreMixin._current_personal_graph_sources(cur,learner_id)
+        source_ids = [source["source_id"] for source in sources]
+        return source_ids, personal_graph_snapshot_fingerprint(sources)
+
+    @staticmethod
+    def _assert_memory_references(cur, learner_id, value, *, topic_id=None, all_topics=False):
         """Reject cross-learner source links in persisted context and memory."""
         ids = set()
         def visit(node, path=()):
@@ -705,7 +1050,8 @@ class MemoryStoreMixin:
                 raise ValueError("session_end_context must be a list")
             required = {"source_id","assistant_source_id","session_id","role","usage","text","excerpt_mode","truncated"}
             anchors, assistants = set(), set()
-            expected = MemoryStoreMixin._latest_session_end_context(cur,learner_id,topic_id) if endings else {}
+            expected = MemoryStoreMixin._latest_session_end_context(
+                cur, learner_id, None if all_topics else topic_id) if endings else {}
             for item in endings:
                 if (not isinstance(item,dict) or set(item) != required
                         or any(not isinstance(item.get(key),str) or not item[key]
@@ -725,7 +1071,19 @@ class MemoryStoreMixin:
         learner = self._memory_learner(cur,learner_id,base_revision)
         if source_revision is not None and learner["memory_source_revision"] != source_revision:
             _revision_error("learning sources changed while memory was generated")
-        self._assert_memory_references(cur,learner_id,{"state":state,"context":context or {}},topic_id=topic_id)
+        if isinstance(state,dict) and state.get("method") == "personal_memory":
+            if approved:
+                raise ValueError("personal_memory_requires_explicit_approval")
+            sources, _ = self._current_personal_graph_sources(cur,learner_id)
+            from .personal_graph_contract import personal_graph_snapshot_fingerprint
+            problem = _personal_memory_validation_problem(state,context or {},learner_id,topic_id,
+                learner["memory_source_revision"],sources,personal_graph_snapshot_fingerprint(sources))
+            if problem:
+                if problem[0] == "stale":
+                    _revision_error(problem[1])
+                raise ValueError(problem[1])
+        self._assert_memory_references(cur,learner_id,{"state":state,"context":context or {}},topic_id=topic_id,
+                                       all_topics=isinstance(state,dict) and state.get("method") in ARCHIVE_MEMORY_METHODS)
         cur.execute("""INSERT INTO teachcopilot.memory_versions(learner_id,topic_id,base_revision,source_revision,state,context,approved,job_id)
             VALUES (%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *""",
             (learner_id,topic_id,base_revision,learner["memory_source_revision"],Json(state),Json(context or {}),approved,job_id))
@@ -739,7 +1097,8 @@ class MemoryStoreMixin:
         learner = self._memory_learner(cur,learner_id,base_revision)
         if source_revision is not None and learner["memory_source_revision"] != source_revision:
             _revision_error("learning sources changed while next step was generated")
-        self._assert_memory_references(cur,learner_id,{"result":result,"context":context or {}},topic_id=topic_id)
+        self._assert_memory_references(cur,learner_id,{"result":result,"context":context or {}},topic_id=topic_id,
+                                       all_topics=method in ARCHIVE_MEMORY_METHODS)
         cur.execute("""INSERT INTO teachcopilot.next_steps(learner_id,topic_id,base_revision,source_revision,result,context,memory_version_id,job_id,method)
             VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *""",
             (learner_id,topic_id,base_revision,learner["memory_source_revision"],Json(result),Json(context or {}),memory_version_id,job_id,method))
@@ -798,7 +1157,8 @@ class MemoryStoreMixin:
                 WHERE id=%s RETURNING *""", (status,Json(output),str(error) if error else None,job_id))
             return _row(cur.fetchone())
 
-    def get_learner_memory(self, learner_id, topic_id=None):
+    def get_learner_memory(self, learner_id, topic_id=None, *, include_personal_graph_snapshot=False):
+        from .personal_graph_contract import PERSONAL_GRAPH_CONTEXT_PROTOCOL
         with self._connect() as conn, conn.cursor() as cur:
             learner = self._memory_learner(cur,learner_id,lock="SHARE")
             topic_filter = " AND s.topic_id=%s" if topic_id is not None else ""
@@ -819,7 +1179,8 @@ class MemoryStoreMixin:
                     ORDER BY previous.source_order DESC LIMIT 1
                 ) preceding ON TRUE
                 WHERE s.learner_id=%s AND s.author_role <> 'assistant'
-                AND ((s.author_role='teacher' AND s.approved AND (s.learning_session_id IS NULL OR ls.status='completed')) OR (s.author_role='student' AND ls.status='completed'))""" + topic_filter + " ORDER BY s.source_order", [DIALOGUE_CONTEXT_CHARS,DIALOGUE_CONTEXT_CHARS,*values])
+                AND ((s.author_role='teacher' AND s.approved AND (s.learning_session_id IS NULL OR ls.status='completed'))
+                     OR (s.author_role='student' AND ls.status='completed'))""" + topic_filter + " ORDER BY s.source_order", [DIALOGUE_CONTEXT_CHARS,DIALOGUE_CONTEXT_CHARS,*values])
             sources = [_row(row) for row in cur.fetchall()]
             ending_contexts = self._latest_session_end_context(cur,learner_id,topic_id)
             for source in sources:
@@ -828,14 +1189,33 @@ class MemoryStoreMixin:
                 if preceding_text:
                     # Context belongs to the following student's literal source.
                     # It is never an assistant evidence source or an achievement.
-                    source["dialogue_context"] = {"role":"assistant", "text":preceding_text, "excerpt_mode":"tail",
+                    source["dialogue_context"] = {"role":"assistant", "usage":"context_only", "text":preceding_text, "excerpt_mode":"tail",
                                                   "truncated":bool(truncated)}
                 source.update(ending_contexts.get(source["source_id"],{}))
             cur.execute("SELECT * FROM teachcopilot.memory_versions WHERE learner_id=%s" + (" AND topic_id=%s" if topic_id is not None else "") + " ORDER BY created_at DESC,id", values)
             versions = [_row(row) for row in cur.fetchall()]
+            has_personal_memory = any(isinstance(version.get("state"),dict)
+                and version["state"].get("method") == "personal_memory" for version in versions)
+            graph_ending_contexts = ending_contexts
+            if (include_personal_graph_snapshot or has_personal_memory) and topic_id is not None and any(
+                    isinstance(version.get("state"),dict)
+                    and version["state"].get("method") in ARCHIVE_MEMORY_METHODS for version in versions):
+                graph_ending_contexts = self._latest_session_end_context(cur,learner_id,None)
             eligible_by_topic = {}
             for source in sources:
                 eligible_by_topic.setdefault(source["topic_id"],set()).add(source["source_id"])
+            all_graph_source_ids = None
+            graph_sources = []
+            hidden_graph_correction_count = 0
+            current_graph_fingerprint = None
+            # Archive methods use the same learner-wide eligible snapshot. Keep
+            # it out of the response unless explicitly requested, even though
+            # personal-memory freshness always needs to verify its fingerprint.
+            if include_personal_graph_snapshot or has_personal_memory:
+                graph_sources, hidden_graph_correction_count = self._current_personal_graph_sources(cur,learner_id)
+                all_graph_source_ids = {source["source_id"] for source in graph_sources}
+                from .personal_graph_contract import personal_graph_snapshot_fingerprint
+                current_graph_fingerprint = personal_graph_snapshot_fingerprint(graph_sources)
             for version in versions:
                 version["method"] = version["state"].get("method") if isinstance(version["state"],dict) else None
                 source_ids = _approved_memory_source_ids(version)
@@ -845,43 +1225,159 @@ class MemoryStoreMixin:
                     # Active turns and another topic change the global revision
                     # for concurrency guards, but do not change this approved
                     # long-term memory's immutable eligible source snapshot.
-                    sources_changed = source_ids != eligible_by_topic.get(version["topic_id"],set())
-                stored_endings = (version.get("context") or {}).get("session_end_context",[])
-                endings_changed = (not isinstance(stored_endings,list) or any(
-                    not isinstance(item,dict) or not isinstance(item.get("source_id"),str)
-                    or ending_contexts.get(item["source_id"],{}).get("session_end_context")
-                        != {key:val for key,val in item.items() if key != "source_id"}
-                    for item in stored_endings))
+                    if version.get("method") in ARCHIVE_MEMORY_METHODS:
+                        eligible = (all_graph_source_ids if include_personal_graph_snapshot
+                                    or version.get("method") == "personal_memory" else None)
+                    else:
+                        eligible = eligible_by_topic.get(version["topic_id"],set())
+                    if eligible is None:
+                        sources_changed = version["source_revision"] != learner["memory_source_revision"]
+                    else:
+                        sources_changed = source_ids != eligible
+                version_context = version.get("context")
+                invalid_context = not isinstance(version_context,dict)
+                if invalid_context:
+                    version_context = {}
+                stored_endings = version_context.get("session_end_context",[])
+                version_endings = graph_ending_contexts if version.get("method") in ARCHIVE_MEMORY_METHODS else ending_contexts
+                endings_changed = (include_personal_graph_snapshot or version.get("method") != "personal_graph") and (
+                    not isinstance(stored_endings,list) or any(
+                        not isinstance(item,dict) or not isinstance(item.get("source_id"),str)
+                        or version_endings.get(item["source_id"],{}).get("session_end_context")
+                            != {key:val for key,val in item.items() if key != "source_id"}
+                        for item in stored_endings))
                 # A completed empty lesson can replace the closing context
                 # without adding student evidence. Only an ending actually
                 # stored in this version participates in this freshness check.
+                protocol_changed = (version.get("method") == "personal_graph" and
+                    version["state"].get("source_context_protocol") != PERSONAL_GRAPH_CONTEXT_PROTOCOL)
+                source_access = version_context.get("source_access") or {}
+                if not isinstance(source_access,dict):
+                    source_access = {}
+                archive_permission_changed = (include_personal_graph_snapshot and current_graph_fingerprint is not None
+                    and source_access.get("mode") == "full_archive" and (
+                    source_access.get("source_ids") != version["state"].get("source_ids")
+                    or source_access.get("snapshot_fingerprint") != version["state"].get("archive_snapshot_fingerprint")
+                    or current_graph_fingerprint != version["state"].get("archive_snapshot_fingerprint")))
+                personal_memory_changed = False
+                if version.get("method") == "personal_memory":
+                    approved = bool(version.get("approved"))
+                    # A live chat increments the global revision before its
+                    # unfinished turns enter the canonical archive. Approved
+                    # grants remain valid while their exact archive is unchanged;
+                    # drafts retain the stricter concurrency revision guard.
+                    expected_source_revision = (version["source_revision"] if approved
+                                                else learner["memory_source_revision"])
+                    personal_memory_changed = ((not approved and version["source_revision"] != expected_source_revision)
+                        or invalid_context or _personal_memory_validation_problem(version["state"],version_context,
+                            learner_id,version["topic_id"],expected_source_revision,graph_sources,
+                            current_graph_fingerprint,approved=approved) is not None)
                 version["stale"] = (version["base_revision"] != learner["revision"]
-                                    or sources_changed or endings_changed)
-            return {"learner_id":learner_id,"revision":learner["revision"],"source_revision":learner["memory_source_revision"],"sources":sources,"versions":versions}
+                                    or sources_changed or endings_changed or protocol_changed or archive_permission_changed
+                                    or personal_memory_changed)
+            from .personal_graph_contract import personal_graph_snapshot_fingerprint
+            result = {"learner_id":learner_id,"revision":learner["revision"],"source_revision":learner["memory_source_revision"],
+                    "source_snapshot_fingerprint":personal_graph_snapshot_fingerprint(sources),
+                    "sources":sources,"versions":versions}
+            if include_personal_graph_snapshot:
+                result.update(personal_graph_sources=graph_sources,
+                    personal_graph_snapshot_fingerprint=current_graph_fingerprint,
+                    personal_graph_hidden_correction_count=hidden_graph_correction_count)
+            return result
 
-    def approve_memory_version(self, learner_id, version_id, actor_id, expected_revision, interest_candidate_ids=None):
+    def approve_memory_version(self, learner_id, version_id, actor_id, expected_revision, interest_candidate_ids=None,
+                               full_archive_access=False, expected_archive_fingerprint=None):
         from .conversation_memory import apply_interest_choices, validate_interest_candidates
+        from .personal_graph_contract import PERSONAL_GRAPH_CONTEXT_PROTOCOL
         selected_ids = [] if interest_candidate_ids is None else interest_candidate_ids
         if (not isinstance(selected_ids,list) or not all(isinstance(item,str) for item in selected_ids)
                 or len(selected_ids) != len(set(selected_ids))):
             raise ValueError("interest candidate IDs must be a list of distinct strings")
+        if not isinstance(full_archive_access,bool):
+            raise ValueError("full archive access must be an explicit boolean")
+        if expected_archive_fingerprint is not None and (not isinstance(expected_archive_fingerprint,str)
+                or len(expected_archive_fingerprint) != 64
+                or any(char not in "0123456789abcdef" for char in expected_archive_fingerprint)):
+            raise ValueError("invalid personal graph archive fingerprint")
         with self._connect() as conn, conn.cursor() as cur:
             learner = self._memory_learner(cur,learner_id)
             cur.execute("SELECT * FROM teachcopilot.memory_versions WHERE id=%s AND learner_id=%s FOR UPDATE", (version_id,learner_id))
             version = cur.fetchone()
             if version is None:
                 raise KeyError(version_id)
-            context = dict(version.get("context") or {})
+            state = version.get("state") or {}
+            state_method = state.get("method") if isinstance(state,dict) else None
+            if (isinstance(state,dict) and state.get("method") == "personal_graph"
+                    and state.get("source_context_protocol") != PERSONAL_GRAPH_CONTEXT_PROTOCOL):
+                _revision_error("Версия персональной памяти устарела. Создайте и проверьте новую версию.")
+            if state_method == "personal_memory":
+                from .personal_memory_contract import PERSONAL_MEMORY_CONTEXT_PROTOCOL
+                if state.get("source_context_protocol") != PERSONAL_MEMORY_CONTEXT_PROTOCOL:
+                    _revision_error("Версия персональной памяти устарела. Создайте и проверьте новую версию.")
+            if version.get("method") == "structured_v2":
+                raise ValueError("structured_v2_versions_are_review_only")
+            stored_context = version.get("context")
+            if state_method == "personal_memory" and not isinstance(stored_context,dict):
+                raise ValueError("personal memory context is invalid")
+            context = dict(stored_context or {})
+            if full_archive_access and state_method not in ARCHIVE_MEMORY_METHODS:
+                raise ValueError("full archive access is only available for personal memory versions")
             if version["approved"]:
                 reviewed_ids = (context.get("interest_review") or {}).get("candidate_ids") or []
-                if set(reviewed_ids) != set(selected_ids):
-                    raise MemoryIdempotencyConflict("memory version was already approved with different interest choices")
+                prior_access = context.get("source_access") or {}
+                prior_full_archive = prior_access.get("mode") == "full_archive"
+                if (set(reviewed_ids) != set(selected_ids) or prior_full_archive != full_archive_access
+                        or (full_archive_access and expected_archive_fingerprint != prior_access.get("snapshot_fingerprint"))):
+                    raise MemoryIdempotencyConflict("memory version was already approved with different selections")
                 return _row(version)
             if learner["revision"] != expected_revision:
                 _revision_error(f"learner revision is {learner['revision']}, expected {expected_revision}")
             if version["base_revision"] != learner["revision"] or version["source_revision"] != learner["memory_source_revision"]:
                 _revision_error("memory version no longer matches the learner and sources")
             revision = learner["revision"]
+            if state_method == "personal_graph":
+                evidence_ids = context.get("evidence_ids")
+                state_ids = state.get("source_ids")
+                if (not isinstance(evidence_ids,list) or not all(isinstance(item,str) and item for item in evidence_ids)
+                        or len(evidence_ids) != len(set(evidence_ids))):
+                    raise ValueError("personal graph context has invalid selected source IDs")
+                if (not isinstance(state_ids,list) or not all(isinstance(item,str) and item for item in state_ids)
+                        or len(state_ids) != len(set(state_ids)) or not set(evidence_ids) <= set(state_ids)):
+                    raise ValueError("personal graph archive source snapshot is invalid")
+                archive_fingerprint = state.get("archive_snapshot_fingerprint")
+                if full_archive_access:
+                    current_ids, current_fingerprint = self._current_personal_graph_snapshot(cur,learner_id)
+                    if (not isinstance(archive_fingerprint,str) or len(archive_fingerprint) != 64
+                            or expected_archive_fingerprint != archive_fingerprint
+                            or current_fingerprint != archive_fingerprint
+                            or set(current_ids) != set(state_ids)):
+                        _revision_error("Архив изменился после просмотра. Создайте и проверьте новую версию памяти.")
+                    access_ids = list(state_ids)
+                    access_mode = "full_archive"
+                else:
+                    access_ids = list(evidence_ids)
+                    access_mode = "selected_context"
+                context["source_access"] = {"mode":access_mode,"source_ids":access_ids,
+                    "snapshot_fingerprint":archive_fingerprint if full_archive_access else None,
+                    "selected_by":str(actor_id)}
+            elif state_method == "personal_memory":
+                sources, _ = self._current_personal_graph_sources(cur,learner_id)
+                from .personal_graph_contract import personal_graph_snapshot_fingerprint
+                fingerprint = personal_graph_snapshot_fingerprint(sources)
+                problem = _personal_memory_validation_problem(state,context,learner_id,version["topic_id"],
+                    learner["memory_source_revision"],sources,fingerprint)
+                if problem:
+                    if problem[0] == "stale":
+                        _revision_error("Архив изменился после просмотра. Создайте и проверьте новую версию памяти.")
+                    raise ValueError(problem[1])
+                if full_archive_access and expected_archive_fingerprint != fingerprint:
+                    _revision_error("Архив изменился после просмотра. Создайте и проверьте новую версию памяти.")
+                context["source_access"] = {
+                    "mode":"full_archive" if full_archive_access else "selected_context",
+                    "source_ids":list(state["source_ids"] if full_archive_access else context["evidence_ids"]),
+                    "snapshot_fingerprint":fingerprint if full_archive_access else None,
+                    "selected_by":str(actor_id),
+                }
             candidates = context.get("interest_candidates") or []
             if selected_ids:
                 if not isinstance(candidates,list) or any(not isinstance(item,dict) for item in candidates):
