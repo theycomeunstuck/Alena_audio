@@ -329,8 +329,13 @@ def test_confirmed_correction_reaches_chat_projection_with_both_literal_sources(
     assert {row["source_id"] for row in version["context"]["sources"]} == {
         original["source_id"],correction["source_id"]}
     assert_withdrawn_memory_is_withheld()
+    pending = store.get_learner_memory(LEARNER,TOPIC)
+    pending_version = next(row for row in pending["versions"] if row["id"] == version["id"])
+    assert pending_version["can_confirm_previous_snapshot"] is True
     assert browser.post(f"/learners/{LEARNER}/memory/versions/{version['id']}/confirm",
-        headers=teacher,json={"expected_revision":after["revision"],"interest_candidate_ids":[]}).status_code == 200
+        headers=teacher,json={"expected_revision":pending["revision"],"interest_candidate_ids":[],
+                              "acknowledge_new_messages":True,
+                              "expected_source_revision":pending["source_revision"]}).status_code == 200
     session = browser.post(f"/learners/{LEARNER}/learning-sessions",headers=student,
                             json={"topic_id":TOPIC}).json()["learning_session_id"]
     response = browser.post("/v1/chat/completions",headers=student,json={

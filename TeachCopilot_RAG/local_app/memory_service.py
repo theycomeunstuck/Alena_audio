@@ -8,6 +8,7 @@ competencies are never written here.
 from __future__ import annotations
 
 from copy import deepcopy
+from contextlib import nullcontext
 from datetime import date
 import json
 import time
@@ -17,15 +18,17 @@ from psycopg2 import InterfaceError, OperationalError
 
 from research_memory.contracts import action_schema, validate_action
 from research_memory.clients import input_budget_diagnostic
-from research_memory.methods import METHODS, Memory, messages
+from research_memory.methods import APPLICATION_METHODS, Memory, messages
 from .conversation_memory import (interest_messages, interest_schema, preference_projection,
                                   validate_interest_candidates)
-from .memory_store import DIALOGUE_CONTEXT_CHARS, SESSION_END_CONTEXT_CHARS
+from .memory_store import (DIALOGUE_CONTEXT_CHARS, SESSION_END_CONTEXT_CHARS,
+                           get_learner_memory_snapshot)
 from .memory_response_journal import (MemoryResponseJournal, ResponseJournalError,
                                       database_fingerprint, default_journal_path)
 
 
 MEMORY_BUDGET = 4000
+STALE_RETRY_LIMIT = 2  # explicit retry jobs for a background job that failed only as stale_revision
 STATE_FIELDS = ("sources", "summary", "records", "blocks", "events")
 TAIL_PRESENTATION_VERSION = "dialogue-pairs-v4-session-end-context"
 DIALOGUE_CONTEXT_NOTICE = (
@@ -45,13 +48,18 @@ SESSION_END_CONTEXT_NOTICE = (
 
 
 def memory_state(memory: Memory) -> dict:
-    return {"method": memory.method, "topic_id": memory.topic_id,
-            **{key: deepcopy(getattr(memory, key)) for key in STATE_FIELDS}}
+    state = {"method": memory.method, "topic_id": memory.topic_id,
+             **{key: deepcopy(getattr(memory, key)) for key in STATE_FIELDS}}
+    if memory.method == "structured_v2":
+        state["record_schema_version"] = 2
+    return state
 
 
 def restore_memory(state: dict, call, *, method: str, topic_id: str) -> Memory:
     memory = Memory(method, call, MEMORY_BUDGET, topic_id)
     if state and state.get("method") == method and state.get("topic_id") == topic_id:
+        if method == "structured_v2" and state.get("record_schema_version") != 2:
+            raise ValueError("unsupported_structured_v2_state_schema")
         for key in STATE_FIELDS:
             if key in state:
                 setattr(memory, key, deepcopy(state[key]))
@@ -63,6 +71,7 @@ def source_projection(source: dict) -> dict:
             "role": source.get("author_role") or source.get("role"),
             "text": str(source.get("text") or source.get("content") or ""),
             "observed_on": str(source.get("observed_on") or source.get("created_at") or "")[:10],
+            "topic_id": source.get("topic_id"),
             **({"corrects_source_id": source["corrects_source_id"]} if source.get("corrects_source_id") else {})}
 
 
@@ -210,21 +219,67 @@ def profile_projection(card: dict, topic_id: str) -> dict:
             "current_goal": (card.get("rag_context") or {}).get("current_goal", {})}
 
 
+def session_summary_views(store, learner_id, *, topic_id=None, approved_source_ids=None):
+    """Materialize the two session windows after the caller's access check."""
+    if not hasattr(store, "_connect"):
+        return None
+    from .session_summaries import get_or_build_summaries
+    return {
+        "last_session": get_or_build_summaries(store, learner_id, limit=1,
+            topic_id=topic_id, approved_source_ids=approved_source_ids),
+        "last_seven_sessions": get_or_build_summaries(store, learner_id, limit=7,
+            topic_id=topic_id, approved_source_ids=approved_source_ids),
+    }
+
+
+def attach_session_summaries(store, context, learner_id, topic_id, context_tokens):
+    """Add bounded extracts of selected evidence without expanding the grant."""
+    if context.get("method") != "personal_memory":
+        return context
+    source_ids = [str(row["source_id"]) for row in context.get("sources", [])
+                  if row.get("source_id")]
+    summaries = session_summary_views(store, learner_id, topic_id=topic_id,
+                                     approved_source_ids=source_ids)
+    if summaries is None:
+        return context
+    from .personal_memory_contract import personal_memory_budgets
+    _, budget = personal_memory_budgets(context_tokens)
+    result = deepcopy(context)
+    result["session_summaries"] = summaries
+    result["session_summary_context"] = {"included_session_ids": [], "omitted_session_count": 0}
+    # Rolling seven already contains the last session, so append it only once.
+    for session in summaries["last_seven_sessions"]["sessions"]:
+        block = "\n\nСводка завершённого занятия по выбранным исходным репликам\n" + session["text"]
+        if len((result["text"] + block).encode("utf-8")) <= budget:
+            result["text"] += block
+            result["session_summary_context"]["included_session_ids"].append(session["learning_session_id"])
+        else:
+            result["session_summary_context"]["omitted_session_count"] += 1
+    result["selection_budget"] = {"kind": "utf8_bytes_upper_bound", "limit": budget,
+                                  "used": len(result["text"].encode("utf-8"))}
+    return result
+
+
 class MemoryWorker:
-    def __init__(self, store, runtime, worker_id: str | None = None, *, response_journal=None):
+    def __init__(self, store, runtime, worker_id: str | None = None, *, response_journal=None,
+                 personal_graph_factory=None, personal_memory_factory=None):
         self.store, self.runtime = store, runtime
         self.worker_id = worker_id or "memory-" + uuid.uuid4().hex
         self.response_journal = response_journal if response_journal is not None else MemoryResponseJournal(
             default_journal_path(), database_identity=database_fingerprint(getattr(store, "dsn", None)))
         self.calls: list[dict] = []
         self._active_job: dict | None = None
+        self.personal_graph_factory = personal_graph_factory
+        self.personal_memory_factory = personal_memory_factory
+        self._personal_memory_provider = None
 
     def _call(self, prompt_messages: list[dict], purpose: str, schema: dict | None) -> str:
         # Unlike conversation bounding, writer inputs may never be silently cut.
         encoded = json.dumps(prompt_messages, ensure_ascii=False)
         context_tokens = int(getattr(self.runtime, "context_tokens", 8192))
+        max_output_tokens = 2048 if purpose in {"extract_v2", "personal_graph_extract"} else 1536
         diagnostic = input_budget_diagnostic(prompt_messages, schema, context_tokens=context_tokens,
-                                              max_output_tokens=1536, purpose=purpose)
+            max_output_tokens=max_output_tokens, purpose="extract" if purpose == "personal_graph_extract" else purpose)
         if purpose == "conversation_interests":
             # The frozen research helper knows only its academic writer names.
             diagnostic["enforced"] = True
@@ -245,8 +300,11 @@ class MemoryWorker:
             if self._active_job and hasattr(self.store, "start_memory_job_call"):
                 self.store.start_memory_job_call(job_id, self.worker_id)
             try:
-                response = self.runtime.chat(prompt_messages, response_format=schema,
-                                             max_output_tokens=1536, truncate_history=False)
+                request_scope = getattr(self.runtime, "approved_memory_request", None)
+                personal = (self._active_job or {}).get("method") == "personal_memory"
+                with request_scope() if personal and callable(request_scope) else nullcontext():
+                    response = self.runtime.chat(prompt_messages, response_format=schema,
+                                                 max_output_tokens=max_output_tokens, truncate_history=False)
             except Exception as exc:
                 self.response_journal.record(call_id, outcome="raised",
                     raw_response=getattr(exc, "raw_response", None), error_type=type(exc).__name__,
@@ -259,7 +317,13 @@ class MemoryWorker:
             text = response.get("message", {}).get("content")
             event.update(raw_response=response, prompt_tokens=response.get("prompt_eval_count"),
                          completion_tokens=response.get("eval_count"))
-            if purpose in {"summary", "extract", "conversation_interests"} and int(response.get("prompt_eval_count") or 0) >= context_tokens - 1536:
+            graph_action = (purpose == "action" and self._active_job
+                            and self._active_job.get("method") in {"personal_graph", "personal_memory"})
+            if (purpose == "personal_graph_extract" or graph_action) and response.get("done") is not True:
+                from local_app.runtime import IncompleteCompletionError
+                raise IncompleteCompletionError("Ollama did not confirm a complete graph-memory response",
+                                                raw_response=response)
+            if purpose in {"summary", "extract", "extract_v2", "conversation_interests", "personal_graph_extract"} and int(response.get("prompt_eval_count") or 0) >= context_tokens - max_output_tokens:
                 raise ValueError("context_saturation_requires_review")
             if not isinstance(text, str) or not text.strip():
                 raise ValueError("empty_memory_completion")
@@ -276,8 +340,43 @@ class MemoryWorker:
     def _prepare(self, job: dict) -> tuple[dict | None, dict]:
         learner_id, topic_id = job["learner_id"], job.get("topic_id") or "general"
         method = job.get("method", "tail")
-        if method not in METHODS:
+        if method == "personal_memory":
+            if not getattr(getattr(self.runtime, "settings", None), "personal_memory_enabled", True):
+                raise ValueError("personal_memory_disabled")
+            from .personal_memory import PersonalMemoryProvider
+            snapshot = get_learner_memory_snapshot(self.store, learner_id, None,
+                include_personal_graph_snapshot=True)
+            factory = self.personal_memory_factory or PersonalMemoryProvider
+            provider = factory(self.store, self.runtime, model_call=self._call)
+            self._personal_memory_provider = provider
+            question = (job.get("payload") or {}).get("request") or \
+                "Предложи одно следующее учебное действие по выбранной теме."
+            state, context = provider.prepare(job, snapshot, question)
+            return state, attach_session_summaries(self.store, context, learner_id, topic_id,
+                                                  self.runtime.context_tokens)
+        if method == "personal_graph":
+            if job.get("kind") != "next_step":
+                raise ValueError("personal_graph_is_teacher_next_step_only")
+            settings = getattr(self.runtime, "settings", None)
+            if not getattr(settings, "experimental_personal_graph_enabled", False):
+                raise ValueError("experimental_personal_graph_disabled")
+            snapshot = get_learner_memory_snapshot(self.store, learner_id, None,
+                include_personal_graph_snapshot=True)
+            if snapshot.get("revision") != job.get("base_revision"):
+                raise ValueError("learner revision changed before personal graph indexing")
+            if self.personal_graph_factory is None:
+                from .personal_graph_memory import PersonalGraphProvider
+                factory = PersonalGraphProvider
+            else:
+                factory = self.personal_graph_factory
+            provider = factory(self.store, self.runtime, model_call=self._call)
+            question = (job.get("payload") or {}).get("request") or \
+                "Предложи одно следующее учебное действие по выбранной теме."
+            return provider.prepare(job, snapshot, question)
+        if method not in APPLICATION_METHODS:
             raise ValueError("unsupported_memory_method")
+        if method == "structured_v2" and job.get("kind") != "next_step":
+            raise ValueError("structured_v2_is_teacher_next_step_only")
         snapshot = self.store.get_learner_memory(learner_id, topic_id)
         versions = [row for row in snapshot.get("versions", [])
                     if (row.get("method") or (row.get("state") or {}).get("method")) == method
@@ -286,24 +385,41 @@ class MemoryWorker:
         # ready version because they are not committed by finish_memory_job.
         prior = versions[0].get("state", {}) if versions else {}
         memory = restore_memory(prior, self._call, method=method, topic_id=topic_id)
-        sources = [source for source in snapshot.get("sources", [])
+        source_snapshot = snapshot
+        if method == "structured_v2":
+            # Profile candidates and personal episodes are cross-topic. Learning
+            # events are still extracted and retrieved only for the requested topic.
+            source_snapshot = self.store.get_learner_memory(learner_id, None)
+        sources = [source for source in source_snapshot.get("sources", [])
                    if (source.get("author_role") or source.get("role")) in {"student", "teacher"}]
-        if method in {"summary", "structured"} and any(source.get("corrects_source_id") for source in sources):
+        if method in {"summary", "structured", "structured_v2"} and any(source.get("corrects_source_id") for source in sources):
             # Source relations are an application feature. Until other writers
             # have a matching contract, never silently discard the relation.
             raise ValueError("Для истории с исправлениями источников используйте метод tail.")
-        groups: dict[str, list[dict]] = {}
+        groups: dict[object, list[dict]] = {}
         for source in sources:
             projected = source_projection(source)
             if projected["source_id"] in memory.sources:
                 continue
             # A dialogue is one update; individual teacher notes form one lesson.
-            key = str(source.get("session_id") or source.get("learning_session_id") or projected["source_id"])
+            session_key = str(source.get("session_id") or source.get("learning_session_id")
+                              or projected["source_id"])
+            key = ((session_key, projected.get("topic_id"))
+                   if method == "structured_v2" else session_key)
             groups.setdefault(key, []).append(projected)
         update_failure = None
         try:
             for key, group in groups.items():
-                memory.update({"lesson_id": key, "observed_on": group[-1]["observed_on"] or date.today().isoformat(),
+                if method == "structured_v2":
+                    session_key, lesson_topic = key
+                    allowed_topic_ids = [topic_id] if lesson_topic == topic_id else []
+                    lesson_id = f"{session_key}:{lesson_topic or 'profile-only'}"
+                else:
+                    lesson_id, lesson_topic, allowed_topic_ids = key, topic_id, [topic_id]
+                memory.update({"lesson_id": lesson_id,
+                               "topic_id": lesson_topic,
+                               "allowed_topic_ids": allowed_topic_ids,
+                               "observed_on": group[-1]["observed_on"] or date.today().isoformat(),
                                "turns": [{"turn_id": row["source_id"], "role": row["role"], "text": row["text"]}
                                          for row in group]})
         except ValueError as exc:
@@ -327,10 +443,19 @@ class MemoryWorker:
                         "source_id": str(source.get("source_id")), **source["session_end_context_omitted"]})
             selected.text, selected.evidence_ids, dialogue_context = _tail_with_dialogue_context(
                 memory, sources, selection_events=selection_events, session_end_context=session_end_context)
+        if method == "structured_v2":
+            context_metadata = {"record_schema_version": 2,
+                                "selection_events": deepcopy(memory.events),
+                                "extraction_warnings": [deepcopy(event) for event in memory.events
+                                                        if event.get("event") == "record_rejected"]}
+        else:
+            context_metadata = {}
         visible = [source_projection(row) for row in sources
                    if str(row.get("source_id")) in selected.evidence_ids]
         context = {"text": selected.text, "evidence_ids": sorted(selected.evidence_ids),
-                   "sources": visible, "method": method, "topic_id": topic_id}
+                   "sources": visible, "method": method, "topic_id": topic_id, **context_metadata}
+        if selected.action_evidence_ids is not None:
+            context["action_evidence_ids"] = sorted(selected.action_evidence_ids)
         if method == "tail":
             context.update(presentation_version=TAIL_PRESENTATION_VERSION, dialogue_context=dialogue_context)
             if session_end_context:
@@ -374,17 +499,52 @@ class MemoryWorker:
             context["interest_extraction"] = {"status": "failed", "type": type(exc).__name__,
                                                "message": str(exc), "learning_session_id": session_id}
 
+    @staticmethod
+    def _stale_retryable(job: dict | None) -> bool:
+        """A finished background local job that failed only because the learner's revisions moved meanwhile."""
+        return bool(job and job.get("status") == "failed" and job.get("kind") in {"memory_update", "next_step"}
+                    and job.get("provider") == "local" and "stale_revision" in str(job.get("error") or "")
+                    and int((job.get("payload") or {}).get("stale_retry", 0)) < STALE_RETRY_LIMIT)
+
     def run_once(self) -> dict | None:
+        """Run one claimed job; if it failed as stale_revision, retry it as explicit new jobs (at most twice).
+
+        Direct chat messages are persisted, so a message sent while a job generates changes the source revision and
+        used to fail that job. Each retry is its own job row with its own recorded calls (no hidden repeated model
+        request inside one job). Only the retry itself is followed; if another job is claimed first, the retry stays
+        queued for the worker's next cycle.
+        """
+        finished = self._run_once_single()
+        while self._stale_retryable(finished):
+            retry = self.store.enqueue_memory_job(
+                finished["learner_id"], finished.get("topic_id"), finished["kind"],
+                payload={**(finished.get("payload") or {}),
+                         "stale_retry": int((finished.get("payload") or {}).get("stale_retry", 0)) + 1,
+                         "retry_of": str(finished["id"])},
+                actor_id=finished.get("actor_id") or "system", method=finished.get("method") or "tail",
+                idempotency_key=f"stale-retry:{finished['id']}", provider=finished.get("provider") or "local")
+            again = self._run_once_single()
+            if again is None or str(again.get("id")) != str(retry.get("id")):
+                break
+            finished = again
+        return finished
+
+    def _run_once_single(self) -> dict | None:
         job = self.store.claim_memory_job(self.worker_id, lease_seconds=600)
         if not job:
             return None
         self.calls = []
         self._active_job = job
+        self._personal_memory_provider = None
         try:
             from local_app.runtime import generation_priority
             with generation_priority("background" if job["kind"] == "memory_update" else "interactive"):
                 state, context = self._prepare(job)
                 result = {"method": job.get("method", "tail"), "review_required": True}
+                if context.get("extraction_warnings"):
+                    result["memory_warnings"] = deepcopy(context["extraction_warnings"])
+                if context.get("selection_warnings"):
+                    result["memory_selection_warnings"] = deepcopy(context["selection_warnings"])
                 if context.get("update_failure"):
                     result.update(stale=True, memory_update_error=context["update_failure"],
                                   memory_version_id=context.get("memory_version_id"))
@@ -404,17 +564,33 @@ class MemoryWorker:
                                "Предложи одно следующее учебное действие по выбранной теме.",
                                "memory": context["text"],
                                "memory_status": {"stale": bool(context.get("stale")),
-                                                 "update_failure": context.get("update_failure")}}
-                    raw = self._call(messages("action", payload), "action",
-                                     action_schema(set(context["evidence_ids"])))
-                    action = validate_action(raw, set(context["evidence_ids"]))
+                                                 "update_failure": context.get("update_failure"),
+                                                 "extraction_warnings": context.get("extraction_warnings", [])}}
+                    if context.get("selection_warnings"):
+                        payload["memory_status"]["selection_warnings"] = context["selection_warnings"]
+                    action_prompt = ("action_structured_v2" if job.get("method") == "structured_v2" else
+                                     "action_personal_graph" if job.get("method") in {"personal_graph", "personal_memory"} else "action")
+                    action_evidence_ids = set(context.get("action_evidence_ids", context["evidence_ids"]))
+                    action_messages = messages(action_prompt, payload)
+                    if job.get("method") in {"personal_graph", "personal_memory"}:
+                        action_messages[0]["content"] += (
+                            "\nЗаметка преподавателя и диалог могут описывать одно событие. "
+                            "Не называй их разными случаями без подтверждения. "
+                            "Если не указано, кто задал вопрос, не приписывай его авторство.")
+                    raw = self._call(action_messages, "action",
+                                     action_schema(action_evidence_ids))
+                    action = validate_action(raw, action_evidence_ids)
                     from .recommendation_review import recommendation_source_review
                     action["evidence_review"] = recommendation_source_review(action, context)
+                    if context.get("selection_warnings"):
+                        action["memory_selection_warnings"] = deepcopy(context["selection_warnings"])
                     action.update(sources=context["sources"], method=job.get("method", "tail"),
                                   learner_id=job["learner_id"], topic_id=topic_id,
                                   revision=job.get("base_revision"), stale=bool(context.get("stale")))
                     result.update(action)
                 result["calls"] = self.calls
+                if self._personal_memory_provider is not None:
+                    self._personal_memory_provider.validate_state_identity(state)
                 self.store.finish_memory_job(job["job_id"], result=result, memory_state=state,
                     next_step=action, context=context, worker_id=self.worker_id, approved=False)
         except (OperationalError, InterfaceError, ResponseJournalError):

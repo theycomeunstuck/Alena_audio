@@ -171,6 +171,6 @@ def test_transport_timeout_propagates_without_clarification_or_retry():
 
 def test_invalid_memory_input_is_not_reclassified_as_a_model_decision_failure():
     session = LocalSession()
-    with pytest.raises(ValueError, match="4000"):
+    with pytest.raises(ValueError, match="Approved memory text exceeds its context budget"):
         answer(OllamaRuntime(Settings(), session=session), memory={"text": "x" * 4001})
     assert session.requests == []

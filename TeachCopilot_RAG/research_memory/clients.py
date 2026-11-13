@@ -34,6 +34,21 @@ class CompletionValidationError(ValueError):
         self.code = code
 
 
+class ModelRequestError(RuntimeError):
+    """A transport or HTTP failure with safe, structured diagnostics only."""
+
+    _CODES = {"model_http_error", "model_timeout", "model_connection_error"}
+
+    def __init__(self, code: str, *, http_status: int | None = None):
+        if code not in self._CODES:
+            raise ValueError("Unsupported model request error code")
+        if http_status is not None and (type(http_status) is not int or not 100 <= http_status <= 599):
+            raise ValueError("http_status must be a valid HTTP status")
+        self.code = code
+        self.http_status = http_status
+        super().__init__("Ollama request failed")
+
+
 class InputBudgetError(CompletionValidationError):
     """A writer was refused before a generator request; zero tokens were consumed."""
 
@@ -178,10 +193,15 @@ class OllamaClient:
                 raw = response.read(MAX_RESPONSE_BYTES + 1)
         except HTTPError as exc:
             # Do not include the server body, which may echo private prompts.
-            raise RuntimeError(f"Ollama returned HTTP {exc.code}") from None
+            status = exc.code if type(exc.code) is int and 100 <= exc.code <= 599 else None
+            raise ModelRequestError("model_http_error", http_status=status) from None
         except URLError as exc:
-            reason = "timeout" if isinstance(exc.reason, TimeoutError) else "connection error"
-            raise RuntimeError(f"Ollama {reason}") from None
+            code = "model_timeout" if isinstance(exc.reason, TimeoutError) else "model_connection_error"
+            raise ModelRequestError(code) from None
+        except TimeoutError:
+            raise ModelRequestError("model_timeout") from None
+        except ConnectionError:
+            raise ModelRequestError("model_connection_error") from None
         elapsed = time.perf_counter() - started
         if len(raw) > MAX_RESPONSE_BYTES:
             raise ValueError("Ollama response exceeds 8 MiB")
@@ -199,6 +219,7 @@ class OllamaClient:
                    "output_tokens": result.get("eval_count")},
             elapsed_seconds=elapsed,
             metadata={"backend": "ollama", "model": self.model, "purpose": purpose,
+                      "max_output_tokens": self.max_output_tokens,
                       "prompt_eval_count": result.get("prompt_eval_count"),
                       "eval_count": result.get("eval_count"),
                       "total_duration": result.get("total_duration"),

@@ -130,43 +130,74 @@ def _condition_evidence(value: str, evidence: object, sources: dict[str, dict], 
                "Assistant output cannot establish a learner's independent result", "assistant_as_learner_evidence")
 
 
-def validate_records(text: str, sources: dict[str, dict], new_ids: set[str], topic_id: str,
-                     previous_records: list[dict] | tuple = ()) -> list[dict]:
+def _validate_record(record: object, sources: dict[str, dict], new_ids: set[str], topic_id: str,
+                     previous: dict[str, dict], seen: set[str]) -> str:
+    _check(isinstance(record, dict) and set(record) == set(RECORD_FIELDS),
+           "Invalid record fields", "invalid_record_fields")
+    fingerprint = json.dumps(record, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    _check(fingerprint not in seen, "Completion contains a duplicate memory record", "duplicate_record")
+    _check(record["kind"] in KINDS and record["topic_id"] == topic_id,
+           "Invalid record kind/topic", "invalid_record_topic")
+    _check(nonempty(record["event"]) and len(record["event"]) <= 2000,
+           "Invalid event text", "invalid_event")
+    _check(record["support_level"] in SUPPORT and record["independent_recheck"] in RECHECK,
+           "Invalid support/recheck value", "invalid_condition")
+    ids = record["evidence_turn_ids"]
+    _validate_ids(ids, set(sources))
+    _check(bool(set(ids) & new_ids), "Record needs processed and new sources", "missing_new_source")
+    quote = record["source_quote"]
+    _check(nonempty(quote) and any(quote in sources[x]["text"] for x in set(ids) & new_ids),
+           "source_quote must be a literal excerpt from one cited new turn", "invalid_quote")
+    _condition_evidence(record["support_level"], record["support_evidence"], sources, set(ids), "support")
+    _condition_evidence(record["independent_recheck"], record["recheck_evidence"], sources, set(ids), "recheck")
+    target = record["corrects_record_id"]
+    if record["kind"] == "source_correction":
+        _check(isinstance(target, str) and target in previous,
+               "Source correction needs a concrete existing record ID", "invalid_correction_target")
+        _check(previous[target]["topic_id"] == topic_id,
+               "Source correction cannot target another topic", "invalid_correction_target")
+    else:
+        _check(target is None, "Ordinary progress cannot correct a past source record", "invalid_correction_kind")
+    return fingerprint
+
+
+def _records_envelope(text: str) -> list:
     obj = parse_object(text)
     _check(set(obj) == {"records"} and isinstance(obj["records"], list),
            "Invalid records envelope", "invalid_envelope")
     _check(len(obj["records"]) <= 100, "Too many records in one update", "too_many_records")
-    previous = {r["record_id"]: r for r in previous_records}
-    seen = set()
-    for record in obj["records"]:
-        _check(isinstance(record, dict) and set(record) == set(RECORD_FIELDS),
-               "Invalid record fields", "invalid_record_fields")
-        fingerprint = json.dumps(record, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
-        _check(fingerprint not in seen, "Completion contains a duplicate memory record", "duplicate_record")
-        seen.add(fingerprint)
-        _check(record["kind"] in KINDS and record["topic_id"] == topic_id,
-               "Invalid record kind/topic", "invalid_record_topic")
-        _check(nonempty(record["event"]) and len(record["event"]) <= 2000,
-               "Invalid event text", "invalid_event")
-        _check(record["support_level"] in SUPPORT and record["independent_recheck"] in RECHECK,
-               "Invalid support/recheck value", "invalid_condition")
-        ids = record["evidence_turn_ids"]
-        _validate_ids(ids, set(sources))
-        _check(bool(set(ids) & new_ids), "Record needs processed and new sources", "missing_new_source")
-        quote = record["source_quote"]
-        _check(nonempty(quote) and any(quote in sources[x]["text"] for x in set(ids) & new_ids),
-               "source_quote must be a literal excerpt from one cited new turn", "invalid_quote")
-        _condition_evidence(record["support_level"], record["support_evidence"], sources, set(ids), "support")
-        _condition_evidence(record["independent_recheck"], record["recheck_evidence"], sources, set(ids), "recheck")
-        target = record["corrects_record_id"]
-        if record["kind"] == "source_correction":
-            _check(isinstance(target, str) and target in previous,
-                   "Source correction needs a concrete existing record ID", "invalid_correction_target")
-            _check(previous[target]["topic_id"] == topic_id,
-                   "Source correction cannot target another topic", "invalid_correction_target")
-        else:
-            _check(target is None, "Ordinary progress cannot correct a past source record", "invalid_correction_kind")
     return obj["records"]
+
+
+def validate_records(text: str, sources: dict[str, dict], new_ids: set[str], topic_id: str,
+                     previous_records: list[dict] | tuple = ()) -> list[dict]:
+    records = _records_envelope(text)
+    previous = {r["record_id"]: r for r in previous_records}
+    seen: set[str] = set()
+    for record in records:
+        fingerprint = _validate_record(record, sources, new_ids, topic_id, previous, seen)
+        seen.add(fingerprint)
+    return records
+
+
+def validate_records_partial(text: str, sources: dict[str, dict], new_ids: set[str], topic_id: str,
+                             previous_records: list[dict] | tuple = ()) -> tuple[list[dict], list[dict]]:
+    """Keep valid candidates and report individual rejections without weakening provenance."""
+    records = _records_envelope(text)
+    previous = {r["record_id"]: r for r in previous_records}
+    seen: set[str] = set()
+    accepted: list[dict] = []
+    events: list[dict] = []
+    for index, record in enumerate(records):
+        try:
+            fingerprint = _validate_record(record, sources, new_ids, topic_id, previous, seen)
+        except ContractValidationError as exc:
+            events.append({"event": "record_rejected", "record_index": index,
+                           "code": exc.code})
+            continue
+        seen.add(fingerprint)
+        accepted.append(record)
+    return accepted, events
 
 
 def validate_action(text: str, visible_ids: set[str]) -> dict:

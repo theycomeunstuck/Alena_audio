@@ -17,6 +17,15 @@ _CONDITIONS = {
         r"(?:\s+и\s+освоени\w*(?:\s+(?!не\b)\w+){0,2})?" + _LINK + _UNKNOWN + r"\b", re.I),
 }
 
+# This flags words to inspect, not unsupported claims. It intentionally covers
+# only a few common formulations and is not a semantic fact checker.
+_TEACHER_ATTRIBUTION = re.compile(
+    r"\b(?:вопрос\w*|подсказк\w*)\s+(?:учител\w*|преподавател\w*)\b"
+    r"|\b(?:учител\w*|преподавател\w*)\s+(?:спросил\w*|задал\w*|зада[её]т\w*|подсказал\w*)\b",
+    re.I,
+)
+_SESSION_END_DISPLAY_FIELDS = ("role", "usage", "text", "excerpt_mode", "truncated")
+
 
 def recommendation_source_review(action: dict, context: dict) -> dict:
     """Copy literal grounds and explicit unknown phrases, without grading meaning.
@@ -59,14 +68,30 @@ def recommendation_source_review(action: dict, context: dict) -> dict:
                 if row.get("source_id") in by_id and by_id[row["source_id"]]["role"] == "student"
                 and row.get("role") == "assistant" and row.get("usage") == "context_only"
                 and isinstance(row.get("text"), str)}
+    endings = {row["source_id"]: row for row in context.get("session_end_context", [])
+               if row.get("source_id") in by_id and by_id[row["source_id"]]["role"] == "student"
+               and row.get("role") == "assistant" and row.get("usage") == "context_only"
+               and isinstance(row.get("text"), str)}
+
+    def with_context(source_id):
+        row = deepcopy(by_id[source_id])
+        if source_id in dialogue:
+            row["dialogue_context"] = deepcopy(dialogue[source_id])
+        if source_id in endings:
+            # This is display-only. The assistant reference remains solely in
+            # the canonical context.session_end_context checked by the store.
+            row["session_end_context"] = {
+                key: deepcopy(endings[source_id][key])
+                for key in _SESSION_END_DISPLAY_FIELDS if key in endings[source_id]
+            }
+        return row
+
     evidence = []
     for source_id, source in by_id.items():
         if source_id not in selected:
             continue
-        row = {**deepcopy(source), "cited": source_id in cited,
+        row = {**with_context(source_id), "cited": source_id in cited,
                "corrected_by": corrected_by.get(source_id, [])}
-        if source_id in dialogue:
-            row["dialogue_context"] = deepcopy(dialogue[source_id])
         evidence.append(row)
     unknowns = []
     for source_id, source in by_id.items():
@@ -76,6 +101,28 @@ def recommendation_source_review(action: dict, context: dict) -> dict:
             for match in pattern.finditer(source["text"]):
                 unknowns.append({"source_id": source_id, "condition": condition,
                                  "quote": match.group(), "cited": source_id in cited})
-    return {"version": "recommendation-source-review-v1", "sources": evidence,
-            "source_unknowns": unknowns, "unknowns_empty": not action["unknowns"],
-            "meaning_verified": False}
+    review = {"version": "recommendation-source-review-v1", "sources": evidence,
+              "source_unknowns": unknowns, "unknowns_empty": not action["unknowns"],
+              "meaning_verified": False}
+    if context.get("method") == "personal_graph":
+        reason = action.get("reason", "")
+        if isinstance(reason, str):
+            review["attribution_checks"] = [
+                {"quote": match.group()} for match in _TEACHER_ATTRIBUTION.finditer(reason)
+            ]
+            if review["attribution_checks"]:
+                additional = {source_id for source_id in by_id
+                              if source_id not in selected and (source_id in dialogue or source_id in endings)}
+                pending = list(additional)
+                while pending:
+                    source_id = pending.pop()
+                    for linked in links[source_id] - selected - additional:
+                        additional.add(linked)
+                        pending.append(linked)
+                review["attribution_contexts"] = [
+                    {**with_context(source_id), "cited": False,
+                     "corrected_by": corrected_by.get(source_id, [])}
+                    for source_id in by_id
+                    if source_id in additional
+                ]
+    return review

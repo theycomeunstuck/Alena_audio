@@ -78,7 +78,14 @@ def _current(app, *, headers=None, learner=LEARNER, browser=None):
     response = (browser or app.browser).get(f"/learners/{learner}/learning-sessions/current",
                                             headers=headers or app.student_headers)
     assert response.status_code == 200, response.text
-    return response.json()
+    data = response.json()
+    # The API also returns time fields (added by the 7 November time layer). These tests pin the conversational
+    # fields of each message, so only the time fields are ignored here. source_id must NOT be returned to the
+    # learner and is deliberately not ignored: it would make these comparisons fail.
+    for message in data.get("messages", []):
+        for key in ("activity_day", "activity_timezone", "created_at", "event_timezone"):
+            message.pop(key, None)
+    return data
 
 
 def test_current_requires_access_and_does_not_create_an_empty_session(history_app):

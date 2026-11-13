@@ -64,6 +64,8 @@ def test_worker_uses_shared_tail_and_never_assistant_evidence():
     assert "Ты всё решил" not in text
     assert "Never prompt this" not in text and "private" not in text
     assert runtime.calls[0][1]["truncate_history"] is False
+    action_ids = runtime.calls[0][1]["response_format"]["properties"]["evidence_turn_ids"]["items"]["enum"]
+    assert action_ids == ["student-1"]
     assert len(runtime.calls) == 1
 
 
@@ -74,6 +76,84 @@ def test_worker_invalid_reference_is_failed_and_raw_response_kept_without_retry(
     assert len(runtime.calls) == 1
     assert "assistant-1" in store.finished["error"]["calls"][0]["raw_response"]["message"]["content"]
     assert "memory_state" not in store.finished
+
+
+def test_structured_v2_action_citations_are_limited_to_learning_records():
+    from local_app.memory_service import MemoryWorker
+    from research_memory.contracts import ContractValidationError, action_schema, validate_action
+
+    store = WorkerStore()
+    store.job["method"] = "structured_v2"
+    store.snapshot["sources"] = [
+        {"source_id": "teacher-task", "author_role": "teacher", "text": "Compare 1/4 and 1/8.",
+         "observed_on": "2026-10-01", "topic_id": "math.test", "session_id": "session-v2"},
+        {"source_id": "student-error", "author_role": "student", "text": "1/8 is bigger because 8 is bigger.",
+         "observed_on": "2026-10-01", "topic_id": "math.test", "session_id": "session-v2"},
+        {"source_id": "student-interest", "author_role": "student", "text": "I love comets.",
+         "observed_on": "2026-10-01", "topic_id": "math.test", "session_id": "session-v2"},
+        {"source_id": "student-session", "author_role": "student", "text": "Please give me one task at a time.",
+         "observed_on": "2026-10-01", "topic_id": "math.test", "session_id": "session-v2"},
+    ]
+
+    def extraction_record(kind, *, topic_id, status, evidence, **values):
+        return {
+            "record_type": kind, "topic_id": topic_id, "context": "A short observed event.",
+            "interpretation": "A cautious interpretation.", "interpretation_status": status,
+            "support_level": None if topic_id is None else "unknown", "support_evidence": None,
+            "independent_recheck": None if topic_id is None else "unknown", "recheck_evidence": None,
+            "evidence": [{"turn_id": evidence[0], "quote": evidence[1]}], "links": [],
+            "interest_operation": None, "interest": None, "preference": None, "fact": None,
+            "claim_status": None, "retention_class": None, "corrects_record_id": None,
+            **values,
+        }
+
+    raw_records = [
+        extraction_record("child_error", topic_id="math.test", status="explicit",
+                          evidence=("student-error", "1/8 is bigger because 8 is bigger.")),
+        extraction_record("interest_candidate", topic_id=None, status="candidate",
+                          evidence=("student-interest", "I love comets."), interest_operation="add",
+                          interest="comets", claim_status="candidate", retention_class="profile_candidate"),
+        extraction_record("session_preference_candidate", topic_id=None, status="candidate",
+                          evidence=("student-session", "Please give me one task at a time."),
+                          preference="one task at a time", claim_status="candidate", retention_class="session_only"),
+    ]
+    worker = MemoryWorker(store, Runtime())
+    worker._call = lambda _messages, _purpose, _schema: json.dumps({"records": raw_records})
+
+    _state, context = worker._prepare(store.job)
+
+    assert context["evidence_ids"] == ["student-error", "student-interest"]
+    assert context["action_evidence_ids"] == ["student-error"]
+    memory = json.loads(context["text"])
+    assert memory["interest_candidates"][0]["interest"] == "comets"
+    assert memory["session_preferences"] == []
+
+    allowed = set(context["action_evidence_ids"])
+    schema_ids = action_schema(allowed)["properties"]["evidence_turn_ids"]["items"]["enum"]
+    assert schema_ids == ["student-error"]
+    accepted = {**ACTION, "evidence_turn_ids": ["student-error"]}
+    assert validate_action(json.dumps(accepted), allowed)["evidence_turn_ids"] == ["student-error"]
+    rejected = {**ACTION, "evidence_turn_ids": ["student-interest"]}
+    with pytest.raises(ContractValidationError) as failure:
+        validate_action(json.dumps(rejected), allowed)
+    assert failure.value.code == "missing_source"
+
+
+def test_non_v2_methods_keep_the_existing_action_evidence_default():
+    from research_memory.methods import Memory
+
+    call = lambda *_args: ""
+    for method in ("profile_only", "tail", "summary", "structured"):
+        memory = Memory(method, call, 1000, "math.test")
+        context = memory.context("math.test")
+        assert context.action_evidence_ids is None
+
+    tail = Memory("tail", call, 1000, "math.test")
+    tail.update({"lesson_id": "lesson-1", "observed_on": "2026-10-01",
+                 "turns": [{"turn_id": "tail-student", "role": "student", "text": "An answer."}]})
+    context = tail.context("math.test")
+    assert context.evidence_ids == {"tail-student"}
+    assert context.action_evidence_ids is None
 
 
 def test_worker_preserves_raw_truncated_runtime_response_without_retry():
@@ -208,6 +288,53 @@ def test_teacher_confirms_only_explicitly_selected_conversation_interests():
     )
     assert response.status_code == 200
     assert store.selected == ["interest-one"]
+
+
+def test_personal_graph_confirmation_requires_explicit_fingerprint_for_full_archive():
+    class ReviewStore(ApiStore):
+        def approve_memory_version(self, learner_id, version_id, actor_id, expected_revision,
+                                   interest_candidate_ids=None, **options):
+            self.review = {"interest_candidate_ids": interest_candidate_ids, **options}
+            return {"version_id": version_id, "approved": True}
+
+    store = ReviewStore()
+    fingerprint = "a" * 64
+    response = client(store, Rag()).post(
+        "/learners/learner-a/memory/versions/version-a/confirm",
+        json={"expected_revision": 1, "reviewed_full_archive": True, "allow_full_archive": True,
+              "archive_snapshot_fingerprint": fingerprint},
+    )
+    assert response.status_code == 200
+    assert store.review["full_archive_access"] is True
+    assert store.review["expected_archive_fingerprint"] == fingerprint
+
+    unreviewed = client(ReviewStore(), Rag()).post(
+        "/learners/learner-a/memory/versions/version-a/confirm",
+        json={"expected_revision": 1, "allow_full_archive": True,
+              "archive_snapshot_fingerprint": fingerprint},
+    )
+    assert unreviewed.status_code == 422
+
+    missing = client(ReviewStore(), Rag()).post(
+        "/learners/learner-a/memory/versions/version-a/confirm",
+        json={"expected_revision": 1, "allow_full_archive": True},
+    )
+    assert missing.status_code == 422
+
+
+def test_legacy_memory_confirmation_does_not_pass_new_archive_options_to_store():
+    class ReviewStore(ApiStore):
+        def approve_memory_version(self, learner_id, version_id, actor_id, expected_revision,
+                                   interest_candidate_ids=None):
+            self.selected = interest_candidate_ids
+            return {"version_id": version_id, "approved": True}
+
+    store = ReviewStore()
+    response = client(store, Rag()).post(
+        "/learners/learner-a/memory/versions/version-a/confirm",
+        json={"expected_revision": 1},
+    )
+    assert response.status_code == 200
 
 
 def test_chat_receives_confirmed_global_interests_and_avoided_themes():

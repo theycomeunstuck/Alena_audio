@@ -30,7 +30,7 @@ class LocalSession:
         self.requests.append(json)
         reply = self.replies.pop(0)
 
-        return self.response({"done_reason": "stop", "model": "local-chat",
+        return self.response({"done": True, "done_reason": "stop", "model": "local-chat",
                               "message": {"content": reply},
                               "prompt_eval_count": 30, "eval_count": 12})
 

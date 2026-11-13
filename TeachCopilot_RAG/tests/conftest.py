@@ -1,4 +1,4 @@
-"""One Playwright lifetime shared by every browser acceptance module."""
+"""Test fixtures for the isolated journal and browser acceptance tests."""
 import pytest
 
 
@@ -8,7 +8,7 @@ def isolated_worker_response_journal(tmp_path, monkeypatch):
     monkeypatch.setenv("LOCAL_CHAT_RESPONSE_JOURNAL", str(tmp_path / "chat-responses.sqlite3"))
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope='module')
 def chromium():
     playwright_api = pytest.importorskip('playwright.sync_api')
     with playwright_api.sync_playwright() as playwright:

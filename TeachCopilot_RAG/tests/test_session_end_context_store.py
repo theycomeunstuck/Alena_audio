@@ -5,6 +5,8 @@ import pytest
 from psycopg2.extras import Json
 
 from local_app.memory_store import SESSION_END_CONTEXT_CHARS
+from local_app.personal_graph_contract import (PERSONAL_GRAPH_CONTEXT_PROTOCOL,
+                                               personal_graph_snapshot_fingerprint)
 from local_app.store import RevisionConflict, Store
 from tests.test_memory_api_flow import flow_store  # noqa: F401
 
@@ -36,6 +38,11 @@ def _rows(store, topic=TOPIC):
     return {row["source_id"]:row for row in store.get_learner_memory(LEARNER,topic)["sources"]}
 
 
+def _graph_memory(store, topic_id=None):
+    snapshot = store.get_learner_memory(LEARNER,topic_id,include_personal_graph_snapshot=True)
+    return {**snapshot, "sources": snapshot["personal_graph_sources"]}
+
+
 def _expected(session, assistant, text=ENDING):
     return {"assistant_source_id":assistant["source_id"],"session_id":session["id"],
             "role":"assistant","usage":"context_only","text":text,
@@ -56,6 +63,21 @@ def _version_inputs(store, source):
 def _save(store, snapshot, state, context):
     return store.save_memory_version(LEARNER,TOPIC,state,context=context,
         base_revision=snapshot["revision"],source_revision=snapshot["source_revision"])
+
+
+def _personal_graph_draft(store, snapshot, evidence_id):
+    sources = snapshot.get("personal_graph_sources", snapshot["sources"])
+    source_ids = sorted(row["source_id"] for row in sources)
+    fingerprint = personal_graph_snapshot_fingerprint(sources)
+    state = {"method":"personal_graph", "topic_id":TOPIC, "learner_id":LEARNER,
+        "archive_run_id":"app-archive-review", "source_revision":snapshot["source_revision"],
+        "source_ids":source_ids, "archive_snapshot_fingerprint":fingerprint,
+        "source_context_protocol":PERSONAL_GRAPH_CONTEXT_PROTOCOL}
+    evidence = next(row for row in sources if row["source_id"] == evidence_id)
+    context = {"method":"personal_graph", "topic_id":TOPIC, "text":evidence["text"],
+        "evidence_ids":[evidence_id], "sources":[{"source_id":evidence_id,
+            "role":evidence["author_role"], "text":evidence["text"]}]}
+    return _save(store,snapshot,state,context), fingerprint
 
 
 def test_final_instruction_belongs_to_last_student_without_becoming_evidence(flow_store):
@@ -314,6 +336,150 @@ def test_active_empty_and_other_topic_completion_preserve_stored_closing_freshne
         stored = store.get_learner_memory(LEARNER,topic_filter)["versions"][0]
         assert stored["id"] == version["id"] and not stored["stale"]
         assert stored["context"]["session_end_context"] == context["session_end_context"]
+
+
+def test_personal_graph_tracks_selected_cross_topic_closing_context(flow_store):
+    from local_app.personal_graph_memory import approved_graph_version
+
+    store = flow_store
+    _, message, _ = _lesson(store, topic=OTHER_TOPIC, answer="Другая тема – продолжение.")
+    snapshot = _graph_memory(store, None)
+    source = next(row for row in snapshot["personal_graph_sources"] if row["source_id"] == message["source_id"])
+    state = {"method": "personal_graph", "learner_id": LEARNER, "topic_id": TOPIC,
+             "archive_run_id": "app-synthetic", "source_revision": snapshot["source_revision"],
+             "source_ids": sorted(row["source_id"] for row in snapshot["personal_graph_sources"]),
+             "source_context_protocol": PERSONAL_GRAPH_CONTEXT_PROTOCOL}
+    context = {"method": "personal_graph", "topic_id": TOPIC, "text": source["text"],
+               "evidence_ids": [source["source_id"]],
+               "sources": [{"source_id": source["source_id"], "role": "student", "text": source["text"]}],
+               "session_end_context": [{"source_id": source["source_id"], **source["session_end_context"]}]}
+    version = _save(store, snapshot, state, context)
+    step = store.save_next_step(LEARNER, TOPIC, {"method": "personal_graph"},
+        base_revision=snapshot["revision"], source_revision=snapshot["source_revision"],
+        context=context, memory_version_id=version["id"], method="personal_graph")
+    assert step["id"]
+    store.approve_memory_version(LEARNER, version["id"], "teacher", snapshot["revision"])
+    before = _graph_memory(store, None)
+    assert approved_graph_version(before, LEARNER, TOPIC) is not None
+    assert not _graph_memory(store, TOPIC)["versions"][0]["stale"]
+
+    empty = store.create_learning_session(LEARNER, "student", OTHER_TOPIC)
+    store.complete_learning_session(empty["id"], LEARNER, "student")
+    for topic_filter in (TOPIC, None):
+        current = _graph_memory(store, topic_filter)
+        updated = next(item for item in current["versions"] if item["id"] == version["id"])
+        assert updated["stale"]
+    assert approved_graph_version(_graph_memory(store, None), LEARNER, TOPIC) is None
+
+
+def test_full_archive_confirmation_stores_exact_source_grant(flow_store):
+    from local_app.personal_graph_memory import approved_graph_version
+
+    store = flow_store
+    _, message, _ = _lesson(store, text="Ответ по дробям.")
+    store.add_memory_source(LEARNER, OTHER_TOPIC, "Заметка по другой теме.", "teacher",
+                            author_role="teacher", approved=True)
+    snapshot = _graph_memory(store, None)
+    version, fingerprint = _personal_graph_draft(store, snapshot, message["source_id"])
+    confirmed = store.approve_memory_version(LEARNER, version["id"], "teacher", snapshot["revision"],
+        full_archive_access=True, expected_archive_fingerprint=fingerprint)
+
+    access = confirmed["context"]["source_access"]
+    assert access["mode"] == "full_archive"
+    assert access["selected_by"] == "teacher"
+    assert access["snapshot_fingerprint"] == fingerprint
+    assert set(access["source_ids"]) == {source["source_id"] for source in snapshot["personal_graph_sources"]}
+    current = _graph_memory(store, None)
+    assert not next(row for row in current["versions"] if row["id"] == version["id"])["stale"]
+    assert approved_graph_version(current, LEARNER, TOPIC) is not None
+
+
+def test_full_archive_confirmation_rejects_a_changed_eligible_snapshot(flow_store):
+    store = flow_store
+    _, message, _ = _lesson(store)
+    snapshot = _graph_memory(store, None)
+    version, fingerprint = _personal_graph_draft(store, snapshot, message["source_id"])
+    store.add_memory_source(LEARNER, OTHER_TOPIC, "Новый завершённый источник.", "teacher",
+                            author_role="teacher", approved=True)
+
+    with pytest.raises(RevisionConflict, match="memory version no longer matches"):
+        store.approve_memory_version(LEARNER, version["id"], "teacher", snapshot["revision"],
+            full_archive_access=True, expected_archive_fingerprint=fingerprint)
+
+
+def test_failed_and_unknown_chat_messages_are_not_eligible_graph_sources(flow_store):
+    store = flow_store
+    session = store.create_learning_session(LEARNER, "student", TOPIC)
+    failed = store.reserve_chat_message(session["id"], LEARNER, "failed-answer", "Первая реплика.", "student")
+    store.fail_chat_message(session["id"], "failed-answer", "synthetic failure", unknown_outcome=False)
+    unknown = store.reserve_chat_message(session["id"], LEARNER, "unknown-answer", "Вторая реплика.", "student")
+    store.fail_chat_message(session["id"], "unknown-answer", "synthetic timeout", unknown_outcome=True)
+    failed_teacher = store.reserve_chat_message(session["id"], LEARNER, "failed-teacher", "Проверка преподавателя.",
+        "student", author_role="teacher")
+    store.fail_chat_message(session["id"], "failed-teacher", "synthetic failure", unknown_outcome=False)
+    unknown_teacher = store.reserve_chat_message(session["id"], LEARNER, "unknown-teacher", "Ещё проверка преподавателя.",
+        "student", author_role="teacher")
+    store.fail_chat_message(session["id"], "unknown-teacher", "synthetic timeout", unknown_outcome=True)
+    store.complete_learning_session(session["id"], LEARNER, "student")
+
+    snapshot = _graph_memory(store, None)
+    visible_ids = {source["source_id"] for source in snapshot["personal_graph_sources"]}
+    all_memory_ids = {source["source_id"] for source in store.get_learner_memory(LEARNER, None)["sources"]}
+    assert failed["source_id"] in all_memory_ids and unknown["source_id"] in all_memory_ids
+    assert failed_teacher["source_id"] in all_memory_ids and unknown_teacher["source_id"] in all_memory_ids
+    assert failed["source_id"] not in visible_ids and unknown["source_id"] not in visible_ids
+    assert failed_teacher["source_id"] not in visible_ids and unknown_teacher["source_id"] not in visible_ids
+    correction = store.add_memory_source(LEARNER, TOPIC, "Исправление незавершённого ответа.", "teacher",
+        author_role="teacher", approved=True, corrects_source_id=failed["source_id"])
+    refreshed = _graph_memory(store, None)
+    refreshed_ids = {source["source_id"] for source in refreshed["personal_graph_sources"]}
+    assert correction["source_id"] not in refreshed_ids
+    assert refreshed["personal_graph_hidden_correction_count"] == 1
+
+
+def test_full_archive_grant_expires_when_latest_topic_ending_context_changes(flow_store):
+    from local_app.personal_graph_memory import approved_graph_version
+
+    store = flow_store
+    _, message, _ = _lesson(store, answer="Старый завершающий вопрос.")
+    snapshot = _graph_memory(store, None)
+    version, fingerprint = _personal_graph_draft(store, snapshot, message["source_id"])
+    store.approve_memory_version(LEARNER, version["id"], "teacher", snapshot["revision"],
+        full_archive_access=True, expected_archive_fingerprint=fingerprint)
+    before = _graph_memory(store, None)
+    before_ids = {row["source_id"] for row in before["personal_graph_sources"]}
+    assert approved_graph_version(before, LEARNER, TOPIC) is not None
+
+    empty = store.create_learning_session(LEARNER, "student", TOPIC)
+    store.complete_learning_session(empty["id"], LEARNER, "student")
+    after = _graph_memory(store, None)
+    after_ids = {row["source_id"] for row in after["personal_graph_sources"]}
+    updated = next(row for row in after["versions"] if row["id"] == version["id"])
+    assert after_ids == before_ids
+    assert after["personal_graph_snapshot_fingerprint"] != before["personal_graph_snapshot_fingerprint"]
+    assert updated["stale"]
+    assert approved_graph_version(after, LEARNER, TOPIC) is None
+
+
+def test_legacy_personal_graph_versions_require_rebuilding(flow_store):
+    from local_app.personal_graph_memory import approved_graph_version
+
+    store = flow_store
+    _, message, _ = _lesson(store)
+    snapshot, _, context = _version_inputs(store, _rows(store)[message["source_id"]])
+    old_state = {"method": "personal_graph", "learner_id": LEARNER, "topic_id": TOPIC,
+                 "archive_run_id": "app-legacy", "source_revision": snapshot["source_revision"],
+                 "source_ids": [message["source_id"]]}
+    draft = _save(store, snapshot, old_state, context)
+    with pytest.raises(RevisionConflict, match="новую версию"):
+        store.approve_memory_version(LEARNER, draft["id"], "teacher", snapshot["revision"])
+    approved = store.save_memory_version(LEARNER, TOPIC, old_state, approved=True, context=context,
+        base_revision=snapshot["revision"], source_revision=snapshot["source_revision"])
+    for topic_filter in (TOPIC, None):
+        current = store.get_learner_memory(LEARNER, topic_filter)
+        version = next(item for item in current["versions"] if item["id"] == approved["id"])
+        assert version["stale"] and version["approved"]
+    assert approved_graph_version(_graph_memory(store, None), LEARNER, TOPIC) is None
 
 
 def test_version_without_selected_closing_context_is_not_enriched_or_expired(flow_store):

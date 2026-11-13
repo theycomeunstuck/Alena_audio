@@ -169,7 +169,62 @@ def test_missing_materials_does_not_discard_available_continuation_memory():
         {"role": "user", "content": "Продолжим прошлую тему?"}],
         subject_id="math", topic_id=memory["topic_id"], memory_context=memory)
     assert len(session.requests) == 2 and result["citations"] == []
-    assert "Подходящих материалов в базе не найдено" in session.requests[-1]["messages"][0]["content"]
+    system = session.requests[-1]["messages"][0]["content"]
+    assert "Учебные материалы не найдены" in system
+    assert "подтверждённую память" in system
+    assert "Не утверждай, что опираешься на источник" not in system
+
+
+def test_in_scope_graph_question_can_use_approved_memory_without_catalog_hits_or_resolver_flag():
+    class NoMaterials:
+        def hybrid_search(self, **kwargs): return []
+    class GraphSettings(Settings):
+        context_tokens = 32768
+
+    memory = {**approved(text="После вопроса ассистента ученик привёл дроби к общему знаменателю."),
+              "method": "personal_graph"}
+    session = continuation_session({"in_scope": True, "uses_prior_context": False,
+                                    "search_query": "Сравнение дробей"},
+                                   answer="Я спросил, как привести дроби к общему знаменателю.")
+    settings = GraphSettings()
+    result = RagService(NoMaterials(), OllamaRuntime(settings, session=session), settings).answer(
+        [{"role": "user", "content": "Какой вопрос помог мне раньше?"}],
+        subject_id="math", topic_id=memory["topic_id"], memory_context=memory)
+    assert len(session.requests) == 2
+    assert memory["text"] in session.requests[-1]["messages"][0]["content"]
+    assert "не подтверждают ответ на вопрос о прошлом" in session.requests[-1]["messages"][0]["content"]
+    assert result["choices"][0]["message"]["content"].startswith("Я спросил")
+    assert result["citations"] == []
+
+
+def test_graph_memory_does_not_override_an_out_of_scope_resolver_decision():
+    class GraphSettings(Settings):
+        context_tokens = 32768
+
+    memory = {**approved(), "method": "personal_graph"}
+    session = LocalSession(json.dumps({"in_scope": False, "uses_prior_context": False, "search_query": ""}))
+    settings = GraphSettings()
+    result = RagService(LessonMaterials(), OllamaRuntime(settings, session=session), settings).answer(
+        [{"role": "user", "content": "Расскажи новости."}],
+        subject_id="math", topic_id=memory["topic_id"], memory_context=memory)
+    assert len(session.requests) == 1
+    assert result["sources"] == result["citations"] == []
+    assert "учебный вопрос" in result["choices"][0]["message"]["content"]
+
+
+def test_graph_memory_does_not_bypass_a_legacy_scope_gate_without_a_resolver():
+    class GatedRuntime:
+        context_tokens = 16384
+        def is_query_in_scope(self, query, subject): return False
+        def embed(self, _texts): raise AssertionError("Out-of-scope query must not be embedded")
+        def chat(self, *_args, **_kwargs): raise AssertionError("Out-of-scope query must not be generated")
+
+    memory = {**approved(), "method": "personal_graph"}
+    result = RagService(LessonMaterials(), GatedRuntime(), Settings()).answer(
+        [{"role": "user", "content": "Расскажи новости."}],
+        subject_id="math", topic_id=memory["topic_id"], memory_context=memory)
+    assert result["sources"] == result["citations"] == []
+    assert "материалов" in result["choices"][0]["message"]["content"]
 
 
 @pytest.mark.parametrize("decision", [
