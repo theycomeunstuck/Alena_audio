@@ -103,3 +103,6 @@ def test_material_content_and_metadata_cannot_forge_source_wrappers():
 def test_approved_memory_budget_counts_escaped_prompt_bytes():
     with pytest.raises(ValueError, match="context budget"):
         RagService._approved_memory_text({"method": "tail", "text": "<" * 1000})
+    with pytest.raises(ValueError, match="context budget"):
+        RagService._approved_memory_text({"method": "personal_graph", "text": "<" * 2001},
+                                         context_tokens=16384)
