@@ -57,3 +57,6 @@ explicit = true
 # scripts/test_pipeline.py, whose body runs a full live DB + embedding-model +
 # LM Studio integration at import time and crashes on a DB-less/GPU-less machine.
 testpaths = ["tests"]
+markers = [
+    "live: end-to-end checks against the real local Ollama runtime and a disposable PostgreSQL database (deselected by default)",
+]
