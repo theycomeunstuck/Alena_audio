@@ -6,6 +6,7 @@ Assistant turns stay anchored context and never become independent evidence.
 """
 from __future__ import annotations
 
+import asyncio
 from copy import deepcopy
 from contextlib import nullcontext
 import hashlib
@@ -17,8 +18,9 @@ from .config import require_local_url
 from .personal_graph_contract import personal_graph_snapshot_fingerprint
 from .personal_graph_index import resolve_model_identities
 from .personal_graph_memory import (PersonalGraphSelectionBudgetExceeded, correction_closure,
-                                    select_context, source_lessons, source_scoped_found,
-                                    SOURCE_CONTEXT_NOTICE, SOURCE_CONTEXT_SKIPPED_NOTICE)
+                                    graph_channel_source_ids, select_context, source_lessons,
+                                    source_scoped_found, SOURCE_CONTEXT_NOTICE,
+                                    SOURCE_CONTEXT_SKIPPED_NOTICE)
 from .personal_graph_retrieval import SourceEmbeddingCache, _validated_vector, rank_source_candidates
 from .personal_memory_contract import (PERSONAL_MEMORY_CONTEXT_PROTOCOL, PERSONAL_MEMORY_RETRIEVAL_MODES,
                                        PERSONAL_MEMORY_SELECTION_VERSION, PersonalMemoryStale,
@@ -330,14 +332,49 @@ class PersonalMemoryProvider:
             return result
         return cached_sources
 
+    def _graph_channel(self, snapshot, learner_id, question, allowed, model):
+        """Best-effort graph channel for hybrid mode; any failure degrades cleanly.
+
+        The channel consumes a ready graph index for this exact snapshot and
+        never builds one. It returns ``None`` (with a reason) whenever the
+        graph is disabled, unreachable or not ready, so retrieval stays
+        deterministic plain hybrid in that case.
+        """
+        if getattr(self.runtime.settings, "personal_memory_retrieval_mode", "hybrid") != "hybrid":
+            return {"source_ids": None, "run_id": None, "reason": "mode_not_hybrid"}
+        if not getattr(self.runtime.settings, "memory_graph_channel", False):
+            return {"source_ids": None, "run_id": None, "reason": "channel_disabled"}
+        try:
+            lessons, _ = source_lessons(snapshot, learner_id)
+        except Exception as exc:
+            return {"source_ids": None, "run_id": None, "reason": f"lessons_error:{type(exc).__name__}"}
+        fingerprint = snapshot.get("personal_graph_snapshot_fingerprint")
+        if not fingerprint:
+            return {"source_ids": None, "run_id": None, "reason": "no_snapshot_fingerprint"}
+        try:
+            return asyncio.run(graph_channel_source_ids(
+                self.store, self.runtime, model, learner_id, question, allowed,
+                lessons, fingerprint))
+        except Exception as exc:
+            return {"source_ids": None, "run_id": None, "reason": f"graph_channel_error:{type(exc).__name__}"}
+
     def _retrieve(self, snapshot, learner_id, topic_id, question, allowed, model, mode, *, topic_recent_anchor=False):
         # Physically exclude unapproved texts before either embedding callback.
         scoped = {**snapshot, "sources": [row for row in snapshot["sources"]
                                          if str(row.get("source_id") or "") in allowed]}
         lessons, source_map = source_lessons(scoped, learner_id)
-        cached = self._source_embedder(model, learner_id) if mode in {"vector", "hybrid"} else None
-        ranked = rank_source_candidates(question, lessons, allowed, mode=mode,
-            embed_many=model.embed_many, source_embed_many=cached, limit=max(1, len(source_map)))
+        # The unified hybrid: graph hits join the round-robin as a third channel
+        # whenever a ready graph index exists for this exact snapshot. Without
+        # Neo4j, or without a ready index, this is plain hybrid retrieval.
+        graph_channel = self._graph_channel(snapshot, learner_id, question, allowed, model) if mode == "hybrid" else None
+        channel_used = bool(graph_channel and graph_channel.get("source_ids"))
+        retrieval_mode = "graph_hybrid" if channel_used else mode
+        cached = self._source_embedder(model, learner_id) if retrieval_mode in {"vector", "hybrid", "graph_hybrid"} else None
+        ranked = rank_source_candidates(question, lessons, allowed, mode=retrieval_mode,
+            embed_many=model.embed_many, source_embed_many=cached,
+            graph_hit_source_ids=graph_channel.get("source_ids") if channel_used else None,
+            limit=max(1, len(source_map)))
+        ranked["diagnostics"]["graph_channel"] = graph_channel
         ranked_ids = ranked["ranked_source_ids"]
         anchor = None
         if topic_recent_anchor:
@@ -378,7 +415,8 @@ class PersonalMemoryProvider:
                  "source_context_protocol": PERSONAL_MEMORY_CONTEXT_PROTOCOL,
                  "archive_snapshot_fingerprint": fingerprint, "source_snapshot_id": "personal-memory-" + fingerprint,
                  "retrieval_mode": mode, "model_identities": deepcopy(model.model_identities),
-                 "selection_recipe_fingerprint": recipe, "selection_version": PERSONAL_MEMORY_SELECTION_VERSION}
+                 "selection_recipe_fingerprint": recipe, "selection_version": PERSONAL_MEMORY_SELECTION_VERSION,
+                 "graph_channel": (context.get("retrieval_diagnostics") or {}).get("graph_channel")}
         if personal_memory_recipe_fingerprint(model, mode) != recipe:
             raise PersonalMemoryStale()
         return state, context

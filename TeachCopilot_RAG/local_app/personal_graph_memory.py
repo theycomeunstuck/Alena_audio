@@ -16,6 +16,7 @@ import math
 import os
 import re
 import threading
+from pathlib import Path
 from urllib.parse import urlsplit
 
 from .personal_graph_contract import (PERSONAL_GRAPH_CONTEXT_PROTOCOL,
@@ -798,6 +799,112 @@ class ApplicationModel:
             content = self.model_call(payload["messages"], "personal_graph_extract", payload.get("format"))
             self.check_model_identities()
         return {"done": True, "done_reason": "stop", "message": {"content": content}}
+
+
+class _ChannelModel:
+    """Search-only model shim: exposes what make_graphiti and the adapter read."""
+
+    def __init__(self, source_model):
+        self._source = source_model
+        self.model, self.context = source_model.model, source_model.context
+        self.base_url = source_model.base_url
+        self.model_identities = source_model.model_identities
+
+    def check_model_identities(self):
+        self._source.check_model_identities()
+
+    def embed(self, text):
+        return self.embed_many([text])[0]
+
+    def embed_many(self, texts):
+        return self._source.embed_many(texts)
+
+    def count(self, text):
+        return len(text.encode("utf-8"))
+
+    def _post(self, route, payload, purpose):
+        raise RuntimeError("the unified memory channel never calls the graph writer")
+
+
+async def graph_channel_source_ids(store, runtime, model, learner_id, question, allowed,
+                                   lessons, snapshot_fingerprint):
+    """Best-effort graph channel for the unified personal_memory hybrid retrieval.
+
+    Consumes an already-built, ready graph index for this exact learner scope;
+    never builds, claims or invalidates one. Returns
+    ``{"source_ids": [...]|None, "run_id": ..., "reason": str|None}`` — any
+    failure degrades to plain hybrid retrieval with a recorded reason. Graph
+    facts stay navigation only: the returned source IDs point at canonical
+    teacher/student replies.
+    """
+    settings = getattr(runtime, "settings", None)
+    if not getattr(settings, "memory_graph_channel", False):
+        return {"source_ids": None, "run_id": None, "reason": "channel_disabled"}
+    dsn = getattr(store, "dsn", None)
+    if not dsn:
+        return {"source_ids": None, "run_id": None, "reason": "no_database_dsn"}
+    from psycopg2.extensions import parse_dsn
+    params = parse_dsn(dsn)
+    addresses = [params.get("host"), params.get("hostaddr"), os.getenv("PGHOSTADDR")]
+    if not any(addresses) or any(value and value not in {"127.0.0.1", "localhost", "::1"} for value in addresses):
+        return {"source_ids": None, "run_id": None, "reason": "non_loopback_database"}
+    path = Path(settings.personal_graph_password_file)
+    if not path.is_file():
+        return {"source_ids": None, "run_id": None, "reason": "password_file_unavailable"}
+    if not isinstance(allowed, set) or not allowed:
+        return {"source_ids": None, "run_id": None, "reason": "no_approved_sources"}
+    if not isinstance(lessons, list) or not lessons:
+        return {"source_ids": None, "run_id": None, "reason": "no_lessons"}
+    from .personal_graph_index import (find_ready_personal_graph_index,
+                                       personal_graph_config_fingerprint)
+    try:
+        config_fingerprint = personal_graph_config_fingerprint(model, model.model_identities)
+    except Exception as exc:
+        return {"source_ids": None, "run_id": None, "reason": f"config_fingerprint:{type(exc).__name__}"}
+    try:
+        index = await asyncio.to_thread(find_ready_personal_graph_index, dsn, learner_id,
+                                        snapshot_fingerprint, lessons, config_fingerprint)
+    except Exception as exc:
+        return {"source_ids": None, "run_id": None, "reason": f"registry_lookup:{type(exc).__name__}"}
+    if index is None:
+        return {"source_ids": None, "run_id": None, "reason": "no_ready_index"}
+    run_id = index["run_id"]
+    from research_memory.personal_memory_lab.archive import Archive
+    from research_memory.personal_memory_lab.backends import GraphitiAdapter, make_graphiti
+    archive = None
+    graph = None
+    try:
+        password = await asyncio.to_thread(path.read_text, encoding="utf-8")
+        archive = Archive(dsn)
+        graph = make_graphiti(_ChannelModel(model), password.strip())
+        adapter = GraphitiAdapter(graph, archive, None)
+        await asyncio.to_thread(archive.initialize)
+        await adapter.initialize()
+        hits = await adapter.search(run_id, learner_id, question)
+        lessons_by_id = {lesson["lesson_id"]: lesson for lesson in lessons}
+        ordered, seen = [], set()
+        for hit in hits:
+            for lesson_id in hit.get("lesson_ids") or []:
+                lesson = lessons_by_id.get(lesson_id)
+                if not lesson:
+                    continue
+                for turn in lesson.get("turns", []):
+                    source_id = turn.get("turn_id")
+                    if (turn.get("role") in {"teacher", "student"} and source_id in allowed
+                            and source_id not in seen):
+                        seen.add(source_id)
+                        ordered.append(source_id)
+        if not ordered:
+            return {"source_ids": None, "run_id": run_id, "reason": "no_allowed_hits"}
+        return {"source_ids": ordered, "run_id": run_id, "reason": None}
+    except Exception as exc:
+        return {"source_ids": None, "run_id": run_id, "reason": f"graph_channel_error:{type(exc).__name__}"}
+    finally:
+        if graph is not None:
+            try:
+                await graph.close()
+            except Exception:
+                pass
 
 
 class PersonalGraphProvider:

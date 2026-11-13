@@ -55,6 +55,7 @@ class Settings:
     chat_response_journal_path: str | None = None
     personal_memory_enabled: bool = True
     personal_memory_retrieval_mode: str = "hybrid"
+    memory_graph_channel: bool = True
     experimental_personal_graph_enabled: bool = False
     personal_graph_retrieval_mode: str = "graph_hybrid"
     personal_graph_password_file: str = str(Path(__file__).resolve().parents[3] / ".local" /
@@ -113,6 +114,7 @@ class Settings:
                 Path(__file__).resolve().parents[1] / '.local' / 'chat-responses.sqlite3')),
             personal_memory_enabled=os.getenv("LOCAL_PERSONAL_MEMORY_ENABLED", "1") == "1",
             personal_memory_retrieval_mode=os.getenv("LOCAL_PERSONAL_MEMORY_RETRIEVAL_MODE", "hybrid"),
+            memory_graph_channel=os.getenv("LOCAL_MEMORY_GRAPH_CHANNEL", "1") == "1",
             experimental_personal_graph_enabled=os.getenv("LOCAL_EXPERIMENTAL_PERSONAL_GRAPH", "0") == "1",
             personal_graph_retrieval_mode=os.getenv("LOCAL_PERSONAL_GRAPH_RETRIEVAL_MODE", "graph_hybrid"),
             personal_graph_password_file=os.getenv("LOCAL_PERSONAL_GRAPH_PASSWORD_FILE", cls.personal_graph_password_file),

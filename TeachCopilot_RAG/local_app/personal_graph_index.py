@@ -7,6 +7,7 @@ import hashlib
 import importlib.metadata
 import json
 import math
+import os
 import re
 from pathlib import Path
 import urllib.request
@@ -282,6 +283,28 @@ def _ready_index_manifest(dsn, run_id, key):
             AND state='ready'""", (run_id, *key))
         row = cur.fetchone()
     return row[0] if row else None
+
+
+def find_ready_personal_graph_index(dsn, learner_id, snapshot_fingerprint, lessons, config_fingerprint):
+    """Read-only lookup of the newest ready index for this exact learner scope.
+
+    Returns {'run_id', 'manifest'} when a ready row matches the current database,
+    source snapshot, lesson set and config fingerprint; None otherwise. Never
+    claims, invalidates or rebuilds anything.
+    """
+    from psycopg2.extensions import parse_dsn
+    params = parse_dsn(dsn)
+    addresses = [params.get("host"), params.get("hostaddr"), os.getenv("PGHOSTADDR")]
+    if not any(addresses) or any(value and value not in {"127.0.0.1", "localhost", "::1"} for value in addresses):
+        raise ValueError("personal graph requires a local PostgreSQL database")
+    key = (database_fingerprint(dsn), learner_id, snapshot_fingerprint, _hash(lessons), config_fingerprint)
+    with _registry_connect(dsn) as conn, conn.cursor() as cur:
+        cur.execute("""SELECT run_id, manifest FROM teachcopilot.personal_graph_indexes
+            WHERE database_identity=%s AND learner_id=%s AND snapshot_fingerprint=%s
+            AND lessons_hash=%s AND config_fingerprint=%s AND state='ready'
+            ORDER BY updated_at DESC LIMIT 1""", key)
+        row = cur.fetchone()
+    return {"run_id": row[0], "manifest": row[1]} if row else None
 
 
 async def validate_ready_personal_graph_index(*, dsn, run_id, learner_id, snapshot_fingerprint,
