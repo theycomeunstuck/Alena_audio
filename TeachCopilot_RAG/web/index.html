@@ -84,6 +84,22 @@
               <div id="conversation-memory-cards" class="memory-summaries"></div>
               <details id="own-conversation-history" class="learning-archive"><summary>Полная переписка</summary><p class="review-note">Все твои беседы и показанные необязательные вопросы. Старые сообщения можно подгружать без ограничения последними двадцатью.</p><button id="refresh-own-conversation-history" class="text-button" type="button">Обновить переписку</button><p id="own-conversation-history-status" class="review-note" role="status"></p><div id="own-conversation-history-log" class="learning-archive-log" aria-label="Полная переписка с помощником"></div><button id="older-own-conversation-history" class="button secondary" type="button" hidden>Более ранние сообщения</button></details>
             </section>
+            <section id="memory-diagnostics-section" class="history-section" aria-labelledby="memory-diagnostics-title" hidden>
+              <div class="section-head"><div><span class="section-kicker">Диагностика памяти – только для преподавателя</span><h2 id="memory-diagnostics-title">Диагностика памяти</h2></div><button id="refresh-memory-diagnostics" type="button" class="help-button">Обновить</button></div>
+              <p id="memory-diagnostics-status" class="review-note" role="status"></p>
+              <div id="memory-diagnostics-index" class="memory-diagnostics-index"></div>
+              <form id="memory-diagnostics-form" class="work-form compact-form">
+                <label for="diagnostics-query">Пробный вопрос</label>
+                <textarea id="diagnostics-query" rows="2" maxlength="2000" placeholder="Например: какие дроби мы сравнивали на занятии?" required></textarea>
+                <label for="diagnostics-mode">Режим поиска</label>
+                <select id="diagnostics-mode" class="chat-subject"><option value="hybrid" selected>Комбинированный – hybrid</option><option value="graph_hybrid">Комбинированный с графом – graph_hybrid</option></select>
+                <label for="diagnostics-budget">Бюджет выбора <span class="optional-label">байты, от 500 до 30000</span></label>
+                <input id="diagnostics-budget" type="number" min="500" max="30000" step="100" inputmode="numeric" autocomplete="off">
+                <p class="review-note">Проверка повторяет поиск подтверждённого чата. Вопрос уходит в локальную модель эмбеддингов; графовый индекс читается без изменений.</p>
+                <button id="run-memory-diagnostics" class="button secondary wide" type="submit">Проверить поиск</button>
+              </form>
+              <div id="memory-diagnostics-results" class="memory-diagnostics-results" aria-live="polite"></div>
+            </section>
           </div>
         </section>
 

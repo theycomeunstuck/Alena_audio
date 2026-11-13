@@ -541,6 +541,177 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None, chat_r
         return {"learner_id": learner_id, "version": version, "confirmed": True,
                 "refresh_required": bool(review.get("refresh_required"))}
 
+    def approved_memory_topic(snapshot, learner_id):
+        """Find the approved personal-memory version for this exact learner snapshot."""
+        from local_app.personal_memory import approved_personal_memory_version
+        topics = sorted({str(version.get("topic_id")) for version in snapshot.get("versions", [])
+                         if isinstance(version, dict) and version.get("topic_id")})
+        for topic in topics:
+            version = approved_personal_memory_version(snapshot, learner_id, topic)
+            if version is not None:
+                return topic, version
+        return None, None
+
+    def personal_memory_provider():
+        from local_app.personal_memory import PersonalMemoryProvider
+        return (app.state.personal_memory_factory or PersonalMemoryProvider)(store, app.state.runtime)
+
+    @app.get("/learners/{learner_id}/memory/diagnostics/index")
+    def memory_diagnostics_index(learner_id: str, user: dict = Depends(teacher)):
+        """Teacher-only read-only memory status: settings flags and graph index registry.
+
+        Never connects to Neo4j. The ready-index lookup is a read-only registry
+        query for this exact source snapshot; every failure degrades into
+        {ready: false, reason} without exposing DSNs, passwords or file paths.
+        """
+        access(user, learner_id)
+        memory_available()
+        from local_app.memory_store import get_learner_memory_snapshot
+        try:
+            snapshot = get_learner_memory_snapshot(store, learner_id, None,
+                include_personal_graph_snapshot=True)
+        except RuntimeError as exc:
+            raise HTTPException(status_code=503, detail="personal graph source snapshot is unavailable") from exc
+        graph_sources = snapshot["personal_graph_sources"]
+        canonical = {**snapshot, "sources": graph_sources}
+        lessons, fingerprint, snapshot_reason = None, None, None
+        try:
+            from local_app.personal_graph_contract import personal_graph_snapshot_fingerprint
+            from local_app.personal_graph_memory import source_lessons
+            lessons, _ = source_lessons(canonical, learner_id)
+            fingerprint = personal_graph_snapshot_fingerprint(graph_sources)
+        except Exception as exc:
+            snapshot_reason = f"lessons_error:{type(exc).__name__}"
+        try:
+            from local_app.personal_memory_contract import personal_memory_budgets
+            selection_budget, memory_budget = personal_memory_budgets(int(_value(settings, "context_tokens", default=0)))
+        except (TypeError, ValueError):
+            selection_budget, memory_budget = None, None
+        flags = {
+            "personal_memory_enabled": bool(_value(settings, "personal_memory_enabled", default=False)),
+            "retrieval_mode": _value(settings, "personal_memory_retrieval_mode", default="hybrid"),
+            "memory_graph_channel": bool(_value(settings, "memory_graph_channel", default=False)),
+            "experimental_personal_graph_enabled": bool(_value(settings, "experimental_personal_graph_enabled", default=False)),
+            "context_tokens": _value(settings, "context_tokens", default=None),
+            "models": {"chat": _value(settings, "chat_model", default=None),
+                       "embedding": _value(settings, "embedding_model", default=None)},
+        }
+        password_available = Path(str(_value(settings, "personal_graph_password_file", default="") or "")).is_file()
+        index_status = {"ready": False, "reason": None, "run_id": None, "manifest": None,
+                        "password_file_available": password_available}
+        if not flags["memory_graph_channel"] and not flags["experimental_personal_graph_enabled"]:
+            index_status["reason"] = "channel_disabled"
+        elif snapshot_reason:
+            index_status["reason"] = snapshot_reason
+        elif lessons is not None and not getattr(store, "dsn", None):
+            index_status["reason"] = "no_database_dsn"
+        elif lessons is not None:
+            try:
+                model = personal_memory_provider()._application_model()
+            except Exception as exc:
+                logger.warning("Memory diagnostics model identity failed (%s)", type(exc).__name__)
+                index_status["reason"] = f"model_identity:{type(exc).__name__}"
+            else:
+                try:
+                    from local_app.personal_graph_index import (find_ready_personal_graph_index,
+                                                                personal_graph_config_fingerprint)
+                    config_fingerprint = personal_graph_config_fingerprint(model, model.model_identities)
+                except Exception as exc:
+                    logger.warning("Memory diagnostics config fingerprint failed (%s)", type(exc).__name__)
+                    index_status["reason"] = f"config_fingerprint:{type(exc).__name__}"
+                else:
+                    try:
+                        index = find_ready_personal_graph_index(store.dsn, learner_id, fingerprint,
+                                                                lessons, config_fingerprint)
+                    except Exception as exc:
+                        logger.warning("Memory diagnostics registry lookup failed (%s)", type(exc).__name__)
+                        index_status["reason"] = f"registry_lookup:{type(exc).__name__}"
+                    else:
+                        if index is None:
+                            index_status["reason"] = "no_ready_index"
+                        else:
+                            manifest = index.get("manifest")
+                            index_status.update(ready=True, run_id=str(index["run_id"]),
+                                                manifest=manifest if isinstance(manifest, dict) else None)
+        approved_topic, _approved = approved_memory_topic(snapshot, learner_id)
+        return {"learner_id": learner_id, "flags": flags,
+                "budgets": {"selection_bytes": selection_budget, "memory_bytes": memory_budget},
+                "snapshot": {"source_count": len(graph_sources),
+                             "source_ids": sorted({str(row.get("source_id") or "") for row in graph_sources
+                                                   if row.get("source_id")}),
+                             "lesson_count": len(lessons) if lessons is not None else None,
+                             "snapshot_fingerprint": fingerprint, "error": snapshot_reason},
+                "index": index_status, "approved_topic": approved_topic}
+
+    @app.get("/learners/{learner_id}/memory/diagnostics/retrieval")
+    def memory_diagnostics_retrieval(learner_id: str,
+            q: str = Query(..., min_length=1, max_length=2000),
+            mode: Literal["hybrid", "graph_hybrid"] | None = Query(default=None),
+            budget: int | None = Query(default=None, ge=500, le=30000),
+            user: dict = Depends(teacher)):
+        """Teacher-only dry run of the approved personal-memory retrieval path.
+
+        Uses the same snapshot, approval scope and PersonalMemoryProvider._retrieve
+        as the approved chat. Embedding calls against the local model are allowed;
+        the graph channel stays consume-only and degrades to plain hybrid with a
+        recorded reason. Without an approved version the answer is conservative:
+        no draft scope is ever exposed.
+        """
+        access(user, learner_id)
+        memory_available()
+        text = q.strip()
+        if not text:
+            raise HTTPException(status_code=422, detail="diagnostics query cannot be blank")
+        from local_app.memory_store import get_learner_memory_snapshot
+        try:
+            snapshot = get_learner_memory_snapshot(store, learner_id, None,
+                include_personal_graph_snapshot=True)
+        except RuntimeError as exc:
+            raise HTTPException(status_code=503, detail="personal graph source snapshot is unavailable") from exc
+        canonical = {**snapshot, "sources": snapshot["personal_graph_sources"]}
+        topic, approved = approved_memory_topic(canonical, learner_id)
+        if approved is None:
+            return {"learner_id": learner_id, "status": "not_approved",
+                    "hint": "Персональная память не подтверждена. Подготовьте и подтвердите версию памяти, затем повторите диагностику."}
+        from local_app.personal_graph_memory import PersonalGraphSelectionBudgetExceeded
+        from local_app.personal_memory import (PersonalMemoryStale, select_ranked_source_context)
+        from local_app.personal_memory_contract import personal_memory_budgets
+        requested_mode = mode or _value(settings, "personal_memory_retrieval_mode", default="hybrid")
+        retrieve_mode = "hybrid" if requested_mode == "graph_hybrid" else requested_mode
+        allowed = set(approved["context"]["source_access"]["source_ids"])
+        try:
+            model = personal_memory_provider()._application_model()
+            try:
+                selection_budget, _ = personal_memory_budgets(int(_value(settings, "context_tokens", default=0)))
+            except (TypeError, ValueError):
+                selection_budget = None
+            applied_budget = budget if budget is not None else selection_budget
+            context = personal_memory_provider()._retrieve(
+                canonical, learner_id, topic, text, allowed, model, retrieve_mode)
+            diagnostics = context.get("retrieval_diagnostics") or {}
+            if applied_budget is not None and applied_budget != (context.get("selection_budget") or {}).get("limit"):
+                scoped = {**canonical, "sources": [row for row in canonical["sources"]
+                                                   if str(row.get("source_id") or "") in allowed]}
+                context = select_ranked_source_context(diagnostics.get("selection_order", []),
+                    scoped, learner_id, topic, allowed, applied_budget)
+                context["retrieval_diagnostics"] = diagnostics
+        except (PersonalGraphSelectionBudgetExceeded, PersonalMemoryStale) as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        except HTTPException:
+            raise
+        except Exception as exc:
+            logger.warning("Memory diagnostics retrieval unavailable (%s)", type(exc).__name__)
+            raise HTTPException(status_code=503, detail="personal memory diagnostics retrieval is unavailable") from exc
+        diagnostics = context.get("retrieval_diagnostics") or {}
+        return {"learner_id": learner_id, "status": "ok", "topic_id": topic, "query": text,
+                "requested_mode": requested_mode, "retrieval_mode": diagnostics.get("mode"),
+                "budget": {"requested": budget, "applied": applied_budget},
+                "ranked_source_ids": diagnostics.get("selection_order", []),
+                "channels": diagnostics.get("channels", {}),
+                "graph_channel": diagnostics.get("graph_channel"),
+                "selection_warnings": context.get("selection_warnings", []),
+                "context": context}
+
     @app.get('/learners/{learner_id}/learning-sessions/current')
     def current_learning_session(learner_id: str, user: dict = Depends(require_user)):
         access(user, learner_id)

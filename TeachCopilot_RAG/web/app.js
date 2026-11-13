@@ -74,6 +74,7 @@
     $('#email').value = ''; $('#password').value = '';
     $('#teacher-actions').hidden = true; $('#student-actions').hidden = true; $('#action-empty').hidden = false;
     $('#memory-section').hidden = true; $('#memory-history').replaceChildren(); $('#memory-status').textContent = ''; $('#next-step-result').replaceChildren(); $('#next-step-result').hidden = true; $('#next-step-status').textContent = ''; $('#memory-method').value = 'personal_memory'; $('#request-next-step').disabled = false; renderLearningSession();
+    $('#memory-diagnostics-section').hidden = true; $('#memory-diagnostics-index').replaceChildren(); $('#memory-diagnostics-results').replaceChildren(); $('#memory-diagnostics-status').textContent = ''; $('#diagnostics-query').value = ''; $('#diagnostics-budget').value = ''; $('#diagnostics-mode').value = 'hybrid';
     $('#chat-memory-method').value = 'tail'; $('#memory-summaries').replaceChildren();
     if ($('#edit-dialog').open) $('#edit-dialog').close();
     $('#workspace').hidden = true; showLogin();
@@ -102,6 +103,7 @@
       $('#workspace-label').textContent = state.account.role === 'teacher' ? 'Рабочее место учителя' : 'Мой учебный профиль';
       $('#teacher-actions').hidden = state.account.role !== 'teacher'; $('#student-actions').hidden = state.account.role !== 'student';
       $('#memory-section').hidden = state.account.role !== 'teacher';
+      $('#memory-diagnostics-section').hidden = state.account.role !== 'teacher';
       $('#action-empty').hidden = state.account.role === 'student';
       $('#roster-title').textContent = state.account.role === 'teacher' ? 'Ученики' : 'Мой профиль';
       $('#learner-filter').hidden = state.account.role === 'student';
@@ -154,6 +156,7 @@
     resetLearningArchive();
     if (state.account?.role === 'student') { renderChatHistory(id); restoreLearningSession(); }
     renderNextStep(); $('#memory-history').replaceChildren(); $('#memory-summaries').replaceChildren(); $('#memory-status').textContent = '';
+    $('#memory-diagnostics-section').hidden = true; $('#memory-diagnostics-index').replaceChildren(); $('#memory-diagnostics-results').replaceChildren(); $('#memory-diagnostics-status').textContent = '';
     $('#conversation-memory-section').hidden = true; $('#conversation-memory-cards').replaceChildren(); $('#daily-checkin').hidden = true;
     $('#own-conversation-history').open = false; $('#own-conversation-history-log').replaceChildren(); $('#own-conversation-history-status').textContent = '';
     checkinObserver?.disconnect();
@@ -173,7 +176,7 @@
         if ($('#chat-mode').value === 'autonomous_division') refreshAutonomous(); else refreshGuided();
       }
       renderNextStep();
-      if (state.account?.role === 'teacher') { loadMemory(); const pending = state.nextStepsByLearner.get(id); if (pending?.job_id && !pending.result && !pending.finished) pollNextStep(id, pending.job_id, viewRevision); }
+      if (state.account?.role === 'teacher') { loadMemory(); loadMemoryDiagnostics(); const pending = state.nextStepsByLearner.get(id); if (pending?.job_id && !pending.result && !pending.finished) pollNextStep(id, pending.job_id, viewRevision); }
     } catch (error) { if (viewRevision !== state.viewRevision) return; showError(error); $('#action-empty').hidden = true; }
   }
   const subjectTitles = { math: 'Математика', python: 'Python', programming: 'Программирование', scratch: 'Scratch', general: 'Общее занятие' };
@@ -1079,6 +1082,71 @@
     const codes = new Set(warnings.map(item => item?.code));
     codes.forEach(code => root.append(el('p', 'review-note', Object.hasOwn(messages, code) ? messages[code] : 'Часть найденных фрагментов не вошла в память. Проверьте исходные реплики.')));
   }
+  async function loadMemoryDiagnostics() {
+    const learnerId = state.learnerId, token = state.token, revision = state.viewRevision;
+    if (!learnerId || state.account?.role !== 'teacher') return;
+    const current = () => token === state.token && revision === state.viewRevision && learnerId === state.learnerId && state.account?.role === 'teacher';
+    $('#memory-diagnostics-section').hidden = false;
+    $('#memory-diagnostics-status').textContent = 'Загружаем статус памяти и графового индекса…';
+    try {
+      const data = await request(`/learners/${encodeURIComponent(learnerId)}/memory/diagnostics/index`);
+      if (!current()) return;
+      renderDiagnosticsIndex(data);
+      const budgetInput = $('#diagnostics-budget');
+      if (!budgetInput.value && data.budgets?.selection_bytes) budgetInput.value = String(data.budgets.selection_bytes);
+      $('#memory-diagnostics-status').textContent = 'Диагностика повторяет поиск подтверждённого чата: локальные эмбеддинги, исходники только из утверждённой памяти. Графовый индекс читается без изменений.';
+    } catch (error) { if (current()) $('#memory-diagnostics-status').textContent = errorText(error); }
+  }
+  function renderDiagnosticsIndex(data) {
+    const root = $('#memory-diagnostics-index'); root.replaceChildren();
+    const index = data.index || {}, flags = data.flags || {}, snapshot = data.snapshot || {};
+    const card = el('article', 'memory-summary-card');
+    card.append(el('h3', '', 'Статус графового индекса'));
+    const runLabel = index.run_id ? ` – запуск ${String(index.run_id).slice(0, 17)}` : '';
+    card.append(el('p', 'memory-summary-meta', index.ready ? `Готов${runLabel}` : `Не готов – причина: ${index.reason || 'не указана'}`));
+    card.append(el('p', 'review-note', `Файл пароля Neo4j: ${index.password_file_available ? 'доступен' : 'отсутствует'}. Подтверждённая память: ${data.approved_topic || 'нет'}. Источников: ${snapshot.source_count ?? 0}, занятий: ${snapshot.lesson_count ?? 0}.`));
+    const table = el('table', 'diagnostics-table');
+    [['Персональная память включена', flags.personal_memory_enabled ? 'да' : 'нет'],
+     ['Режим поиска памяти', flags.retrieval_mode || '–'],
+     ['Графовый канал поиска', flags.memory_graph_channel ? 'да' : 'нет'],
+     ['Экспериментальный персональный граф', flags.experimental_personal_graph_enabled ? 'да' : 'нет'],
+     ['Контекст модели, токены', flags.context_tokens ?? '–'],
+     ['Модель ответов', flags.models?.chat || '–'],
+     ['Модель эмбеддингов', flags.models?.embedding || '–'],
+     ['Бюджет выбора, байты', data.budgets?.selection_bytes ?? '–'],
+     ['Бюджет памяти, байты', data.budgets?.memory_bytes ?? '–'],
+    ].forEach(([name, value]) => { const row = el('tr'); row.append(el('th', '', name), el('td', '', String(value))); table.append(row); });
+    card.append(table);
+    root.append(card);
+  }
+  function renderDiagnosticsRetrieval(data) {
+    const root = $('#memory-diagnostics-results'); root.replaceChildren();
+    if (data.status === 'not_approved') {
+      root.append(el('p', 'review-note', data.hint || 'Персональная память не подтверждена – поиск для ученика остаётся выключенным.'));
+      return;
+    }
+    const context = data.context || {};
+    const card = el('article', 'memory-summary-card');
+    card.append(el('h3', '', 'Каналы поиска'));
+    const channelNames = { chronological: 'Хронология', lexical: 'Слова', vector: 'Смысл', graph: 'Граф' };
+    const channels = data.channels || {};
+    const table = el('table', 'diagnostics-table');
+    Object.keys(channels).forEach(name => {
+      const ids = Array.isArray(channels[name]) ? channels[name] : [];
+      const row = el('tr'); row.append(el('th', '', channelNames[name] || name), el('td', '', ids.length ? ids.join(', ') : '–')); table.append(row);
+    });
+    if (!Object.keys(channels).length) { const row = el('tr'); row.append(el('th', '', 'Каналы'), el('td', '', '–')); table.append(row); }
+    card.append(table);
+    card.append(el('p', 'memory-summary-meta', `Итоговый порядок: ${(data.ranked_source_ids || []).join(', ') || '–'} · Режим: ${data.retrieval_mode || '–'} · Бюджет: ${data.budget?.applied ?? '–'} байт`));
+    const graph = data.graph_channel || {};
+    if (graph.reason) card.append(el('p', 'review-note', `Графовый канал не использован – причина: ${graph.reason}.`));
+    else if (Array.isArray(graph.source_ids) && graph.source_ids.length) card.append(el('p', 'review-note', `Графовый канал предложил источники: ${graph.source_ids.join(', ')}.`));
+    appendSelectionWarnings(card, data.selection_warnings);
+    card.append(el('h4', '', 'Выбранный контекст'));
+    card.append(el('p', 'review-note', `Тема: ${data.topic_id || '–'}. Выбрано реплик: ${(context.sources || []).length}. Основания: ${(context.evidence_ids || []).join(', ') || '–'}.`));
+    if (context.text) card.append(el('blockquote', 'memory-text', context.text)); else card.append(el('p', 'zone-empty', 'Ни одна исходная реплика не подошла к вопросу.'));
+    root.append(card);
+  }
   function renderNextStep() {
     const current = state.nextStepsByLearner.get(state.learnerId), root = $('#next-step-result'); root.replaceChildren(); root.hidden = !current?.result;
     $('#next-step-status').textContent = current?.statusText || '';
@@ -1876,6 +1944,22 @@
     });
   });
   $('#refresh-conversation-memory').addEventListener('click', loadConversationMemory);
+  $('#refresh-memory-diagnostics').addEventListener('click', loadMemoryDiagnostics);
+  $('#memory-diagnostics-form').addEventListener('submit', event => {
+    event.preventDefault();
+    busy($('#run-memory-diagnostics'), async () => {
+      const learnerId = state.learnerId;
+      if (!learnerId || state.account?.role !== 'teacher') throw new Error('Сначала выберите ученика.');
+      const query = $('#diagnostics-query').value.trim();
+      if (!query) throw new Error('Введите пробный вопрос.');
+      if (query.length > 2000) throw new Error('Вопрос длиннее 2000 символов.');
+      const params = new URLSearchParams({ q: query, mode: $('#diagnostics-mode').value });
+      const budget = $('#diagnostics-budget').value.trim();
+      if (budget) params.set('budget', budget);
+      const data = await request(`/learners/${encodeURIComponent(learnerId)}/memory/diagnostics/retrieval?${params}`);
+      renderDiagnosticsRetrieval(data);
+    });
+  });
   $('#own-conversation-history').addEventListener('toggle', () => { if ($('#own-conversation-history').open) loadOwnConversationHistory(); });
   $('#refresh-own-conversation-history').addEventListener('click', () => loadOwnConversationHistory(false, true));
   $('#older-own-conversation-history').addEventListener('click', () => loadOwnConversationHistory(true));
