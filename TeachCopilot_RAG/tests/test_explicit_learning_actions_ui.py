@@ -31,6 +31,16 @@ def _record_actions(page):
 def _choose_action(page, operation):
     page.locator("#chat-mode").select_option(operation)
     expect(page.locator("#learning-action-form")).to_be_visible()
+    # Form fields stay disabled until the session-recovery state finishes
+    # loading; one lost request under load used to block them for good.
+    try:
+        expect(page.locator("#action-dividend")).to_be_enabled(timeout=10000)
+    except AssertionError:
+        page.reload()
+        expect(page.locator("#chat-mode")).to_be_visible(timeout=15000)
+        page.locator("#chat-mode").select_option(operation)
+        expect(page.locator("#learning-action-form")).to_be_visible()
+        expect(page.locator("#action-dividend")).to_be_enabled(timeout=15000)
 
 
 def _submit_action(page):
