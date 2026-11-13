@@ -37,6 +37,11 @@ TOPIC_RANK_BOOST = 1.03
 GRADE_RANK_BOOST = 1.01
 
 
+def _escape_untrusted_prompt_text(text: str) -> str:
+    """Prevent source text from closing the delimiters used in a prompt."""
+    return text.replace("<", "\\u003c").replace(">", "\\u003e")
+
+
 class RagService:
     def __init__(self, store: Any, runtime: Any, settings: Any, answer_adapter: Any = None) -> None:
         self.store = store
@@ -812,7 +817,9 @@ class RagService:
             )
             if memory_context.get("stale"):
                 system += " Память требует актуализации и может не учитывать последние события."
-            system += "\n<approved_memory_untrusted>\n" + memory_context["text"] + "\n</approved_memory_untrusted>"
+            system += ("\n<approved_memory_untrusted>\n"
+                       + _escape_untrusted_prompt_text(memory_context["text"])
+                       + "\n</approved_memory_untrusted>")
             system += "\n" + MEMORY_RECALL_INSTRUCTIONS
         model_messages = [{"role": "system", "content": system}, *history[-20:]]
         if conversation_context is not None:
@@ -940,10 +947,12 @@ class RagService:
             answer = (source.get("answer") or metadata.get("answer")) if include_private_answers else None
             if answer:
                 text = f"{text}\nПроверенный ответ: {answer}"
+            identifier_json = _escape_untrusted_prompt_text(json.dumps(identifier, ensure_ascii=False))
+            filename_json = _escape_untrusted_prompt_text(
+                json.dumps(str(source.get("source_file") or ""), ensure_ascii=False))
             blocks.append(
-                f"<source id={json.dumps(identifier, ensure_ascii=False)} "
-                f"file={json.dumps(str(source.get('source_file') or ''), ensure_ascii=False)}>\n"
-                f"{text}\n</source>"
+                f"<source id={identifier_json} file={filename_json}>\n"
+                f"{_escape_untrusted_prompt_text(text)}\n</source>"
             )
         return "\n".join(blocks)
 
@@ -972,6 +981,7 @@ class RagService:
         text = memory_context.get("text", "")
         if not isinstance(text, str):
             raise ValueError("Approved memory text must be a string")
+        text = _escape_untrusted_prompt_text(text)
         from local_app.personal_graph_contract import approved_memory_fits_budget
         if not approved_memory_fits_budget(memory_context.get("method"), text, context_tokens):
             raise ValueError("Approved memory text exceeds its context budget")
