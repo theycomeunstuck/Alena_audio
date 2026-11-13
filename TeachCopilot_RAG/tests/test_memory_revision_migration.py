@@ -3,22 +3,43 @@ import os
 from pathlib import Path
 import re
 import shutil
+from uuid import uuid4
 
+import psycopg2
 import pytest
-from psycopg2.extensions import parse_dsn
+from psycopg2 import sql
+from psycopg2.extensions import make_dsn, parse_dsn
 from psycopg2.extras import Json
 
 import local_app.store as store_module
 from local_app.store import Store
 
 
-def test_024_preserves_existing_conversation_and_old_draft(tmp_path, monkeypatch):
+@pytest.fixture
+def migration_store():
     dsn = os.getenv("TEACHCOPILOT_TEST_DSN", "")
     params = parse_dsn(dsn) if dsn else {}
     if params.get("host") not in {"localhost", "127.0.0.1", "::1"} or not re.fullmatch(
             r"teachcopilot_memory_verify_[0-9a-f]{12}", params.get("dbname", "")):
         pytest.skip("requires a freshly created disposable migration-verification database")
-    store = Store(dsn)
+    name = "teachcopilot_memory_migrate_" + uuid4().hex[:12]
+    admin = psycopg2.connect(make_dsn(dsn, dbname="postgres"))
+    admin.autocommit = True
+    try:
+        with admin.cursor() as cur:
+            cur.execute(sql.SQL("CREATE DATABASE {} TEMPLATE template0").format(sql.Identifier(name)))
+        try:
+            yield Store(make_dsn(dsn, dbname=name))
+        finally:
+            with admin.cursor() as cur:
+                cur.execute("SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname=%s AND pid<>pg_backend_pid()", (name,))
+                cur.execute(sql.SQL("DROP DATABASE {}").format(sql.Identifier(name)))
+    finally:
+        admin.close()
+
+
+def test_024_preserves_existing_conversation_and_old_draft(tmp_path, monkeypatch, migration_store):
+    store = migration_store
     full_migrations = store_module.MIGRATIONS
     old_migrations = tmp_path / "old-migrations"
     old_migrations.mkdir()
