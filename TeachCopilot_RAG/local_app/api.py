@@ -57,6 +57,14 @@ def _topic_title(topic_id: str | None, catalog: dict) -> str:
     }.get(topic_id) or topic_id or "Тема не указана")
 
 
+def _without_internal_source_ids(result: dict) -> dict:
+    """Learner-facing session payloads never carry internal source ids (the own-conversation view has its own endpoint)."""
+    if not isinstance(result.get('messages'), list):
+        return result
+    return {**result, 'messages': [{key: value for key, value in message.items() if key != 'source_id'}
+                                   if isinstance(message, dict) else message for message in result['messages']]}
+
+
 def _learning_session_topic(topic_id: str, catalog: dict) -> dict:
     from local_app.learning_topics import canonical_topic_subject
     generic_topics = {'math','python','scratch','programming','general'}
@@ -147,7 +155,8 @@ def _public_chat_completion(response: dict) -> dict:
                            '_autonomous_division_state'}}
 
 
-def create_app(settings=None, store=None, runtime=None, rag_service=None, chat_response_journal=None) -> FastAPI:
+def create_app(settings=None, store=None, runtime=None, rag_service=None, chat_response_journal=None,
+               personal_graph_factory=None, personal_memory_factory=None) -> FastAPI:
     """Build an app with injectable settings, DB store and local model services.
 
     This factory does not migrate the DB or make network calls. Constructors and
@@ -178,6 +187,8 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None, chat_r
     app.state.runtime = runtime
     app.state.rag_service = rag_service
     app.state.chat_response_journal = chat_response_journal
+    app.state.personal_graph_factory = personal_graph_factory
+    app.state.personal_memory_factory = personal_memory_factory
 
     def private_chat_journal():
         from local_app.chat_response_journal import ChatResponseJournal, default_chat_journal_path
@@ -264,12 +275,51 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None, chat_r
                 return candidate
         return None
 
+    def conversation_memory_available() -> bool:
+        return all(callable(getattr(store, name, None)) for name in (
+            "get_own_conversation_messages", "get_learner_learning_timezone", "_connect"))
+
+    def daily_checkin_available(user: dict) -> bool:
+        return _role(user) == "student" and all(callable(getattr(store, name, None))
+            for name in ("_connect", "_memory_source"))
+
+    def account_profile(user: dict) -> dict:
+        from local_app.timezones import DEFAULT_DISPLAY_TIMEZONE
+        read_timezone = getattr(store, "get_account_display_timezone", None)
+        zone = read_timezone(_account_id(user)) if callable(read_timezone) else user.get("display_timezone")
+        return {"display_timezone": zone or DEFAULT_DISPLAY_TIMEZONE}
+
+    def refresh_conversation_memory(learner_id: str, actor_id: str) -> None:
+        if not conversation_memory_available():
+            return
+        from local_app.hierarchical_memory import build_conversation_memory
+        try:
+            build_conversation_memory(store, learner_id, actor_id, context_budget_bytes=6000)
+        except Exception as exc:
+            # The chat reply is already durable. A later read refreshes the
+            # derived views without changing the completed message's outcome.
+            logger.warning("Conversation summaries need refresh (%s)", type(exc).__name__)
+
+    def fail_chat_message_and_refresh(learner_id: str, actor_id: str, session_id: str,
+                                      client_message_id: str, **kwargs):
+        result = store.fail_chat_message(session_id, client_message_id, **kwargs)
+        refresh_conversation_memory(learner_id, actor_id)
+        return result
+
     class LoginRequest(BaseModel):
         email: str = Field(..., min_length=3, max_length=320)
         password: str = Field(..., min_length=1, max_length=1024)
 
     class DemoLoginRequest(BaseModel):
         model_config = ConfigDict(extra="forbid")
+
+    class AccountPreferencesRequest(BaseModel):
+        model_config = ConfigDict(extra="forbid")
+        display_timezone: str = Field(..., min_length=1, max_length=128)
+
+    class CheckinSessionRequest(BaseModel):
+        model_config = ConfigDict(extra="forbid")
+        learning_session_id: UUID | None = None
 
     class LearnerCreateRequest(BaseModel):
         learner_id: str = Field(..., min_length=1, max_length=100)
@@ -296,7 +346,7 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None, chat_r
 
     class NextStepRequest(BaseModel):
         topic_id: str = Field(..., min_length=1, max_length=180)
-        method: Literal["profile_only", "tail", "summary", "structured"] = "tail"
+        method: Literal["profile_only", "tail", "summary", "structured", "structured_v2", "personal_graph", "personal_memory"] = "tail"
         expected_revision: int | None = Field(default=None, ge=1)
 
     class LearningSessionRequest(BaseModel):
@@ -306,7 +356,13 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None, chat_r
 
     class MemoryConfirmRequest(BaseModel):
         expected_revision: int = Field(..., ge=1)
+        acknowledge_new_messages: bool = Field(default=False, strict=True)
+        expected_source_revision: int | None = Field(default=None, ge=0, strict=True)
         interest_candidate_ids: list[str] | None = Field(default=None, max_length=16)
+        reviewed_full_archive: bool = Field(default=False, strict=True)
+        allow_full_archive: bool = Field(default=False, strict=True)
+        archive_snapshot_fingerprint: str | None = Field(default=None, min_length=64, max_length=64,
+                                                        pattern=r"^[0-9a-f]{64}$")
 
     class MemoryCorrectionRequest(BaseModel):
         model_config = ConfigDict(extra="forbid")
@@ -385,6 +441,10 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None, chat_r
     def prepare_next_step(learner_id: str, request: NextStepRequest, user: dict = Depends(teacher)):
         access(user, learner_id)
         memory_available()
+        if request.method == "personal_graph" and not _value(settings, "experimental_personal_graph_enabled", default=False):
+            raise HTTPException(status_code=503, detail="experimental personal graph is disabled")
+        if request.method == "personal_memory" and not _value(settings, "personal_memory_enabled", default=False):
+            raise HTTPException(status_code=503, detail="personal memory is disabled")
         try:
             job = store.enqueue_memory_job(learner_id, request.topic_id, "next_step", {},
                 _account_id(user), expected_revision=request.expected_revision, method=request.method)
@@ -408,14 +468,32 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None, chat_r
         return job
 
     @app.get("/learners/{learner_id}/memory")
-    def learner_memory(learner_id: str, topic_id: str | None = None, user: dict = Depends(teacher)):
+    def learner_memory(learner_id: str, topic_id: str | None = None,
+                       include_personal_graph_snapshot: bool = Query(default=False),
+                       user: dict = Depends(teacher)):
         access(user, learner_id)
         memory_available()
-        result = store.get_learner_memory(learner_id, topic_id)
+        from local_app.memory_store import get_learner_memory_snapshot
+        try:
+            result = get_learner_memory_snapshot(store, learner_id, topic_id,
+                include_personal_graph_snapshot=include_personal_graph_snapshot)
+        except RuntimeError as exc:
+            raise HTTPException(status_code=503, detail="personal graph source snapshot is unavailable") from exc
         catalog = store.catalog()
         titles = {key: [{**item, "topic_title": _topic_title(item.get("topic_id"), catalog)}
-                        for item in result.get(key, [])] for key in ("sources", "versions")}
-        return {**result, **titles, "default_method": "tail", "human_reviewed": False}
+                        for item in result.get(key, [])]
+                  for key in ("sources", "versions", "personal_graph_sources") if key in result}
+        summaries = None
+        if _value(settings, "personal_memory_enabled", default=False):
+            from local_app.memory_service import session_summary_views
+            try:
+                summaries = session_summary_views(store, learner_id)
+            except Exception as exc:
+                logger.warning("Session summaries unavailable (%s)", type(exc).__name__)
+                raise HTTPException(status_code=503, detail="session summaries are unavailable") from exc
+        return {**result, **titles,
+                "default_method": "personal_memory" if _value(settings, "personal_memory_enabled", default=False) else "tail",
+                "session_summaries": summaries, "human_reviewed": False}
 
     @app.post("/learners/{learner_id}/memory/sources/{source_id}/corrections", status_code=202)
     def correct_memory_source(learner_id: str, source_id: str, request: MemoryCorrectionRequest,
@@ -438,8 +516,20 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None, chat_r
         access(user, learner_id)
         memory_available()
         try:
+            if request.allow_full_archive != request.reviewed_full_archive:
+                raise HTTPException(status_code=422, detail="full archive access requires a separate review acknowledgment")
+            if request.allow_full_archive and request.archive_snapshot_fingerprint is None:
+                raise HTTPException(status_code=422, detail="full archive access requires a reviewed snapshot fingerprint")
             review_options = ({"interest_candidate_ids": request.interest_candidate_ids}
                               if request.interest_candidate_ids is not None else {})
+            if request.acknowledge_new_messages or request.expected_source_revision is not None:
+                review_options.update(acknowledge_new_messages=request.acknowledge_new_messages,
+                                      expected_source_revision=request.expected_source_revision)
+            if request.allow_full_archive:
+                review_options.update(full_archive_access=True,
+                                      expected_archive_fingerprint=request.archive_snapshot_fingerprint)
+            elif request.archive_snapshot_fingerprint is not None:
+                raise ValueError("archive snapshot fingerprint requires explicit full archive access")
             version = store.approve_memory_version(learner_id, version_id, _account_id(user),
                                                    request.expected_revision, **review_options)
         except Exception as exc:
@@ -447,7 +537,9 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None, chat_r
             if isinstance(exc, MemoryIdempotencyConflict):
                 raise HTTPException(status_code=409, detail="memory was already confirmed with a different selection") from exc
             memory_error(exc)
-        return {"learner_id": learner_id, "version": version, "confirmed": True}
+        review = (version.get("context") or {}).get("snapshot_review") or {}
+        return {"learner_id": learner_id, "version": version, "confirmed": True,
+                "refresh_required": bool(review.get("refresh_required"))}
 
     @app.get('/learners/{learner_id}/learning-sessions/current')
     def current_learning_session(learner_id: str, user: dict = Depends(require_user)):
@@ -457,7 +549,7 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None, chat_r
             result = store.current_learning_session(learner_id, _account_id(user))
             if not result.get('available'):
                 return {'available':False}
-            return {**result,**_learning_session_topic(result['topic_id'],store.catalog())}
+            return {**_without_internal_source_ids(result),**_learning_session_topic(result['topic_id'],store.catalog())}
         except Exception as exc:
             memory_error(exc)
 
@@ -485,7 +577,7 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None, chat_r
         try:
             result = store.completed_learning_session_history(learner_id,str(learning_session_id),
                                                                _account_id(user),before=before)
-            return {**result,**_learning_session_topic(result['topic_id'],store.catalog())}
+            return {**_without_internal_source_ids(result),**_learning_session_topic(result['topic_id'],store.catalog())}
         except LearningSessionNotCompletedError as exc:
             raise HTTPException(status_code=409,detail=str(exc)) from exc
         except Exception as exc:
@@ -505,6 +597,8 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None, chat_r
             session_topic = request.topic_id or AUTONOMOUS_DIVISION_TOPIC
         try:
             options = {"client_session_id": request.client_session_id}
+            if callable(getattr(store, "get_account_display_timezone", None)):
+                options["event_timezone"] = account_profile(user)["display_timezone"]
             if request.mode != "standard":
                 options["mode"] = request.mode
             session = store.create_learning_session(learner_id, _account_id(user), session_topic, **options)
@@ -543,9 +637,20 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None, chat_r
         if _role(user) == "student" and str(session.get("actor_id")) != _account_id(user):
             raise HTTPException(status_code=403, detail="learning session belongs to another account")
         try:
-            return store.complete_learning_session(learning_session_id, session["learner_id"], _account_id(user))
+            result = store.complete_learning_session(learning_session_id, session["learner_id"], _account_id(user))
         except Exception as exc:
             memory_error(exc)
+        if _value(settings, "personal_memory_enabled", default=False):
+            from local_app.memory_service import session_summary_views
+            try:
+                summaries = session_summary_views(store, session["learner_id"])
+                result["session_summary_status"] = "ready" if summaries is not None else "unavailable"
+            except Exception as exc:
+                # Completion is durable already. Reading the teacher view
+                # retries materialization against the current source snapshot.
+                logger.warning("Completed-session summary needs refresh (%s)", type(exc).__name__)
+                result["session_summary_status"] = "pending_refresh"
+        return result
 
     @app.get("/health")
     @app.get("/health/live")
@@ -628,9 +733,144 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None, chat_r
             "display_name": user.get("display_name"),
             "role": _role(user),
             "learner_id": user.get("learner_id"),
-        }, "features": {
+        }, "profile": account_profile(user), "features": {
             "autonomous_division": autonomous_division_allowed(user),
+            "personal_graph": bool(_value(settings, "experimental_personal_graph_enabled", default=False)),
+            "personal_memory": bool(_value(settings, "personal_memory_enabled", default=False)),
+            "personal_memory_retrieval_mode": _value(settings, "personal_memory_retrieval_mode", default="hybrid"),
+            "session_summaries": bool(_value(settings, "personal_memory_enabled", default=False)),
+            "conversation_memory": conversation_memory_available(),
+            "conversation_memory_in_responses": bool(_value(settings, "personal_memory_enabled", default=True)),
+            "daily_checkin": daily_checkin_available(user),
         }}
+
+    @app.patch("/auth/preferences")
+    def update_account_preferences(request: AccountPreferencesRequest, user: dict = Depends(require_user)):
+        update_timezone = getattr(store, "set_account_display_timezone", None)
+        if not callable(update_timezone):
+            raise HTTPException(status_code=503, detail="account preferences storage is unavailable")
+        try:
+            profile = update_timezone(_account_id(user), request.display_timezone)
+        except Exception as exc:
+            memory_error(exc)
+        return {"profile": profile}
+
+    @app.get("/learners/{learner_id}/conversation-memory")
+    def own_conversation_memory(learner_id: str, user: dict = Depends(require_user)):
+        access(user, learner_id)
+        if not conversation_memory_available():
+            raise HTTPException(status_code=503, detail="own conversation memory is unavailable")
+        from local_app.hierarchical_memory import build_conversation_memory
+        try:
+            hierarchy = build_conversation_memory(store, learner_id, _account_id(user), context_budget_bytes=6000)
+        except Exception as exc:
+            memory_error(exc)
+        return {"learner_id": learner_id, "hierarchy": hierarchy}
+
+    @app.get("/learners/{learner_id}/conversation-history")
+    def own_conversation_history(learner_id: str,
+            before_source_order: int | None = Query(default=None, ge=1),
+            limit: int = Query(default=50, ge=1, le=100), user: dict = Depends(require_user)):
+        access(user, learner_id)
+        if not conversation_memory_available():
+            raise HTTPException(status_code=503, detail="own conversation history is unavailable")
+        try:
+            rows = store.get_own_conversation_messages(learner_id, _account_id(user),
+                limit=limit + 1, before_source_order=before_source_order)
+        except Exception as exc:
+            memory_error(exc)
+        has_older = len(rows) > limit
+        messages = rows[-limit:]
+        before = min(int(row["source_order"]) for row in messages) if has_older else None
+        return {"learner_id": learner_id, "messages": messages, "next_before_source_order": before}
+
+    @app.get("/learners/{learner_id}/conversation-catalog")
+    def own_conversation_catalog(learner_id: str, user: dict = Depends(require_user)):
+        access(user, learner_id)
+        if not conversation_memory_available():
+            raise HTTPException(status_code=503, detail="conversation catalog storage is unavailable")
+        from local_app.dialogue_catalog import get_dialogue_catalog
+        try:
+            catalog = get_dialogue_catalog(store, learner_id, _account_id(user))
+        except Exception as exc:
+            memory_error(exc)
+        return {"learner_id": learner_id, "catalog": catalog}
+
+    @app.post("/learners/{learner_id}/conversation-catalog/reclassify")
+    def reclassify_own_conversation(learner_id: str, user: dict = Depends(require_user)):
+        access(user, learner_id)
+        if not conversation_memory_available():
+            raise HTTPException(status_code=503, detail="conversation catalog storage is unavailable")
+        from local_app.config import require_local_url
+        from local_app.conversation_retrieval import ConversationRetrievalUnavailable
+        from local_app.dialogue_catalog import DialogueCatalogConflict, rebuild_dialogue_catalog
+        local_runtime = app.state.runtime
+        if not all(callable(getattr(local_runtime, name, None)) for name in ("embed", "embedding_model_identity")):
+            raise HTTPException(status_code=503, detail="local conversation embedding service is unavailable")
+        try:
+            require_local_url(_value(getattr(local_runtime, "settings", None), "ollama_url", default=""))
+        except ValueError as exc:
+            raise HTTPException(status_code=503, detail="conversation classification requires local embeddings") from exc
+        try:
+            catalog = rebuild_dialogue_catalog(store, local_runtime, learner_id, _account_id(user))
+        except DialogueCatalogConflict as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        except ConversationRetrievalUnavailable as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+        except Exception as exc:
+            memory_error(exc)
+        return {"learner_id": learner_id, "catalog": catalog}
+
+    def require_daily_checkin(user: dict, learner_id: str) -> None:
+        access(user, learner_id)
+        if _role(user) != "student":
+            raise HTTPException(status_code=403, detail="daily check-in requires a student account")
+        if not daily_checkin_available(user):
+            raise HTTPException(status_code=503, detail="daily check-in storage is unavailable")
+
+    def checkin_error(exc: Exception) -> None:
+        from local_app.checkins import CheckinConflict
+        if isinstance(exc, CheckinConflict):
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        memory_error(exc)
+
+    @app.get("/learners/{learner_id}/checkin")
+    def daily_checkin(learner_id: str, learning_session_id: UUID | None = None,
+                     user: dict = Depends(require_user)):
+        require_daily_checkin(user, learner_id)
+        from local_app.checkins import get_or_create_checkin
+        try:
+            checkin = get_or_create_checkin(store, learner_id, _account_id(user),
+                str(learning_session_id) if learning_session_id is not None else None)
+        except Exception as exc:
+            checkin_error(exc)
+        return {"checkin": checkin}
+
+    @app.post("/learners/{learner_id}/checkin/{checkin_id}/shown")
+    def acknowledge_daily_checkin(learner_id: str, checkin_id: UUID,
+            request: CheckinSessionRequest | None = None, user: dict = Depends(require_user)):
+        require_daily_checkin(user, learner_id)
+        from local_app.checkins import mark_checkin_shown
+        session_id = request.learning_session_id if request else None
+        try:
+            checkin = mark_checkin_shown(store, learner_id, _account_id(user), str(checkin_id),
+                str(session_id) if session_id is not None else None)
+        except Exception as exc:
+            checkin_error(exc)
+        return {"checkin": checkin}
+
+    @app.post("/learners/{learner_id}/checkin/{checkin_id}/skip")
+    def skip_daily_checkin(learner_id: str, checkin_id: UUID,
+            request: CheckinSessionRequest | None = None, user: dict = Depends(require_user)):
+        require_daily_checkin(user, learner_id)
+        from local_app.checkins import skip_checkin
+        session_id = request.learning_session_id if request else None
+        try:
+            checkin = skip_checkin(store, learner_id, _account_id(user), str(checkin_id),
+                str(session_id) if session_id is not None else None)
+        except Exception as exc:
+            checkin_error(exc)
+        return {"checkin": checkin}
 
     @app.get("/catalog")
     def curriculum_catalog(user: dict = Depends(require_user)):
@@ -1175,6 +1415,15 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None, chat_r
     @app.post("/v1/chat/completions")
     def openai_chat_completions(payload: dict[str, Any], user: dict = Depends(require_user)):
         meta = payload.get("metadata") if isinstance(payload.get("metadata"), dict) else {}
+        memory_enabled = bool(_value(settings, "personal_memory_enabled", default=True))
+        personal_graph_requested = meta.get("memory_method") == "personal_graph"
+        personal_memory_requested = meta.get("memory_method") == "personal_memory"
+        personal_source_requested = personal_graph_requested or personal_memory_requested
+        requested_memory_method = meta.get("memory_method") if personal_source_requested else "tail"
+        if personal_source_requested and not memory_enabled:
+            raise HTTPException(status_code=503, detail="personal memory is disabled")
+        if personal_graph_requested and not _value(settings, "experimental_personal_graph_enabled", default=False):
+            raise HTTPException(status_code=503, detail="experimental personal graph is disabled")
         target = student_learner_id(user) if _role(user) == "student" else (payload.get("learner_id") or meta.get("learner_id"))
         if not target:
             raise HTTPException(status_code=422, detail="learner_id is required for this account")
@@ -1183,6 +1432,8 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None, chat_r
             raise HTTPException(status_code=404, detail="learner not found")
         messages = payload.get("messages")
         explicit = 'learning_action' in payload
+        if personal_source_requested and explicit:
+            raise HTTPException(status_code=422, detail="personal memory is available for ordinary chat messages")
         action = None
         action_text = None
         if explicit:
@@ -1206,12 +1457,38 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None, chat_r
             raise HTTPException(status_code=422, detail="message content must be nonempty text within 12000 characters")
         learning_session_id = payload.get("learning_session_id") or meta.get("learning_session_id")
         client_message_id = payload.get("client_message_id") or meta.get("client_message_id")
+        checkin_id = meta.get("checkin_id")
+        if checkin_id is not None:
+            require_daily_checkin(user, target)
+            if explicit:
+                raise HTTPException(status_code=422, detail="daily check-in answers require an ordinary chat message")
+            try:
+                checkin_id = str(UUID(str(checkin_id)))
+            except (ValueError, TypeError, AttributeError) as exc:
+                raise HTTPException(status_code=422, detail="checkin_id must be a UUID") from exc
         from local_app.autonomous_division import VERSION as AUTONOMOUS_DIVISION_VERSION
         if payload.get("learning_protocol") == AUTONOMOUS_DIVISION_VERSION and not learning_session_id:
             raise HTTPException(status_code=409, detail="autonomous protocol requires an autonomous learning session")
         if explicit and not learning_session_id:
             raise HTTPException(status_code=422, detail="Для учебного действия требуется learning_session_id.")
+        if not learning_session_id and callable(getattr(store, "ensure_conversation_session", None)):
+            card = store.get_card(target)
+            goal = (card.get("rag_context") or {}).get("current_goal") or {}
+            topic_id = goal.get("topic_id") or "general"
+            try:
+                automatic_session = store.ensure_conversation_session(target, _account_id(user), topic_id,
+                    event_timezone=account_profile(user)["display_timezone"])
+            except Exception as exc:
+                memory_error(exc)
+            learning_session_id = automatic_session.get("learning_session_id") or automatic_session.get("id")
+            if not learning_session_id:
+                raise HTTPException(status_code=503, detail="conversation session storage returned no identifier")
+            if client_message_id is None:
+                client_message_id = "message-" + secrets.token_urlsafe(18)
+        if checkin_id is not None and not learning_session_id:
+            raise HTTPException(status_code=503, detail="daily check-in answers require durable conversation storage")
         reserved = False
+        reserved_source_id = None
         chat_job = None
         chat_worker_id = "chat-" + secrets.token_urlsafe(18)
         call_started = False
@@ -1258,8 +1535,11 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None, chat_r
                     raise HTTPException(status_code=422, detail=str(exc)) from exc
             latest_user = next(message for message in reversed(clean_messages) if message["role"] == "user")
             try:
+                reservation_options = {"author_role": _role(user)}
+                if callable(getattr(store, "get_account_display_timezone", None)):
+                    reservation_options["event_timezone"] = account_profile(user)["display_timezone"]
                 reservation = store.reserve_chat_message(str(learning_session_id), target,
-                    client_message_id, latest_user["content"], _account_id(user), author_role=_role(user))
+                    client_message_id, latest_user["content"], _account_id(user), **reservation_options)
             except Exception as exc:
                 memory_error(exc)
             if not reservation.get("created"):
@@ -1275,6 +1555,10 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None, chat_r
                     if (cached.get('learning_action') != expected_action or not autonomous_replay_ok or guided and
                             (cached.get('_guided_division_provenance') or {}).get('action') != action):
                         raise HTTPException(status_code=409, detail="client_message_id was reused for a different request mode")
+                    if (cached.get("memory_method") or "tail") != requested_memory_method:
+                        raise HTTPException(status_code=409, detail="client_message_id was reused for a different memory method")
+                    if cached.get("checkin_id") != checkin_id:
+                        raise HTTPException(status_code=409, detail="client_message_id was reused for a different daily check-in")
                     cached = _public_chat_completion(cached)
                     if _role(user) == "student":
                         cached = _safe_student_completion(cached)
@@ -1283,21 +1567,33 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None, chat_r
                 detail = "message is already processing" if reservation.get("status") == "pending" else "previous message outcome is unavailable; automatic retry is disabled"
                 raise HTTPException(status_code=status_code, detail=detail)
             reserved = True
+            reserved_source_id = str(reservation["source_id"]) if reservation.get("source_id") is not None else None
+            if checkin_id is not None:
+                from local_app.checkins import mark_checkin_answered
+                try:
+                    if reserved_source_id is None:
+                        raise ValueError("daily check-in answer has no durable source")
+                    mark_checkin_answered(store, target, _account_id(user), checkin_id, reserved_source_id)
+                except Exception as exc:
+                    fail_chat_message_and_refresh(target, _account_id(user), str(learning_session_id), client_message_id,
+                        error=type(exc).__name__, unknown_outcome=False)
+                    checkin_error(exc)
             if not autonomous_session:
                 try:
                     chat_job = admit_chat(target, session.get("topic_id") or "general",
                         {"learning_session_id": str(learning_session_id), "client_message_id": client_message_id},
                         _account_id(user), chat_worker_id, idempotency_key=f"chat:{learning_session_id}:{client_message_id}")
                 except HTTPException:
-                    store.fail_chat_message(str(learning_session_id), client_message_id,
-                                            error="chat admission rejected", unknown_outcome=False)
+                    fail_chat_message_and_refresh(target, _account_id(user), str(learning_session_id), client_message_id,
+                                                  error="chat admission rejected", unknown_outcome=False)
                     raise
                 except Exception as exc:
-                    store.fail_chat_message(str(learning_session_id), client_message_id,
-                                            error=type(exc).__name__, unknown_outcome=False)
+                    fail_chat_message_and_refresh(target, _account_id(user), str(learning_session_id), client_message_id,
+                                                  error=type(exc).__name__, unknown_outcome=False)
                     memory_error(exc)
-            clean_messages = [{"role": row["role"], "content": row["content"]}
-                              for row in store.list_learning_messages(str(learning_session_id))]
+            clean_messages = ([{"role": row["role"], "content": row["content"]}
+                               for row in store.list_learning_messages(str(learning_session_id))]
+                              if memory_enabled else [latest_user])
         else:
             # Legacy clients keep their dialogue contract, while sharing the
             # same persistent waiting cap and local generation admission.
@@ -1308,6 +1604,9 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None, chat_r
                 raise
             except Exception as exc:
                 memory_error(exc)
+            if not memory_enabled:
+                clean_messages = [next(message for message in reversed(clean_messages)
+                                       if message["role"] == "user")]
         if explicit:
             from local_app.explicit_learning_actions import action_response, GUIDED_OPERATIONS
             try:
@@ -1328,8 +1627,10 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None, chat_r
                     if finished.get('status') != 'completed':
                         raise ValueError('chat context changed or job lease expired during action')
                 store.complete_chat_message(str(learning_session_id), client_message_id, response)
+                refresh_conversation_memory(target, _account_id(user))
             except Exception as exc:
-                store.fail_chat_message(str(learning_session_id), client_message_id, error=type(exc).__name__, unknown_outcome=False)
+                fail_chat_message_and_refresh(target, _account_id(user), str(learning_session_id), client_message_id,
+                                              error=type(exc).__name__, unknown_outcome=False)
                 if chat_job:
                     store.finish_memory_job(chat_job['job_id'], error=type(exc).__name__, worker_id=chat_worker_id, unknown_outcome=False)
                 memory_error(exc)
@@ -1337,15 +1638,15 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None, chat_r
             return JSONResponse(content=_safe_student_completion(response) if _role(user) == 'student' else response)
         if app.state.rag_service is None:
             if reserved:
-                store.fail_chat_message(str(learning_session_id), client_message_id,
-                                        error="RAG service is unavailable", unknown_outcome=False)
+                fail_chat_message_and_refresh(target, _account_id(user), str(learning_session_id), client_message_id,
+                                              error="RAG service is unavailable", unknown_outcome=False)
             if chat_job:
                 store.finish_memory_job(chat_job["job_id"], error="RAG service is unavailable", worker_id=chat_worker_id)
             raise HTTPException(status_code=503, detail="RAG service is unavailable")
         try:
             card = store.get_card(target)
-            safe_profile = card.get("rag_context", {}) if isinstance(card, dict) else {}
-            if hasattr(store, "catalog"):
+            safe_profile = card.get("rag_context", {}) if memory_enabled and isinstance(card, dict) else {}
+            if memory_enabled and hasattr(store, "catalog"):
                 from pipeline.learner_context import LearnerContextError, load_learner_context
                 try:
                     safe_profile = load_learner_context(target, store=store).prompt_text
@@ -1355,11 +1656,56 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None, chat_r
             topic_hint = goal.get("topic_id") if isinstance(goal, dict) else None
             if session and session.get("topic_id"):
                 topic_hint = session["topic_id"]
+            latest_text = next((str(message.get("content", "")) for message in reversed(clean_messages)
+                                if message.get("role") == "user"), "")
             memory_context = {"text": "", "sources": []}
-            if hasattr(store, "get_learner_memory"):
+            personal_memory_provider = None
+            personal_memory_state = None
+            if personal_source_requested:
+                from local_app.rag import RagService
+                from local_app.personal_graph_index import PersonalGraphIndexStale
+                from local_app.personal_graph_memory import (PersonalGraphProvider, PersonalGraphSelectionBudgetExceeded,
+                                                             approved_graph_version)
+                from local_app.personal_memory import (PersonalMemoryProvider, PersonalMemoryStale,
+                                                        approved_personal_memory_version)
+                if not topic_hint or not hasattr(store, "get_learner_memory"):
+                    raise HTTPException(status_code=409, detail="personal graph needs an approved memory for the current topic")
+                answer_adapter = getattr(app.state.rag_service, "answer_adapter", None)
+                if (not isinstance(app.state.rag_service, RagService) or answer_adapter is None
+                        or getattr(answer_adapter, "external_client", None) is not None):
+                    raise HTTPException(status_code=503, detail="personal graph chat requires local generation")
+                from local_app.memory_store import get_learner_memory_snapshot
+                try:
+                    snapshot = get_learner_memory_snapshot(store, target, None,
+                        include_personal_graph_snapshot=True)
+                except RuntimeError as exc:
+                    raise HTTPException(status_code=503, detail="personal graph source snapshot is unavailable") from exc
+                graph_snapshot = {**snapshot, "sources": snapshot["personal_graph_sources"]}
+                approved_version = approved_personal_memory_version if personal_memory_requested else approved_graph_version
+                approved = approved_version(graph_snapshot, target, topic_hint)
+                if approved is None:
+                    raise HTTPException(status_code=409, detail="personal graph memory needs teacher approval or refresh")
+                factory = ((app.state.personal_memory_factory or PersonalMemoryProvider) if personal_memory_requested
+                           else (app.state.personal_graph_factory or PersonalGraphProvider))
+                try:
+                    provider = factory(store, app.state.runtime)
+                    memory_context = provider.chat_context(snapshot, target, topic_hint, latest_text)
+                    if personal_memory_requested:
+                        personal_memory_provider = provider
+                        personal_memory_state = approved["state"]
+                        if not memory_context.get("snapshot_is_frozen"):
+                            from local_app.memory_service import attach_session_summaries
+                            memory_context = attach_session_summaries(store, memory_context, target, topic_hint,
+                                                                       app.state.runtime.context_tokens)
+                except (PersonalGraphSelectionBudgetExceeded, PersonalGraphIndexStale, PersonalMemoryStale) as exc:
+                    raise HTTPException(status_code=409, detail=str(exc)) from exc
+                except Exception as exc:
+                    logger.warning("Personal graph retrieval unavailable (%s)", type(exc).__name__)
+                    raise HTTPException(status_code=503, detail="personal graph retrieval is unavailable") from exc
+            elif memory_enabled and hasattr(store, "get_learner_memory"):
                 from local_app.memory_service import approved_chat_memory
                 memory_context = approved_chat_memory(store.get_learner_memory(target, topic_hint), topic_hint)
-            latest = next((str(message.get("content", "")) for message in reversed(clean_messages) if message.get("role") == "user"), "").lower()
+            latest = latest_text.lower()
             subject_id = session_subject or _chat_subject(latest, meta.get("subject_id"))
             answer_kwargs = dict(profile=safe_profile, subject_id=subject_id, topic_id=topic_hint, grade=card.get("grade") if isinstance(card, dict) else None, limit=int(_value(app.state.settings, "rag_limit", default=3)))
             # Only the real adapter receives server-collected identifiers. Older
@@ -1375,13 +1721,28 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None, chat_r
                     identity_complete = True
                 answer_kwargs.update(known_identifiers=[str(value) for value in identifiers if value],
                     identity_context_complete=identity_complete,
-                    preference_context=preference_projection(card),
+                    preference_context=(preference_projection(card) if memory_enabled
+                                        else {"interests": [], "avoided_interests": []}),
                     memory_context=memory_context,
                     memory_projection=[{"source_id": row["source_id"], "quote": row.get("text", ""),
                                         "role": row.get("role") or row.get("author_role"),
                                         **({"corrects_source_id":row["corrects_source_id"]}
                                            if row.get("corrects_source_id") is not None else {})}
                                        for row in memory_context.get("sources", [])])
+                answer_adapter = getattr(app.state.rag_service, "answer_adapter", None)
+                if (memory_enabled and conversation_memory_available() and answer_adapter is not None
+                        and getattr(answer_adapter, "external_client", None) is None):
+                    from local_app.hierarchical_memory import build_conversation_memory
+                    from local_app.conversation_retrieval import retrieve_conversation_context
+                    conversation_context = build_conversation_memory(store, target, _account_id(user),
+                        exclude_source_id=reserved_source_id, context_budget_bytes=6000)
+
+                    def retrieve_own_conversation(query: str) -> dict:
+                        return retrieve_conversation_context(store, app.state.runtime, target, _account_id(user),
+                            query, exclude_source_id=reserved_source_id)
+
+                    answer_kwargs.update(conversation_context=conversation_context,
+                                         conversation_retriever=retrieve_own_conversation)
             from local_app.chat_response_journal import journal_request, captured_call
             with journal_request(private_chat_journal(), actor_id=_account_id(user), learner_id=target,
                     job_id=str(chat_job["job_id"]) if chat_job else None,
@@ -1395,6 +1756,11 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None, chat_r
                     # Preserve the complete service result before validation,
                     # projection, mutation or any PostgreSQL completion write.
                     captured.returned(response)
+            if personal_memory_provider is not None:
+                try:
+                    personal_memory_provider.validate_state_identity(personal_memory_state)
+                except PersonalMemoryStale as exc:
+                    raise HTTPException(status_code=409, detail=str(exc)) from exc
             if not isinstance(response, dict) or not isinstance(response.get("choices"), list):
                 raise ValueError("chat service returned an invalid response")
             # Raw resolver decisions belong only in the protected local job.
@@ -1408,6 +1774,10 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None, chat_r
             if reserved:
                 response.update(learning_session_id=str(learning_session_id), client_message_id=client_message_id,
                                 memory_version_id=memory_context.get("version_id"), memory_stale=memory_context.get("stale", False))
+            if personal_source_requested:
+                response["memory_method"] = requested_memory_method
+            if checkin_id is not None:
+                response["checkin_id"] = checkin_id
             if chat_job:
                 job_result = {"response_ready": True}
                 if isinstance(local_diagnostics, dict):
@@ -1417,10 +1787,12 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None, chat_r
                     raise ValueError("chat context changed or job lease expired during generation")
             if reserved:
                 store.complete_chat_message(str(learning_session_id), client_message_id, response)
+                refresh_conversation_memory(target, _account_id(user))
         except HTTPException:
             try:
                 if reserved:
-                    store.fail_chat_message(str(learning_session_id), client_message_id, error="chat request rejected", unknown_outcome=call_started)
+                    fail_chat_message_and_refresh(target, _account_id(user), str(learning_session_id), client_message_id,
+                                                  error="chat request rejected", unknown_outcome=call_started)
                 if chat_job:
                     store.finish_memory_job(chat_job["job_id"], error="chat request rejected", worker_id=chat_worker_id, unknown_outcome=call_started)
             except Exception as cleanup_error:
@@ -1435,7 +1807,8 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None, chat_r
             if not database_failure:
                 try:
                     if reserved:
-                        store.fail_chat_message(str(learning_session_id), client_message_id, error=type(exc).__name__, unknown_outcome=call_started and not capacity)
+                        fail_chat_message_and_refresh(target, _account_id(user), str(learning_session_id), client_message_id,
+                                                      error=type(exc).__name__, unknown_outcome=call_started and not capacity)
                     if chat_job:
                         raw_failure = getattr(exc, "raw_response", None)
                         diagnostic = ({"type": type(exc).__name__, "message": str(exc), "model_response": raw_failure}
@@ -1445,6 +1818,10 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None, chat_r
                     logger.error("Chat cleanup unavailable (%s); no replay attempted", type(cleanup_error).__name__)
             if capacity:
                 raise HTTPException(status_code=429, detail="generation queue is full; retry later", headers={"Retry-After": "10"}) from exc
+            if (isinstance(exc, ValueError)
+                    and str(exc) == "Complete conversation summary and latest message exceed the UTF-8 context budget"):
+                raise HTTPException(status_code=413,
+                    detail="conversation memory and the latest message exceed the model context budget") from exc
             if isinstance(exc, ResponseJournalError):
                 logger.error("Chat response journal unavailable; no replay attempted")
                 raise HTTPException(status_code=503, detail="local response journal is unavailable; automatic replay is disabled") from exc

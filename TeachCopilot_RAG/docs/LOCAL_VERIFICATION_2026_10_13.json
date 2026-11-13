@@ -1,0 +1,156 @@
+{
+  "date": "2026-10-13",
+  "repository": {
+    "branch": "dev",
+    "base_commit": "60ce142d5b630804d8b1f1973ca57216b6e6eacd",
+    "changes_committed": false
+  },
+  "database": {
+    "schema_version": 9,
+    "learners": 17,
+    "active_materials": 147,
+    "index": {
+      "embedding_model": "bge-m3",
+      "dimension": 1024,
+      "total": 147,
+      "indexed": 147,
+      "ready": true,
+      "embedding_model_identity": "bge-m3:latest@7907646426070047a77226ac3e684fbbe8410524f7b4a74d02837e43f2146bab@recipe=269bda234d703b088f748f6e2e68687de148258c776da902d257e232589e83c3",
+      "embedding_prompt_recipe": "raw-query-v1",
+      "embedding_prompt_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "models": {
+    "ready": true,
+    "models": [
+      {
+        "name": "bge-m3:latest",
+        "digest": "7907646426070047a77226ac3e684fbbe8410524f7b4a74d02837e43f2146bab"
+      },
+      {
+        "name": "gemma4:12b",
+        "digest": "6114515d63c17436a7c0417d82820ac65ad643e2806c5a3c89cb62846436ed0b"
+      }
+    ],
+    "local_only": true
+  },
+  "runtime_policy": {
+    "local_only": true,
+    "trust_env_disabled": true,
+    "redirects_allowed": false,
+    "ollama_url": "http://127.0.0.1:11435",
+    "chat_model": "gemma4:12b",
+    "embedding_model": "bge-m3",
+    "embedding_prompt_recipe": "raw-query-v1",
+    "embedding_prompt_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "embedding_document_recipe": "raw-document-v1",
+    "context_tokens": 8192,
+    "max_output_tokens": 1024,
+    "request_timeout": 180.0,
+    "scope_policy_version": "teachcopilot-curriculum-scope-v1",
+    "scope_classifier_max_output_tokens": 128
+  },
+  "retrieval_raw_baseline": {
+    "evaluated_cases": 150,
+    "source_labeled_cases": 120,
+    "recall_at_1": 0.9166666666666666,
+    "recall_at_3": 1.0,
+    "mrr": 0.9555555555555556,
+    "abstention_cases": 30,
+    "correct_abstentions": 0,
+    "abstention_accuracy": 0.0,
+    "unsupported_false_positive_rate": 1.0,
+    "learner_hints_used": false,
+    "mean_latency_ms": 62.59
+  },
+  "retrieval_final_with_scope_gate": {
+    "evaluated_cases": 150,
+    "source_labeled_cases": 120,
+    "recall_at_1": 0.9166666666666666,
+    "recall_at_3": 1.0,
+    "mrr": 0.9555555555555556,
+    "abstention_cases": 30,
+    "correct_abstentions": 30,
+    "abstention_accuracy": 1.0,
+    "unsupported_false_positive_rate": 0.0,
+    "learner_hints_used": false,
+    "mean_latency_ms": 307.89
+  },
+  "generation_baseline_before_scope_gate": [
+    {
+      "model": "qwen3.5:9b",
+      "requests": 150,
+      "citation_labeled_requests": 120,
+      "keyword_labeled_requests": 82,
+      "summary": {
+        "schema_valid_rate": 1.0,
+        "mean_expected_term_coverage": 0.573170731707317,
+        "all_expected_terms_rate": 0.5121951219512195,
+        "must_avoid_violation_rate": 0.0,
+        "expected_source_retrieved_rate": 1.0,
+        "expected_source_cited_rate": 0.4,
+        "mean_latency_ms": 1764.38
+      }
+    },
+    {
+      "model": "gemma4:12b",
+      "requests": 150,
+      "citation_labeled_requests": 120,
+      "keyword_labeled_requests": 82,
+      "summary": {
+        "schema_valid_rate": 1.0,
+        "mean_expected_term_coverage": 0.6097560975609756,
+        "all_expected_terms_rate": 0.5121951219512195,
+        "must_avoid_violation_rate": 0.0,
+        "expected_source_retrieved_rate": 1.0,
+        "expected_source_cited_rate": 0.9,
+        "mean_latency_ms": 1520.97
+      }
+    }
+  ],
+  "verification": {
+    "full_suite": {
+      "passed": 203,
+      "seconds": 32.96,
+      "postgresql": "disposable database",
+      "warning": "Starlette/httpx deprecation"
+    },
+    "named_target_backup_restore": {
+      "passed": true,
+      "learners": 17,
+      "active_materials": 147
+    },
+    "live_api": {
+      "ready": "ready",
+      "authorization": {
+        "unauthenticated": 401,
+        "another_learner": 403,
+        "student_task_design": 403,
+        "private_profile_fields": false
+      },
+      "model": "gemma4:12b",
+      "no_source_completion_tokens": 0
+    },
+    "offline_http_guarded_workflow": {
+      "passed": true,
+      "seconds": 31.12,
+      "lesson_idempotent": true,
+      "revision_increment": 1,
+      "database": "disposable restored copy"
+    }
+  },
+  "artifact_hashes": {
+    "golden_fixture": "a976b9003c5952a84f6010403af262390fd2a370057663e970e95875d9684ffb",
+    "retrieval_raw": "ec302257ca4ee411076ef274f79d50dfde89db2d201eac35fb12df07a9bd63b0",
+    "retrieval_final": "8f98bbbd80613a5f2f155e03b5e32d22708a971fba3ac0083f1a34115df66cb9",
+    "generation": "17eb93d3b3d37ae90a26d9f89b42a4221102a041b0390bb41abc24de0d269e6a",
+    "dependency_lock": "d8c5ad3afde5a10de08c98f01b477a4f37ef6844e85f1e449be2c9cfb9c80177"
+  },
+  "limitations": [
+    "Synthetic 75-case benchmark, two repeats; no human pedagogical approval.",
+    "Source citation validation does not verify every answer claim.",
+    "Scope classifier may make mistakes outside measured cases.",
+    "Generated task cards are teacher-only drafts; Scratch examples still require correction before child delivery.",
+    "HTTP egress guard was exercised; the PC network was not physically disconnected."
+  ]
+}

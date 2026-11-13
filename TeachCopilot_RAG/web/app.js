@@ -3,7 +3,7 @@
   const API = '';
   const tokenKey = 'teachcopilot.session';
   const greeting = 'Привет! Расскажи, что разбираете, и я помогу найти следующий шаг.';
-  const state = { token: sessionStorage.getItem(tokenKey), account: null, features: {}, learners: [], learnerId: null, dashboard: null, topics: [], task: null, proposal: null, revision: null, chatByLearner: new Map(), nextStepsByLearner: new Map(), learningSessionsByLearner: new Map(), pendingMessages: new Map(), chatTopicsByLearnerSubject: new Map(), memoryCorrectionJobs: new Map(), memoryViewRevision: 0, viewRevision: 0 };
+  const state = { token: sessionStorage.getItem(tokenKey), account: null, profile: {}, features: {}, learners: [], learnerId: null, dashboard: null, topics: [], task: null, proposal: null, revision: null, chatByLearner: new Map(), nextStepsByLearner: new Map(), learningSessionsByLearner: new Map(), pendingMessages: new Map(), chatTopicsByLearnerSubject: new Map(), memoryCorrectionJobs: new Map(), memoryViewRevision: 0, viewRevision: 0 };
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
   const el = (tag, cls, value) => { const node = document.createElement(tag); if (cls) node.className = cls; if (value !== undefined) node.textContent = value; return node; };
@@ -18,6 +18,10 @@
   const autonomousContexts = new Map();
   const sessionRecovery = new Map();
   const sessionClosures = new Map();
+  const conversationViews = new Map();
+  const ownArchiveViews = new Map();
+  const dailyCheckins = new Map();
+  let checkinObserver = null;
   let learningArchive = null;
   let guidedViewRevision = 0;
   let chatReturnAttempt = null;
@@ -57,7 +61,10 @@
   function signOutLocal() {
     guidedContexts.clear(); autonomousContexts.clear(); sessionRecovery.clear(); sessionClosures.clear(); guidedViewRevision++; chatReturnAttempt = null;
     resetLearningArchive();
-    state.token = null; state.account = null; state.features = {}; state.learnerId = null; sessionStorage.removeItem(tokenKey);
+    conversationViews.clear(); ownArchiveViews.clear(); dailyCheckins.clear(); checkinObserver?.disconnect();
+    $('#daily-checkin').hidden = true; $('#daily-checkin-answer').value = '';
+    $('#conversation-memory-section').hidden = true; $('#conversation-memory-cards').replaceChildren();
+    state.token = null; state.account = null; state.profile = {}; state.features = {}; state.learnerId = null; sessionStorage.removeItem(tokenKey);
     state.learners = []; state.dashboard = null; state.topics = []; state.task = null; state.proposal = null; state.revision = null; state.chatByLearner.clear(); state.nextStepsByLearner.clear(); state.learningSessionsByLearner.clear(); state.pendingMessages.clear(); state.chatTopicsByLearnerSubject.clear(); state.memoryCorrectionJobs.clear(); state.viewRevision++;
     $('#learner-list').replaceChildren(); $('#learner-count').textContent = '–'; $('#roster-empty').hidden = true; $('#profile-content').hidden = true; $('#loading-state').hidden = true; $('#error-state').hidden = true; $('#empty-profile').hidden = false;
     $('#account-name').textContent = ''; $('#role-label').textContent = ''; $('#learner-name').textContent = ''; $('#learner-avatar').textContent = ''; $('#profile-grade').textContent = ''; $('#profile-meta').textContent = ''; $('#current-goal').textContent = ''; $('#goal-subject').textContent = ''; $('#revision-label').textContent = ''; $('#zone-map').replaceChildren(); $('#history-list').replaceChildren(); $('#task-cards').replaceChildren(); $('#task-result').hidden = true; $('#proposal-result').replaceChildren(); $('#proposal-result').hidden = true;
@@ -66,17 +73,29 @@
     resetLearningAction();
     $('#email').value = ''; $('#password').value = '';
     $('#teacher-actions').hidden = true; $('#student-actions').hidden = true; $('#action-empty').hidden = false;
-    $('#memory-section').hidden = true; $('#memory-history').replaceChildren(); $('#memory-status').textContent = ''; $('#next-step-result').replaceChildren(); $('#next-step-result').hidden = true; $('#next-step-status').textContent = ''; $('#memory-method').value = 'tail'; $('#request-next-step').disabled = false; renderLearningSession();
+    $('#memory-section').hidden = true; $('#memory-history').replaceChildren(); $('#memory-status').textContent = ''; $('#next-step-result').replaceChildren(); $('#next-step-result').hidden = true; $('#next-step-status').textContent = ''; $('#memory-method').value = 'personal_memory'; $('#request-next-step').disabled = false; renderLearningSession();
+    $('#chat-memory-method').value = 'tail'; $('#memory-summaries').replaceChildren();
     if ($('#edit-dialog').open) $('#edit-dialog').close();
     $('#workspace').hidden = true; showLogin();
   }
   async function boot() {
     if (!state.token) return showLogin();
     try {
-      const data = await request('/auth/me'); state.account = data.account; state.features = data.features || {};
+      const data = await request('/auth/me'); state.account = data.account; state.profile = data.profile || data.account?.profile || {}; state.features = data.features || {};
+      renderTimezonePreference();
       const autonomousOption = $('#chat-mode option[value="autonomous_division"]');
       autonomousOption.hidden = !state.features.autonomous_division;
       autonomousOption.disabled = !state.features.autonomous_division;
+      for (const selector of ['#memory-method', '#chat-memory-method']) {
+        const picker = $(selector);
+        const graphOption = $('option[value="personal_graph"]', picker);
+        graphOption.hidden = !state.features.personal_graph;
+        graphOption.disabled = !state.features.personal_graph;
+        const personalOption = $('option[value="personal_memory"]', picker);
+        personalOption.hidden = state.features.personal_memory === false;
+        personalOption.disabled = state.features.personal_memory === false;
+        picker.value = selector === '#chat-memory-method' || state.features.personal_memory === false ? 'tail' : 'personal_memory';
+      }
       if (!state.account || !['teacher', 'student'].includes(state.account.role)) throw new Error('Для этой учётной записи рабочее место недоступно.');
       $('#login-view').hidden = true; $('#workspace').hidden = false;
       $('#account-name').textContent = displayName(state.account); $('#role-label').textContent = state.account.role === 'teacher' ? 'Учитель' : 'Ученик';
@@ -134,7 +153,10 @@
     state.learnerId = id; state.dashboard = null; state.task = null; state.proposal = null; renderRoster();
     resetLearningArchive();
     if (state.account?.role === 'student') { renderChatHistory(id); restoreLearningSession(); }
-    renderNextStep(); $('#memory-history').replaceChildren(); $('#memory-status').textContent = '';
+    renderNextStep(); $('#memory-history').replaceChildren(); $('#memory-summaries').replaceChildren(); $('#memory-status').textContent = '';
+    $('#conversation-memory-section').hidden = true; $('#conversation-memory-cards').replaceChildren(); $('#daily-checkin').hidden = true;
+    $('#own-conversation-history').open = false; $('#own-conversation-history-log').replaceChildren(); $('#own-conversation-history-status').textContent = '';
+    checkinObserver?.disconnect();
     $('#profile-content').hidden = true; $('#error-state').hidden = true; $('#empty-profile').hidden = true; $('#loading-state').hidden = false; $('#action-empty').hidden = true;
     $('#task-result').hidden = true; $('#proposal-result').hidden = true;
     try {
@@ -146,6 +168,8 @@
       fillTopicOptions();
       if (state.account?.role === 'student') {
         renderLearningSession();
+        if (state.features.conversation_memory) loadConversationMemory();
+        if (state.features.daily_checkin) loadDailyCheckin();
         if ($('#chat-mode').value === 'autonomous_division') refreshAutonomous(); else refreshGuided();
       }
       renderNextStep();
@@ -222,7 +246,29 @@
     }
     if (!rows.length) map.append(el('p', 'zone-empty', state.account.role === 'student' ? 'Темы появятся здесь после работы с ними.' : 'Для этого профиля пока нет данных по темам. Добавьте наблюдение или заметку к занятию.'));
   }
-  function safeDate(raw) { if (!raw) return 'Недавно'; const d = new Date(raw); return Number.isNaN(d.getTime()) ? String(raw) : new Intl.DateTimeFormat('ru', { day: 'numeric', month: 'short' }).format(d); }
+  function displayTimezone() {
+    const zone = state.profile?.display_timezone || 'Asia/Tomsk';
+    try { new Intl.DateTimeFormat('ru', { timeZone: zone }); return zone; } catch { return 'Asia/Tomsk'; }
+  }
+  function formatDisplayDate(raw, options = {}) {
+    if (!raw) return 'Дата не указана';
+    const date = new Date(raw);
+    if (Number.isNaN(date.getTime())) return 'Дата не указана';
+    // A server calendar-day label is already grouped in learning_timezone.
+    const dateOnly = typeof raw === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(raw);
+    return new Intl.DateTimeFormat('ru', { day: 'numeric', month: 'short', ...options, timeZone: dateOnly ? 'UTC' : displayTimezone() }).format(date);
+  }
+  function renderTimezonePreference() {
+    const picker = $('#display-timezone'), zone = displayTimezone();
+    const browserZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    for (const [value, label] of [[browserZone, `Часовой пояс устройства – ${browserZone}`], [zone, zone]]) {
+      if (value && ![...picker.options].some(option => option.value === value)) picker.add(new Option(label, value));
+    }
+    picker.value = zone;
+    $('#display-timezone-label').textContent = ({ 'Asia/Tomsk': 'Томск', 'Europe/Moscow': 'Москва' })[zone] || zone;
+    $('#custom-timezone').hidden = true; $('#custom-timezone-label').hidden = true;
+  }
+  function safeDate(raw) { return raw ? formatDisplayDate(raw) : 'Недавно'; }
   function renderHistory(rows) {
     const root = $('#history-list'); root.replaceChildren();
     if (!Array.isArray(rows) || !rows.length) { root.append(el('p', 'zone-empty', 'Наблюдений пока нет. Когда появятся первые попытки, здесь будет видна история работы.')); return; }
@@ -275,11 +321,16 @@
     const details = el('details', 'memory-sources'); details.append(el('summary', '', `${title} (${sources.length})`));
     sources.forEach(source => {
       const row = el('article', 'memory-source');
-      row.append(el('strong', '', source.source_id || source.turn_id || source.id || 'Источник занятия'));
+      const sourceId = source.source_id || source.turn_id || source.id || '';
+      if (sourceId && !options.suppressId) {
+        row.id = options.idPrefix ? `${options.idPrefix}-${encodeURIComponent(String(sourceId))}` : memorySourceDomId(sourceId);
+        row.tabIndex = -1;
+      }
+      row.append(el('strong', '', sourceId || 'Источник занятия'));
       const sourceRole = source.role || source.author_role;
       const role = ({ user: 'Ученик', student: 'Ученик', teacher: 'Учитель', assistant: 'Помощник' })[sourceRole] || sourceRole || '';
       row.append(el('small', '', [role, source.topic_id || source.topic_title ? topicTitle(source) : '', safeDate(source.observed_on || source.created_at)].filter(Boolean).join(' · ')));
-      if (options.showDialogueContext && source.cited === false) row.append(el('small', '', 'Связанная запись для проверки исправления; в ссылках черновика не указана.'));
+      if (options.showDialogueContext && source.cited === false) row.append(el('small', '', options.uncitedLabel || 'Связанная запись для проверки исправления; в ссылках черновика не указана.'));
       if (options.showDialogueContext && Array.isArray(source.corrected_by) && source.corrected_by.length) row.append(el('p', 'review-note', `Запись исправлена: ${source.corrected_by.join(', ')}. Сверьте её с исправлениями.`));
       const dialogueContext = options.showDialogueContext && source.dialogue_context;
       if (dialogueContext?.role === 'assistant' && dialogueContext.usage === 'context_only' && typeof dialogueContext.text === 'string') {
@@ -303,16 +354,387 @@
     });
     return details;
   }
-  function recordLabel(record) { return record.claim || record.text || record.summary || record.observation || record.content || 'Запись о занятии'; }
-  function appendMemoryRecords(root, records) {
+  const memoryTypeLabels = {
+    child_error: 'Ошибка ребёнка', child_correction: 'Исправление ребёнка',
+    supported_attempt: 'Попытка с помощью', uncertain_observation: 'Неоднозначное наблюдение',
+    learning_success: 'Наблюдавшийся успех', unfinished_work: 'Незавершённая работа',
+    interest_candidate: 'Кандидат интереса', session_preference_candidate: 'Пожелание к занятию',
+    incidental_fact: 'Случайный факт', source_correction: 'Исправление записи памяти',
+  };
+  const memorySourceDomId = sourceId => `memory-source-${encodeURIComponent(String(sourceId))}`;
+  const memoryRelationLabels = {
+    corrects_answer: 'исправляет ответ', same_pattern_as: 'тот же тип ошибки, что и',
+    supported_by: 'подтверждается', rechecks: 'перепроверяет', response_to: 'ответ на',
+    mentioned_again: 'упомянуто снова', related_to: 'связано с', followed_by: 'за этим следует',
+  };
+  const memoryStatusLabels = {
+    candidate: 'кандидат, требует проверки', explicit: 'сказано явно',
+    session_only: 'только для текущего занятия', profile_candidate: 'кандидат в профиль',
+    episodic_personal_fact: 'отдельный личный эпизод',
+    observed: 'наблюдалось', inferred: 'интерпретация', ambiguous: 'неоднозначно',
+  };
+  function appendEvidence(root, evidence, title, sourceIds) {
+    if (!evidence || typeof evidence !== 'object') return;
+    const section = el('div', 'memory-evidence');
+    section.append(el('small', '', title));
+    if (evidence.quote) section.append(el('blockquote', '', evidence.quote));
+    const sourceId = evidence.turn_id;
+    if (sourceId) {
+      if (sourceIds.has(String(sourceId))) {
+        const open = el('button', 'text-button', `Открыть реплику ${sourceId}`);
+        open.type = 'button';
+        open.addEventListener('click', () => {
+          const sourceRow = document.getElementById(memorySourceDomId(sourceId));
+          if (!sourceRow) return;
+          const details = sourceRow.closest('details');
+          if (details) details.open = true;
+          sourceRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          sourceRow.focus({ preventScroll: true });
+        });
+        section.append(open);
+      } else section.append(el('small', '', `Источник не загружен: ${sourceId}`));
+    }
+    root.append(section);
+  }
+  function recordLabel(record) {
+    if (record.record_type) {
+      const detail = record.interest || record.preference || record.fact || record.context || record.interpretation;
+      return `${memoryTypeLabels[record.record_type] || record.record_type}: ${detail || 'Наблюдение сохранено.'}`;
+    }
+    return record.claim || record.text || record.summary || record.observation || record.content || 'Запись о занятии';
+  }
+  function appendMemoryRecords(root, records, sources = []) {
+    const sourceIds = new Set((Array.isArray(sources) ? sources : []).map(source => String(source.source_id || source.turn_id || source.id || '')).filter(Boolean));
     records.forEach(record => {
-      const row = el('article', 'memory-record'); row.append(el('p', '', recordLabel(record)));
+      const row = el('article', 'memory-record');
+      if (record.record_type) {
+        row.append(el('strong', '', `Тип записи: ${memoryTypeLabels[record.record_type] || record.record_type}`));
+        const family = record.record_type === 'interest_candidate' ? 'Интерес ребёнка – кандидат, не устойчивая характеристика.'
+          : record.record_type === 'session_preference_candidate' ? 'Пожелание к этому занятию – не интерес и не постоянное свойство.'
+            : record.record_type === 'incidental_fact' ? 'Случайный факт – отдельный тип записи, не учебный результат.'
+              : record.record_type === 'source_correction' ? 'Исправление ранее сохранённой записи памяти.'
+                : ['child_error', 'child_correction', 'supported_attempt', 'uncertain_observation', 'learning_success', 'unfinished_work'].includes(record.record_type) ? 'Учебное наблюдение.'
+                  : 'Тип записи не относится к учебным результатам.';
+        row.append(el('small', '', family));
+        const detail = record.interest || record.preference || record.fact || record.context;
+        if (detail) row.append(el('p', '', detail));
+      } else row.append(el('p', '', recordLabel(record)));
       if (record.corrects_record_id) row.append(el('small', '', `Исправляет запись ${record.corrects_record_id}. Исходное наблюдение сохранено.`));
-      if (record.support_level === 'unknown' || record.assistance === 'unknown') row.append(el('small', '', 'Условия помощи неизвестны.'));
-      const ids = record.evidence_turn_ids || record.source_ids || (record.source_id ? [record.source_id] : []);
+      if (record.interpretation) row.append(el('p', '', `Интерпретация: ${record.interpretation}`));
+      if (record.interpretation_status) row.append(el('small', '', `Статус интерпретации: ${memoryStatusLabels[record.interpretation_status] || record.interpretation_status}`));
+      if (record.claim_status) row.append(el('small', '', `Статус утверждения: ${memoryStatusLabels[record.claim_status] || record.claim_status}`));
+      if (record.retention_class) row.append(el('small', '', `Срок хранения: ${memoryStatusLabels[record.retention_class] || record.retention_class}`));
+      if (record.interest_operation) row.append(el('small', '', `Операция с интересом: ${({ add: 'добавить', remove: 'убрать', avoid: 'избегать', allow: 'разрешить' })[record.interest_operation] || record.interest_operation}`));
+      if (record.support_level && record.support_level !== 'unknown') row.append(el('small', '', `Помощь: ${record.support_level}`));
+      if (record.independent_recheck && record.independent_recheck !== 'unknown') row.append(el('small', '', `Перепроверка: ${record.independent_recheck}`));
+      const hasLearningType = !record.record_type || ['child_error', 'child_correction', 'supported_attempt', 'uncertain_observation', 'learning_success', 'unfinished_work', 'source_correction'].includes(record.record_type);
+      if (hasLearningType && (record.support_level === 'unknown' || record.assistance === 'unknown')) row.append(el('small', '', 'Условия помощи неизвестны.'));
+      const ids = Array.isArray(record.evidence) ? record.evidence.map(item => item.turn_id) : (record.evidence_turn_ids || record.source_ids || (record.source_id ? [record.source_id] : []));
       if (Array.isArray(ids) && ids.length) row.append(el('small', '', `Основания: ${ids.join(', ')}`));
-      if (record.quote) row.append(el('blockquote', '', record.quote)); root.append(row);
+      if (Array.isArray(record.evidence)) record.evidence.forEach(item => {
+        appendEvidence(row, item, 'Цитата основания', sourceIds);
+      });
+      else if (record.quote) row.append(el('blockquote', '', record.quote));
+      appendEvidence(row, record.support_evidence, 'Цитата: условия помощи', sourceIds);
+      appendEvidence(row, record.recheck_evidence, 'Цитата: самостоятельная перепроверка', sourceIds);
+      if (Array.isArray(record.links) && record.links.length) {
+        const links = el('div', 'memory-evidence');
+        links.append(el('small', '', 'Связи с другими записями и репликами'));
+        record.links.forEach(link => {
+          const relation = memoryRelationLabels[link.relation] || link.relation || 'связь';
+          const target = link.target_id || 'цель не указана';
+          const line = el('p', '', `${relation} – ${link.target_kind === 'turn' ? 'реплика' : 'запись'} ${target}`);
+          if (link.target_kind === 'turn' && sourceIds.has(String(target))) {
+            const open = el('button', 'text-button', `Открыть реплику ${target}`); open.type = 'button';
+            open.addEventListener('click', () => {
+              const sourceRow = document.getElementById(memorySourceDomId(target));
+              if (!sourceRow) return;
+              const details = sourceRow.closest('details'); if (details) details.open = true;
+              sourceRow.scrollIntoView({ behavior: 'smooth', block: 'center' }); sourceRow.focus({ preventScroll: true });
+            });
+            line.append(' ', open);
+          }
+          links.append(line);
+        });
+        row.append(links);
+      }
+      if (record.use_policy) row.append(el('small', '', `Как использовать: ${record.use_policy}`));
+      root.append(row);
     });
+  }
+  function renderConversationMemory(hierarchy) {
+    const root = $('#conversation-memory-cards'); root.replaceChildren();
+    const recent = Array.isArray(hierarchy.recent_messages) ? hierarchy.recent_messages : [];
+    const appendMessage = (parent, message, fullMessage = false) => {
+      const row = el('article', 'memory-record');
+      const assistant = message.role === 'assistant';
+      row.append(el('small', '', assistant ? 'Помощник – только контекст' : 'Твои слова – рассказ о себе'));
+      row.append(el('blockquote', 'memory-text', message.content || message.text || 'Текст недоступен.'));
+      if (message.created_at) {
+        const time = el('time', 'conversation-message-time', formatDisplayDate(message.created_at, { year:'numeric', hour:'2-digit', minute:'2-digit', second:'2-digit' }));
+        time.dateTime = message.created_at; time.title = `${message.created_at} · ${displayTimezone()}`; row.append(time);
+      }
+      if (message.source_id) row.append(el('small', '', `Источник: ${message.source_id}`));
+      if (!fullMessage && message.source_id) {
+        const original = el('button', 'text-button', 'Открыть исходную реплику'); original.type = 'button';
+        original.addEventListener('click', () => openOwnConversationSource(message.source_id)); row.append(original);
+      }
+      if (!fullMessage && message.truncated) row.append(el('small', '', 'Выдержка сокращена. Полная переписка сохранена в архиве.'));
+      if (assistant) row.append(el('small', '', 'Слова помощника не подтверждают результат ученика.'));
+      const status = ({ pending: 'Ответ ещё не завершён.', failed: 'Ответ на эту реплику не был завершён.', unknown_outcome: 'Исход ответа неизвестен.' })[message.delivery_status];
+      if (status && !assistant) row.append(el('small', '', status));
+      parent.append(row);
+    };
+    const appendDay = (parent, day) => {
+      const group = el('section', 'memory-summary-session');
+      group.append(el('h4', '', formatDisplayDate(day.day, { year:'numeric' })));
+      const zones = Array.isArray(day.timezones) && day.timezones.length ? day.timezones : [day.timezone || hierarchy.learning_timezone || 'Asia/Tomsk'];
+      group.append(el('p', 'review-note', `Учебный день · ${zones.join(', ')}. Источников: ${day.source_count ?? (day.source_ids || []).length}.`));
+      const facts = Array.isArray(day.facts) ? day.facts : [];
+      facts.forEach(fact => appendMessage(group, fact));
+      if (!facts.length) group.append(el('p', 'review-note', 'В этот день нет выбранных выдержек твоих сообщений.'));
+      if (day.assistant_context) appendMessage(group, day.assistant_context);
+      if (Number(day.omitted_source_count)) group.append(el('p', 'review-note', `В краткую сводку не вошло реплик: ${Number(day.omitted_source_count)}. Они остаются в полной переписке.`));
+      parent.append(group);
+    };
+    const recentCard = el('article', 'memory-summary-card');
+    recentCard.append(el('h3', '', 'Последние сообщения'), el('p', 'review-note', `В контексте помощника – до 20 отдельных сообщений из всех твоих бесед. Сейчас показано: ${recent.length}. Полный архив сохраняется без этого ограничения.`));
+    if (Number(hierarchy.budget?.omitted_recent_message_count)) recentCard.append(el('p', 'review-note', `Из-за ограничения объёма в контекст не вошло последних сообщений: ${Number(hierarchy.budget.omitted_recent_message_count)}. В архиве они сохранены полностью.`));
+    const recentDetails = el('details', 'memory-sources'); recentDetails.append(el('summary', '', `Показать сообщения (${recent.length})`));
+    recent.forEach(message => appendMessage(recentDetails, message, true));
+    if (!recent.length) recentDetails.append(el('p', 'zone-empty', 'Сообщений пока нет. Можно начать беседу.'));
+    recentCard.append(recentDetails); root.append(recentCard);
+    const dayCard = el('article', 'memory-summary-card'); dayCard.append(el('h3', '', 'Последний активный день'));
+    if (hierarchy.last_day?.available) appendDay(dayCard, hierarchy.last_day);
+    else dayCard.append(el('p', 'zone-empty', 'Дней с беседами пока нет. Сводка появится после общения.'));
+    root.append(dayCard);
+    const week = hierarchy.last_seven_active_days || {}, days = Array.isArray(week.days) ? week.days : [];
+    const weekCard = el('article', 'memory-summary-card'); weekCard.append(el('h3', '', 'Последние семь активных дней'), el('p', 'review-note', 'Считаются дни, в которые ты общался с помощником. Перерывы и смена темы не начинают новый учебный день.'));
+    if (Number(hierarchy.budget?.omitted_day_count)) weekCard.append(el('p', 'review-note', `В контекст текущего ответа не поместилось сводок дней: ${Number(hierarchy.budget.omitted_day_count)}. Здесь они доступны для просмотра.`));
+    if (days.length) {
+      weekCard.append(el('p', 'memory-summary-meta', `${formatDisplayDate(week.date_span?.start || days[0].day, { year:'numeric' })} – ${formatDisplayDate(week.date_span?.end || days[days.length - 1].day, { year:'numeric' })} · Дней: ${week.count ?? days.length}`));
+      const details = el('details', 'memory-sources'); details.append(el('summary', '', 'Показать сводки дней'));
+      days.forEach(day => appendDay(details, day)); weekCard.append(details);
+    } else weekCard.append(el('p', 'zone-empty', 'Активных дней пока нет.'));
+    const archive = el('button', 'text-button', 'Открыть полную переписку'); archive.type = 'button';
+    archive.addEventListener('click', () => {
+      $('#own-conversation-history').open = true; loadOwnConversationHistory();
+      $('#own-conversation-history').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    weekCard.append(archive); root.append(weekCard);
+  }
+  function ownArchiveCurrent(view) {
+    return view && view === ownArchiveViews.get(state.learnerId) && view.token === state.token && view.revision === state.viewRevision && state.account?.role === 'student';
+  }
+  function renderOwnConversationHistory() {
+    const view = ownArchiveViews.get(state.learnerId);
+    if (!ownArchiveCurrent(view)) return;
+    $('#own-conversation-history-status').textContent = view.error || (view.loading ? 'Загружаем переписку…' : view.messages.length ? `Загружено сообщений: ${view.messages.length}. Часовой пояс: ${displayTimezone()}.` : 'Сообщений пока нет.');
+    $('#refresh-own-conversation-history').disabled = !!view.loading;
+    $('#older-own-conversation-history').hidden = !view.next;
+    $('#older-own-conversation-history').disabled = !!view.loading;
+    const log = $('#own-conversation-history-log'); log.replaceChildren();
+    view.messages.forEach(message => {
+      const row = el('article', `chat-bubble ${message.role === 'user' ? 'user' : 'assistant'}`);
+      row.id = `own-source-${encodeURIComponent(String(message.source_id))}`; row.tabIndex = -1;
+      row.append(el('small', 'field-hint', message.role === 'user' ? 'Ты' : 'Помощник'), el('p', 'memory-text', message.content || message.text));
+      if (message.created_at) {
+        const time = el('time', 'conversation-message-time', formatDisplayDate(message.created_at, { year:'numeric', hour:'2-digit', minute:'2-digit', second:'2-digit' }));
+        time.dateTime = message.created_at; time.title = `${message.created_at} · ${displayTimezone()}`; row.append(time);
+      }
+      row.append(el('small', 'field-hint', `Источник: ${message.source_id}`));
+      if (message.activity_day) row.append(el('small', 'field-hint', `Учебный день: ${formatDisplayDate(message.activity_day, { year:'numeric' })} · ${message.activity_timezone || 'Asia/Tomsk'}`));
+      const status = message.role === 'user' && ({ pending:'Ответ ещё не завершён.', unknown_outcome:'Исход ответа неизвестен.', failed:'Ответ на эту реплику не был завершён.' })[message.delivery_status];
+      if (status) row.append(el('small', 'field-hint', status));
+      log.append(row);
+    });
+  }
+  async function loadOwnConversationHistory(older = false, refresh = false) {
+    const learnerId = state.learnerId;
+    if (!learnerId || state.account?.role !== 'student' || !state.features.conversation_memory) return null;
+    let view = ownArchiveViews.get(learnerId);
+    if (!ownArchiveCurrent(view) || refresh) {
+      view = { learnerId, token:state.token, revision:state.viewRevision, messages:[], next:null, loaded:false };
+      ownArchiveViews.set(learnerId, view);
+    }
+    if (view.loading) { await view.loadingFinished; return ownArchiveCurrent(view) ? view : null; }
+    if (older && !view.next) return view;
+    if (view.loaded && !older) { renderOwnConversationHistory(); return view; }
+    const before = older ? view.next : null, params = new URLSearchParams({ limit:'50' });
+    if (before) params.set('before_source_order', String(before));
+    view.loading = true; view.error = '';
+    let finishLoading; view.loadingFinished = new Promise(resolve => { finishLoading = resolve; });
+    renderOwnConversationHistory();
+    try {
+      const data = await request(`/learners/${encodeURIComponent(learnerId)}/conversation-history?${params}`);
+      if (!ownArchiveCurrent(view)) return null;
+      const next = data.next_before_source_order;
+      if (data.learner_id !== learnerId || !Array.isArray(data.messages) || data.messages.length > 100 ||
+          !data.messages.every(message => typeof message?.source_id === 'string' && ['user','assistant'].includes(message.role) && typeof (message.content || message.text) === 'string') ||
+          !(next === null || Number.isSafeInteger(next) && next > 0 && (!before || next < before))) throw new Error('Не удалось прочитать страницу переписки. Обнови её и попробуй ещё раз.');
+      const known = new Set(view.messages.map(message => message.source_id));
+      const messages = data.messages.filter(message => !known.has(message.source_id));
+      view.messages = older ? [...messages, ...view.messages] : messages;
+      view.next = next; view.loaded = true;
+    } catch (error) { if (ownArchiveCurrent(view)) view.error = `Не удалось загрузить переписку. ${errorText(error)}`; }
+    finally { if (ownArchiveCurrent(view)) { view.loading = false; renderOwnConversationHistory(); } finishLoading(); }
+    return ownArchiveCurrent(view) ? view : null;
+  }
+  async function openOwnConversationSource(sourceId) {
+    $('#own-conversation-history').open = true;
+    let view = await loadOwnConversationHistory();
+    while (ownArchiveCurrent(view) && !view.error && !view.loading && !view.messages.some(message => message.source_id === sourceId) && view.next) view = await loadOwnConversationHistory(true);
+    if (!ownArchiveCurrent(view)) return;
+    if (view.error) return;
+    const source = document.getElementById(`own-source-${encodeURIComponent(String(sourceId))}`);
+    if (source) { source.scrollIntoView({ behavior:'smooth', block:'center' }); source.focus({ preventScroll:true }); }
+    else $('#own-conversation-history-status').textContent = 'Исходная реплика не найдена в доступной переписке. Обнови память бесед.';
+  }
+  async function loadConversationMemory() {
+    const learnerId = state.learnerId, token = state.token, revision = state.viewRevision;
+    if (!learnerId || state.account?.role !== 'student' || !state.features.conversation_memory) return;
+    const view = {}; conversationViews.set(learnerId, view);
+    const current = () => token === state.token && revision === state.viewRevision && learnerId === state.learnerId && conversationViews.get(learnerId) === view;
+    $('#conversation-memory-section').hidden = false;
+    $('#conversation-memory-status').textContent = 'Обновляем память твоих бесед…';
+    try {
+      const data = await request(`/learners/${encodeURIComponent(learnerId)}/conversation-memory`);
+      if (!current()) return;
+      view.hierarchy = data.hierarchy || data;
+      renderConversationMemory(view.hierarchy);
+      $('#conversation-memory-status').textContent = state.features.conversation_memory_in_responses === false
+        ? 'История сохраняется и доступна тебе. Память в ответах выключена – из переписки помощник учитывает только текущее сообщение.'
+        : `Беседы объединяются по учебным дням (${view.hierarchy.learning_timezone || 'Asia/Tomsk'}). Часовой пояс отображения: ${displayTimezone()}.`;
+    } catch (error) { if (current()) $('#conversation-memory-status').textContent = `Не удалось обновить память бесед. ${errorText(error)} Обычный чат остаётся доступен.`; }
+  }
+  function currentDailyCheckin(view) {
+    return view && view === dailyCheckins.get(state.learnerId) && view.token === state.token && view.revision === state.viewRevision && state.account?.role === 'student';
+  }
+  function renderDailyCheckin() {
+    const view = dailyCheckins.get(state.learnerId), card = $('#daily-checkin');
+    const active = state.learningSessionsByLearner.get(state.learnerId);
+    const visible = currentDailyCheckin(view) && view.data?.available && ['offered', 'shown'].includes(view.data.status) && active?.session_mode !== 'autonomous_division';
+    card.hidden = !visible;
+    if (!visible) { checkinObserver?.disconnect(); return; }
+    if (card.dataset.checkinId !== view.data.checkin_id) {
+      card.dataset.checkinId = view.data.checkin_id; $('#daily-checkin-answer').value = '';
+    }
+    $('#daily-checkin-question').textContent = view.data.text;
+    $('#daily-checkin-status').textContent = view.error || '';
+    $('#answer-daily-checkin').disabled = !!state.pendingMessages.get(state.learnerId) || recoveryBlocksMessages() || !!view.skipping;
+    $('#skip-daily-checkin').disabled = !!view.skipping;
+    if (view.data.status === 'offered' && !view.showing) {
+      checkinObserver?.disconnect();
+      if (typeof IntersectionObserver === 'function') {
+        checkinObserver = new IntersectionObserver(entries => {
+          if (entries.some(entry => entry.isIntersecting) && document.visibilityState !== 'hidden') markDailyCheckinShown(view);
+        }, { threshold: 0.1 });
+        checkinObserver.observe(card);
+      }
+    }
+  }
+  async function markDailyCheckinShown(view, explicitAnswer = false) {
+    if (!currentDailyCheckin(view)) return false;
+    if (view.data.status === 'shown') return true;
+    if (view.showing) return view.showing;
+    if (!explicitAnswer && $('#daily-checkin').hidden) return false;
+    const active = state.learningSessionsByLearner.get(state.learnerId);
+    const body = active?.status === 'active' ? { learning_session_id: active.learning_session_id } : {};
+    view.showing = (async () => {
+      try {
+        const data = await request(`/learners/${encodeURIComponent(view.learnerId)}/checkin/${encodeURIComponent(view.data.checkin_id)}/shown`, { method:'POST', body });
+        if (!currentDailyCheckin(view)) return false;
+        if (view.skipping || ['skipped', 'answered'].includes(view.data.status)) return false;
+        view.data = data.checkin || data; view.error = '';
+        checkinObserver?.disconnect(); renderDailyCheckin(); return view.data.status === 'shown';
+      } catch (error) {
+        if (currentDailyCheckin(view)) { view.error = `Не удалось сохранить показ вопроса. ${errorText(error)}`; renderDailyCheckin(); }
+        return false;
+      } finally { view.showing = null; }
+    })();
+    return view.showing;
+  }
+  async function loadDailyCheckin() {
+    const learnerId = state.learnerId, token = state.token, revision = state.viewRevision;
+    if (!learnerId || state.account?.role !== 'student' || !state.features.daily_checkin) return;
+    const view = { learnerId, token, revision }; dailyCheckins.set(learnerId, view);
+    const active = state.learningSessionsByLearner.get(learnerId);
+    const query = active?.status === 'active' ? `?${new URLSearchParams({ learning_session_id:active.learning_session_id })}` : '';
+    try {
+      const data = await request(`/learners/${encodeURIComponent(learnerId)}/checkin${query}`);
+      if (!currentDailyCheckin(view)) return;
+      view.data = data.checkin || data; renderDailyCheckin();
+    } catch { if (currentDailyCheckin(view)) $('#daily-checkin').hidden = true; }
+  }
+  function renderSessionSummaries(data) {
+    const root = $('#memory-summaries');
+    root.replaceChildren();
+    const summaries = data.session_summaries || {};
+    const allSources = new Map([...(data.sources || []), ...(data.personal_graph_sources || []), ...(data.session_summary_sources || [])]
+      .map(source => [String(source.source_id), source]));
+    const dateLabel = value => formatDisplayDate(value, { year: 'numeric' });
+    for (const [key, title] of [['last_session', 'Последнее занятие'], ['last_seven_sessions', 'Последние семь занятий']]) {
+      const summary = summaries[key] || {}, sessions = Array.isArray(summary.sessions) ? summary.sessions : [];
+      const card = el('article', 'memory-summary-card'); card.setAttribute('aria-label', title);
+      card.append(el('h3', '', title));
+      if (!summary.available || !sessions.length) {
+        card.append(el('p', 'zone-empty', 'Завершённых занятий пока нет. Сводка появится после завершения первого занятия.'));
+        root.append(card); continue;
+      }
+      const start = dateLabel(summary.date_span?.start), end = dateLabel(summary.date_span?.end);
+      card.append(el('p', 'memory-summary-meta', `${start === end ? start : `${start} – ${end}`} · Занятий: ${summary.count ?? sessions.length} · Источников: ${summary.selected_source_count ?? 0}`));
+      card.append(el('p', 'review-note', 'Краткие выдержки из сохранённых реплик. Роль автора и исправления сохранены. Это не оценка навыков ученика.'));
+      const relevantIds = new Set(), correctedBy = new Map();
+      sessions.forEach(session => (session.facts || []).forEach(fact => {
+        relevantIds.add(String(fact.source_id));
+        const chain = Array.isArray(fact.correction_chain) ? fact.correction_chain : [];
+        chain.forEach((item, index) => {
+          relevantIds.add(String(item.source_id));
+          if (chain[index + 1]) correctedBy.set(String(item.source_id), [chain[index + 1].source_id]);
+        });
+      }));
+      const originals = [...relevantIds].map(id => allSources.get(id)).filter(Boolean)
+        .map(source => correctedBy.has(String(source.source_id)) ? { ...source, corrected_by: correctedBy.get(String(source.source_id)) } : source);
+      const prefix = `summary-source-${key}`;
+      const originalDetails = originals.length ? sourceDetails(originals, 'Исходные реплики и исправления сводки', { showDialogueContext: true, idPrefix: prefix }) : null;
+      sessions.forEach(session => {
+        const group = el('section', 'memory-summary-session');
+        group.append(el('h4', '', `${dateLabel(session.completed_at)} · ${topicTitle(session)}`));
+        const facts = Array.isArray(session.facts) ? session.facts : [];
+        if (!facts.length) group.append(el('p', 'review-note', 'Отобранных наблюдений нет.'));
+        facts.forEach(fact => {
+          const row = el('article', 'memory-record');
+          const role = ({ student: 'Ученик', teacher: 'Учитель', assistant: 'Помощник' })[fact.role] || 'Автор не указан';
+          const kind = ({ correction: 'исправление записи', uncertainty: 'упоминание неуверенности', interest: 'упоминание интереса' })[fact.kind];
+          row.append(el('small', '', [role, kind].filter(Boolean).join(' · ')), el('blockquote', 'memory-text', fact.text || 'Текст выдержки недоступен.'));
+          if (fact.kind_origin === 'lexical_heuristic' || ['interest', 'uncertainty'].includes(fact.kind)) row.append(el('small', '', 'Автоматическая метка по словам. Проверьте смысл исходной реплики.'));
+          if (fact.truncated) row.append(el('small', '', 'Выдержка сокращена. Полный текст доступен в исходной реплике.'));
+          const chain = Array.isArray(fact.correction_chain) ? fact.correction_chain : [];
+          if (chain.length) row.append(el('p', 'review-note', `Цепочка исправлений: ${chain.map(item => `${item.source_id}${item.status === 'superseded' ? ' (заменена)' : ' (текущая)'}`).join(' → ')}. Предыдущие записи сохранены в исходниках.`));
+          row.append(el('small', '', `Источник: ${fact.source_id}`));
+          if (allSources.has(String(fact.source_id))) {
+            const open = el('button', 'text-button', 'Открыть исходную реплику'); open.type = 'button';
+            open.addEventListener('click', () => {
+              originalDetails.open = true;
+              const source = document.getElementById(`${prefix}-${encodeURIComponent(String(fact.source_id))}`);
+              if (source) { source.scrollIntoView({ behavior: 'smooth', block: 'center' }); source.focus({ preventScroll: true }); }
+            });
+            row.append(open);
+          } else row.append(el('small', '', 'Полный источник не загружен. Обновите память, чтобы проверить исходную реплику.'));
+          group.append(row);
+        });
+        if (session.ending?.text) {
+          const context = el('div', 'memory-session-end-context');
+          context.append(el('small', '', 'Последний сохранённый ответ помощника – только контекст'), el('blockquote', 'memory-text', session.ending.text), el('small', '', 'Слова помощника не подтверждают результат ученика.'));
+          if (session.ending.truncated) context.append(el('small', '', 'Контекст сокращён.'));
+          group.append(context);
+        }
+        card.append(group);
+      });
+      if (originalDetails) card.append(originalDetails);
+      if (Number(summary.omitted_source_count)) card.append(el('p', 'review-note', `В краткую сводку не вошло реплик: ${Number(summary.omitted_source_count)}. Проверьте историю занятий для полного контекста.`));
+      root.append(card);
+    }
   }
   async function loadMemory() {
     const learnerId = state.learnerId, viewRevision = state.viewRevision, topic = $('#topic-select').value, sessionToken = state.token;
@@ -321,11 +743,17 @@
     const currentSelection = () => sessionToken === state.token && learnerId === state.learnerId && viewRevision === state.viewRevision && topic === $('#topic-select').value && state.account?.role === 'teacher';
     const currentView = () => currentSelection() && memoryViewRevision === state.memoryViewRevision;
     $('#memory-status').textContent = 'Загружаем источники и версии памяти…';
+    const summaryRoot = $('#memory-summaries'); if (summaryRoot) summaryRoot.replaceChildren();
     try {
-      const data = await request(`/learners/${encodeURIComponent(learnerId)}/memory${topic ? `?topic_id=${encodeURIComponent(topic)}` : ''}`);
+      const memoryParams = new URLSearchParams();
+      if (topic) memoryParams.set('topic_id', topic);
+      if (state.features.personal_graph || state.features.personal_memory) memoryParams.set('include_personal_graph_snapshot', 'true');
+      const memoryQuery = memoryParams.toString();
+      const data = await request(`/learners/${encodeURIComponent(learnerId)}/memory${memoryQuery ? `?${memoryQuery}` : ''}`);
       if (!currentView()) return;
       const root = $('#memory-history'); root.replaceChildren();
       const sources = Array.isArray(data.sources) ? data.sources : [], versions = Array.isArray(data.versions) ? data.versions : [];
+      if (data.session_summaries) renderSessionSummaries(data);
       $('#memory-status').textContent = `Версия профиля ${data.revision ?? '–'}. ${data.human_reviewed ? 'Содержание просмотрено преподавателем.' : 'Содержание памяти требует просмотра преподавателем.'}`;
       const correctionStatus = status => ({
         queued: 'Исправление сохранено. Обновление памяти в очереди.',
@@ -367,19 +795,174 @@
       });
       if (!sources.length && !versions.length) root.append(el('p', 'zone-empty', 'Завершённых занятий пока нет. Источники появятся после сохранения занятия или диалога.'));
       versions.forEach(version => {
+        const sourceMemory = ['personal_memory', 'personal_graph'].includes(version.method);
+        const personalMemory = version.method === 'personal_memory';
+        const previousSnapshot = version.can_confirm_previous_snapshot === true && Number.isSafeInteger(data.source_revision);
         const details = el('details', 'memory-version');
-        const names = { tail: 'Последние занятия', profile_only: 'Профиль', summary: 'Сводка', structured: 'Структурированная память' };
+        if (version.approved && version.context?.snapshot_review?.refresh_required) details.open = true;
+        const names = { tail: 'Последние занятия', profile_only: 'Профиль', summary: 'Сводка', structured: 'Структурированная память', structured_v2: 'Типизированная память V2', personal_memory: 'Персональная память – комбинированный поиск', personal_graph: 'Персональный граф – эксперимент' };
         details.append(el('summary', '', `${topicTitle(version)} · ${names[version.method] || 'Память'} · ${safeDate(version.created_at)}${version.stale ? ' · требует обновления' : ''}${version.approved ? ' · подтверждена' : ' · черновик'}`));
         const memory = version.state || version.memory || version.payload || version;
+        if (previousSnapshot) details.append(el('p', 'review-note', 'После подготовки этой версии ребёнок написал новые сообщения. Они сохранены, но не входят в показанный снимок. Можно подтвердить только проверенную версию и подготовить обновление отдельно.'));
+        if (version.approved && version.context?.snapshot_review?.refresh_required) {
+          details.append(el('p', 'review-note', 'Эта версия подтверждена без новых сообщений. Подготовьте новую версию памяти и проверьте её отдельно; если занятие ещё идёт, сначала завершите его.'));
+          const refresh = el('button', 'button secondary', 'Подготовить новую версию памяти'); refresh.type = 'button';
+          refresh.addEventListener('click', () => busy(refresh, async () => {
+            if (!currentView()) return;
+            const pending = state.nextStepsByLearner.get(learnerId);
+            if (pending?.submitting || pending?.job_id && !pending.finished) { toast('Обновление уже находится в очереди.'); return; }
+            if (!version.topic_id) throw new Error('У версии памяти не указана тема.');
+            const submitting = { submitting:true, statusText:'Ставим обновление памяти в очередь…' }, token = state.token;
+            state.nextStepsByLearner.set(learnerId, submitting);
+            let job;
+            try { job = await request(`/learners/${encodeURIComponent(learnerId)}/next-step`, {
+              method: 'POST', body: { topic_id: version.topic_id, method: version.method }
+            }); } catch (error) {
+              if (state.token === token && state.nextStepsByLearner.get(learnerId) === submitting) {
+                if (pending) state.nextStepsByLearner.set(learnerId, pending); else state.nextStepsByLearner.delete(learnerId);
+              }
+              throw error;
+            }
+            if (state.token !== token) return;
+            state.nextStepsByLearner.set(learnerId, { job_id: job.job_id, topic_id: version.topic_id,
+              method: version.method, statusText: 'Обновление памяти в очереди.' });
+            if (viewRevision !== state.viewRevision) return;
+            renderNextStep(); pollNextStep(learnerId, job.job_id, viewRevision);
+            toast('Обновление памяти поставлено в очередь.');
+          }));
+          details.append(refresh);
+        }
         const records = memory.records || version.records || [];
-        if (Array.isArray(records)) appendMemoryRecords(details, records);
+        if (memory.record_schema_version === 2 || version.context?.record_schema_version === 2) details.append(el('p', 'review-note', 'Черновик V2 разделяет учебные наблюдения, кандидаты интереса, пожелания к занятию и случайные факты. Эти записи не обновляют карточку навыков и не передаются в чат.'));
+        if (Array.isArray(records)) appendMemoryRecords(details, records, sources);
+        if (Array.isArray(version.context?.extraction_warnings) && version.context.extraction_warnings.length) details.append(el('p', 'review-note', `Часть кандидатов памяти отклонена контрактом (${version.context.extraction_warnings.length}). Они не переданы модели следующего шага; проверьте исходные реплики.`));
+        appendSelectionWarnings(details, version.context?.selection_warnings);
+        if (Array.isArray(version.context?.selection_events) && version.context.selection_events.some(event => event.event === 'record_skipped')) details.append(el('p', 'review-note', 'Часть записей не поместилась в контекст следующего шага. Они остаются в версии памяти; проверьте основания выше.'));
         const text = memory.summary || memory.text || version.context?.text || version.context_text;
-        if (typeof text === 'string' && text) details.append(el('p', 'memory-text', text));
+        if (sourceMemory && Array.isArray(version.context?.sources)) {
+          details.append(el('p', 'review-note', `Выбрано реплик: ${version.context.sources.length}. Проверьте их и контекст в списке ниже.`));
+        } else if (!sourceMemory && typeof text === 'string' && text) {
+          details.append(el('p', 'memory-text', text));
+        }
         if (Array.isArray(version.context?.selection_events) && version.context.selection_events.some(event => event.event === 'source_correction_group_skipped')) details.append(el('p', 'review-note', 'Исходная запись и исправления не поместились в выбранную память. Эта связка не будет передана помощнику.'));
         if (Array.isArray(version.context?.selection_events) && version.context.selection_events.some(event => event?.event === 'session_end_context_group_skipped')) details.append(el('p', 'review-note', 'Контекст последней реплики помощника не поместился в выбранную память и не будет передан помощнику.'));
         if (Array.isArray(version.context?.selection_events) && version.context.selection_events.some(event => event?.event === 'session_end_context_omitted')) details.append(el('p', 'review-note', 'Последняя реплика помощника слишком длинная и не включена в память. Контекст этой реплики недоступен.'));
         if (version.context?.interest_extraction?.status === 'failed') details.append(el('p', 'review-note', 'Учебная память готова. Интересы из разговора извлечь не удалось.'));
-        const canApprove = version.version_id && version.method === 'tail' && !version.approved && !version.stale;
+        if (sourceMemory && Number(data.personal_graph_hidden_correction_count) > 0) {
+          details.append(el('p', 'review-note', `${personalMemory ? 'Снимок памяти' : 'Снимок графа'} не содержит исправления без доступных исходных реплик: ${Number(data.personal_graph_hidden_correction_count)}. Они сохранены в общем списке памяти.`));
+        }
+        if (sourceMemory && Array.isArray(version.context?.sources)) {
+          const sourceAccess = version.context.source_access || {};
+          const fullArchiveApproved = version.approved && sourceAccess.mode === 'full_archive';
+          if (fullArchiveApproved) {
+            details.append(el('p', 'review-note', version.stale
+              ? (personalMemory ? 'Разрешённый снимок памяти устарел. Помощник не использует его; после изменений нужна новая версия и новое подтверждение.' : 'Разрешённый снимок исходников графа устарел. Чат не использует его; после изменений нужна новая версия и новое подтверждение.')
+              : (personalMemory ? 'Подтверждение разрешило помощнику искать исходные реплики и использовать сводки в пределах просмотренного снимка памяти. Выбранные при подготовке черновика совпадения перечислены ниже.' : 'Подтверждение разрешило чату искать исходные реплики во всём доступном снимке графа. Выбранные при подготовке черновика совпадения перечислены ниже.')));
+            if (!version.stale) {
+              const archiveButton = el('button', 'button secondary', personalMemory ? 'Показать разрешённый снимок исходников памяти' : 'Показать разрешённый снимок исходников графа'); archiveButton.type = 'button';
+              const archiveStatus = el('p', 'review-note'); archiveStatus.setAttribute('role', 'status');
+              const archivePreview = el('div', 'memory-archive-preview');
+              archiveButton.addEventListener('click', () => busy(archiveButton, async () => {
+                if (!currentView()) return;
+                archiveStatus.textContent = 'Загружаем разрешённый снимок…';
+                archivePreview.replaceChildren();
+                try {
+                  const archiveData = await request(`/learners/${encodeURIComponent(learnerId)}/memory?include_personal_graph_snapshot=true`);
+                  if (!currentView()) return;
+                  const archiveSources = Array.isArray(archiveData.personal_graph_sources) ? archiveData.personal_graph_sources : [];
+                  const allowedIds = Array.isArray(sourceAccess.source_ids) ? sourceAccess.source_ids : [];
+                  const visibleIds = archiveSources.map(source => String(source.source_id || '')).filter(Boolean);
+                  const sameIds = allowedIds.length === visibleIds.length
+                    && allowedIds.every(id => visibleIds.includes(id))
+                    && visibleIds.every(id => allowedIds.includes(id));
+                  if (!sameIds || !sourceAccess.snapshot_fingerprint
+                      || archiveData.personal_graph_snapshot_fingerprint !== sourceAccess.snapshot_fingerprint) {
+                    archiveStatus.textContent = 'Снимок больше не совпадает с разрешённой версией. Чат не использует изменённую историю.';
+                    return;
+                  }
+                  const fullHistory = sourceDetails(archiveSources, personalMemory ? 'Разрешённые исходники памяти' : 'Разрешённые исходники графа',
+                    { showDialogueContext: true, suppressId: true });
+                  fullHistory.open = true;
+                  archivePreview.append(fullHistory);
+                  const hiddenCorrections = Number(archiveData.personal_graph_hidden_correction_count) || 0;
+                  archiveStatus.textContent = `Показан тот же снимок исходников ${personalMemory ? 'памяти' : 'графа'}, который разрешён этой версии памяти.${hiddenCorrections ? ` Скрыто исправлений без доступной цепочки исходников: ${hiddenCorrections}.` : ''}`;
+                } catch (error) {
+                  if (currentView()) archiveStatus.textContent = `Не удалось загрузить разрешённый снимок. ${errorText(error)}`;
+                }
+              }));
+              details.append(archiveButton, archiveStatus, archivePreview);
+            }
+          } else {
+            details.append(el('p', 'review-note', personalMemory ? (version.approved ? 'Помощнику доступны только выбранные реплики и сводки в пределах подтверждённого доступа.' : 'После подтверждения помощнику будут доступны только показанные ниже реплики и сводки в пределах выбранного доступа.') : 'В экспериментальном чате доступны только показанные ниже реплики. Проверьте их перед подтверждением.'));
+          }
+          details.append(el('p', 'review-note', 'Заметка и диалог могут описывать одно событие. Проверьте условия помощи и автора вопроса по исходным репликам.'));
+          const dialogue = new Map((version.context.dialogue_context || []).map(row => [row.source_id, row]));
+          const endings = new Map((version.context.session_end_context || []).map(row => [row.source_id, row]));
+          const reviewedSources = version.context.sources.map(source => ({...source, dialogue_context: dialogue.get(source.source_id), session_end_context: endings.get(source.source_id)}));
+          const reviewedDetails = sourceDetails(reviewedSources, personalMemory ? 'Реплики для персональной памяти' : 'Реплики для экспериментального чата', {showDialogueContext: true});
+          reviewedDetails.open = !version.approved;
+          details.append(reviewedDetails);
+        }
+        const canApprove = version.version_id && (version.method === 'tail' || (version.method === 'personal_graph' && state.features.personal_graph) || (personalMemory && state.features.personal_memory !== false)) && !version.approved && (!version.stale || previousSnapshot);
+        let fullArchiveCheckbox = null, fullArchiveReviewedCheckbox = null, fullArchiveFingerprint = null;
+        const accessReviewInputs = [];
+        if (sourceMemory && previousSnapshot) details.append(el('p', 'review-note', 'Полный архив сейчас нельзя разрешить по старому снимку. Подтверждение охватит только уже показанные реплики.'));
+        if (sourceMemory && canApprove && !previousSnapshot) {
+          const accessPanel = el('section', 'memory-record');
+          accessPanel.append(el('h4', '', personalMemory ? 'Доступ помощника к персональной памяти' : 'Источники для экспериментального чата'));
+          accessPanel.append(el('p', 'review-note', personalMemory ? 'По умолчанию помощник получит только выбранные реплики. Можно отдельно просмотреть и разрешить весь доступный снимок завершённых занятий, включая другие темы и сводки.' : 'По умолчанию чат сможет выбирать только показанные выше реплики. Можно отдельно открыть и разрешить все исходники персонального графа по завершённым занятиям ребёнка, включая другие темы.'));
+          accessPanel.append(el('p', 'review-note', 'К ответу ученика прикладывается до 600 символов предыдущей реплики помощника. Финальная реплика помощника доступна только для последнего завершённого занятия по теме и только если она не длиннее 1200 символов. Это не полный протокол реплик помощника.'));
+          const previewButton = el('button', 'button secondary', personalMemory ? 'Показать весь доступный снимок исходников памяти' : 'Показать весь доступный снимок исходников графа'); previewButton.type = 'button';
+          const accessStatus = el('p', 'review-note'); accessStatus.setAttribute('role', 'status');
+          const previewRoot = el('div', 'memory-archive-preview');
+          const reviewed = el('input'); reviewed.type = 'checkbox'; reviewed.disabled = true;
+          fullArchiveReviewedCheckbox = reviewed;
+          const reviewedLabel = el('label', 'check-line');
+          reviewedLabel.append(reviewed, el('span', '', 'Я просмотрел(а) все исходные реплики и заметки в снимке, а также доступные выдержки связанного контекста и исправления.'));
+          fullArchiveCheckbox = el('input'); fullArchiveCheckbox.type = 'checkbox'; fullArchiveCheckbox.disabled = true;
+          const fullArchiveLabel = el('label', 'check-line');
+          fullArchiveLabel.append(fullArchiveCheckbox, el('span', '', personalMemory ? 'Разрешить помощнику искать исходные реплики и использовать сводки в пределах всего просмотренного снимка памяти.' : 'Разрешить чату искать подтверждающие исходные реплики во всём этом снимке графа.'));
+          accessReviewInputs.push(reviewed, fullArchiveCheckbox);
+          reviewed.addEventListener('change', () => {
+            if (!reviewed.checked) fullArchiveCheckbox.checked = false;
+            fullArchiveCheckbox.disabled = !reviewed.checked;
+          });
+          previewButton.addEventListener('click', () => busy(previewButton, async () => {
+            if (!currentView()) return;
+            accessStatus.textContent = personalMemory ? 'Загружаем снимок исходников памяти…' : 'Загружаем снимок исходников графа…';
+            reviewed.checked = false; reviewed.disabled = true;
+            fullArchiveCheckbox.checked = false; fullArchiveCheckbox.disabled = true;
+            previewRoot.replaceChildren(); fullArchiveFingerprint = null;
+            try {
+              const archiveData = await request(`/learners/${encodeURIComponent(learnerId)}/memory?include_personal_graph_snapshot=true`);
+              if (!currentView()) return;
+              const archiveSources = Array.isArray(archiveData.personal_graph_sources) ? archiveData.personal_graph_sources : [];
+              const expectedIds = Array.isArray(version.state?.source_ids) ? version.state.source_ids : [];
+              const visibleIds = archiveSources.map(source => String(source.source_id || '')).filter(Boolean);
+              const sameIds = expectedIds.length === visibleIds.length
+                && expectedIds.every(id => visibleIds.includes(id))
+                && visibleIds.every(id => expectedIds.includes(id));
+              const fingerprint = archiveData.personal_graph_snapshot_fingerprint;
+              const expectedFingerprint = version.state?.archive_snapshot_fingerprint;
+              if (!sameIds || !fingerprint || fingerprint !== expectedFingerprint
+                  || archiveData.revision !== data.revision || archiveData.source_revision !== data.source_revision) {
+                accessStatus.textContent = 'Снимок изменился или не совпадает с этой версией. Обновите список памяти и создайте новый черновик.';
+                return;
+              }
+              fullArchiveFingerprint = fingerprint;
+              const fullHistory = sourceDetails(archiveSources, personalMemory ? 'Доступные исходники памяти' : 'Доступные исходники графа', { showDialogueContext: true, suppressId: true });
+              fullHistory.open = true;
+              previewRoot.append(fullHistory);
+              reviewed.disabled = false;
+              const hiddenCorrections = Number(archiveData.personal_graph_hidden_correction_count) || 0;
+              accessStatus.textContent = `Снимок совпадает с версией. В нём показаны доступные исходники завершённых занятий этого ребёнка.${hiddenCorrections ? ` Скрыто исправлений без доступной цепочки исходников: ${hiddenCorrections}.` : ''}`;
+            } catch (error) {
+              if (currentView()) accessStatus.textContent = `Не удалось загрузить полный архив. ${errorText(error)}`;
+            }
+          }));
+          accessPanel.append(previewButton, accessStatus, reviewedLabel, fullArchiveLabel, previewRoot);
+          details.append(accessPanel);
+        }
         const candidates = Array.isArray(version.context?.interest_candidates) ? version.context.interest_candidates : [];
         const interestChoices = [];
         if (candidates.length) {
@@ -401,13 +984,28 @@
         }
         if (canApprove) {
           const approve = el('button', 'button secondary', 'Подтвердить память для помощника'); approve.type = 'button';
+          let acknowledged = null;
           details.append(el('p', 'review-note', 'Проверьте записи и исходные реплики. Подтверждённая память станет доступна помощнику ученика.'));
+          if (previousSnapshot) {
+            acknowledged = el('input'); acknowledged.type = 'checkbox';
+            const acknowledgedLabel = el('label', 'check-line');
+            acknowledgedLabel.append(acknowledged, el('span', '', 'Я понимаю, что новые сообщения не входят в эту версию и память нужно обновить отдельно.'));
+            approve.disabled = true;
+            acknowledged.addEventListener('change', () => { approve.disabled = !acknowledged.checked; });
+            details.append(acknowledgedLabel);
+          }
           approve.addEventListener('click', () => busy(approve, async () => {
             if (viewRevision !== state.viewRevision || topic !== $('#topic-select').value) return;
+            if (previousSnapshot && !acknowledged?.checked) return;
             const interestCandidateIds = interestChoices.filter(choice => choice.checked).map(choice => choice.value);
-            interestChoices.forEach(choice => { choice.disabled = true; });
+            const allowFullArchive = Boolean(fullArchiveReviewedCheckbox?.checked && fullArchiveCheckbox?.checked);
+            if (allowFullArchive && !fullArchiveFingerprint) return;
+            [...interestChoices, ...accessReviewInputs, ...(acknowledged ? [acknowledged] : [])].forEach(choice => { choice.disabled = true; });
             try {
-              await request(`/learners/${encodeURIComponent(learnerId)}/memory/versions/${encodeURIComponent(version.version_id)}/confirm`, { method: 'POST', body: { expected_revision: data.revision, interest_candidate_ids: interestCandidateIds } });
+              const graphAccess = sourceMemory
+                ? { reviewed_full_archive: allowFullArchive, allow_full_archive: allowFullArchive, ...(allowFullArchive ? { archive_snapshot_fingerprint: fullArchiveFingerprint } : {}) }
+                : {};
+              await request(`/learners/${encodeURIComponent(learnerId)}/memory/versions/${encodeURIComponent(version.version_id)}/confirm`, { method: 'POST', body: { expected_revision: data.revision, interest_candidate_ids: interestCandidateIds, ...graphAccess, ...(previousSnapshot ? { acknowledge_new_messages: true, expected_source_revision: data.source_revision } : {}) } });
               if (viewRevision !== state.viewRevision) return;
               const dashboard = await request(`/learners/${encodeURIComponent(learnerId)}/dashboard`);
               if (viewRevision !== state.viewRevision) return;
@@ -416,7 +1014,19 @@
               await loadMemory();
               if (viewRevision === state.viewRevision) toast('Память подтверждена');
             } catch (error) {
-              if (viewRevision === state.viewRevision) { interestChoices.forEach(choice => { choice.disabled = false; }); throw error; }
+              if (viewRevision === state.viewRevision) {
+                interestChoices.forEach(choice => { choice.disabled = false; });
+                if (acknowledged) acknowledged.disabled = false;
+                accessReviewInputs.forEach(choice => {
+                  choice.disabled = !fullArchiveFingerprint || (choice === fullArchiveCheckbox && !fullArchiveReviewedCheckbox?.checked);
+                });
+                if (error.status === 409) {
+                  await loadMemory();
+                  toast('Память изменилась. Проверьте обновлённое предупреждение и исходные реплики.');
+                  return;
+                }
+                throw error;
+              }
             }
           })); details.append(approve);
         }
@@ -457,6 +1067,18 @@
       return { rendered: true, generation: memoryViewRevision };
     } catch (error) { if (currentView()) $('#memory-status').textContent = errorText(error); return { rendered: false, generation: memoryViewRevision }; }
   }
+  function appendSelectionWarnings(root, warnings) {
+    if (!Array.isArray(warnings) || !warnings.length) return;
+    const messages = {
+      memory_budget_exceeded: 'Некоторые найденные фрагменты не вошли в память из-за ограничения объёма. Проверьте исходные реплики.',
+      withheld_without_exact_source_chunk: 'Некоторые фрагменты связаны с найденным занятием, но их соответствие запросу не установлено. Они не включены в выбранную память.',
+      retrieved_source_fragment_not_hydrated: 'Некоторые найденные исходные фрагменты не были подгружены для проверки. Сверьте историю занятия.',
+      assistant_context_not_source_evidence: 'Реплики помощника без связанной исходной реплики не используются как самостоятельное свидетельство.',
+      duplicate_source_turns: 'Некоторые найденные фрагменты пересекаются с уже выбранными. Сверьте исходные реплики.',
+    };
+    const codes = new Set(warnings.map(item => item?.code));
+    codes.forEach(code => root.append(el('p', 'review-note', Object.hasOwn(messages, code) ? messages[code] : 'Часть найденных фрагментов не вошла в память. Проверьте исходные реплики.')));
+  }
   function renderNextStep() {
     const current = state.nextStepsByLearner.get(state.learnerId), root = $('#next-step-result'); root.replaceChildren(); root.hidden = !current?.result;
     $('#next-step-status').textContent = current?.statusText || '';
@@ -467,10 +1089,33 @@
     const actionTitles = { enough_data_next_task: 'Предложить следующую задачу', independent_check: 'Провести самостоятельную проверку', continue_work: 'Продолжить работу', clarify_missing_observation: 'Уточнить недостающее наблюдение' };
     const actionTitle = Object.hasOwn(actionTitles, data.action) ? actionTitles[data.action] : data.action;
     root.append(el('h3', '', 'Предложенное действие'), el('p', 'review-note', topicTitle(topicById(data.topic_id) || { topic_id: data.topic_id })), el('p', 'next-step-action', actionTitle || 'Действие не указано.'), el('strong', '', 'Черновик обоснования'), el('p', '', data.reason || 'Обоснование не указано.'));
+    if (Array.isArray(data.memory_warnings) && data.memory_warnings.length) {
+      const warnings = el('section', 'review-note');
+      warnings.append(el('strong', '', 'Часть кандидатов памяти не прошла проверку и не вошла в рекомендацию.'));
+      const list = el('ul');
+      data.memory_warnings.forEach(item => list.append(el('li', '', `Запись ${item.record_index} – ${item.code || 'ошибка контракта'}`)));
+      warnings.append(list); root.append(warnings);
+    }
+    appendSelectionWarnings(root, data.memory_selection_warnings);
     if (Array.isArray(data.unknowns) && data.unknowns.length) { root.append(el('strong', '', 'Что нужно уточнить')); const list = el('ul'); data.unknowns.forEach(item => list.append(el('li', '', item))); root.append(list); }
     else root.append(el('p', 'review-note recommendation-empty-unknowns', 'В черновике неизвестные условия не перечислены. Это не подтверждает самостоятельность или освоение.'));
     const review = data.evidence_review;
     if (review?.version === 'recommendation-source-review-v1') {
+      if (Array.isArray(review.attribution_checks) && review.attribution_checks.length) {
+        const notes = el('section', 'review-note recommendation-attribution-check');
+        notes.append(el('strong', '', 'Проверьте, кому приписан вопрос или подсказка.'));
+        const list = el('ul');
+        review.attribution_checks.forEach(item => list.append(el('li', '', item.quote)));
+        notes.append(list, el('p', '', 'Сверьте эти слова с исходной заметкой и ролями участников диалога. Это предупреждение не определяет, есть ли ошибка.'));
+        if (Array.isArray(review.attribution_contexts) && review.attribution_contexts.length) {
+          notes.append(el('p', '', 'Другие выбранные диалоги могут относиться к другим событиям.'));
+          notes.append(sourceDetails(review.attribution_contexts, 'Другие выбранные диалоги и исправления', {
+            showDialogueContext: true, suppressId: true,
+            uncitedLabel: 'В ссылках черновика не указана.'
+          }));
+        }
+        root.append(notes);
+      }
       if (Array.isArray(review.source_unknowns) && review.source_unknowns.length) {
         const notes = el('section', 'recommendation-source-unknowns'); notes.append(el('strong', '', 'Неопределённость, отмеченная в источниках'));
         review.source_unknowns.forEach(item => {
@@ -483,7 +1128,7 @@
       if (Array.isArray(review.sources) && review.sources.length) {
         const evidence = sourceDetails(review.sources, 'Реплики для проверки обоснования', { showDialogueContext: true }); evidence.classList.add('recommendation-evidence'); root.append(evidence);
       }
-      root.append(el('p', 'review-note', 'Сверьте обоснование с репликами. Допустимая ссылка сама по себе не подтверждает верность вывода.'));
+      root.append(el('p', 'review-note', 'Сверьте обоснование с репликами, особенно автора вопроса и помощь. Заметка и диалог могут описывать одно событие. Допустимая ссылка сама по себе не подтверждает верность вывода.'));
     }
     if (data.review_required) root.append(el('p', 'review-note', 'Требуется просмотр преподавателем.'));
     if (data.stale) root.append(el('p', 'review-note', 'Использована последняя готовая память. Есть ещё не обработанные занятия.'));
@@ -682,8 +1327,7 @@
       view.viewRevision === state.viewRevision && state.account?.role === 'student';
   }
   function archiveDate(value) {
-    const date = new Date(value);
-    return Number.isFinite(date.getTime()) ? new Intl.DateTimeFormat('ru-RU', { day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' }).format(date) : 'Дата не указана';
+    return formatDisplayDate(value, { year:'numeric', hour:'2-digit', minute:'2-digit' });
   }
   function validArchiveCursor(cursor) { return cursor === null || typeof cursor === 'string' && cursor.length > 0 && cursor.length <= 1024; }
   function validSavedMessages(messages) {
@@ -712,6 +1356,11 @@
     const log = $('#learning-archive-log'); log.replaceChildren();
     selected.messages.forEach(message => {
       const bubble = chatBubble(message.role, message.content);
+      if (message.created_at) {
+        const time = el('time', 'conversation-message-time', formatDisplayDate(message.created_at, { year:'numeric', hour:'2-digit', minute:'2-digit', second:'2-digit' }));
+        time.dateTime = message.created_at; time.title = `${message.created_at} · ${displayTimezone()}`; bubble.append(time);
+      }
+      if (message.source_id) bubble.append(el('small', 'field-hint', `Источник: ${message.source_id}`));
       const status = message.role === 'user' && ({ pending:'Ответ не был завершён.', unknown_outcome:'Результат запроса остался неизвестным.', failed:'Сообщение не получило ответа.' })[message.delivery_status];
       if (status) bubble.append(el('small', 'field-hint', status));
       log.append(bubble);
@@ -1095,6 +1744,7 @@
     $('#send-chat').disabled = !!pending || blocked; $('#chat-input').disabled = !!pending || blocked;
     $('#chat-retry').hidden = !pending?.error; $('#chat-error').textContent = pending?.error || ''; $('#retry-chat').hidden = !!pending?.terminal;
     renderLearningAction(pending);
+    if (state.features.daily_checkin) renderDailyCheckin();
   }
   async function sendPendingMessage() {
     const learnerId = state.learnerId, pending = state.pendingMessages.get(learnerId), token = state.token;
@@ -1114,6 +1764,8 @@
         sessionRecovery.set(learnerId, { loading:false, unresolved_status:null, history_truncated:false });
       }
       const body = { model: 'teachcopilot-rag', learning_session_id: session.learning_session_id, client_message_id: pending.client_message_id, messages: pending.learning_action ? [] : [{ role: 'user', content: pending.content }], metadata: { subject_id: session.subject_id || pending.subject_id } };
+      if (!pending.learning_action && ['tail', 'personal_memory', 'personal_graph'].includes(pending.memory_method)) body.metadata.memory_method = pending.memory_method;
+      if (!pending.learning_action && pending.checkin_id) body.metadata.checkin_id = pending.checkin_id;
       if (session.session_mode === 'autonomous_division') body.learning_protocol = autonomousProtocol;
       if (pending.learning_action) body.learning_action = pending.learning_action;
       const data = await request('/v1/chat/completions', { method: 'POST', body });
@@ -1158,7 +1810,11 @@
     }
     finally {
       pending.sending = false;
-      if (state.token === token && state.learnerId === learnerId) { $('#send-chat').textContent = 'Отправить вопрос'; renderLearningSession(); if (ordinaryReplyReady) refreshGuided(); }
+      if (state.token === token && state.learnerId === learnerId) {
+        $('#send-chat').textContent = 'Отправить вопрос'; renderLearningSession(); if (ordinaryReplyReady) refreshGuided();
+        if (state.features?.conversation_memory) loadConversationMemory();
+        if (state.features?.daily_checkin && (pending.checkin_id || ordinaryReplyReady)) loadDailyCheckin();
+      }
     }
   }
 
@@ -1192,6 +1848,64 @@
     loginWith(`/auth/demo/${role}`, {}, { 'X-TeachCopilot-Demo': '1' });
   }));
   $('#logout').addEventListener('click', async () => { try { await request('/auth/logout', { method: 'POST' }); } catch { /* local session is still cleared */ } signOutLocal(); });
+  $('#display-timezone').addEventListener('change', () => {
+    const custom = $('#display-timezone').value === 'custom';
+    $('#custom-timezone').hidden = !custom; $('#custom-timezone-label').hidden = !custom;
+    if (custom) $('#custom-timezone').focus();
+  });
+  $('#timezone-form').addEventListener('submit', event => {
+    event.preventDefault();
+    busy($('#save-timezone'), async () => {
+      const zone = $('#display-timezone').value === 'custom' ? $('#custom-timezone').value.trim() : $('#display-timezone').value;
+      try { new Intl.DateTimeFormat('ru', { timeZone: zone }); } catch { $('#timezone-status').textContent = 'Укажите действующий часовой пояс IANA, например Asia/Tomsk.'; return; }
+      const token = state.token;
+      const data = await request('/auth/preferences', { method: 'PATCH', body: { display_timezone: zone } });
+      if (token !== state.token) return;
+      state.profile = { ...state.profile, ...(data.profile || {}), display_timezone: data.profile?.display_timezone || zone };
+      renderTimezonePreference();
+      $('#timezone-status').textContent = 'Часовой пояс отображения сохранён. Границы учебных дней ученика не изменились.';
+      if (state.dashboard) renderDashboard(state.dashboard);
+      if (learningArchive && archiveIsCurrent(learningArchive)) renderLearningArchive();
+      const conversation = conversationViews.get(state.learnerId);
+      if (conversation?.hierarchy) {
+        renderConversationMemory(conversation.hierarchy);
+        $('#conversation-memory-status').textContent = `Учебные дни: ${conversation.hierarchy.learning_timezone || 'Asia/Tomsk'}. Часовой пояс отображения: ${displayTimezone()}.`;
+      }
+      if (ownArchiveViews.has(state.learnerId)) renderOwnConversationHistory();
+      if (state.account?.role === 'teacher') await loadMemory();
+    });
+  });
+  $('#refresh-conversation-memory').addEventListener('click', loadConversationMemory);
+  $('#own-conversation-history').addEventListener('toggle', () => { if ($('#own-conversation-history').open) loadOwnConversationHistory(); });
+  $('#refresh-own-conversation-history').addEventListener('click', () => loadOwnConversationHistory(false, true));
+  $('#older-own-conversation-history').addEventListener('click', () => loadOwnConversationHistory(true));
+  document.addEventListener('visibilitychange', () => {
+    const card = $('#daily-checkin'), view = dailyCheckins.get(state.learnerId);
+    if (document.visibilityState === 'hidden' || card.hidden || !currentDailyCheckin(view)) return;
+    const bounds = card.getBoundingClientRect();
+    if (bounds.bottom > 0 && bounds.top < window.innerHeight && bounds.right > 0 && bounds.left < window.innerWidth) markDailyCheckinShown(view);
+  });
+  $('#skip-daily-checkin').addEventListener('click', () => busy($('#skip-daily-checkin'), async () => {
+    const view = dailyCheckins.get(state.learnerId);
+    if (!currentDailyCheckin(view) || !view.data?.available) return;
+    view.skipping = true; renderDailyCheckin();
+    try {
+      const data = await request(`/learners/${encodeURIComponent(view.learnerId)}/checkin/${encodeURIComponent(view.data.checkin_id)}/skip`, { method:'POST', body:{} });
+      if (currentDailyCheckin(view)) { view.data = data.checkin || data; view.error = ''; }
+    } catch (error) { if (currentDailyCheckin(view)) view.error = `Не удалось сохранить пропуск. ${errorText(error)}`; }
+    finally { view.skipping = false; if (currentDailyCheckin(view)) renderDailyCheckin(); }
+  }));
+  $('#daily-checkin-form').addEventListener('submit', async event => {
+    event.preventDefault();
+    const view = dailyCheckins.get(state.learnerId), content = $('#daily-checkin-answer').value.trim();
+    if (!currentDailyCheckin(view) || !view.data?.available || view.skipping || !content || $('#daily-checkin').hidden || state.pendingMessages.has(state.learnerId) || recoveryBlocksMessages()) return;
+    $('#answer-daily-checkin').disabled = true;
+    if (!await markDailyCheckinShown(view, true) || !currentDailyCheckin(view)) { renderDailyCheckin(); return; }
+    if (state.pendingMessages.has(state.learnerId) || recoveryBlocksMessages() || state.learningSessionsByLearner.get(state.learnerId)?.session_mode === 'autonomous_division') { renderDailyCheckin(); return; }
+    $('#chat-mode').value = 'chat';
+    state.pendingMessages.set(state.learnerId, { content, client_message_id:crypto.randomUUID(), client_session_id:crypto.randomUUID(), subject_id:$('#chat-subject').value, topic_id:$('#chat-topic').value, memory_method:'tail', checkin_id:view.data.checkin_id });
+    updateChat('user', content); renderLearningSession(); sendPendingMessage();
+  });
   $('#learner-filter').addEventListener('input', filterRoster);
   $('#retry-load').addEventListener('click', () => state.learnerId ? selectLearner(state.learnerId) : loadLearners());
   $('#zpd-help').addEventListener('click', () => { const box = $('#zpd-explainer'), open = box.hidden; box.hidden = !open; $('#zpd-help').setAttribute('aria-expanded', String(open)); });
@@ -1229,7 +1943,7 @@
         session?.status === 'active' && session.session_mode === 'autonomous_division') return;
     if (state.learningSessionsByLearner.get(learnerId)?.status === 'completed') { state.chatByLearner.delete(learnerId); renderChatHistory(learnerId); }
     const client_message_id = crypto.randomUUID();
-    state.pendingMessages.set(learnerId, { content, client_message_id, client_session_id: crypto.randomUUID(), subject_id: $('#chat-subject').value, topic_id: $('#chat-topic').value });
+    state.pendingMessages.set(learnerId, { content, client_message_id, client_session_id: crypto.randomUUID(), subject_id: $('#chat-subject').value, topic_id: $('#chat-topic').value, memory_method: $('#chat-memory-method').value });
     updateChat('user', content); input.value = ''; sendPendingMessage();
   });
   $('#chat-mode').addEventListener('change', () => {

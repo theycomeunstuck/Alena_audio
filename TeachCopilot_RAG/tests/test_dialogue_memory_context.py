@@ -47,7 +47,8 @@ def test_question_and_ambiguous_agreement_are_distinct_from_evidence():
     assert state["sources"]["student-one"]["text"] == raw["text"]
     assert QUESTION not in str(state)
     assert context["sources"] == [{"source_id": "student-one", "role": "student",
-                                   "text": raw["text"], "observed_on": "2026-10-19"}]
+                                   "text": raw["text"], "observed_on": "2026-10-19",
+                                   "topic_id": TOPIC}]
     assert context["evidence_ids"] == ["student-one"]
     assert "assistant-one" not in str(state) and "Ты всё освоил!" not in context["text"]
     assert QUESTION in context["text"] and DIALOGUE_CONTEXT_NOTICE in context["text"]
@@ -195,11 +196,11 @@ def test_store_pairs_only_immediate_same_session_learner_and_topic(flow_store):
     snapshot = store.get_learner_memory(learner, TOPIC)
     rows = {row["source_id"]: row for row in snapshot["sources"]}
     assert "dialogue_context" not in rows[first["source_id"]]
-    assert rows[second["source_id"]]["dialogue_context"] == {"role": "assistant", "text": QUESTION, "excerpt_mode": "tail", "truncated": False}
+    assert rows[second["source_id"]]["dialogue_context"] == {"role": "assistant", "usage": "context_only", "text": QUESTION, "excerpt_mode": "tail", "truncated": False}
     assert rows[standalone["source_id"]]["dialogue_context"]["text"] == "СЛЕДУЮЩИЙ ВОПРОС"
     assert "dialogue_context" not in rows[third["source_id"]]
     assert rows[fourth["source_id"]]["dialogue_context"] == {
-        "role": "assistant", "text": ("К" * 900 + QUESTION)[-DIALOGUE_CONTEXT_CHARS:], "excerpt_mode": "tail", "truncated": True}
+        "role": "assistant", "usage": "context_only", "text": ("К" * 900 + QUESTION)[-DIALOGUE_CONTEXT_CHARS:], "excerpt_mode": "tail", "truncated": True}
     assert "dialogue_context" not in rows[fifth["source_id"]]
     assert "dialogue_context" not in rows[sixth["source_id"]]
     assert active_source["source_id"] not in rows

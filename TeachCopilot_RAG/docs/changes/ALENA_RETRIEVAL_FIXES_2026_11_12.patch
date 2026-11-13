@@ -1,0 +1,965 @@
+--- a/docs/ALENA_HANDOFF_2026_11_07.md
++++ b/docs/ALENA_HANDOFF_2026_11_07.md
+@@ -96,3 +96,23 @@
+ Проверка сохранности подтвердила контрольные суммы 265 файлов резервной копии и наличие всех исходных путей. Сохранены исходный DOCX-образец и прежний отчёт. Учётные данные и строки подключения читаются локально и остаются вне передач и публикаций. AGY отклонил запросы из-за неподдерживаемого региона с кодом 400, независимые проверки выполнены доступными Codex-агентами. [Манифест сохранности](C:/Users/name/PycharmProjects/misc/teachCopilot/.local/continuation-20261107/preservation-final.json)
+ 
+ Материалы НИРС продолжаются отдельно по [плану НИРС](C:/Users/name/PycharmProjects/misc/teachCopilot/nirs/61_nirs_plan_2026_11_07.md).
++
++## Обновление от 12 ноября 2026 года – поиск по собственному архиву
++
++Работа ведётся вне репозитория, в папке `C:/Users/name/Documents/ChatGPT/Claude/teachcopilot-work`. Там лежат `FIX_LIST.md` (статус каждого пункта), `APPROVALS.md` (что требует решения пользователя), `DECISIONS.md`, `EVAL_PLAN.md` и каталог `benchmark` с результатами. Снимок кода до правок – `snapshots/alena-20261112-pre-fix`. Ничего не закоммичено, рабочая база не использовалась.
++
++Изменены семь файлов (после полного слияния двух вариантов гибридного поиска для разрешённой памяти): `conversation_retrieval.py`, `dialogue_catalog.py`, `hierarchical_memory.py`, `rag.py`, `store.py`, `memory_store.py`, `personal_graph_memory.py`. Добавлены шесть файлов тестов (70 тестов). Основное:
++- Фильтр даты из вопроса сравнивает месяцы по целым словам, невозможная дата не вызывает ошибку, при пустом диапазоне поиск идёт по всему архиву. Явно заданный диапазон не расширяется.
++- При отказе сервиса эмбеддингов поиск переходит на совпадение слов и помечает `diagnostics.degraded`. Одна реплика, которую модель не может векторизовать (Ollama BGE-M3 иногда отвечает HTTP 500 «NaN» на обычный текст), изолируется и больше не ломает поиск для ребёнка.
++- Ключ кэша векторов больше не зависит от хеша исходного файла модуля. После выката первый запрос каждого ребёнка один раз пересчитает векторы.
++- Угловые скобки в процитированном тексте экранируются в блоках промпта для цитат и для сводок, поэтому реплика ребёнка не закрывает обёртку.
++- `get_own_conversation_messages` возвращает сохранённые `learner_id` и `actor_id` вместо эха параметров запроса.
++- Поиск по материалам: бонусы темы и класса уменьшены (множители 1.03 и 1.01 вместо 1.15 и 1.05), совпадения по словам проходят порог косинусного сходства, порядок при равных оценках детерминирован.
++- Режим объединения рангов `fusion="rrf"` добавлен, но выключен. Стандартный расчёт остаётся прежним.
++- Наблюдательный сигнал `diagnostics.absence_signal` по умолчанию ничего не отсекает. Есть и предварительное правило, выключенное по умолчанию: `absence_rule="provisional-v1"` не возвращает цитат, если лучший фрагмент имеет косинусное сходство ниже 0.47. Порог подобран на тех же 14 синтетических архивах, на рабочих точках теряет примерно 30–56% отвечаемых вопросов и помечен как непроверенный; приложение это правило не вызывает.
++
++Проверка на выделенной тестовой базе `nirs_personal_graph_it_e922e53d91fd` (не на рабочей), последний полный прогон с итоговым кодом: 2360 успешных тестов, 2 неуспешных и одна ошибка сбора (`tests/test_json_rag.py` требует `torch`), всего 2363. Регрессий нет. По вашим решениям: (1) `source_id` больше не возвращается в ответах `/learning-sessions/current` и истории сеанса для ученика (интерфейс его оттуда не читает; в представлении собственной переписки он остаётся), тест `test_guided_restart` проходит, шесть тестов с словарями сообщений снова проверяют отсутствие `source_id`; (2) задание памяти, которое упало только из-за `stale_revision`, теперь повторяется отдельными заданиями, не более двух раз (`MemoryWorker.run_once`, только фоновые локальные задания); (3) пониженные бонусы темы и класса приняты. Остались 2 неуспешных: `test_memory_source_corrections` – задание теперь завершается, но следующий шаг (подтверждение преподавателем) даёт 409, потому что тест отправляет ещё одно сообщение в чат между завершением задания и подтверждением, а каждое прямое сообщение теперь сохраняется и сдвигает ревизию источников; нужно решение, должны ли собственные сообщения ребёнка влиять на ревизию памяти; `test_rich_demo_seed` – в тестовой базе есть демо-аккаунты, но нет файла `.local/rich-demo-credentials.json`. Подробности – в `APPROVALS.md`.
++
++Сравнение на 14 синтетических архивах (около 10 фрагментов в каждом, три формулировки вопросов): текущая формула совпадает с чисто векторным поиском (разница от -0.02 до +0.05 по доле найденных реплик), векторный поиск заметно лучше лексического, а `rrf` не лучше текущей формулы и хуже на вопросах от первого лица. Данные синтетические, результат не говорит о работе с реальными детьми и об архивах из тысяч фрагментов.
++
++Открыто: пороги для ответа «в истории этого нет» (сигнал слабый, AUC 0.69–0.85), проверка остальных обёрток промпта в `rag.py` (`approved_memory_untrusted`, `checked_division_context`), решение о каталоге диалогов, два варианта гибридного поиска для разрешённой памяти: варианты полностью объединены по вашему разрешению: `source_scoped_search` теперь для всех режимов вызывает `rank_source_candidates`. При равных оценках побеждает более новый урок (раньше – меньший идентификатор), применяются токенизация и строгий косинус первого варианта (эмбеддинги ровно 1024 числа, не нулевые). Тесты: `test_source_scoped_search_unified.py`; в `test_personal_graph_bridge.py` фиктивные эмбеддинги дополнены до 1024 чисел, два бюджетных теста ожидают более новые источники.
+--- a/local_app/api.py
++++ b/local_app/api.py
+@@ -55,6 +55,14 @@
+         "math": "Математика", "python": "Python", "programming": "Программирование",
+         "scratch": "Scratch", "general": "Общее занятие",
+     }.get(topic_id) or topic_id or "Тема не указана")
++
++
++def _without_internal_source_ids(result: dict) -> dict:
++    """Learner-facing session payloads never carry internal source ids (the own-conversation view has its own endpoint)."""
++    if not isinstance(result.get('messages'), list):
++        return result
++    return {**result, 'messages': [{key: value for key, value in message.items() if key != 'source_id'}
++                                   if isinstance(message, dict) else message for message in result['messages']]}
+ 
+ 
+ def _learning_session_topic(topic_id: str, catalog: dict) -> dict:
+@@ -528,7 +536,7 @@
+             result = store.current_learning_session(learner_id, _account_id(user))
+             if not result.get('available'):
+                 return {'available':False}
+-            return {**result,**_learning_session_topic(result['topic_id'],store.catalog())}
++            return {**_without_internal_source_ids(result),**_learning_session_topic(result['topic_id'],store.catalog())}
+         except Exception as exc:
+             memory_error(exc)
+ 
+@@ -556,7 +564,7 @@
+         try:
+             result = store.completed_learning_session_history(learner_id,str(learning_session_id),
+                                                                _account_id(user),before=before)
+-            return {**result,**_learning_session_topic(result['topic_id'],store.catalog())}
++            return {**_without_internal_source_ids(result),**_learning_session_topic(result['topic_id'],store.catalog())}
+         except LearningSessionNotCompletedError as exc:
+             raise HTTPException(status_code=409,detail=str(exc)) from exc
+         except Exception as exc:
+--- a/local_app/conversation_retrieval.py
++++ b/local_app/conversation_retrieval.py
+@@ -11,6 +11,7 @@
+ from datetime import date, datetime, timedelta, timezone
+ import hashlib
+ import json
++import logging
+ import math
+ from pathlib import Path
+ import re
+@@ -24,11 +25,28 @@
+ from .timezones import DEFAULT_LEARNING_TIMEZONE, utc_datetime, validate_timezone
+ 
+ 
++_LOG = logging.getLogger(__name__)
+ CHUNK_RECIPE = "own-conversation-fixed900-overlap120-long240-v1"
+ CHUNK_SIZE = 900
+ OVERLAP = 120
+ LONG_PARAGRAPH_OVERLAP = 240
+ MIN_SEMANTIC_SIMILARITY = 0.20
++CACHE_FORMAT_VERSION = "conversation-vectors-v1"
++_MONTH_PATTERNS = (  # whole words only: "Мартину" or "мартышку" are not March
++    r"январ(?:ь|я|ю|[её]м|е)", r"феврал(?:ь|я|ю|[её]м|е)", r"март(?:а|у|ом|е)?", r"апрел(?:ь|я|ю|[её]м|е)",
++    r"ма(?:й|я|ю|ем|е)", r"июн(?:ь|я|ю|[её]м|е)", r"июл(?:ь|я|ю|[её]м|е)", r"август(?:а|у|ом|е)?",
++    r"сентябр(?:ь|я|ю|[её]м|е)", r"октябр(?:ь|я|ю|[её]м|е)", r"ноябр(?:ь|я|ю|[её]м|е)", r"декабр(?:ь|я|ю|[её]м|е)")
++_FALLBACK_STOP = frozenset("""какой какая какие какое которой которые который этого этому этой этих когда почему зачем
++сказал сказала говорил говорила рассказывал рассказывала расскажи вспомни помнишь про меня тебя было была были
++есть быть можно нужно очень также только после перед потом тогда""".split())
++FUSION_LEGACY, FUSION_RRF = "legacy", "rrf"
++# PROVISIONAL, off by default, not validated. On 14 synthetic archives the best chunk's cosine separated
++# "fact not in history" questions from answerable ones only weakly (AUC 0.69-0.85); the best threshold on
++# that same data was about 0.47-0.50 and it also discarded roughly 30-56% of answerable questions.
++ABSENCE_PROVISIONAL = "provisional-v1"
++ABSENCE_PROVISIONAL_TOP1 = 0.47
++RRF_K = 60
++RRF_CANDIDATES = 50
+ _MEMO_LIMIT = 2048
+ _MEMO = OrderedDict()
+ _MEMO_LOCK = threading.Lock()
+@@ -172,9 +190,12 @@
+         self.identity = identity_reader()
+         if not isinstance(self.identity, str) or not re.search(r"@(?:sha256:)?[0-9a-fA-F]{64}$", self.identity):
+             raise ValueError("An immutable BGE-M3 model digest is required")
+-        recipe_hash = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
++        # The identity names the inputs that determine a vector (model, chunk recipe, document layout).
++        # It deliberately does not hash this module's source: an unrelated edit must not invalidate every
++        # learner's vectors. Bump CACHE_FORMAT_VERSION when embedding input handling itself changes.
+         self.cache_identity = _hash({"actor_id": str(actor_id), "model": self.identity,
+-            "chunk_recipe": CHUNK_RECIPE, "document_recipe": "raw-role-tagged-transcript-v1", "code": recipe_hash})
++            "chunk_recipe": CHUNK_RECIPE, "document_recipe": "raw-role-tagged-transcript-v1",
++            "cache_format": CACHE_FORMAT_VERSION})
+         self.scope = (learner_id, str(actor_id), self.cache_identity)
+         self.cache = (SourceEmbeddingCache(store.dsn, learner_id, self.cache_identity)
+                       if getattr(store, "dsn", None) else None)
+@@ -193,7 +214,44 @@
+         return [_validated_vector(vector) for vector in vectors]
+ 
+     def source_vectors(self, texts):
++        """Vectors for chunk texts; an entry is None only for a text the model alone cannot embed.
++
++        BGE-M3 through Ollama can answer HTTP 500 ("unsupported value: NaN") for an ordinary text. One such
++        chunk would otherwise fail the whole batch on every request. After a batch failure the texts are
++        embedded one by one (healthy ones come from the cache or memo at no cost), and a failing text gets
++        None. If the first three single attempts all fail the service is down, not one text: the original
++        error is raised so the caller can degrade. Integrity errors (ValueError) are never isolated.
++        """
+         self.check()
++        try:
++            result = self._source_vectors(texts)
++        except PermissionError:
++            raise
++        except (RuntimeError, OSError, DatabaseError) as exc:
++            if len(texts) < 2:
++                raise
++            result = self._isolate_unembeddable(texts, exc)
++        self.check()
++        return [None if vector is None else _validated_vector(vector) for vector in result]
++
++    def _isolate_unembeddable(self, texts, original):
++        vectors, successes, failures = [], 0, 0
++        for text in texts:
++            try:
++                vectors.append(self._source_vectors([text])[0])
++                successes += 1
++            except PermissionError:
++                raise
++            except (RuntimeError, OSError, DatabaseError):
++                failures += 1
++                if not successes and failures >= 3:
++                    raise original
++                vectors.append(None)
++        if not successes:
++            raise original
++        return vectors
++
++    def _source_vectors(self, texts):
+         if self.cache is not None:
+             result = self.cache.embed_many(texts, self.embed_many)
+         else:
+@@ -237,11 +295,16 @@
+                              else DEFAULT_LEARNING_TIMEZONE)
+     today = datetime.now(timezone.utc).astimezone(ZoneInfo(zone)).date()
+     text = question.casefold()
+-    dates = re.findall(r"\b\d{4}-\d{2}-\d{2}\b", text)
++    parsed = []
++    for value in re.findall(r"\b\d{4}-\d{2}-\d{2}\b", text):
++        try:  # an impossible date such as 2026-02-30 in a question is ordinary text, not an error
++            parsed.append(date.fromisoformat(value).isoformat())
++        except ValueError:
++            continue
+     result = {}
+-    if dates:
+-        parsed = [date.fromisoformat(value).isoformat() for value in dates[:2]]
+-        result = {"from": parsed[0], "through": parsed[-1]}
++    if parsed:
++        parsed = parsed[:2]
++        result = {"from": min(parsed[0], parsed[-1]), "through": max(parsed[0], parsed[-1])}
+     elif "позавчера" in text:
+         result = {"from": (today - timedelta(days=2)).isoformat(), "through": (today - timedelta(days=2)).isoformat()}
+     elif "вчера" in text:
+@@ -255,8 +318,8 @@
+         last = today.replace(day=1) - timedelta(days=1)
+         result = {"from": last.replace(day=1).isoformat(), "through": last.isoformat()}
+     else:
+-        months = ("январ", "феврал", "март", "апрел", "мае", "июн", "июл", "август", "сентябр", "октябр", "ноябр", "декабр")
+-        month = next((index + 1 for index, name in enumerate(months) if re.search(r"\b" + name, text)), None)
++        month = next((index + 1 for index, name in enumerate(_MONTH_PATTERNS)
++                      if re.search(r"(?<!\w)" + name + r"(?!\w)", text)), None)
+         year_match = re.search(r"\b(20\d{2})\b", text)
+         if month:
+             year = int(year_match.group()) if year_match else today.year - (month > today.month)
+@@ -266,6 +329,77 @@
+     return {**result, "source": "query" if result else "none", "date_field": "activity_day",
+             "reference_date": today.isoformat(), "learning_timezone": zone,
+             "meaning": "recorded_activity_day_not_reported_event_date"}
++
++
++def _stem_list(text):
++    """Dependency-free crude stems: 5-letter prefixes for alphabetic words, character bigrams for CJK runs.
++
++    Not a linguistic stemmer. It exists so that the outage fallback and the opt-in RRF lexical channel
++    can match inflected Russian forms ("хомяка"/"хомяки") without adding a package.
++    """
++    stems = []
++    for word in re.findall(r"\w+", text.casefold().replace("ё", "е")):
++        cjk = [char for char in word if "一" <= char <= "鿿"]
++        if len(cjk) >= 2:
++            stems.extend(a + b for a, b in zip(cjk, cjk[1:]))
++        elif len(word) >= 4 and word not in _FALLBACK_STOP:
++            stems.append(word[:5])
++    return stems
++
++
++def _fallback_stems(text):
++    """Stem set for the embedding-outage path only."""
++    return set(_stem_list(text))
++
++
++def _bm25(query_stems, documents, k1=1.2, b=0.75):
++    count = len(documents)
++    if not query_stems or not count:
++        return [0.0] * count
++    average = (sum(len(doc) for doc in documents) / count) or 1.0
++    frequency = defaultdict(int)
++    for doc in documents:
++        for stem in set(doc):
++            frequency[stem] += 1
++    scores = []
++    for doc in documents:
++        counts, score = defaultdict(int), 0.0
++        for stem in doc:
++            counts[stem] += 1
++        for stem in query_stems:
++            seen = counts.get(stem, 0)
++            if seen:
++                idf = math.log(1 + (count - frequency[stem] + 0.5) / (frequency[stem] + 0.5))
++                score += idf * seen * (k1 + 1) / (seen + k1 * (1 - b + b * len(doc) / average))
++        scores.append(score)
++    return scores
++
++
++def _rrf_hits(question, scored):
++    """Reciprocal rank fusion of the cosine order and a stemmed BM25 order over the same chunks.
++
++    A chunk enters through either list; the cosine list keeps the engineering gate, the lexical list admits
++    any chunk that shares a stem. Ties break by chunk id, so the result is deterministic.
++    """
++    query_stems = list(dict.fromkeys(_stem_list(question)))
++    lexical = _bm25(query_stems, [_stem_list(chunk["text"]) for chunk, _, _ in scored])
++    vector_order = sorted((i for i, (_, semantic, _) in enumerate(scored)
++                           if semantic is not None and semantic >= MIN_SEMANTIC_SIMILARITY),
++                          key=lambda i: (-scored[i][1], scored[i][0]["chunk_id"]))[:RRF_CANDIDATES]
++    lexical_order = sorted((i for i, value in enumerate(lexical) if value > 0),
++                           key=lambda i: (-lexical[i], scored[i][0]["chunk_id"]))[:RRF_CANDIDATES]
++    ranks, fused = {}, defaultdict(float)
++    for name, order in (("vector_rank", vector_order), ("lexical_rank", lexical_order)):
++        for rank, index in enumerate(order, 1):
++            fused[index] += 1.0 / (RRF_K + rank)
++            ranks.setdefault(index, {})[name] = rank
++    hits = []
++    for index, score in fused.items():
++        chunk, semantic, exact = scored[index]
++        hits.append({key: value for key, value in chunk.items() if key != "text"} | {
++            "semantic_score": semantic, "lexical_score": lexical[index], "exact_auxiliary_score": exact,
++            "rank_score": score, **ranks[index]})
++    return hits
+ 
+ 
+ def _quote(message, start=0, end=None):
+@@ -291,7 +425,9 @@
+         fields = ("role", "author_role", "usage", "text", "activity_day", "delivery_status", "excerpt_mode", "start", "end")
+         visible = [{"quote": f"Q{index + 1}", **{key: quote[key] for key in fields if key in quote}}
+                    for index, quote in enumerate(ordered)]
+-        return _json({"notice": _NOTICE, "messages": visible})
++        # JSON does not escape angle brackets. Quoted child text must not be able to close the prompt
++        # wrapper tag, so they are written as < and > (still lossless for any JSON reader).
++        return _json({"notice": _NOTICE, "messages": visible}).replace("<", "\\u003c").replace(">", "\\u003e")
+ 
+     def accept(quotes):
+         trial = OrderedDict(selected)
+@@ -336,15 +472,30 @@
+ 
+ 
+ def retrieve_conversation_context(store, runtime, learner_id, actor_id, question, *, exclude_source_id=None,
+-                                  budget_bytes=4000, time_filter=None):
+-    """Search all own history; return bounded literal citations and current facets."""
++                                  budget_bytes=4000, time_filter=None, fusion=FUSION_LEGACY, absence_rule=None):
++    """Search all own history; return bounded literal citations and current facets.
++
++    `fusion` selects the scoring recipe: "legacy" (shipped: cosine + 0.04 x exact-term fraction) or "rrf"
++    (opt-in: reciprocal rank fusion of cosine and stemmed BM25). Callers that do not pass it keep "legacy".
++    """
+     if not isinstance(question, str) or not question.strip() or type(budget_bytes) is not int or budget_bytes < 0:
+         raise ValueError("Invalid own conversation retrieval request")
++    if fusion not in (FUSION_LEGACY, FUSION_RRF):
++        raise ValueError("Unknown retrieval fusion recipe")
++    if absence_rule not in (None, ABSENCE_PROVISIONAL):
++        raise ValueError("Unknown absence rule")
+     messages = read_own_messages(store, learner_id, actor_id, exclude_source_id=exclude_source_id)
+     temporal = _time_filter(question, store, actor_id, time_filter, learner_id=learner_id)
+     filtered = [message for message in messages if (
+         not (temporal.get("from") or temporal.get("through")) or message.get("activity_day") is not None
+         and temporal.get("from", "0001-01-01") <= str(_iso(message["activity_day"])) <= temporal.get("through", "9999-12-31"))]
++    fallback = False
++    if (temporal.get("source") == "query" and (temporal.get("from") or temporal.get("through"))
++            and not filtered and messages):
++        # A date guessed from the wording of the question must not hide the whole archive. An explicit
++        # caller-supplied range is a contract and is never widened.
++        filtered, fallback = messages, True
++        temporal = {**temporal, "applied": False, "fallback": "no_messages_in_range"}
+     chunks = chunk_conversation_messages(filtered, learner_id, actor_id)
+     result = {"method": "conversation_retrieval", "text": "", "system_text": "", "sources": [],
+               "source_ids": [], "evidence_ids": [], "hits": [], "catalog": {}, "time_filter": temporal,
+@@ -353,20 +504,73 @@
+                   "scope": "own_account_conversation", "media_support": "stored_text_only",
+                   "semantic_similarity_threshold": MIN_SEMANTIC_SIMILARITY,
+                   "threshold_status": "engineering_default_not_heldout_calibrated", "budget_bytes": budget_bytes}}
++    if fallback:
++        result["diagnostics"]["time_filter_fallback"] = True
+     if not chunks or not budget_bytes:
+         return result
+-    embedder = ConversationEmbedder(store, runtime, learner_id, actor_id)
+-    vectors = embedder.source_vectors([chunk["text"] for chunk in chunks])
+-    query = unit_vector(embedder.embed_many([question])[0])
+-    terms = {term for term in re.findall(r"\w+", question.casefold()) if len(term) >= 4}
++    embedder = degraded = None
++    try:
++        embedder = ConversationEmbedder(store, runtime, learner_id, actor_id)
++        vectors = embedder.source_vectors([chunk["text"] for chunk in chunks])
++        query = unit_vector(embedder.embed_many([question])[0])
++    except PermissionError:
++        raise
++    except (RuntimeError, OSError, DatabaseError) as exc:
++        # Embedding service, model or cache storage is down. Integrity failures (ValueError: invalid vector,
++        # changed digest) are not caught here and still fail loudly. Fall back to word overlap and say so.
++        embedder, degraded = None, type(exc).__name__
++        result["diagnostics"].update(degraded=True, degraded_reason="embedding_unavailable", degraded_error=degraded)
+     hits = []
+-    for chunk, vector in zip(chunks, vectors):
+-        semantic = sum(left * right for left, right in zip(query, unit_vector(vector)))
+-        exact = len(terms & set(re.findall(r"\w+", chunk["text"].casefold()))) / max(1, len(terms))
+-        if semantic >= MIN_SEMANTIC_SIMILARITY:
+-            hits.append({key: value for key, value in chunk.items() if key != "text"} | {
+-                "semantic_score": semantic, "exact_auxiliary_score": exact, "rank_score": semantic + 0.04 * exact})
+-    hits.sort(key=lambda hit: (-hit["rank_score"], -hit["semantic_score"], hit["chunk_id"]))
++    if degraded:
++        terms = _fallback_stems(question)
++        for chunk in chunks:
++            exact = len(terms & _fallback_stems(chunk["text"])) / max(1, len(terms))
++            if exact > 0:
++                hits.append({key: value for key, value in chunk.items() if key != "text"} | {
++                    "semantic_score": None, "exact_auxiliary_score": exact, "rank_score": exact})
++    else:
++        terms = {term for term in re.findall(r"\w+", question.casefold()) if len(term) >= 4}
++        scored, unembedded = [], []
++        for chunk, vector in zip(chunks, vectors):
++            exact = len(terms & set(re.findall(r"\w+", chunk["text"].casefold()))) / max(1, len(terms))
++            if vector is None:
++                # The model cannot embed this text. It stays reachable by shared words only, ranked at the
++                # level of the cosine gate (below any confident vector hit) – a provisional, untuned choice.
++                unembedded.append(chunk["chunk_id"])
++                scored.append((chunk, None, exact))
++                if fusion == FUSION_LEGACY and exact > 0:
++                    hits.append({key: value for key, value in chunk.items() if key != "text"} | {
++                        "semantic_score": None, "exact_auxiliary_score": exact,
++                        "rank_score": MIN_SEMANTIC_SIMILARITY + 0.04 * exact})
++                continue
++            semantic = sum(left * right for left, right in zip(query, unit_vector(vector)))
++            scored.append((chunk, semantic, exact))
++            if fusion == FUSION_LEGACY and semantic >= MIN_SEMANTIC_SIMILARITY:
++                hits.append({key: value for key, value in chunk.items() if key != "text"} | {
++                    "semantic_score": semantic, "exact_auxiliary_score": exact, "rank_score": semantic + 0.04 * exact})
++        if fusion == FUSION_RRF:
++            hits = _rrf_hits(question, scored)
++        similarities = sorted((semantic for _, semantic, _ in scored if semantic is not None), reverse=True)
++        if similarities:
++            # Observational only. On 14 synthetic archives the top similarity separated absent from answerable
++            # questions only weakly (AUC 0.69-0.85) and any useful threshold also dropped 30-56% of answerable
++            # ones, so nothing is gated on it. See benchmark/ABSENCE.md in the working notes.
++            result["diagnostics"]["absence_signal"] = {
++                "recipe": "observational-v1", "status": "not_validated_do_not_gate", "gates_results": False,
++                "top_semantic": similarities[0], "second_semantic": similarities[1] if len(similarities) > 1 else None}
++        if unembedded:
++            _LOG.warning("conversation retrieval: %d chunk(s) could not be embedded: %s", len(unembedded),
++                         ", ".join(unembedded[:5]))
++            result["diagnostics"].update(unembedded_chunk_count=len(unembedded), unembedded_chunk_ids=unembedded[:20])
++    result["diagnostics"]["fusion"] = "lexical_only" if degraded else fusion
++    hits.sort(key=lambda hit: (-hit["rank_score"], -(hit["semantic_score"] or 0.0), hit["chunk_id"]))
++    signal = result["diagnostics"].get("absence_signal")
++    if signal is not None:
++        signal.update(threshold=ABSENCE_PROVISIONAL_TOP1, abstained=False)
++        if absence_rule == ABSENCE_PROVISIONAL:
++            signal["gates_results"] = True
++            if signal["top_semantic"] < ABSENCE_PROVISIONAL_TOP1:
++                signal["abstained"], hits = True, []
+     text, quotes, selected_hits = _select_quotes(hits[:12], filtered, budget_bytes)
+     # Classification is an explicit rebuild operation. Retrieval keeps working
+     # while a new global recipe leaves this scope pending or storage is absent.
+@@ -382,6 +586,8 @@
+                   source_ids=list(dict.fromkeys(quote["source_id"] for quote in quotes if quote["role"] == "user")))
+     result["evidence_ids"] = list(result["source_ids"])
+     result["diagnostics"].update(selected_hit_count=len(selected_hits), matched_chunk_count=len(hits),
+-                                 context_bytes=len(text.encode("utf-8")), embedding_model_identity=embedder.identity)
+-    embedder.check()
++                                 context_bytes=len(text.encode("utf-8")),
++                                 embedding_model_identity=embedder.identity if embedder else None)
++    if embedder is not None:
++        embedder.check()
+     return result
+--- a/local_app/dialogue_catalog.py
++++ b/local_app/dialogue_catalog.py
+@@ -58,7 +58,10 @@
+     if len(chunks) != len(vectors):
+         raise ValueError("Every catalog chunk needs its own embedding")
+     prototypes = [example for topic in TOPICS for example in topic["examples"]]
+-    prototype_vectors = [unit_vector(vector) for vector in embedder.source_vectors(prototypes)]
++    raw_prototypes = embedder.source_vectors(prototypes)
++    if any(vector is None for vector in raw_prototypes):
++        raise ConversationRetrievalUnavailable("A catalog prototype text could not be embedded")
++    prototype_vectors = [unit_vector(vector) for vector in raw_prototypes]
+     metadata = {"method": CLASSIFICATION_METHOD, "model_identity": embedder.identity,
+                 "chunk_recipe": CHUNK_RECIPE, "score_kind": "cosine_similarity",
+                 "threshold_status": "engineering_defaults_not_heldout_calibrated",
+@@ -69,6 +72,11 @@
+         "code": hashlib.sha256(Path(__file__).read_bytes()).hexdigest()})
+     classified = []
+     for chunk, raw_vector in zip(chunks, vectors):
++        if raw_vector is None:  # the model cannot embed this text: unknown topic, still part of the archive
++            classified.append({key: value for key, value in chunk.items() if key != "text"} | {
++                "text_sha256": hashlib.sha256(chunk["text"].encode("utf-8")).hexdigest(),
++                "labels": [], "topic_scores": {}, "unknown": True, "embedding_unavailable": True})
++            continue
+         vector, scores, offset = unit_vector(raw_vector), {}, 0
+         for topic in TOPICS:
+             group = prototype_vectors[offset:offset + len(topic["examples"])]
+--- a/local_app/hierarchical_memory.py
++++ b/local_app/hierarchical_memory.py
+@@ -178,6 +178,17 @@
+     return f"Сеанс за {day['day']}.\n" + _quote_line(compact)
+ 
+ 
++def _wire(text):
++    """Make rendered summary text safe inside the prompt wrapper <own_conversation_untrusted>.
++
++    Quoted child text sits in JSON strings, which do not escape angle brackets, so a message containing
++    the closing tag could end the block. The escapes \\u003c and \\u003e keep the JSON lossless. This is
++    applied where the prompt text is assembled (not when payloads are created), so already stored
++    immutable versions are covered too.
++    """
++    return text.replace("<", "\\u003c").replace(">", "\\u003e")
++
++
+ def _model_context(days, recent_messages, budget):
+     """Fit whole summary units and whole messages into a shared UTF-8 limit."""
+     if type(budget) is not int or budget < 0:
+@@ -187,14 +198,14 @@
+     text = ""
+     for day in reversed(days):
+         candidate_days = [day, *included_days]
+-        blocks = [_compact_day_text(item) for item in candidate_days[:-1]]
+-        blocks.append(candidate_days[-1]["text"])
++        blocks = [_wire(_compact_day_text(item)) for item in candidate_days[:-1]]
++        blocks.append(_wire(candidate_days[-1]["text"]))
+         candidate = _SYSTEM_NOTICE + "\n\n" + "\n\n".join(blocks)
+         if len(candidate.encode("utf-8")) <= summary_limit:
+             included_days = candidate_days
+             text = candidate
+         else:
+-            candidate = _SYSTEM_NOTICE + "\n\n" + "\n\n".join(_compact_day_text(item) for item in candidate_days)
++            candidate = _SYSTEM_NOTICE + "\n\n" + "\n\n".join(_wire(_compact_day_text(item)) for item in candidate_days)
+             if len(candidate.encode("utf-8")) <= summary_limit:
+                 included_days = candidate_days
+                 text = candidate
+--- a/local_app/memory_service.py
++++ b/local_app/memory_service.py
+@@ -28,6 +28,7 @@
+ 
+ 
+ MEMORY_BUDGET = 4000
++STALE_RETRY_LIMIT = 2  # explicit retry jobs for a background job that failed only as stale_revision
+ STATE_FIELDS = ("sources", "summary", "records", "blocks", "events")
+ TAIL_PRESENTATION_VERSION = "dialogue-pairs-v4-session-end-context"
+ DIALOGUE_CONTEXT_NOTICE = (
+@@ -498,7 +499,37 @@
+             context["interest_extraction"] = {"status": "failed", "type": type(exc).__name__,
+                                                "message": str(exc), "learning_session_id": session_id}
+ 
++    @staticmethod
++    def _stale_retryable(job: dict | None) -> bool:
++        """A finished background local job that failed only because the learner's revisions moved meanwhile."""
++        return bool(job and job.get("status") == "failed" and job.get("kind") in {"memory_update", "next_step"}
++                    and job.get("provider") == "local" and "stale_revision" in str(job.get("error") or "")
++                    and int((job.get("payload") or {}).get("stale_retry", 0)) < STALE_RETRY_LIMIT)
++
+     def run_once(self) -> dict | None:
++        """Run one claimed job; if it failed as stale_revision, retry it as explicit new jobs (at most twice).
++
++        Direct chat messages are persisted, so a message sent while a job generates changes the source revision and
++        used to fail that job. Each retry is its own job row with its own recorded calls (no hidden repeated model
++        request inside one job). Only the retry itself is followed; if another job is claimed first, the retry stays
++        queued for the worker's next cycle.
++        """
++        finished = self._run_once_single()
++        while self._stale_retryable(finished):
++            retry = self.store.enqueue_memory_job(
++                finished["learner_id"], finished.get("topic_id"), finished["kind"],
++                payload={**(finished.get("payload") or {}),
++                         "stale_retry": int((finished.get("payload") or {}).get("stale_retry", 0)) + 1,
++                         "retry_of": str(finished["id"])},
++                actor_id=finished.get("actor_id") or "system", method=finished.get("method") or "tail",
++                idempotency_key=f"stale-retry:{finished['id']}", provider=finished.get("provider") or "local")
++            again = self._run_once_single()
++            if again is None or str(again.get("id")) != str(retry.get("id")):
++                break
++            finished = again
++        return finished
++
++    def _run_once_single(self) -> dict | None:
+         job = self.store.claim_memory_job(self.worker_id, lease_seconds=600)
+         if not job:
+             return None
+--- a/local_app/memory_store.py
++++ b/local_app/memory_store.py
+@@ -712,13 +712,15 @@
+                     m.source_id AS pair_source_id,
+                     CASE WHEN m.status='completed' AND m.completed_at<=%(cutoff)s
+                         THEN m.assistant_source_id END AS paired_source_id,
+-                    m.actor_role,s.author_role AS original_source_role
++                    m.actor_role,s.author_role AS original_source_role,
++                    s.learner_id AS learner_id,s.actor_id AS actor_id
+                 FROM own_pairs m JOIN teachcopilot.memory_sources s
+                     ON s.id=m.source_id AND s.learner_id=m.learner_id
+                 UNION ALL
+                 SELECT a.id,a.source_order,a.author_role,'assistant',a.content,a.created_at,
+                     a.learning_session_id,a.topic_id,a.event_timezone,a.activity_timezone,a.activity_day,
+-                    'context_only',m.status,m.source_id,m.source_id,m.actor_role,a.author_role
++                    'context_only',m.status,m.source_id,m.source_id,m.actor_role,a.author_role,
++                    a.learner_id AS learner_id,m.actor_id AS actor_id
+                 FROM own_pairs m JOIN teachcopilot.memory_sources a
+                     ON a.id=m.assistant_source_id AND a.learner_id=m.learner_id
+                     AND a.learning_session_id=m.learning_session_id AND a.topic_id=m.topic_id
+@@ -727,7 +729,8 @@
+                 UNION ALL
+                 SELECT a.id,a.source_order,a.author_role,'assistant',a.content,a.created_at,
+                     a.learning_session_id,a.topic_id,a.event_timezone,a.activity_timezone,a.activity_day,
+-                    'context_only','shown',NULL::text,NULL::text,account.role,a.author_role
++                    'context_only','shown',NULL::text,NULL::text,account.role,a.author_role,
++                    a.learner_id AS learner_id,c.actor_id AS actor_id
+                 FROM teachcopilot.daily_checkins c
+                 JOIN teachcopilot.accounts account ON account.id::text=c.actor_id AND account.role='student'
+                 JOIN teachcopilot.memory_sources a ON a.id=c.assistant_source_id
+@@ -743,7 +746,7 @@
+             ), selected_days AS (
+                 SELECT DISTINCT activity_day FROM eligible
+                 ORDER BY activity_day DESC LIMIT %(day_limit)s
+-            ) SELECT *,%(learner)s::text AS learner_id,%(actor)s::text AS actor_id FROM eligible
++            ) SELECT * FROM eligible
+                 WHERE %(day_limit)s::integer IS NULL OR activity_day IN (SELECT activity_day FROM selected_days)
+                 ORDER BY source_order DESC LIMIT %(limit)s""", values)
+             rows = cur.fetchall()
+--- a/local_app/personal_graph_memory.py
++++ b/local_app/personal_graph_memory.py
+@@ -553,86 +553,21 @@
+ 
+ def source_scoped_search(question, lessons, allowed_ids, embed_many, *, limit=8, include_memory=True,
+                          source_embed_many=None, mode="hybrid"):
+-    """Rank allowed source turns with only their directly anchored assistant context."""
++    """Rank allowed source turns with only their directly anchored assistant context.
++
++    Every mode, hybrid included, goes through personal_graph_retrieval.rank_source_candidates. The private hybrid
++    implementation that used to live here was merged away (FIX_LIST item 6). Accepted differences from it:
++    candidates are ordered newest lesson first, equal scores are broken by recency, and embeddings must be
++    1024-dimensional and non-zero.
++    """
+     if mode not in {"chronological", "lexical", "vector", "hybrid"}:
+         raise ValueError("Selected context does not permit graph retrieval")
+-    if mode != "hybrid":
+-        from .personal_graph_retrieval import rank_source_candidates
+-        ranked = rank_source_candidates(question, lessons, allowed_ids, mode=mode,
+-            embed_many=embed_many, source_embed_many=source_embed_many, limit=limit)
+-        found = (source_scoped_found(lessons, ranked["ranked_source_ids"]) if include_memory
+-                 else {"memory": "", "unresolved": [], "skipped": []})
+-        return {**found, **ranked}
+-    if not isinstance(question, str) or not question.strip() or not isinstance(limit, int) or limit <= 0:
+-        raise ValueError("Invalid source-scoped search request")
+-    allowed = set(allowed_ids)
+-    candidates = []
+-    for lesson in lessons:
+-        for turn in lesson.get("turns", []):
+-            if turn.get("role") not in {"teacher", "student"} or turn.get("turn_id") not in allowed:
+-                continue
+-            turn_id = turn["turn_id"]
+-            search_turns = [item for item in lesson["turns"]
+-                            if item.get("turn_id") == turn_id
+-                            or (item.get("role") == "assistant" and item.get("anchor_source_id") == turn_id)]
+-            candidates.append({"lesson_id": lesson["lesson_id"], "turn_id": turn["turn_id"],
+-                               "text": "\n".join(("assistant context: " + item["text"]
+-                                                   if item.get("role") == "assistant"
+-                                                   else item["role"] + ": " + item["text"])
+-                                                  for item in search_turns)})
+-    if not candidates:
+-        result = (source_scoped_found(lessons, []) if include_memory
+-                  else {"memory": "", "unresolved": [], "skipped": []})
+-        return {**result, "ranked_source_ids": []}
+-    candidates.sort(key=lambda item: item["turn_id"])
+-
+-    query_vector = embed_many([question])
+-    if not isinstance(query_vector, list) or len(query_vector) != 1:
+-        raise ValueError("Invalid query embedding")
+-    query_vector = query_vector[0]
+-    vectors = []
+-    for start in range(0, len(candidates), 16):
+-        batch = (source_embed_many or embed_many)([item["text"] for item in candidates[start:start + 16]])
+-        if not isinstance(batch, list) or len(batch) != len(candidates[start:start + 16]):
+-            raise ValueError("Invalid source embeddings")
+-        vectors.extend(batch)
+-
+-    def cosine(left, right):
+-        if not isinstance(left, (list, tuple)) or not isinstance(right, (list, tuple)) or len(left) != len(right):
+-            raise ValueError("Invalid embedding dimensions")
+-        dot = sum(float(a) * float(b) for a, b in zip(left, right))
+-        left_norm = math.sqrt(sum(float(a) * float(a) for a in left))
+-        right_norm = math.sqrt(sum(float(b) * float(b) for b in right))
+-        if not math.isfinite(dot + left_norm + right_norm):
+-            raise ValueError("Non-finite source similarity")
+-        return dot / (left_norm * right_norm) if left_norm and right_norm else 0.0
+-
+-    semantic_order = sorted(range(len(candidates)),
+-                            key=lambda i: (-cosine(query_vector, vectors[i]), i))
+-    semantic_rank = {index: rank for rank, index in enumerate(semantic_order)}
+-    query_terms = set(re.findall(r"[\w]+", question.casefold(), flags=re.UNICODE))
+-    lexical_scores = []
+-    if query_terms:
+-        for i, item in enumerate(candidates):
+-            terms = set(re.findall(r"[\w]+", item["text"].casefold(), flags=re.UNICODE))
+-            overlap = len(query_terms & terms)
+-            if overlap:
+-                lexical_scores.append((i, overlap / len(query_terms)))
+-    lexical_order = [i for i, _ in sorted(lexical_scores, key=lambda pair: (-pair[1],
+-                                                                            semantic_rank[pair[0]]))]
+-    selected_indexes = []
+-    for rank in range(max(len(semantic_order), len(lexical_order))):
+-        for order in (semantic_order, lexical_order):
+-            if rank < len(order) and order[rank] not in selected_indexes:
+-                selected_indexes.append(order[rank])
+-                if len(selected_indexes) == limit:
+-                    break
+-        if len(selected_indexes) == limit:
+-            break
+-    ranked_source_ids = [candidates[index]["turn_id"] for index in selected_indexes]
+-    result = (source_scoped_found(lessons, ranked_source_ids) if include_memory
+-              else {"memory": "", "unresolved": [], "skipped": []})
+-    return {**result, "ranked_source_ids": ranked_source_ids}
++    from .personal_graph_retrieval import rank_source_candidates
++    ranked = rank_source_candidates(question, lessons, allowed_ids, mode=mode,
++        embed_many=embed_many, source_embed_many=source_embed_many, limit=limit)
++    found = (source_scoped_found(lessons, ranked["ranked_source_ids"]) if include_memory
++             else {"memory": "", "unresolved": [], "skipped": []})
++    return {**found, **ranked}
+ 
+ 
+ def select_context(found, snapshot, learner_id, topic_id, *, allowed_ids=None, memory_byte_budget=None):
+--- a/local_app/rag.py
++++ b/local_app/rag.py
+@@ -27,6 +27,14 @@
+     'исправь эту предпосылку по записи и назови записанную реплику с её настоящим автором. '
+     'Упоминание преподавателя в вопросе не превращает слова ассистента в слова преподавателя.'
+ )
++
++
++# Soft preferences applied to the database's reciprocal-rank-fusion score (rank r scores about 1/(60+r)).
++# A multiplier m moves a row up by roughly (60+r)(1-1/m) places, so 1.03 is worth about two places near the
++# top and cannot lift a tenth-ranked row over the first. These were 1.15 and 1.05 (about ten places), which
++# contradicted the "small tie-breaking" intent. Provisional, not tuned on held-out data.
++TOPIC_RANK_BOOST = 1.03
++GRADE_RANK_BOOST = 1.01
+ 
+ 
+ class RagService:
+@@ -140,12 +148,15 @@
+             score = float(item.get("score") or 0.0)
+             ranking_score = score
+             if topic_id and str(item.get("topic_id")) == str(topic_id):
+-                ranking_score *= 1.15
++                ranking_score *= TOPIC_RANK_BOOST
+             if grade is not None and str(item.get("grade")) == str(grade):
+-                ranking_score *= 1.05
++                ranking_score *= GRADE_RANK_BOOST
+             minimum_score = float(getattr(self.settings, "minimum_similarity", 0.0))
+             similarity = item.get("similarity", score)
+-            if similarity is not None and float(similarity) < minimum_score:
++            # The cosine floor removes weak semantic matches. A row the lexical search matched on words
++            # (text_score > 0) is kept: the database only reports rows whose full-text query hit as such.
++            lexical_hit = float(item.get("text_score") or 0.0) > 0.0
++            if similarity is not None and float(similarity) < minimum_score and not lexical_hit:
+                 continue
+             item["score"] = score
+             ranked.append((ranking_score, item))
+--- a/local_app/store.py
++++ b/local_app/store.py
+@@ -650,15 +650,16 @@
+                 FROM teachcopilot.materials WHERE active AND embedding_model=%s AND embedding_dimension=%s"""
+             params=[vec,query,query,embedding_model,len(query_embedding)]
+             if where: sql+=" AND "+" AND ".join(where); params.extend(pred_params)
+-            sql+="""), vr AS (SELECT id,row_number() OVER (ORDER BY similarity DESC) AS rank FROM eligible),
+-                tr AS (SELECT id,row_number() OVER (ORDER BY text_score DESC) AS rank FROM eligible WHERE text_score>0),
++            # id is the final tie-break everywhere, so equal scores give the same order on every run.
++            sql+="""), vr AS (SELECT id,row_number() OVER (ORDER BY similarity DESC,id) AS rank FROM eligible),
++                tr AS (SELECT id,row_number() OVER (ORDER BY text_score DESC,id) AS rank FROM eligible WHERE text_score>0),
+                 fused AS (SELECT vr.id,1.0/(60+vr.rank)+COALESCE(1.0/(60+tr.rank),0) AS rrf FROM vr LEFT JOIN tr USING(id))
+-                SELECT e.*,f.rrf AS score FROM eligible e JOIN fused f USING(id) ORDER BY f.rrf DESC LIMIT %s"""
++                SELECT e.*,f.rrf AS score FROM eligible e JOIN fused f USING(id) ORDER BY f.rrf DESC,e.id LIMIT %s"""
+             params.append(lim)
+         else:
+             sql="SELECT id,content,source_file,topic_id,grade,subject_id,source_version,metadata,ts_rank(search_document,plainto_tsquery('russian',%s)||plainto_tsquery('simple',%s)) AS score FROM teachcopilot.materials WHERE active"
+             if where: sql+=" AND "+" AND ".join(where)
+-            sql+=" ORDER BY score DESC LIMIT %s"
++            sql+=" ORDER BY score DESC,id LIMIT %s"
+             params=[query,query,*pred_params,lim]
+         with self._connect() as conn, conn.cursor() as cur:
+             if query_embedding is not None:
+--- a/tests/test_chat_response_journal_api.py
++++ b/tests/test_chat_response_journal_api.py
+@@ -270,7 +270,9 @@
+     assert response.status_code == 200, response.text
+     rows = api.journal.list_calls()
+     assert len(rows) == 1 and rows[0]["raw_response"] == RAW_ENVELOPE
+-    assert rows[0]["learning_session_id"] is None and rows[0]["client_message_id"] is None
++    # Since the 7 November own-memory work a direct request gets a server-side conversation session
++    # (ensure_conversation_session), so the journal row is linked to one instead of being session-less.
++    assert rows[0]["learning_session_id"] is not None
+     assert rows[0]["actor_id"] == api.student["id"] and rows[0]["job_id"]
+     assert_private_journal_ids_absent(response.json(), rows)
+ 
+@@ -308,7 +310,7 @@
+ 
+ def runtime_reply(content, **extra):
+     return {"message": {"role": "assistant", "content": content, "thinking": RAW_THINKING},
+-            "done_reason": "stop", "model": "controlled-chat", "eval_count": 7, **extra}
++            "done": True, "done_reason": "stop", "model": "controlled-chat", "eval_count": 7, **extra}
+ 
+ 
+ def install_local_runtime(api, raw, *, structured=False, resolver=False):
+--- a/tests/test_current_learning_session_api.py
++++ b/tests/test_current_learning_session_api.py
+@@ -78,7 +78,14 @@
+     response = (browser or app.browser).get(f"/learners/{learner}/learning-sessions/current",
+                                             headers=headers or app.student_headers)
+     assert response.status_code == 200, response.text
+-    return response.json()
++    data = response.json()
++    # The API also returns time fields (added by the 7 November time layer). These tests pin the conversational
++    # fields of each message, so only the time fields are ignored here. source_id must NOT be returned to the
++    # learner and is deliberately not ignored: it would make these comparisons fail.
++    for message in data.get("messages", []):
++        for key in ("activity_day", "activity_timezone", "created_at", "event_timezone"):
++            message.pop(key, None)
++    return data
+ 
+ 
+ def test_current_requires_access_and_does_not_create_an_empty_session(history_app):
+--- a/tests/test_generation_run_budget.py
++++ b/tests/test_generation_run_budget.py
+@@ -104,7 +104,7 @@
+         if self.error:
+             raise self.error
+         data = ({"embeddings": [[1.0, 0.0] for _ in json["input"]]} if url.endswith("/api/embed")
+-                else {"message": {"content": "Synthetic answer"}, "done_reason": "stop"})
++                else {"message": {"content": "Synthetic answer"}, "done": True, "done_reason": "stop"})
+         return SimpleNamespace(status_code=200, json=lambda: data, raise_for_status=lambda: None)
+ 
+ 
+--- a/tests/test_guided_division_api.py
++++ b/tests/test_guided_division_api.py
+@@ -254,7 +254,7 @@
+         def resolve_chat_query(self, query, prior, subject_id, **kwargs):
+             self.calls += 1
+             assert query == 'ага' and prior[-1]['role'] == 'assistant'
+-            return {'in_scope': True, 'uses_prior_context': False,
++            return {'in_scope': True, 'uses_prior_context': False, 'personal_memory_recall': False,
+                     'prior_assistant_question_index': len(prior) - 1, 'search_query': 'Деление по шагам'}
+ 
+         def chat(self, *args, **kwargs):
+--- a/tests/test_learning_session_archive_api.py
++++ b/tests/test_learning_session_archive_api.py
+@@ -19,7 +19,13 @@
+     response = (browser or app.browser).get(_url(session_id),
+         headers=headers or app.student_headers, params={} if before is None else {'before':before})
+     assert response.status_code == 200,response.text
+-    return response.json()
++    data = response.json()
++    # Time fields (7 November time layer) are not part of what these tests pin. source_id is not ignored on
++    # purpose: the learner-facing history must not return it.
++    for message in data.get('messages', []):
++        for key in ('activity_day', 'activity_timezone', 'created_at', 'event_timezone'):
++            message.pop(key, None)
++    return data
+ 
+ 
+ def _close(app, session_id, *, actor=None):
+@@ -71,7 +77,8 @@
+         cur.execute("UPDATE teachcopilot.learning_sessions SET completed_at='2026-01-01T00:00:00Z' WHERE learner_id=%s",(LEARNER,))
+     first = _get(app)
+     assert len(first['sessions']) == 10 and first['next_cursor']
+-    assert all(set(row) == {'learning_session_id','topic_id','topic_title','subject_id','session_mode','completed_at'}
++    assert all(set(row) == {'learning_session_id','topic_id','topic_title','subject_id','session_mode','completed_at',
++                            'created_at','event_timezone'}  # the last two come from the 7 November time layer
+                for row in first['sessions'])
+     assert all(row['session_mode'] == 'standard' for row in first['sessions'])
+     assert all(row['topic_title'] == 'Дробь, числитель и знаменатель' for row in first['sessions'])
+--- a/tests/test_local_store.py
++++ b/tests/test_local_store.py
+@@ -99,12 +99,13 @@
+ def test_embedding_refresh_is_snapshot_checked_and_atomic(store):
+     suffix=uuid.uuid4().hex
+     model="snapshot-model-"+suffix
++    source_name="snapshot-refresh-"+suffix+".json"  # unique per run: the rows persist in the test database
+     chunks=[
+-        {"id":"refresh-a-"+suffix,"content":"original A","source_file":"snapshot-refresh.json","source_version":"v1","embedding":[1.0,0.0]},
+-        {"id":"refresh-b-"+suffix,"content":"original B","source_file":"snapshot-refresh.json","source_version":"v1","embedding":[0.0,1.0]},
++        {"id":"refresh-a-"+suffix,"content":"original A","source_file":source_name,"source_version":"v1","embedding":[1.0,0.0]},
++        {"id":"refresh-b-"+suffix,"content":"original B","source_file":source_name,"source_version":"v1","embedding":[0.0,1.0]},
+     ]
+     store.upsert_chunks(chunks,embedding_model=model,embedding_dimension=2)
+-    snapshots=store.material_rows({"source_file":"snapshot-refresh.json"})
++    snapshots=store.material_rows({"source_file":source_name})
+     for row in snapshots: row["embedding"]=[0.5,0.5]
+     stale=dict(snapshots[1],content="changed while embedding")
+     with pytest.raises(StaleMaterialSnapshotError):
+@@ -156,16 +157,17 @@
+         assert dict(cur.fetchone()) == {"total":3,"active":1,"current_points":4}
+ 
+     root=Path(tmp_path); (root/"knowledge-data").mkdir()
+-    source=root/"knowledge-data"/"membership.json"
++    membership_name="membership-"+uuid.uuid4().hex+".json"  # unique per run: the rows persist in the test database
++    source=root/"knowledge-data"/membership_name
+     tasks=[{"task_id":"member-a-"+uuid.uuid4().hex,"content":"A"},{"task_id":"member-b-"+uuid.uuid4().hex,"content":"B"}]
+     source.write_text(json.dumps({"tasks":tasks}),encoding="utf-8")
+     store.import_materials(root)
+     source.write_text(json.dumps({"tasks":tasks[:1]}),encoding="utf-8")
+     store.import_materials(root)
+-    rows=store.material_rows({"source_file":"knowledge-data/membership.json"})
++    rows=store.material_rows({"source_file":"knowledge-data/"+membership_name})
+     assert [row["id"] for row in rows] == [tasks[0]["task_id"]]
+     with store._connect() as conn, conn.cursor() as cur:
+-        cur.execute("SELECT count(*) AS n FROM teachcopilot.materials WHERE source_file='knowledge-data/membership.json' AND NOT active")
++        cur.execute("SELECT count(*) AS n FROM teachcopilot.materials WHERE source_file=%s AND NOT active",("knowledge-data/"+membership_name,))
+         assert cur.fetchone()["n"] == 1
+ 
+ 
+--- a/tests/test_memory_generation.py
++++ b/tests/test_memory_generation.py
+@@ -19,7 +19,7 @@
+         pass
+ 
+     def json(self):
+-        return {"message": {"content": '{"answer":"synthetic","citations":[]}'}, "done_reason": "stop"}
++        return {"message": {"content": '{"answer":"synthetic","citations":[]}'}, "done": True, "done_reason": "stop"}
+ 
+ 
+ class _SyntheticHTTP:
+--- a/tests/test_personal_graph_bridge.py
++++ b/tests/test_personal_graph_bridge.py
+@@ -610,7 +610,7 @@
+ 
+         def embed_many(self, texts):
+             self.inputs.extend(texts)
+-            return [[1.0, 0.0] if "needle" in text.casefold() else [0.0, 1.0] for text in texts]
++            return [([1.0, 0.0] if "needle" in text.casefold() else [0.0, 1.0]) + [0.0] * 1022 for text in texts]
+ 
+     first_model = Embedder()
+     first_lessons, _ = source_lessons(value, "child-a")
+@@ -645,7 +645,7 @@
+ 
+     class Embedder:
+         def embed_many(self, texts):
+-            return [[1.0, 0.0] if "Почему так получилось?" in text else [0.0, 1.0] for text in texts]
++            return [([1.0, 0.0] if "Почему так получилось?" in text else [0.0, 1.0]) + [0.0] * 1022 for text in texts]
+ 
+     allowed = {source["source_id"] for source in value["sources"]}
+     found = source_scoped_search("Почему так получилось?", lessons, allowed, Embedder().embed_many)
+@@ -670,7 +670,7 @@
+ 
+         def embed_many(self, texts):
+             self.inputs.extend(texts)
+-            return [[1.0, 0.0] if "needle" in text.casefold() else [0.0, 1.0] for text in texts]
++            return [([1.0, 0.0] if "needle" in text.casefold() else [0.0, 1.0]) + [0.0] * 1022 for text in texts]
+ 
+     embedder = Embedder()
+     provider = PersonalGraphProvider(object(), SimpleNamespace(context_tokens=16384))
+@@ -716,14 +716,16 @@
+ 
+     class Embedder:
+         def embed_many(self, texts):
+-            return [[1.0, 0.0] for _ in texts]
++            return [[1.0, 0.0] + [0.0] * 1022 for _ in texts]
+ 
+     provider = PersonalGraphProvider(object(), SimpleNamespace(context_tokens=16384))
+     monkeypatch.setattr(provider, "_application_model", lambda: Embedder())
+     version = {"id": "v-32k", "state": {}, "context": {"evidence_ids": sorted(allowed)}}
+     context = asyncio.run(provider._chat(value, "child-a", "math", "needle", version))
+ 
+-    assert context["evidence_ids"] == ["a-long", "b-long"]
++    # All three sources tie on score and date; the merged ranking breaks ties newest-first (later lesson first),
++    # so the two that fit the budget are b and c. The budget behaviour itself is what this test is about.
++    assert context["evidence_ids"] == ["b-long", "c-long"]
+     assert context["selection_budget"]["limit"] == 12000
+     assert context["selection_warnings"] == [{"code": "memory_budget_exceeded", "count": 1}]
+     assert "Некоторые кандидаты не вошли в память" in context["text"]
+@@ -747,7 +749,7 @@
+ 
+     class Embedder:
+         def embed_many(self, texts):
+-            return [[1.0, 0.0] for _ in texts]
++            return [[1.0, 0.0] + [0.0] * 1022 for _ in texts]
+ 
+     provider = PersonalGraphProvider(object(), SimpleNamespace(context_tokens=16384))
+     monkeypatch.setattr(provider, "_application_model", lambda: Embedder())
+@@ -782,14 +784,14 @@
+ 
+     class Embedder:
+         def embed_many(self, texts):
+-            return [[1.0, 0.0] for _ in texts]
++            return [[1.0, 0.0] + [0.0] * 1022 for _ in texts]
+ 
+     provider = PersonalGraphProvider(object(), SimpleNamespace(context_tokens=16384))
+     monkeypatch.setattr(provider, "_application_model", lambda: Embedder())
+     version = {"id": "v-warning-budget", "state": {}, "context": {"evidence_ids": ["a", "b", "c"]}}
+     context = asyncio.run(provider._chat(value, "child-a", "math", "needle", version))
+ 
+-    assert context["evidence_ids"] == ["a"]
++    assert context["evidence_ids"] == ["c"]  # ties are broken newest-first by the merged ranking (was "a" by turn id)
+     assert context["selection_budget"]["used"] <= budget
+     assert context["selection_warnings"] == [{"code": "memory_budget_exceeded", "count": 2}]
+ 
+@@ -818,7 +820,7 @@
+ 
+     class Embedder:
+         def embed_many(self, texts):
+-            return [[1.0, 0.0] for _ in texts]
++            return [[1.0, 0.0] + [0.0] * 1022 for _ in texts]
+ 
+     provider = PersonalGraphProvider(object(), SimpleNamespace(context_tokens=16384))
+     monkeypatch.setattr(provider, "_application_model", lambda: Embedder())
+@@ -856,7 +858,7 @@
+ 
+     class Embedder:
+         def embed_many(self, texts):
+-            return [[1.0, 0.0] for _ in texts]
++            return [[1.0, 0.0] + [0.0] * 1022 for _ in texts]
+ 
+     provider = PersonalGraphProvider(object(), SimpleNamespace(context_tokens=16384))
+     monkeypatch.setattr(provider, "_application_model", lambda: Embedder())
+--- a/tests/test_social_chat.py
++++ b/tests/test_social_chat.py
+@@ -30,7 +30,7 @@
+         self.requests.append(json)
+         reply = self.replies.pop(0)
+ 
+-        return self.response({"done_reason": "stop", "model": "local-chat",
++        return self.response({"done": True, "done_reason": "stop", "model": "local-chat",
+                               "message": {"content": reply},
+                               "prompt_eval_count": 30, "eval_count": 12})
+ 

@@ -78,6 +78,34 @@ def test_cited_withdrawn_note_is_shown_with_its_correction_as_read_only(chromium
         page.close()
 
 
+def test_graph_question_attribution_prompts_review_without_changing_reason(chromium, ui_server):
+    page = chromium.new_page(viewport={"width": 1440, "height": 1100})
+    sources = [
+        {"source_id": "note", "role": "teacher", "text": "Исправил после вопроса о частях."},
+        {"source_id": "answer", "role": "student", "text": "Четыре, значит три четверти."},
+    ]
+    dialogue = [{"source_id": "answer", "role": "assistant", "usage": "context_only",
+                 "text": "Сколько равных частей?", "truncated": False}]
+    data = data_for(sources, ["note"], method="personal_graph", dialogue_context=dialogue)
+    data["reason"] = "Исправил после вопроса учителя."
+    data["evidence_review"] = recommendation_source_review(
+        data, {"method": "personal_graph", "sources": sources, "evidence_ids": ["note", "answer"],
+               "dialogue_context": dialogue})
+    try:
+        result = open_recommendation(page, ui_server, data)
+        expect(result).to_contain_text(data["reason"])
+        check = result.locator(".recommendation-attribution-check")
+        expect(check).to_contain_text("вопроса учителя")
+        expect(check).to_contain_text("Это предупреждение не определяет, есть ли ошибка")
+        expect(check).to_contain_text("Другие выбранные диалоги могут относиться к другим событиям")
+        other_dialogues = check.locator("details")
+        other_dialogues.locator("summary").click()
+        expect(other_dialogues).to_contain_text("В ссылках черновика не указана")
+        expect(other_dialogues).to_contain_text("Сколько равных частей?")
+    finally:
+        page.close()
+
+
 def test_saved_legacy_result_keeps_sources_and_does_not_imply_known_conditions(chromium, ui_server):
     page = chromium.new_page(viewport={"width": 1365, "height": 900})
     data = {"topic_id": TOPIC, "action": "continue_work", "reason": "Вернуться к примеру.", "unknowns": [],

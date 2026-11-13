@@ -19,7 +19,13 @@ def _get(app, session_id=None, *, before=None, headers=None, browser=None):
     response = (browser or app.browser).get(_url(session_id),
         headers=headers or app.student_headers, params={} if before is None else {'before':before})
     assert response.status_code == 200,response.text
-    return response.json()
+    data = response.json()
+    # Time fields (7 November time layer) are not part of what these tests pin. source_id is not ignored on
+    # purpose: the learner-facing history must not return it.
+    for message in data.get('messages', []):
+        for key in ('activity_day', 'activity_timezone', 'created_at', 'event_timezone'):
+            message.pop(key, None)
+    return data
 
 
 def _close(app, session_id, *, actor=None):
@@ -71,7 +77,8 @@ def test_archive_list_keysets_are_stable_with_tied_timestamps_and_later_completi
         cur.execute("UPDATE teachcopilot.learning_sessions SET completed_at='2026-01-01T00:00:00Z' WHERE learner_id=%s",(LEARNER,))
     first = _get(app)
     assert len(first['sessions']) == 10 and first['next_cursor']
-    assert all(set(row) == {'learning_session_id','topic_id','topic_title','subject_id','session_mode','completed_at'}
+    assert all(set(row) == {'learning_session_id','topic_id','topic_title','subject_id','session_mode','completed_at',
+                            'created_at','event_timezone'}  # the last two come from the 7 November time layer
                for row in first['sessions'])
     assert all(row['session_mode'] == 'standard' for row in first['sessions'])
     assert all(row['topic_title'] == 'Дробь, числитель и знаменатель' for row in first['sessions'])

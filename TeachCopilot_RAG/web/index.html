@@ -42,7 +42,7 @@
       <header class="topbar">
         <a class="brand" href="/" aria-label="TeachCopilot – главная"><span class="brand-mark">Т</span><span>TeachCopilot</span></a>
         <div class="topbar-context"><span class="context-dot"></span><span id="workspace-label">Рабочее место</span></div>
-        <div class="account-area"><span id="account-name"></span><span id="role-label" class="role-label"></span><button id="logout" class="text-button">Выйти</button></div>
+        <div class="account-area"><span id="account-name"></span><span id="role-label" class="role-label"></span><details class="timezone-preferences"><summary>Время: <span id="display-timezone-label">Томск</span></summary><div class="timezone-panel"><form id="timezone-form"><label for="display-timezone">Часовой пояс отображения</label><select id="display-timezone"><option value="Asia/Tomsk">Томск – Asia/Tomsk</option><option value="Europe/Moscow">Москва – Europe/Moscow</option><option value="UTC">UTC</option><option value="custom">Другой часовой пояс</option></select><label id="custom-timezone-label" for="custom-timezone" hidden>Название IANA</label><input id="custom-timezone" placeholder="Например, Asia/Almaty" autocomplete="off" hidden><button class="button secondary" id="save-timezone" type="submit">Сохранить</button></form><p id="timezone-status" class="review-note" role="status">Меняет отображение времени. Учебные дни считаются отдельно по часовому поясу ученика.</p></div></details><button id="logout" class="text-button">Выйти</button></div>
       </header>
       <nav class="mobile-tabs" aria-label="Разделы рабочего места"><button class="active" data-panel="roster-panel">Ученики</button><button data-panel="learning-panel">Прогресс</button><button data-panel="action-panel">Занятие</button></nav>
       <div class="workspace-grid">
@@ -74,7 +74,15 @@
             <section class="history-section" aria-labelledby="history-title"><div class="section-head"><div><span class="section-kicker">Следы обучения</span><h2 id="history-title">Последние наблюдения</h2></div><span id="revision-label" class="revision-label"></span></div><div id="history-list" class="history-list"></div></section>
             <section id="memory-section" class="history-section" aria-labelledby="memory-title" hidden>
               <div class="section-head"><div><span class="section-kicker">Основания следующего шага</span><h2 id="memory-title">Память занятий</h2></div><button id="refresh-memory" class="help-button" type="button">Обновить</button></div>
-              <p id="memory-status" class="review-note" role="status"></p><div id="memory-history" class="memory-history"></div>
+              <p id="memory-status" class="review-note" role="status"></p>
+              <div id="memory-summaries" class="memory-summaries" aria-label="Сводки завершённых занятий"></div>
+              <div id="memory-history" class="memory-history"></div>
+            </section>
+            <section id="conversation-memory-section" class="history-section" aria-labelledby="conversation-memory-title" hidden>
+              <div class="section-head"><div><span class="section-kicker">Мои беседы</span><h2 id="conversation-memory-title">Что помнит помощник</h2></div><button id="refresh-conversation-memory" type="button" class="help-button">Обновить</button></div>
+              <p id="conversation-memory-status" class="review-note" role="status"></p>
+              <div id="conversation-memory-cards" class="memory-summaries"></div>
+              <details id="own-conversation-history" class="learning-archive"><summary>Полная переписка</summary><p class="review-note">Все твои беседы и показанные необязательные вопросы. Старые сообщения можно подгружать без ограничения последними двадцатью.</p><button id="refresh-own-conversation-history" class="text-button" type="button">Обновить переписку</button><p id="own-conversation-history-status" class="review-note" role="status"></p><div id="own-conversation-history-log" class="learning-archive-log" aria-label="Полная переписка с помощником"></div><button id="older-own-conversation-history" class="button secondary" type="button" hidden>Более ранние сообщения</button></details>
             </section>
           </div>
         </section>
@@ -86,7 +94,8 @@
               <h3 id="next-step-title">Рекомендация по истории занятий</h3>
               <p class="review-note">Выберите тему ниже. Учитель проверяет рекомендацию перед использованием.</p>
               <label for="memory-method" class="section-kicker">Способ памяти</label>
-              <select id="memory-method" class="chat-subject"><option value="tail" selected>Последние занятия – рабочий режим</option><option value="profile_only">Только профиль – сравнение</option><option value="summary">Сводка – сравнение</option><option value="structured">Структурированная – сравнение</option></select>
+              <select id="memory-method" class="chat-subject" aria-describedby="memory-method-hint"><option value="personal_memory" selected>Персональная память – комбинированный поиск</option><option value="tail">Последние занятия</option><option value="profile_only">Только профиль – сравнение</option><option value="summary">Сводка – сравнение</option><option value="structured">Структурированная – сравнение</option><option value="structured_v2">Типизированная память V2 – проба</option><option value="personal_graph" hidden disabled>Персональный граф – эксперимент</option></select>
+              <p id="memory-method-hint" class="review-note">Поиск по словам и смыслу в занятиях этого ученика. Перед доступом помощника учитель проверяет и подтверждает память.</p>
               <button id="request-next-step" class="button secondary wide" type="button">Предложить следующий шаг</button>
               <p id="next-step-status" class="review-note" role="status" aria-live="polite"></p>
               <div id="next-step-result" class="next-step-result" hidden></div>
@@ -101,11 +110,21 @@
           </div>
           <div id="student-actions" hidden>
             <div class="action-header"><span class="section-kicker">Мой помощник</span><h2>Спросить о задаче</h2><p>Можно попросить объяснить шаг или выбрать действие с числами и кодом.</p></div>
+            <section id="daily-checkin" class="daily-checkin" aria-labelledby="daily-checkin-title" hidden>
+              <h3 id="daily-checkin-title">Немного о тебе</h3>
+              <p id="daily-checkin-question" class="memory-text"></p>
+              <p class="review-note">Можно ответить или пропустить. Занятие продолжится в любом случае.</p>
+              <form id="daily-checkin-form"><label class="sr-only" for="daily-checkin-answer">Ответ на необязательный вопрос</label><textarea id="daily-checkin-answer" rows="2" maxlength="2000" placeholder="Если хочешь, расскажи…"></textarea><div class="daily-checkin-buttons"><button id="answer-daily-checkin" class="button secondary" type="submit">Ответить</button><button id="skip-daily-checkin" class="text-button" type="button">Пропустить</button></div></form>
+              <p id="daily-checkin-status" class="review-note" role="status"></p>
+            </section>
             <label for="chat-subject" class="section-kicker">Предмет</label>
             <select id="chat-subject" class="chat-subject"><option value="math">Математика</option><option value="programming">Программирование</option><option value="python">Python</option><option value="scratch">Scratch</option></select>
             <label for="chat-topic" class="section-kicker chat-topic-label">Тема занятия</label>
             <select id="chat-topic" class="chat-subject" aria-describedby="chat-topic-hint"><option value="math">Общая беседа по предмету</option></select>
             <p id="chat-topic-hint" class="review-note">Выбери тему или общую беседу. Внутри занятия тема остаётся одной.</p>
+            <label for="chat-memory-method" class="section-kicker">Память помощника</label>
+            <select id="chat-memory-method" class="chat-subject" aria-describedby="chat-memory-method-hint"><option value="tail" selected>Мои беседы – обычный режим</option><option value="personal_memory">Подтверждённая учителем память – поиск</option><option value="personal_graph" hidden disabled>Персональный граф – эксперимент</option></select>
+            <p id="chat-memory-method-hint" class="review-note">Помощник помнит твои беседы автоматически. Поиск по проверенным учителем записям доступен после подтверждения памяти по выбранной теме.</p>
             <div class="learning-session-controls"><p id="learning-session-status" class="review-note" role="status">Занятие начнётся с первого вопроса.</p><p id="learning-session-recovery-note" class="review-note" role="status" hidden></p><button id="refresh-learning-session" type="button" class="text-button">Обновить занятие</button><button id="complete-learning-session" type="button" class="text-button" hidden>Завершить занятие</button></div>
             <details id="learning-archive" class="learning-archive">
               <summary>Прошлые занятия</summary>

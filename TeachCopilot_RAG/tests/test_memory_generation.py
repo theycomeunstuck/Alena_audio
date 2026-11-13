@@ -19,7 +19,7 @@ class _Response:
         pass
 
     def json(self):
-        return {"message": {"content": '{"answer":"synthetic","citations":[]}'}, "done_reason": "stop"}
+        return {"message": {"content": '{"answer":"synthetic","citations":[]}'}, "done": True, "done_reason": "stop"}
 
 
 class _SyntheticHTTP:

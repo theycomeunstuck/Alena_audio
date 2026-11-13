@@ -53,13 +53,28 @@ class Settings:
     generation_run_budget_path: str | None = None
     memory_response_journal_path: str = str(Path(__file__).resolve().parents[1] / ".local" / "memory-worker-responses.sqlite3")
     chat_response_journal_path: str | None = None
+    personal_memory_enabled: bool = True
+    personal_memory_retrieval_mode: str = "hybrid"
+    experimental_personal_graph_enabled: bool = False
+    personal_graph_retrieval_mode: str = "graph_hybrid"
+    personal_graph_password_file: str = str(Path(__file__).resolve().parents[3] / ".local" /
+        "neo4j-runtime" / "neo4j-community-5.26.32" / "personal-memory-password.txt")
 
     def __post_init__(self):
         require_local_url(self.ollama_url)
+        if self.personal_memory_retrieval_mode not in {"chronological", "lexical", "vector", "hybrid"}:
+            raise ValueError("Unknown personal memory retrieval mode")
+        if self.personal_graph_retrieval_mode not in {"chronological", "lexical", "vector", "hybrid", "graph_hybrid"}:
+            raise ValueError("Unknown personal graph retrieval mode")
         if self.context_tokens < 2048 or self.max_output_tokens < 128:
             raise ValueError("Invalid context/output token limits")
         if self.request_timeout <= 0 or not 1 <= self.session_hours <= 168:
             raise ValueError("Invalid timeout/session lifetime")
+        if self.experimental_personal_graph_enabled:
+            if self.context_tokens not in (16384, 32768):
+                raise ValueError("Experimental personal graph requires a 16k or 32k context")
+            if self.chat_model != "gemma4:12b" or self.embedding_model.split(":")[0] != "bge-m3":
+                raise ValueError("Experimental personal graph requires local Gemma and BGE-M3")
         accounts = self.autonomous_division_account_ids
         if accounts is not None:
             if not isinstance(accounts, tuple):
@@ -96,4 +111,9 @@ class Settings:
             memory_response_journal_path=os.getenv('LOCAL_MEMORY_RESPONSE_JOURNAL', cls.memory_response_journal_path),
             chat_response_journal_path=os.getenv('LOCAL_CHAT_RESPONSE_JOURNAL', str(
                 Path(__file__).resolve().parents[1] / '.local' / 'chat-responses.sqlite3')),
+            personal_memory_enabled=os.getenv("LOCAL_PERSONAL_MEMORY_ENABLED", "1") == "1",
+            personal_memory_retrieval_mode=os.getenv("LOCAL_PERSONAL_MEMORY_RETRIEVAL_MODE", "hybrid"),
+            experimental_personal_graph_enabled=os.getenv("LOCAL_EXPERIMENTAL_PERSONAL_GRAPH", "0") == "1",
+            personal_graph_retrieval_mode=os.getenv("LOCAL_PERSONAL_GRAPH_RETRIEVAL_MODE", "graph_hybrid"),
+            personal_graph_password_file=os.getenv("LOCAL_PERSONAL_GRAPH_PASSWORD_FILE", cls.personal_graph_password_file),
         )

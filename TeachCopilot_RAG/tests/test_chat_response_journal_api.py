@@ -270,7 +270,9 @@ def test_legacy_chat_without_session_has_durable_owned_service_response(chat_api
     assert response.status_code == 200, response.text
     rows = api.journal.list_calls()
     assert len(rows) == 1 and rows[0]["raw_response"] == RAW_ENVELOPE
-    assert rows[0]["learning_session_id"] is None and rows[0]["client_message_id"] is None
+    # Since the 7 November own-memory work a direct request gets a server-side conversation session
+    # (ensure_conversation_session), so the journal row is linked to one instead of being session-less.
+    assert rows[0]["learning_session_id"] is not None
     assert rows[0]["actor_id"] == api.student["id"] and rows[0]["job_id"]
     assert_private_journal_ids_absent(response.json(), rows)
 
@@ -308,7 +310,7 @@ class RawHttpSession(LocalSession):
 
 def runtime_reply(content, **extra):
     return {"message": {"role": "assistant", "content": content, "thinking": RAW_THINKING},
-            "done_reason": "stop", "model": "controlled-chat", "eval_count": 7, **extra}
+            "done": True, "done_reason": "stop", "model": "controlled-chat", "eval_count": 7, **extra}
 
 
 def install_local_runtime(api, raw, *, structured=False, resolver=False):
