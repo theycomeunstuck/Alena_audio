@@ -706,28 +706,20 @@ The chat endpoint:
 
 ### Prerequisites
 
-- Python 3.10+
+- Python 3.12 (see `pyproject.toml`)
+- `uv` for dependency and environment management
 - PostgreSQL with pgvector extension
 - LM Studio with qwen3-vl-4b model (for Profile Agent and PDF vision)
 
 ### Steps
 
 ```bash
-# 1. Clone repository
+# 1. Clone repository and enter the Python project
 git clone <repository-url>
-cd MachineLearning
+cd <repository-directory>/TeachCopilot_RAG
 
-# 2. Create virtual environment
-python -m venv .venv
-# Windows:
-.venv\Scripts\activate
-# Linux/Mac:
-source .venv/bin/activate
-
-# 3. Install dependencies (you can also do it w/o `uv`)
-winget install astral-sh.uv
-uv init
-uv add -r requirements.txt
+# 2–3. Create the environment and install locked dependencies
+uv sync --locked
 
 # 4. Install pgvector extension in PostgreSQL
 # (run as superuser in psql)
@@ -908,12 +900,11 @@ Expected output: `27/27 passed, ALL STEPS PASSED`
 ## Deployment
 
 ### Production Server Setup
-Can be completed w/o `uv`
 ```bash
 # 1. Clone and install
 git clone https://github.com/theycomeunstuck/TeachCopilot
-python -m venv .venv && .venv\Scripts\activate
-uv add -r requirements.txt
+cd TeachCopilot/TeachCopilot_RAG
+uv sync --locked
 
 # 2. Configure .env for production
 DATABASE_URL=postgresql://user:pass@localhost:5432/teachcopilot

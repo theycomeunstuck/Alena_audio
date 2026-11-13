@@ -15,6 +15,17 @@ import zpd  # noqa: E402
 TODAY = "2026-10-13"
 
 
+@pytest.fixture(autouse=True)
+def fixed_evidence_date(monkeypatch):
+    """Keep fixed-date evidence recent regardless of the machine's calendar."""
+    class FixedDate(zpd.datetime.date):
+        @classmethod
+        def today(cls):
+            return cls.fromisoformat(TODAY)
+
+    monkeypatch.setattr(zpd.datetime, "date", FixedDate)
+
+
 def profile(topic_id: str, *, mastery: float = 0.95, independence: float = 0.95) -> dict:
     return {
         "schema_version": 2,

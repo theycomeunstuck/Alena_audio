@@ -4,8 +4,10 @@ from __future__ import annotations
 import json
 import os
 import re
+import shutil
 import sys
 from pathlib import Path
+from uuid import uuid4
 
 import pytest
 
@@ -19,13 +21,38 @@ DSN = os.getenv("TEACHCOPILOT_TEST_DSN")
 
 
 @pytest.fixture(scope="module")
-def store():
+def store(tmp_path_factory):
     if not DSN:
         pytest.skip("set TEACHCOPILOT_TEST_DSN to an expendable local database")
-    instance = Store(DSN)
-    instance.migrate()
-    instance.import_repository(LEARNER_DATA.parent)
-    return instance
+    import psycopg2
+    from psycopg2 import sql
+    from psycopg2.extensions import make_dsn
+    from scripts.verify_memory import DATABASE_PREFIX, require_local_dsn
+
+    # The seed uses fixed demo identities and a new temporary credentials file.
+    # Reusing a populated test database would make its first-run assertions fail.
+    require_local_dsn(DSN)
+    name = DATABASE_PREFIX + uuid4().hex[:12]
+    admin = psycopg2.connect(make_dsn(DSN, dbname="postgres", connect_timeout=5))
+    admin.autocommit = True
+    try:
+        with admin.cursor() as cur:
+            cur.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(name)))
+        try:
+            instance = Store(make_dsn(DSN, dbname=name))
+            instance.migrate()
+            repo = tmp_path_factory.mktemp("rich-demo-repository")
+            shutil.copytree(LEARNER_DATA / "catalog", repo / "learner-data" / "catalog")
+            instance.import_repository(repo)
+            yield instance
+        finally:
+            # Only the exact database created above is eligible for removal.
+            assert name.startswith(DATABASE_PREFIX) and len(name) == len(DATABASE_PREFIX) + 12
+            with admin.cursor() as cur:
+                cur.execute("SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname=%s AND pid<>pg_backend_pid()", (name,))
+                cur.execute(sql.SQL("DROP DATABASE {}").format(sql.Identifier(name)))
+    finally:
+        admin.close()
 
 
 def catalog_from_files():
