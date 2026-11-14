@@ -633,7 +633,11 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None, chat_r
                             manifest = index.get("manifest")
                             index_status.update(ready=True, run_id=str(index["run_id"]),
                                                 manifest=manifest if isinstance(manifest, dict) else None)
-        approved_topic, _approved = approved_memory_topic(snapshot, learner_id)
+        # Approval validation compares fingerprints against the canonical
+        # personal-graph source set (the same form the chat path passes), not
+        # the raw snapshot whose sources may contain in-flight or orphaned rows.
+        approved_topic, _approved = approved_memory_topic(
+            {**snapshot, "sources": graph_sources}, learner_id)
         return {"learner_id": learner_id, "flags": flags,
                 "budgets": {"selection_bytes": selection_budget, "memory_bytes": memory_budget},
                 "snapshot": {"source_count": len(graph_sources),
