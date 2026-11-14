@@ -200,6 +200,7 @@ compact context + учебные фрагменты + вопрос → LLM
 - [Profile Agent](#profile-agent)
 - [Multimodal Ingest (PDF + Vision)](#multimodal-ingest)
 - [Local RAG API Server](#local-rag-api-server)
+- [Personal Memory (Alёna)](#personal-memory-alёna)
 - [Installation](#installation)
 - [Configuration](#configuration)
 - [Usage](#usage)
@@ -701,7 +702,40 @@ The chat endpoint:
 5. removes hidden `reasoning_content` from the model response before returning it.
 
 
+## Personal Memory (Alёna)
+
+Локальное приложение `local_app/` (запуск `scripts/start_local.ps1`, API на `127.0.0.1:8099`) использует память ребёнка: полная история переписки, сводки последнего дня и семи последних активных дней, поиск по всему архиву и одобренные преподавателем наблюдения. Память включается автоматически для нового ученика – подготовка не требуется.
+
+### Где реализовано
+
+| Слой | Файлы (`local_app/`) |
+|---|---|
+| Хранилище: источники, версии, задания | `memory_store.py`, `store.py` (миграции `db/migrations/014–024`) |
+| Единый метод памяти: гибрид (вектор+лексика+граф-канал) | `personal_memory.py`, `personal_graph_retrieval.py` |
+| Графовая память (эксперимент, Neo4j) | `personal_graph_memory.py`, `personal_graph_index.py`, `personal_graph_contract.py` |
+| Сводки: последние 20 сообщений / день / 7 дней | `hierarchical_memory.py`, `session_summaries.py` |
+| Поиск по всему архиву и каталог тем | `conversation_retrieval.py`, `dialogue_catalog.py` |
+| Добровольный дневной вопрос | `checkins.py` |
+| Часовые пояса | `timezones.py` |
+| Сборка промпта с памятью | `rag.py` (блок `<approved_memory_untrusted>`) |
+| HTTP API | `api.py` |
+
+### Как пользоваться
+
+1. Запустить стек: `powershell -File scripts\start_local.ps1` (Docker PostgreSQL, миграции, memory worker, API на 8099). Нужен локальный Ollama с моделями `gemma4:12b` и `bge-m3`.
+2. Преподаватель: в рабочем месте ученика – панель «Память занятий» → «Предложить следующий шаг» (метод `personal_memory`) → проверить черновик → «Подтвердить».
+3. Ученик: обычный чат; вопрос о прошлом автоматически ищет по одобренной памяти (метод выбирается в селекторе «Память помощника»).
+4. Диагностика: вкладка «Диагностика памяти» (только преподаватель) – статус графового индекса и пробный поиск с разбором каналов.
+5. Самопроверка: `uv run --locked python scripts\memory_doctor.py --check --e2e`.
+
+### Ключевые настройки
+
+Флаги читаются из `.local.env`: `LOCAL_PERSONAL_MEMORY_ENABLED` (по умолчанию вкл), `LOCAL_MEMORY_GRAPH_CHANNEL` (граф-канал внутри гибрида, вкл), `LOCAL_EXPERIMENTAL_PERSONAL_GRAPH` (явный графовый метод, выкл), `LOCAL_CONTEXT_TOKENS` (требуется ≥16384 для полного пути памяти; развёртывание использует 32768). Полная таблица, Neo4j и переезд на новый сервер – [devops-мануал](docs/ALENA_MEMORY_DEVOPS_MANUAL_2026_11_14.md). Архитектура и решения – [ALENA_MEMORY_ARCHITECTURE.md](docs/ALENA_MEMORY_ARCHITECTURE.md) и [docs/adr/](docs/adr/).
+
+Проверки памяти: `uv run --locked python -m pytest -m live` (реальные сервисы) и `memory_doctor`. Синтетические результаты – проверки внедрения, не оценка качества на реальных детях.
+
 ---
+
 ## Installation
 
 ### Prerequisites
