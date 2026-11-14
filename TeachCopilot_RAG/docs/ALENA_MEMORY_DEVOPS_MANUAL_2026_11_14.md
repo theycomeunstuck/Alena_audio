@@ -117,6 +117,18 @@ uv run --locked python scripts\create_personal_graph_test_db.py --name-file <п�
 
 Смоук `scripts/smoke_personal_graph_api.py` («Real API, PostgreSQL, Neo4j and local Gemma with synthetic accounts and data») поднимает реальный API на этой одноразовой базе с синтетическими аккаунтами и учеником.
 
+### 4.2b Запуск Neo4j (для графового канала)
+
+Neo4j лежит рядом с приложением и стартует со встроенным JDK:
+
+```powershell
+$env:JAVA_HOME = 'C:\Users\name\PycharmProjects\misc\teachCopilot\.local\neo4j-runtime\jdk-21.0.12+8'
+cd C:\Users\name\PycharmProjects\misc\teachCopilot\.local\neo4j-runtime\neo4j-community-5.26.32
+.\bin\neo4j.bat console
+```
+
+Bolt поднимется на `127.0.0.1:17687` (пароль – в `personal-memory-password.txt` рядом). Индекс графа строится teacher-заданием `personal_graph` в приложении или `memory_doctor --e2e --graph`; готовый индекс автоматически подключается каналом к personal_memory hybrid. Статус – вкладка «Диагностика памяти» в приложении.
+
 ### 4.3 Live-тесты и memory_doctor
 
 ```powershell
