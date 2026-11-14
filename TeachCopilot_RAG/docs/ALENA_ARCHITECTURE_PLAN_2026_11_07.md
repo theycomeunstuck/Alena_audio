@@ -1,3 +1,5 @@
+> **Superseded (2026-11-14):** the current reference is [ALENA_MEMORY_ARCHITECTURE.md](ALENA_MEMORY_ARCHITECTURE.md) (English, consolidated). This file is kept for history.
+
 # «Алёна» – архитектура памяти и план завершения
 
 План Astra Max от 7 ноября 2026 года. Снимок требований и рабочей реализации для продолжения в отдельном продуктовом чате.

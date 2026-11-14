@@ -1,3 +1,5 @@
+> **Superseded (2026-11-14):** the current reference is [ALENA_MEMORY_ARCHITECTURE.md](ALENA_MEMORY_ARCHITECTURE.md) (English, consolidated). This file is kept for history.
+
 # Передача разработки Алёны
 
 Состояние на 7 ноября 2026 года. Пользователь обозначает словом «Алёна» изменения основного приложения. Корень приложения – `C:/Users/name/PycharmProjects/misc/teachCopilot/Alena_audio/TeachCopilot_RAG`. Архитектурный план Astra Max записан отдельно. Новая память реализована, рабочая база переведена на схему 23, общие тесты, живой сценарий и браузерная проверка пройдены. [Архитектурный план](C:/Users/name/PycharmProjects/misc/teachCopilot/Alena_audio/TeachCopilot_RAG/docs/ALENA_ARCHITECTURE_PLAN_2026_11_07.md)

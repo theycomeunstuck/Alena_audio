@@ -1,33 +1,107 @@
-# Алёна – состояние памяти на 13 ноября 2026 года
+# Alёna memory state (November 13–14, 2026)
 
-Этот файл описывает локальное рабочее дерево. Перед переносом сверяй его с коммитами: часть прежней работы и изменения памяти могут оставаться незакоммиченными. Ветка `alena-retrieval-fixes-20261112` не содержит всех необходимых миграций и модулей и не является готовым релизом.
+This file describes the local working tree. Before transferring, compare with
+the commits: part of the earlier work and memory changes may remain uncommitted.
+The `alena-retrieval-fixes-20261112` branch does not contain all required
+migrations and modules and is not a ready release. Current architecture
+reference: `docs/ALENA_MEMORY_ARCHITECTURE.md` (consolidated, English);
+operations: `docs/ALENA_MEMORY_DEVOPS_MANUAL_2026_11_14.md`; decisions:
+`docs/adr/`.
 
-## Выключение памяти
+## Memory disabled
 
-`LOCAL_PERSONAL_MEMORY_ENABLED=0` исключает старый диалог, личный архив, сводки, персональные предпочтения и подтверждённую память из контекста нового ответа. Текущее сообщение и ответ при этом записываются в историю; владелец может открыть сохранённую историю. Доступ к учебным материалам и текущей теме остаётся отдельным от персональной памяти.
+`LOCAL_PERSONAL_MEMORY_ENABLED=0` excludes previous dialogue, the own archive,
+summaries, personal preferences and approved memory from the new answer's
+context. The current message and reply are still stored; the owner can open the
+saved history. Learning-material access and the current topic stay separate from
+personal memory.
 
-## Подтверждение прежней версии
+## Previous-version approval
 
-Если после подготовки версии появились только новые сообщения привязанного к карточке ученика, преподаватель видит предупреждение и явно подтверждает прежний снимок. Новые источники не включаются в ранее разрешённую область. Для обновления есть отдельное действие. Если изменились карточка, исправления или другие источники, требуется новая проверка; разрешение всего изменившегося архива этим обходом не выдаётся. Старые черновики без сохранённой базовой ревизии консервативно считаются устаревшими.
+If only new messages from the assigned learner appeared after a version was
+prepared, the teacher sees a warning and explicitly re-approves the previous
+snapshot. New sources are not included in the previously approved scope. Updates
+run as a separate action. If the card, corrections or other sources changed, a
+new review is required; approving the whole changed archive is not granted by
+that path. Old drafts without a stored base revision are conservatively stale.
 
-Для подтверждённого прежнего выбора `personal_memory` и `personal_graph` используется сохранённый проверенный контекст вместо расширения выбора поиском по новым данным. Это не доказывает, что поиск всегда найдёт нужную информацию или что модель правильно её использует.
+For an approved previous selection of `personal_memory` and `personal_graph`,
+the saved reviewed context is used instead of re-searching new data. This does
+not prove that retrieval always finds the right information or that the model
+uses it correctly.
 
-## База и проверки
+## November 14: unified method, graph channel, diagnostics
 
-Миграция `024_memory_chat_revision.sql` добавляет отдельный счётчик изменений детского чата и базовую ревизию версии памяти. Переход с 023 проверен на синтетической базе, включая сохранность записей и повторный запуск. На локальной рабочей базе схема 024 применена после проверенной резервной копии; количество записей в 37 таблицах сохранилось. Запущенный процесс приложения автоматически не перезапускался.
+`personal_memory` is the single product memory method. In `hybrid` retrieval the
+system automatically adds a graph channel (third round-robin leg) when
+`LOCAL_MEMORY_GRAPH_CHANNEL=1` (default) and a ready graph index matches the
+exact snapshot fingerprint; otherwise it degrades softly with a reason in
+`retrieval_diagnostics.graph_channel`. The channel is consume-only – it never
+builds, claims or invalidates an index; indexes are built by the explicit
+teacher `personal_graph` job (experimental flag, Neo4j on bolt 17687,
+graphiti-core installed as a dev dependency, 16k/32k context). Graph facts never
+enter the answer text. Commits: `a2825bd` (unified method + PG tests),
+`341982e` (Ollama 0.40 overflow wording; graphiti-core declared).
 
-Отдельная временная PostgreSQL-база использовалась для 61 целевой проверки, дополнительного сценария выключенной памяти и проверки миграции. Два сценария подтверждения и отдельного обновления прошли через Chromium. Также прошли три набора JavaScript-проверок. Это функциональные проверки на синтетических данных, не оценка качества на реальных детях. Более полный прогон фиксируется отдельно в рабочей папке `C:/Users/name/Documents/ChatGPT/Claude/teachcopilot-work`.
+Teacher-only diagnostics: `GET /learners/{id}/memory/diagnostics/index`
+(settings, budgets, read-only graph-index status) and
+`GET .../memory/diagnostics/retrieval` (the same retrieval the approved chat
+runs, with channels, scores, selection warnings and the selected context) plus
+the «Диагностика памяти» tab in the web UI (`f65cbe6`). `scripts/memory_doctor.py`
+(`--check --live --e2e --graph`) verifies the whole loop on disposable databases
+(`376571b`). Live marker tests (`pytest -m live`) cover real Ollama embed/chat
+and the personal_memory cycle; graph-cycle tests skip without graphiti-core or
+Neo4j (`3aee737`).
 
-## Вечернее обновление 13 ноября 2026
+## Deployment state
 
-Состояние исходников зафиксировано коммитом `961bf6e` в ветке `dev` – целые файлы проверенной памяти-работы вместе с ранее незакоммиченным продуктовым стеком (миграции 014–024, модули памяти, веб-интерфейс, тесты). Вне коммита остались НИРС (`research_memory/`), скретч-скрипты `.local_*`, `outputs/` и концепт-документ.
+- Working DB on schema 024; `.local.env` sets `LOCAL_CONTEXT_TOKENS=32768`
+  (since November 14 – the unified memory chat path requires ≥16384; below that
+  it fails with 413/502, see the devops manual §4b). Changing the context stales
+  previously approved memory versions once (fail-closed) – the teacher
+  re-approves them in the app.
+- Ollama 0.40.16: `gemma4:12b` loads and generates; reasoning disabled with
+  `think: false`. Note: Ollama ≥0.40 silently truncates oversized prompts when
+  `truncate` is not disabled – the strict graph path fail-closes on this via
+  `verify_no_truncation` (overflow matcher recognizes the new 0.40 wording).
+- Neo4j Community on bolt 17687 with a bundled JDK 21; start command in the
+  devops manual §4.2b.
+- The running app instance must be restarted to pick up code changes; check
+  `/health/ready` (status, schema 24, models) after restarting.
 
-Целевые проверки на одноразовых базах: 160 тестов памяти (продолжение, миграция, подтверждение снимка, выключенная память, пояса, доступ), 18 браузерных проверок правок с Chromium и 39 проверок иерархической памяти, свежести и смены темы – все прошли. Два полных серийных прогона на свежих одноразовых базах: первый – 2392 теста с одним сбоем, второй – 2392 теста, все зелёные, один пропуск (необязательный `neo4j.time`).
+## Verification history (November 13)
 
-Единственный сбой полного прогона разобран доказательно. В логе API-процесса живого браузерного теста – `psycopg2.OperationalError: connection to server at 127.0.0.1:5434 failed: Address already in use (WSAEADDRINUSE 10048)`. Приложение открывает новое соединение на каждую операцию; браузерный тест создаёт всплеск тысяч коротких соединений, и Windows в момент пика не находит свободный эфемерный порт (диапазон 49152–65535, часть занята исключениями Hyper-V). Это среда тестов, не логика приложения и не сбой PostgreSQL: в момент сбоя на сервере было 10 соединений из 100, изолированные прогоны всегда зелёные, а повторный полный прогон прошёл целиком. Предложенный дешёвый фикс – одноразовое расширение динамического диапазона (`netsh int ipv4 set dynamicport tcp start=1025 num=64510`, нужны права администратора, обратимо) – применяется только по решению пользователя. Диагностика сохранена в `teachcopilot-work/503-diag-20261113-run1` и `-run2`.
+The source state was committed as `961bf6e` on `dev` – whole verified
+memory-work files together with the previously uncommitted product stack
+(migrations 014–024, memory modules, web UI, tests). Left out of the commit on
+purpose: НИРС (`research_memory/`), `.local_*` scratch scripts, `outputs/` and a
+concept document.
 
-Блокер генерации снят: Ollama обновлён с 0.24.0 до 0.40.16 (winget, 13 ноября), `gemma4:12b` загружается и генерирует; режим рассуждений отключается параметром `think: false`. Без обновления приложение не могло генерировать ответы.
+Targeted checks on disposable databases: 160 memory tests, 18 Chromium
+correction checks, 39 hierarchical-memory checks – all green. Two full serial
+runs on fresh disposable databases: 2392 tests with one failure, then 2392 tests
+all green (one skip – optional `neo4j.time`). The single failure was diagnosed
+to root cause: `psycopg2.OperationalError ... Address already in use
+(WSAEADDRINUSE 10048)` – Windows ephemeral-port exhaustion during the live
+browser test's connection burst (no connection pool in the app; Hyper-V
+exclusions shrink the port range). It is a test-environment effect, not app
+logic and not a PostgreSQL failure; a post-fix confirmation run passed cleanly.
+Diagnostics: `teachcopilot-work/503-diag-20261113-run1` and `-run2`.
 
-Синтетический answer-эвал (пункт 3.6 плана) выполнен: 124 строки – 112 ноябрьских вопросов от первого лица на шести языках и 12 новых ручных сценариев («хз», перескок темы, точная формулировка) на ru-архивах; поиск – формула приложения с бюджетом 4000 байт, генерация – `gemma4:12b`, температура 0. Вердикты детерминированные. Верность ответа оценена только там, где ключевые основы слов были заданы до прогона (12 новых сценариев, ru): 11 из 12 верны; два честных провала – неполный ответ и отказ модели, хотя реплика ребёнка была в переданном контексте. Для ноябрьских вопросов ключевые слова заранее не разметили, поэтому их верность не скорилась, а ответы опубликованы для ручного просмотра. На ru-подмножестве поиск нашёл хотя бы один эталон в 76% ноябрьских и 92% новых вопросов, все эталоны – в 55% и 92%. Файлы – `teachcopilot-work/benchmark/rows_answer_20261113.json` и секция «Ответы модели на вопрос по своей истории» на сайте.
+The synthetic answer eval ran as planned: 124 rows – 112 November first-person
+questions in six languages and 12 hand-written scenarios («хз», topic switches,
+exact wording) on ru archives; retrieval by the shipped formula with a 4000-byte
+budget, generation `gemma4:12b` at temperature 0, deterministic verdicts.
+Answer correctness was scored only where key terms were pre-registered before
+the run (12 new scenarios, ru): 11 of 12 correct; two honest failures – an
+incomplete answer and a refusal although the child's reply was in the passed
+context. November answers were published unscored for manual review. On the ru
+subset, retrieval found at least one gold source for 76% of November and 92% of
+new questions, all gold sources for 55% and 92%. Files:
+`teachcopilot-work/benchmark/rows_answer_20261113.json` and the «Ответы модели
+на вопрос по своей истории» section on the site.
 
-Зависимости и тесты запускай через `uv`, следуя корневому `CLAUDE.md`. PostgreSQL-тесты выполняй только в отдельной временной базе, а не в рабочей. Локальные резервные копии, тестовые журналы и учётные данные не публикуй.
+Run dependencies and tests through `uv` per the root `CLAUDE.md`. PostgreSQL
+tests run only on a disposable database, never the working one. Local backups,
+test journals and credentials are not published. Synthetic results are not
+quality claims about real children.

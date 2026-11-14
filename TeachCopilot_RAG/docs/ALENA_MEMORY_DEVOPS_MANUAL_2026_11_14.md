@@ -1,78 +1,138 @@
-# Алёна – devops-руководство по памяти (14 ноября 2026 года)
+# Alёna – memory devops manual (November 14, 2026)
 
-Рабочее дерево: репозиторий `Alena_audio`, приложение – `TeachCopilot_RAG`. Руководство описывает локальный контур памяти: как он устроен, чем настраивается, как запускается и проверяется. Перед переносом на другую машину сверься с актуальным кодом и с `docs/ALENA_MEMORY_STATUS_2026_11_13.md` – часть работ может оставаться незакоммиченной.
+Working tree: repository `Alena_audio`, application `TeachCopilot_RAG`. This
+manual describes the local memory loop: how it is built, what configures it, how
+to start and verify it. Before moving to another machine, compare with the actual
+code and `docs/ALENA_MEMORY_STATUS_2026_11_13.md` – part of the work may remain
+uncommitted. Architecture reference: `docs/ALENA_MEMORY_ARCHITECTURE.md`;
+design decisions: `docs/adr/` and `docs/glossary.md`.
 
-## 1. Карта памяти
+## 1. Memory map
 
-Четыре контура поиска, у каждого своя роль и своя реализация.
+Four retrieval loops, each with its own role and implementation.
 
-**(a) Материалы (product RAG).** `Store.hybrid_search` в `local_app/store.py:630` – гибрид pgvector и полнотекстового поиска PostgreSQL. Векторная нога – косинусная близость (`embedding <=> %s::vector`, similarity = 1 − расстояние), текстовая – `ts_rank` по `plainto_tsquery('russian')` и `plainto_tsquery('simple')`. Слияние – reciprocal rank fusion с k = 60, финальный тай-брейк по `id`, поэтому порядок детерминирован. Если проиндексированы не все активные материалы под запрошенную модель эмбеддингов, поиск поднимает `IndexNotReadyError` вместо тихой неполной выдачи.
+**(a) Learning materials (product RAG).** `Store.hybrid_search` in
+`local_app/store.py:630` – pgvector + PostgreSQL full-text hybrid. Vector leg:
+cosine similarity (`embedding <=> %s::vector`, similarity = 1 − distance); text
+leg: `ts_rank` over `plainto_tsquery('russian')` and `plainto_tsquery('simple')`.
+Fusion: reciprocal rank fusion with k = 60, final tie-break by `id` (deterministic
+order). If not all active materials are indexed for the requested embedding
+model, the search raises `IndexNotReadyError` instead of silently returning a
+partial result.
 
-**(b) Personal memory.** Гибридный режим – round-robin слияние векторной ноги (BGE-M3, 1024 измерения) и лексической по подтверждённым исходным урокам. Ранжирование выполняет `rank_source_candidates` из `local_app/personal_graph_retrieval.py`; `local_app/personal_memory.py` подключает его вместе с кешем эмбеддингов источников (`SourceEmbeddingCache`). В поиск попадают только одобренные преподавателем источники.
+**(b) Personal memory.** Hybrid mode – round-robin merge of a vector leg
+(BGE-M3, 1024 dimensions) and a lexical leg over teacher-approved source
+lessons. Ranking: `rank_source_candidates` from `local_app/personal_graph_retrieval.py`;
+`local_app/personal_memory.py` wires it with the source embedding cache
+(`SourceEmbeddingCache`). Only teacher-approved sources are searchable.
 
-**(c) Диалоговый поиск (conversation retrieval).** `local_app/conversation_retrieval.py`, две формулы: `legacy` – поставляется и работает по умолчанию (cosine + 0,04 × доля точных терминов), `rrf` – опция (reciprocal rank fusion косинуса и стеммированного BM25). Переключение – параметр `fusion` вызывающего кода; env-переключателя нет.
+**(c) Conversation retrieval.** `local_app/conversation_retrieval.py`, two
+formulas: `legacy` – shipped default (cosine + 0.04 × exact-term fraction), `rrf`
+– opt-in (reciprocal rank fusion of cosine and stemmed BM25). Switched by the
+`fusion` argument of the calling code; there is no env switch.
 
-**(d) Personal graph (эксперимент).** Graphiti поверх Neo4j на `bolt://127.0.0.1:17687` (`research_memory/personal_memory_lab/backends.py`). Реестр индексов – таблица `teachcopilot.personal_graph_indexes` (миграция `016_personal_graph_index_registry.sql`), кеш эмбеддингов графа – миграция `017_personal_graph_embedding_cache.sql`. По умолчанию приложение Graphiti и LangGraph не импортирует. Эксперимент валиден только с контекстом 16384 или 32768 токенов и моделями `gemma4:12b` + `bge-m3` (проверка в `local_app/config.py`). Факты из графа НИКОГДА не попадают в текст ответа: находки графа только указывают на канонические исходные ответы, которые и цитируются.
+**(d) Personal graph (experimental).** Graphiti over Neo4j on
+`bolt://127.0.0.1:17687` (`research_memory/personal_memory_lab/backends.py`).
+Index registry – `teachcopilot.personal_graph_indexes` (migration
+`016_personal_graph_index_registry.sql`); graph embedding cache – migration
+`017_personal_graph_embedding_cache.sql`. The application does not import
+Graphiti or LangGraph by default. The experiment is only valid with a context of
+16384 or 32768 tokens and the models `gemma4:12b` + `bge-m3` (validated in
+`local_app/config.py`). Graph facts NEVER enter the answer text: graph findings
+only point at canonical source replies, which are the quoted evidence.
 
-**(e) Объединение каналов [внедрено 14 ноября, коммит a2825bd].** Граф – автоматический канал внутри personal_memory hybrid: флаг `LOCAL_MEMORY_GRAPH_CHANNEL` (по умолчанию включён) добавляет графовые попадания третьей ногой round-robin, когда готовый индекс соответствует точному снимку; без запущенного Neo4j или без готового индекса канал мягко деградирует с причиной в diagnostics (`channel_disabled`, `no_ready_index`, `password_file_unavailable` и др.). Канал только потребляет готовый индекс и никогда не строит его; факты графа в текст ответа не попадают. Индекс строится явным teacher-заданием personal_graph (требует Neo4j и контекст 16k/32k).
+**(e) Channel unification [landed November 14, commit a2825bd].** The graph is an
+automatic channel inside personal_memory hybrid: `LOCAL_MEMORY_GRAPH_CHANNEL`
+(on by default) adds graph findings as a third round-robin leg when a ready index
+matches the exact snapshot fingerprint; without running Neo4j or without a ready
+index the channel degrades softly with a reason in diagnostics
+(`channel_disabled`, `no_ready_index`, `password_file_unavailable`, …). The
+channel only consumes a ready index and never builds one; graph facts never enter
+the answer text. The index is built by an explicit teacher `personal_graph` job
+(requires Neo4j and a 16k/32k context).
 
-## 2. Env-флаги
+## 2. Env flags
 
-Все значения читает `Settings.from_env()` из `local_app/config.py`; файл `.local.env` в корне `TeachCopilot_RAG` загружается с `override=False` (реальные переменные окружения сильнее файла). Память-относящиеся переменные:
+All values are read by `Settings.from_env()` from `local_app/config.py`; the
+`.local.env` file at the `TeachCopilot_RAG` root is loaded with `override=False`
+(real environment variables win over the file). Memory-related variables:
 
-| Переменная | По умолчанию | Эффект |
+| Variable | Default | Effect |
 |---|---|---|
-| `DATABASE_URL` | `postgresql://teachcopilot@127.0.0.1:5434/teachcopilot_local` | Рабочая локальная БД (Docker-контейнер, порт 5434 → 5432). Для тестов не используется – см. раздел 6. |
-| `OLLAMA_URL` | `http://127.0.0.1:11435` | Только HTTP-loopback без креденшелов, query и fragment (`require_local_url` иначе бросает исключение). |
-| `LOCAL_CHAT_MODEL` | `gemma4:12b` | Чат-модель Ollama. Для экспериментального графа – строго `gemma4:12b`. |
-| `LOCAL_EMBEDDING_MODEL` | `bge-m3` | Модель эмбеддингов (BGE-M3, 1024). Для графа – семейство `bge-m3`. |
-| `LOCAL_CONTEXT_TOKENS` | `8192` | Контекст модели; минимум 2048. Экспериментальный граф требует 16384 или 32768. |
-| `LOCAL_MIN_SIMILARITY` | `0.35` | Минимальная семантическая похожесть в диалоговом поиске. |
-| `LOCAL_PERSONAL_MEMORY_ENABLED` | `1` | `0` – исключает старый диалог, личный архив, сводки, персональные предпочтения и подтверждённую память из контекста нового ответа. Текущее сообщение и ответ записываются в историю, владелец её видит. |
-| `LOCAL_PERSONAL_MEMORY_RETRIEVAL_MODE` | `hybrid` | Один из `chronological`, `lexical`, `vector`, `hybrid`; иное значение – ошибка при старте. |
-| `LOCAL_EXPERIMENTAL_PERSONAL_GRAPH` | `0` | `1` – включает экспериментальный графовый метод. Требует контекст 16k/32k и `gemma4:12b` + `bge-m3`, иначе конфиг невалиден. |
-| `LOCAL_PERSONAL_GRAPH_RETRIEVAL_MODE` | `graph_hybrid` | Один из `chronological`, `lexical`, `vector`, `hybrid`, `graph_hybrid`. |
-| `LOCAL_PERSONAL_GRAPH_PASSWORD_FILE` | `C:/Users/name/PycharmProjects/misc/teachCopilot/.local/neo4j-runtime/neo4j-community-5.26.32/personal-memory-password.txt` | Файл с паролем Neo4j (пользователь `neo4j`). Не коммитить и не печатать. |
-| `LOCAL_MEMORY_GRAPH_CHANNEL` | `1` | Автоматический графовый канал внутри personal_memory hybrid; без Neo4j или без готового индекса канал мягко отключается с причиной в diagnostics. |
+| `DATABASE_URL` | `postgresql://teachcopilot@127.0.0.1:5434/teachcopilot_local` | Working local DB (Docker container, port 5434 → 5432). Never used for tests – see section 6. |
+| `OLLAMA_URL` | `http://127.0.0.1:11435` | HTTP loopback only, no credentials/query/fragment (`require_local_url` raises otherwise). |
+| `LOCAL_CHAT_MODEL` | `gemma4:12b` | Ollama chat model. Strictly `gemma4:12b` for the experimental graph. |
+| `LOCAL_EMBEDDING_MODEL` | `bge-m3` | Embedding model (BGE-M3, 1024 dims). Family `bge-m3` for the graph. |
+| `LOCAL_CONTEXT_TOKENS` | `32768` | Model context; minimum 2048. **Unified memory chat requires ≥16384** – see section 4b. The experimental graph requires exactly 16384 or 32768. |
+| `LOCAL_MIN_SIMILARITY` | `0.35` | Minimum semantic similarity in conversation retrieval. |
+| `LOCAL_PERSONAL_MEMORY_ENABLED` | `1` | `0` excludes previous dialogue, own archive, summaries, personal preferences and approved memory from the new answer's context. The current message and reply are still stored; the owner can view the history. |
+| `LOCAL_PERSONAL_MEMORY_RETRIEVAL_MODE` | `hybrid` | One of `chronological`, `lexical`, `vector`, `hybrid`; anything else fails at startup. |
+| `LOCAL_MEMORY_GRAPH_CHANNEL` | `1` | Automatic graph channel inside personal_memory hybrid; without Neo4j or without a ready index it degrades softly with a reason in diagnostics. |
+| `LOCAL_EXPERIMENTAL_PERSONAL_GRAPH` | `0` | `1` enables the explicit experimental graph method. Requires a 16k/32k context and `gemma4:12b` + `bge-m3`, otherwise the config is invalid. |
+| `LOCAL_PERSONAL_GRAPH_RETRIEVAL_MODE` | `graph_hybrid` | One of `chronological`, `lexical`, `vector`, `hybrid`, `graph_hybrid`. |
+| `LOCAL_PERSONAL_GRAPH_PASSWORD_FILE` | `C:/Users/name/PycharmProjects/misc/teachCopilot/.local/neo4j-runtime/neo4j-community-5.26.32/personal-memory-password.txt` | Neo4j password file (user `neo4j`). Never commit or print. |
 
-Сопутствующие (не память, но тот же config): `LOCAL_REQUEST_TIMEOUT` (180), `LOCAL_MAX_OUTPUT_TOKENS` (1024), `LOCAL_SESSION_HOURS` (12), `LOCAL_MEMORY_RESPONSE_JOURNAL`, `LOCAL_CHAT_RESPONSE_JOURNAL`, `LOCAL_GENERATION_SCHEDULER_DSN`, `LOCAL_DEMO_LOGIN`.
+Related (not memory, same config): `LOCAL_REQUEST_TIMEOUT` (180),
+`LOCAL_MAX_OUTPUT_TOKENS` (1024), `LOCAL_SESSION_HOURS` (12),
+`LOCAL_MEMORY_RESPONSE_JOURNAL`, `LOCAL_CHAT_RESPONSE_JOURNAL`,
+`LOCAL_GENERATION_SCHEDULER_DSN`, `LOCAL_DEMO_LOGIN`.
 
-## 3. Установка и запуск
+## 3. Setup and start
 
-### 3.1 Окружение (uv)
+### 3.1 Environment (uv)
 
-Python 3.12 и `uv`; источники зависимостей – `pyproject.toml` и `uv.lock` приложения. Все команды – из каталога `TeachCopilot_RAG`.
+Python 3.12 and `uv`; dependency sources are the application's `pyproject.toml`
+and `uv.lock`. All commands run from the `TeachCopilot_RAG` directory.
 
 ```powershell
 cd C:\Users\name\PycharmProjects\misc\teachCopilot\Alena_audio\TeachCopilot_RAG
 uv sync --locked
 ```
 
-Новая зависимость – только `uv add <пакет>` (для разработки `uv add --dev <пакет>`) с сохранением `pyproject.toml` и `uv.lock`; не заменять это установкой через системный `pip`. Команды проекта запускать через `uv run --locked`. `torch` уже в зависимостях (CPU-индекс PyTorch) – отсутствие его в отдельном окружении не повод добавлять заново.
+New dependencies only via `uv add <package>` (dev: `uv add --dev <package>`) with
+`pyproject.toml` and `uv.lock` saved; never replace this with a system `pip`
+install. Run project commands through `uv run --locked`. `torch` is already a
+dependency (CPU PyTorch index) – its absence in a separate environment is not a
+reason to re-add it. `graphiti-core` (0.31.2) and the `neo4j` driver (6.4.1) are
+dev dependencies as of November 14 – required for the graph path and `pytest -m live`.
 
-### 3.2 PostgreSQL в Docker
+### 3.2 PostgreSQL in Docker
 
-`compose.local.yml` – образ `pgvector/pgvector:0.8.7-pg18`, контейнер `teachcopilot_local_db`, порт `127.0.0.1:5434 → 5432`, пароль берётся из `.local.env` (`POSTGRES_PASSWORD`), данные – в named volume `local_database`.
+`compose.local.yml` – image `pgvector/pgvector:0.8.7-pg18`, container
+`teachcopilot_local_db`, port `127.0.0.1:5434 → 5432`, password from `.local.env`
+(`POSTGRES_PASSWORD`), data in the named volume `local_database`.
 
 ```powershell
 docker compose --env-file .local.env -f compose.local.yml up -d --wait
 ```
 
-Если `.local.env` ещё нет – создаст его `scripts/setup_local.ps1` (генерирует пароль, пишет `DATABASE_URL`, `OLLAMA_URL`, `LOCAL_CHAT_MODEL`, `LOCAL_EMBEDDING_MODEL`, `LOCAL_CONTEXT_TOKENS`), создаёт `.venv-local`, ставит зависимости из `requirements-local.lock.txt`, применяет миграции и импортирует данные:
+If `.local.env` does not exist yet, `scripts/setup_local.ps1` creates it
+(generates the password, writes `DATABASE_URL`, `OLLAMA_URL`, `LOCAL_CHAT_MODEL`,
+`LOCAL_EMBEDDING_MODEL`, `LOCAL_CONTEXT_TOKENS`), creates `.venv-local`, installs
+dependencies from `requirements-local.lock.txt`, applies migrations and imports data:
 
 ```powershell
 powershell -File scripts\setup_local.ps1
 ```
 
-### 3.3 Старт одним скриптом
+### 3.3 One-script start
 
 ```powershell
 powershell -File scripts\start_local.ps1
 ```
 
-Опционально `param([int]$ApiPort = 8099)`. Скрипт: поднимает Docker-БД (`up -d --wait`), применяет миграции (`scripts/manage_local.py migrate`), готовит Ollama (`OLLAMA_HOST=127.0.0.1:11435`, `OLLAMA_NO_CLOUD=1`, `OLLAMA_CONTEXT_LENGTH=8192`, `OLLAMA_NUM_PARALLEL=1`, `OLLAMA_MAX_LOADED_MODELS=2`; runtime – `.local\ollama\ollama.exe`, иначе из PATH; запускает `ollama serve`, если порт ещё молчит) и ждёт готовности до 30 секунд. Затем стартует memory worker (`scripts/memory_worker.py`, скрытый процесс, логи `.local\memory-worker-<guid>.stdout.log` и `.stderr.log`) и API `uvicorn server:app` на `127.0.0.1:8099`. При выходе скрипта worker останавливается.
+Optional `param([int]$ApiPort = 8099)`. The script: brings up the Docker DB
+(`up -d --wait`), applies migrations (`scripts/manage_local.py migrate`), prepares
+Ollama (`OLLAMA_HOST=127.0.0.1:11435`, `OLLAMA_NO_CLOUD=1`,
+`OLLAMA_CONTEXT_LENGTH=8192`, `OLLAMA_NUM_PARALLEL=1`, `OLLAMA_MAX_LOADED_MODELS=2`;
+binary – `.local\ollama\ollama.exe`, else from PATH; starts `ollama serve` if the
+port is silent) and waits up to 30 seconds for readiness. Then it starts the
+memory worker (`scripts/memory_worker.py`, hidden process, logs
+`.local\memory-worker-<guid>.stdout.log` and `.stderr.log`) and the API
+`uvicorn server:app` on `127.0.0.1:8099`. When the script exits, the worker stops.
 
-Миграции отдельно (подкоманды `manage_local.py`: `migrate`, `import`, `bootstrap`, `export`, `backup`, `restore`):
+Migrations separately (`manage_local.py` subcommands: `migrate`, `import`,
+`bootstrap`, `export`, `backup`, `restore`):
 
 ```powershell
 uv run --locked python scripts\manage_local.py migrate
@@ -80,7 +140,9 @@ uv run --locked python scripts\manage_local.py migrate
 
 ### 3.4 Ollama
 
-Локальный Ollama на `http://127.0.0.1:11435`, модели `gemma4:12b` (чат) и `bge-m3` (эмбеддинги). 13 ноября Ollama обновлён с 0.24.0 до 0.40.16 – до обновления `gemma4:12b` не загружался. Проверка живости:
+Local Ollama on `http://127.0.0.1:11435`, models `gemma4:12b` (chat) and
+`bge-m3` (embeddings). On November 13 Ollama was updated from 0.24.0 to 0.40.16 –
+before the update `gemma4:12b` failed to load. Liveness check:
 
 ```powershell
 Invoke-RestMethod http://127.0.0.1:11435/api/version
@@ -89,37 +151,62 @@ ollama list
 
 ### 3.5 Neo4j
 
-Экспериментальный граф использует Neo4j Community на `bolt://127.0.0.1:17687` (только loopback), пользователь `neo4j`, пароль – из файла по пути `LOCAL_PERSONAL_GRAPH_PASSWORD_FILE` (по умолчанию `.local/neo4j-runtime/neo4j-community-5.26.32/personal-memory-password.txt`; рядом с дистрибутивом лежит JDK 21). Без запущенного Neo4j продукт работает: графовый метод просто недоступен, а после объединения 14 ноября канал деградирует мягко.
+The experimental graph uses Neo4j Community on `bolt://127.0.0.1:17687`
+(loopback only), user `neo4j`, password from the file at
+`LOCAL_PERSONAL_GRAPH_PASSWORD_FILE` (default
+`.local/neo4j-runtime/neo4j-community-5.26.32/personal-memory-password.txt`;
+a bundled JDK 21 sits next to the distribution). Without running Neo4j the
+product still works: the graph method is simply unavailable, and since the
+November 14 unification the channel degrades softly.
 
-## 4. Проверки
+## 4. Verification
 
-### 4.1 Обычные тесты
+### 4.1 Regular tests
 
 ```powershell
 uv run --locked python -m pytest
 ```
 
-Конфиг `pyproject.toml` собирает только `tests/`. Маркер `deep` (корневой `pytest.ini` репозитория) помечает долгие реальные интеграционные тесты с моделями; по умолчанию они исключены (`addopts = -m "not deep"`). Полные серийные прогоны выполнялись на свежих одноразовых базах: 2392 теста. Тесты с PostgreSQL – только на одноразовой базе (раздел 6).
+The `pyproject.toml` config collects `tests/` only. The `deep` marker (repo-root
+`pytest.ini`) marks long real-model integration tests; they are excluded by
+default (`addopts = -m "not deep"`). Full serial runs were executed on fresh
+disposable databases: 2392 tests. PostgreSQL tests run only on a disposable DB
+(section 6).
 
-### 4.2 Одноразовые базы (disposable-DB launcher)
+### 4.2 Disposable databases (disposable-DB launcher)
 
-Лаунчер `C:/Users/name/Documents/ChatGPT/Claude/teachcopilot-work/codex_disposable_db_suite_20261113.py`: читает `DATABASE_URL` из `.local.env` только чтобы дойти до локального PostgreSQL-сервера, создаёт случайную базу `teachcopilot_memory_verify_<12 hex>`, направляет на неё оба DSN (`TEACHCOPILOT_TEST_DSN` и `DATABASE_URL`), запускает `python -m pytest <targets>` из `TeachCopilot_RAG` и удаляет только свою базу (с проверкой префикса и длины имени). Аргументы – цели pytest (по умолчанию `tests`):
+The launcher
+`C:/Users/name/Documents/ChatGPT/Claude/teachcopilot-work/codex_disposable_db_suite_20261113.py`
+reads `DATABASE_URL` from `.local.env` only to reach the local PostgreSQL server,
+creates a random `teachcopilot_memory_verify_<12 hex>` database, points both DSNs
+(`TEACHCOPILOT_TEST_DSN` and `DATABASE_URL`) at it, runs `python -m pytest
+<targets>` from `TeachCopilot_RAG` and drops only its own database (prefix and
+name-length asserted). Arguments are pytest targets (default `tests`):
 
 ```powershell
 python C:\Users\name\Documents\ChatGPT\Claude\teachcopilot-work\codex_disposable_db_suite_20261113.py tests
 ```
 
-Тот же префикс `teachcopilot_memory_verify_` использует `scripts/verify_memory.py` – он сам создаёт одноразовую базу и передаёт её через `TEACHCOPILOT_TEST_DSN`. Нагрузочный раннер `scripts/load_memory.py` защищён `require_disposable_dsn` – принимает DSN только вида `teachcopilot_memory_verify_` + 12 hex-символов; провайдер заменён `ControlledRuntime` (инъекция задержек, сохранение всех промптов), случайный HTTP-вызов роняет процесс до отправки. Для графовых интеграционных проверок `scripts/create_personal_graph_test_db.py` создаёт базу `nirs_personal_graph_it_<12 hex>` с миграциями:
+The same prefix `teachcopilot_memory_verify_` is used by `scripts/verify_memory.py`
+– it creates the disposable DB itself and passes it via `TEACHCOPILOT_TEST_DSN`.
+The load runner `scripts/load_memory.py` is guarded by `require_disposable_dsn` –
+it only accepts DSNs of the form `teachcopilot_memory_verify_` + 12 hex chars;
+the provider is replaced with `ControlledRuntime` (delay injection, all prompts
+recorded), any random HTTP call kills the process before sending. For graph
+integration checks `scripts/create_personal_graph_test_db.py` creates a
+`nirs_personal_graph_it_<12 hex>` database with migrations:
 
 ```powershell
-uv run --locked python scripts\create_personal_graph_test_db.py --name-file <путь-к-файлу-имени>
+uv run --locked python scripts\create_personal_graph_test_db.py --name-file <path-to-name-file>
 ```
 
-Смоук `scripts/smoke_personal_graph_api.py` («Real API, PostgreSQL, Neo4j and local Gemma with synthetic accounts and data») поднимает реальный API на этой одноразовой базе с синтетическими аккаунтами и учеником.
+The smoke `scripts/smoke_personal_graph_api.py` («Real API, PostgreSQL, Neo4j and
+local Gemma with synthetic accounts and data») runs a real API on that disposable
+database with synthetic accounts and a learner.
 
-### 4.2b Запуск Neo4j (для графового канала)
+### 4.2b Starting Neo4j (for the graph channel)
 
-Neo4j лежит рядом с приложением и стартует со встроенным JDK:
+Neo4j sits next to the application and starts with its bundled JDK:
 
 ```powershell
 $env:JAVA_HOME = 'C:\Users\name\PycharmProjects\misc\teachCopilot\.local\neo4j-runtime\jdk-21.0.12+8'
@@ -127,21 +214,40 @@ cd C:\Users\name\PycharmProjects\misc\teachCopilot\.local\neo4j-runtime\neo4j-co
 .\bin\neo4j.bat console
 ```
 
-Bolt поднимется на `127.0.0.1:17687` (пароль – в `personal-memory-password.txt` рядом). Индекс графа строится teacher-заданием `personal_graph` в приложении или `memory_doctor --e2e --graph`; готовый индекс автоматически подключается каналом к personal_memory hybrid. Статус – вкладка «Диагностика памяти» в приложении.
+Bolt comes up on `127.0.0.1:17687` (password – in `personal-memory-password.txt`
+next to it). The graph index is built by a teacher `personal_graph` job in the
+app or by `memory_doctor --e2e --graph`; a ready index is automatically consumed
+by the personal_memory hybrid channel. Status – the «Диагностика памяти» tab in
+the app.
 
-### 4.3 Live-тесты и memory_doctor
+### 4.3 Live tests and memory_doctor
 
 ```powershell
 uv run --locked python -m pytest -m live
 ```
 
-Live-маркер требует запущенного Ollama; модель берётся из переменной `LOCAL_CHAT_MODEL` окружения, а не хардкодом. В дереве на 14 ноября маркер ещё не зарегистрирован – сверься с актуальным кодом.
+The `live` marker requires a running Ollama; the model is taken from the
+`LOCAL_CHAT_MODEL` env variable, not hardcoded. Graph-cycle tests additionally
+skip when graphiti-core, the Neo4j driver or the Neo4j port is unavailable.
 
-Скрипт диагностики `scripts/memory_doctor.py`: `--check` (PostgreSQL только на чтение, таблицы памяти, Ollama-модели, embed-проба, env-флаги, `/health/ready` работающего приложения), `--live` (плюс живой вызов модели), `--e2e` (сквозной цикл personal_memory на одноразовой базе `nirs_memory_doctor_*`: задание → воркер → одобрение → чат с реальной моделью, JSON-отчёт), `--graph` (расширяет e2e циклом personal_graph при доступном Neo4j; иначе skip). Пример: `uv run --locked python scripts/memory_doctor.py --check --live`. Отчёты пишутся в `teachcopilot-work/` и в git не публикуются.
+The diagnostics script `scripts/memory_doctor.py`: `--check` (read-only
+PostgreSQL, memory tables, Ollama models, embed probe, env flags, `/health/ready`
+of a running app), `--live` (plus a real model call), `--e2e` (the full
+personal_memory cycle on a disposable `nirs_memory_doctor_*` database: job →
+worker → approval → chat with the real model; JSON report), `--graph` (extends
+e2e with the personal_graph cycle when Neo4j is reachable; otherwise skip).
+Example: `uv run --locked python scripts/memory_doctor.py --check --live`.
+Reports go to `teachcopilot-work/` and are never published to git.
 
-### 4.4 Диагностика памяти в интерфейсе (только учитель)
+### 4.4 Memory diagnostics in the UI (teacher only)
 
-В рабочем месте учителя – панели памяти: «Основания следующего шага – Память занятий» и «Мои беседы» с кнопкой «Обновить». По каждой версии памяти видны метод, дата, признак `stale` («требует обновления») и статус подтверждения («подтверждена» / «черновик»); устаревший разрешённый снимок помощник не использует. Это функциональная диагностика, не числовой дашборд.
+The teacher workspace has the memory panels: «Основания следующего шага –
+Память занятий» and «Мои беседы» with a «Обновить» button. Each memory version
+shows its method, date, the `stale` flag and the approval status
+(«подтверждена» / «черновик»); a stale approved snapshot is not used by the
+assistant. Plus the «Диагностика памяти» tab: graph-index status card and a
+retrieval probe form (query, mode, byte budget) with the channel table. This is
+functional diagnostics, not a numeric dashboard.
 
 ## 4b. Context tokens: the 16k floor (English note)
 
@@ -167,97 +273,151 @@ memory versions as prompted.
 
 ## 5. Troubleshooting
 
-**HTTP 409 при работе с памятью – штатная реверификация.** После новых сообщений привязанного ученика прежний снимок памяти нужно заново подтвердить преподавателем (в UI – предупреждение и явное подтверждение). Новые источники не включаются в ранее разрешённую область; если изменились карточка, исправления или другие источники – требуется новая проверка. API возвращает 409 в том числе при повторном подтверждении с другим выбором (`memory was already confirmed with a different selection`) и при изменении ревизии (`learner revision changed; reload before continuing`).
+**HTTP 409 during memory work – normal re-verification.** After new messages
+from an assigned learner, the previous memory snapshot must be re-approved by
+the teacher (the UI shows a warning and an explicit confirmation). New sources
+are not added to the previously approved scope; if the card, corrections or
+other sources changed – a new review is required. The API also returns 409 on
+re-confirmation with a different selection (`memory was already confirmed with a
+different selection`) and on revision change (`learner revision changed; reload
+before continuing`).
 
-**`PersonalGraphIndexStale`.** Поиск отказывается использовать устаревший подтверждённый графовый индекс, не меняя ни реестр `teachcopilot.personal_graph_indexes`, ни сам граф (`local_app/personal_graph_index.py`). Лечение – построить новую версию индекса и подтвердить её; старые версии без сохранённой базовой ревизии консервативно считаются устаревшими.
+**`PersonalGraphIndexStale`.** Retrieval refuses to use a stale approved graph
+index without touching the registry `teachcopilot.personal_graph_indexes` or the
+graph itself (`local_app/personal_graph_index.py`). Fix: build a new index
+version and approve it; old versions without a stored base revision are
+conservatively treated as stale.
 
-**«unknown model architecture» в Ollama.** Значит Ollama старше, чем блобы модели: 0.24.0 не знал всех архитектур новых блобов. Обнови Ollama (13 ноября обновлён до 0.40.16 через winget), после чего `gemma4:12b` загружается и генерирует.
+**«unknown model architecture» in Ollama.** Means Ollama is older than the model
+blobs: 0.24.0 did not know all architectures of the newer blobs. Update Ollama
+(on November 13 updated to 0.40.16 via winget), after which `gemma4:12b` loads
+and generates.
 
-**Режим рассуждений gemma4.** Модель может вернуть «thinking»-поле; приложение отключает рассуждения параметром `think: false` (`local_app/runtime.py`). Если видишь служебные рассуждения в ответе – проверь, что запрос идёт через `OllamaRuntime`, а не напрямую.
+**gemma4 reasoning mode.** The model may return a «thinking» field; the app
+disables reasoning with `think: false` (`local_app/runtime.py`). If you see
+service reasoning inside an answer, check the request goes through
+`OllamaRuntime`, not directly to Ollama.
 
-**Playwright не находит браузер.** Ставь Chromium через uv и используй один и тот же `PLAYWRIGHT_BROWSERS_PATH` при установке и запуске; часть тестов по умолчанию ищет браузер в `TeachCopilot_RAG/.local/ms-playwright`, установка в общий кеш сама по себе путь не меняет.
+**Ollama 0.40 silent truncation.** Without `truncate: false` an oversized prompt
+is cut to roughly half the requested context (verified: a ~55k-token probe at
+`num_ctx: 16384` evaluated 8195 tokens). The strict graph path therefore sends
+`truncate: false, shift: false` and fail-closes on the overflow rejection
+(`_context_overflow` recognizes both the legacy and the 0.40 wording). Product
+prompts stay safe because byte budgets cap them far below the truncation
+threshold.
+
+**Playwright cannot find the browser.** Install Chromium through uv and use the
+same `PLAYWRIGHT_BROWSERS_PATH` for install and run; some tests look in
+`TeachCopilot_RAG/.local/ms-playwright` by default – installing into the shared
+cache does not change that path by itself.
 
 ```powershell
 uv run --locked python -m playwright install chromium
 ```
 
-**`neo4j.time` – необязательная зависимость.** В полных прогонах допустим один пропуск теста из-за отсутствующего `neo4j.time` – это ожидаемое поведение, не регрессия.
+**`neo4j.time` – optional dependency.** One full-run skip because of the missing
+`neo4j.time` module is expected, not a regression.
 
-**`WSAEADDRINUSE` (10048) на `127.0.0.1:5434` в живых браузерных тестах.** Приложение открывает новое соединение на каждую операцию; всплеск тысяч коротких соединений исчерпывает эфемерные порты Windows (диапазон 49152–65535, часть занята Hyper-V). Это среда тестов, не логика приложения и не сбой PostgreSQL (на сервере в момент сбоя – 10 соединений из 100; изолированные прогоны зелёные). Возможный фикс – расширение динамического диапазона `netsh int ipv4 set dynamicport tcp start=1025 num=64510` (права администратора, обратимо) – применяется только по решению пользователя. Диагностика – `teachcopilot-work/503-diag-20261113-run1` и `-run2`.
+**`WSAEADDRINUSE` (10048) on `127.0.0.1:5434` in live browser tests.** The app
+opens a fresh connection per operation; a burst of thousands of short
+connections exhausts Windows ephemeral ports (range 49152–65535, partly taken by
+Hyper-V exclusions). This is a test-environment effect, not app logic and not a
+PostgreSQL failure (10 of 100 connections used at failure time; isolated runs
+green). Possible fix – widen the dynamic range `netsh int ipv4 set dynamicport
+tcp start=1025 num=64510` (admin rights, reversible) – apply only by user
+decision. Diagnostics – `teachcopilot-work/503-diag-20261113-run1` and `-run2`.
 
-## 6. Правила безопасности
+## 6. Safety rules
 
-- Тесты с PostgreSQL – только на одноразовых базах `nirs_*` / `teachcopilot_memory_verify_*`. Рабочая база `teachcopilot_local` для тестов не используется никогда; перед любой очисткой проверяй точный объект и сохраняй данные пользователя.
-- Никаких реальных детских данных в тестах, отчётах и на публичном сайте – только синтетические аккаунты и ученики (как в `smoke_personal_graph_api.py`: «Синтетический ученик», `@synthetic.test`).
-- Секреты – пароль Neo4j, содержимое `.local.env`, токены, журналы ответов – не коммитить, не печатать в отчёты и не публиковать. Локальные резервные копии, тестовые журналы и учётные данные не публиковать.
-- Результаты синтетических тестов не представляют проверку качества на реальных детях и не доказывают, что поиск всегда находит нужное или что модель корректно его использует. НИРС (`research_memory/`) и продуктовые изменения вести раздельно.
-- Применение схемы 024 к рабочей базе – не запуск новой версии приложения; запущенный процесс проверяй отдельно и не считай его автоматически обновлённым.
+- PostgreSQL tests – only on disposable `nirs_*` / `teachcopilot_memory_verify_*`
+  databases. The working DB `teachcopilot_local` is never used for tests; before
+  any cleanup verify the exact object and preserve user data.
+- No real child data in tests, reports or the public site – synthetic accounts
+  and learners only (as in `smoke_personal_graph_api.py`: «Синтетический
+  ученик», `@synthetic.test`).
+- Secrets – the Neo4j password, `.local.env` contents, tokens, response journals
+  – never committed, never printed in reports, never published. Local backups,
+  test journals and credentials are not published.
+- Synthetic test results do not represent quality verification on real children
+  and do not prove that retrieval always finds what is needed or that the model
+  uses it correctly. Keep НИРС (`research_memory/`) and product changes separate.
+- Applying schema 024 to the working DB is not a new app release; verify the
+  running process separately and never assume it auto-updated.
 
-## Сверка
+## Verification checklist
 
-Прогонять сверху вниз; каждый шаг либо зелёный, либо ссылается на раздел 5.
+Run top to bottom; every step is either green or points to section 5.
 
 ```powershell
 cd C:\Users\name\PycharmProjects\misc\teachCopilot\Alena_audio\TeachCopilot_RAG
 ```
 
-1. Окружение воспроизводится: `uv sync --locked` завершается без ошибок.
+1. Environment reproduces: `uv sync --locked` finishes without errors.
 
 ```powershell
 uv sync --locked
 ```
 
-2. Docker Desktop запущен; БД поднимается и здорова.
+2. Docker Desktop is running; the DB comes up and is healthy.
 
 ```powershell
 docker compose --env-file .local.env -f compose.local.yml up -d --wait
 ```
 
-3. Ollama жив на 11435, модели `gemma4:12b` и `bge-m3` на месте.
+3. Ollama is alive on 11435, models `gemma4:12b` and `bge-m3` are present.
 
 ```powershell
 Invoke-RestMethod http://127.0.0.1:11435/api/version
 ollama list
 ```
 
-4. Схема БД актуальна (миграции 001–024 применены).
+4. DB schema is current (migrations 001–024 applied).
 
 ```powershell
 uv run --locked python scripts\manage_local.py migrate
 ```
 
-5. Обычные тесты зелёные (без `-m live`, без `deep`).
+5. Regular tests are green (without `-m live`, without `deep`).
 
 ```powershell
 uv run --locked python -m pytest
 ```
 
-6. Для PostgreSQL-тестов создана одноразовая база `teachcopilot_memory_verify_*` (или `nirs_personal_graph_it_*` для графа) – и только она.
+6. For PostgreSQL tests a disposable `teachcopilot_memory_verify_*` database (or
+`nirs_personal_graph_it_*` for the graph) is created – and only that one.
 
 ```powershell
 python C:\Users\name\Documents\ChatGPT\Claude\teachcopilot-work\codex_disposable_db_suite_20261113.py tests
 ```
 
-7. Live-тесты – при запущенном Ollama: `uv run --locked python -m pytest -m live`; модель берётся из `LOCAL_CHAT_MODEL`/`LOCAL_EMBEDDING_MODEL`, без запущенного Ollama тесты пропускаются.
+7. Live tests – with Ollama running: `uv run --locked python -m pytest -m live`;
+the model comes from `LOCAL_CHAT_MODEL`/`LOCAL_EMBEDDING_MODEL`; without a
+running Ollama the tests skip.
 
 ```powershell
 uv run --locked python -m pytest -m live
 ```
 
-8. Диагностика памяти – `memory_doctor.py --check`, затем `--e2e`; при графовом эксперименте – `--graph` и `--live`.
+8. Memory diagnostics – `memory_doctor.py --check`, then `--e2e`; for the graph
+experiment – `--graph` and `--live`.
 
 ```powershell
 uv run --locked python scripts\memory_doctor.py --check
 ```
 
-9. Весь стек поднимается одним скриптом; API отвечает на 8099.
+9. The whole stack starts with one script; the API answers on 8099.
 
 ```powershell
 powershell -File scripts\start_local.ps1
 ```
 
-10. В UI учителя панели «Память занятий» и «Мои беседы» открываются; версии памяти показывают метод и статус подтверждения; 409 при устаревании – штатно, подтвердить снимок учителем.
+10. In the teacher UI the «Память занятий» and «Мои беседы» panels open; memory
+versions show method and approval status; a 409 on staleness is normal –
+re-approve the snapshot as the teacher.
 
-11. Neo4j (если включён графовый эксперимент): доступен на `bolt://127.0.0.1:17687`, пароль читается из файла `LOCAL_PERSONAL_GRAPH_PASSWORD_FILE`, пароль нигде не напечатан и не закоммичен.
+11. Neo4j (if the graph experiment is on): reachable at
+`bolt://127.0.0.1:17687`, the password is read from
+`LOCAL_PERSONAL_GRAPH_PASSWORD_FILE`, the password is never printed or committed.
 
-12. Итог сверки: ни один шаг не обращался к рабочей базе `teachcopilot_local`, секреты не публиковались, синтетические результаты не приписаны реальным детям.
+12. Checklist result: no step touched the working DB `teachcopilot_local`, no
+secrets published, synthetic results never attributed to real children.
