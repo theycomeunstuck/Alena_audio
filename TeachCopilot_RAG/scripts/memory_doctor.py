@@ -34,7 +34,8 @@ SCRIPT_ROOT = Path(__file__).resolve().parents[1]
 if str(SCRIPT_ROOT) not in sys.path:
     sys.path.insert(0, str(SCRIPT_ROOT))
 
-DEFAULT_OUTPUT_DIR = Path("C:/Users/name/Documents/ChatGPT/Claude/teachcopilot-work")
+DEFAULT_OUTPUT_DIR = Path(os.getenv("MEMORY_DOCTOR_OUTPUT_DIR",
+    str(SCRIPT_ROOT / ".local" / "memory-doctor-reports")))
 DEFAULT_APP_URL = "http://127.0.0.1:8099"
 # The only Neo4j endpoint the product itself uses (research_memory backends).
 NEO4J_BOLT_URI = "bolt://127.0.0.1:17687"

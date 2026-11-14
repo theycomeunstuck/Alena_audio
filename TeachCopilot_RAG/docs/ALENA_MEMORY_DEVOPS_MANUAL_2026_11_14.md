@@ -271,6 +271,36 @@ Current deployment: `.local.env` sets `LOCAL_CONTEXT_TOKENS=32768`
 (`scripts/start_local.ps1`) and verify `/health/ready`, then re-approve
 memory versions as prompted.
 
+## 4c. Moving to a new server (English note)
+
+**Code is portable.** `local_app/` contains zero absolute paths - all defaults
+are `Path(__file__)`-relative (repo tree) or env-driven. The only exception was
+the memory_doctor default report folder, now `MEMORY_DOCTOR_OUTPUT_DIR`-driven
+(falls back to `<repo>/TeachCopilot_RAG/.local/memory-doctor-reports`).
+
+What is MACHINE-FIXED and must be migrated or recreated explicitly:
+
+| Item | Where it lives now | Migration |
+|---|---|---|
+| Working DB data (child data) | Docker named volume `local_database` on the old host | `pg_dump`/`pg_restore` the `teachcopilot_local` DB (or copy the volume); never start tests against it on the new host either |
+| `.local.env` | `TeachCopilot_RAG/.local.env` (gitignored) | Copy by hand - contains DB password, `LOCAL_CONTEXT_TOKENS=32768`, graph password-file path |
+| Neo4j data + config + password | `.local/neo4j-runtime/neo4j-community-5.26.32/` (data/ inside) + bundled `jdk-21.0.12+8` | Copy the whole `neo4j-runtime` folder, or reinstall + restore a dump; graph facts live here |
+| Ollama models (~7.4 GB blobs) | `C:/Users/<user>/.ollama/models` | `ollama pull gemma4:12b` + `ollama pull bge-m3` on the new host, or copy `~/.ollama/models` |
+| `.venv-local` | `TeachCopilot_RAG/.venv-local` | Recreate: run `scripts/setup_local.ps1` (never copy the folder) |
+| Playwright Chromium | `.local/ms-playwright` or shared cache | `uv run --locked python -m playwright install chromium` |
+
+What moves WITH the repo automatically: all code, `web/`, migrations, `docs/`,
+config defaults (all `Path(__file__)`-relative), `web/` static files.
+
+Repo-relative defaults that assume the same layout next to the repo:
+`LOCAL_PERSONAL_GRAPH_PASSWORD_FILE` (`.local/neo4j-runtime/...` - override via
+env if the layout differs), demo credentials file, response journals
+(`.local/*.sqlite3` - fresh ones are created on first run; old journals are
+historical records, copy them if you need the archive).
+
+Ports are loopback conventions, not paths: app 8099, Ollama 11435, PostgreSQL
+5434, Neo4j bolt 17687 - keep or override via env/compose.
+
 ## 5. Troubleshooting
 
 **HTTP 409 during memory work – normal re-verification.** After new messages
