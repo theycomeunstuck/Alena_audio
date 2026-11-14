@@ -131,6 +131,28 @@ Live-маркер требует запущенного Ollama; модель б�
 
 В рабочем месте учителя – панели памяти: «Основания следующего шага – Память занятий» и «Мои беседы» с кнопкой «Обновить». По каждой версии памяти видны метод, дата, признак `stale` («требует обновления») и статус подтверждения («подтверждена» / «черновик»); устаревший разрешённый снимок помощник не использует. Это функциональная диагностика, не числовой дашборд.
 
+## 4b. Context tokens: the 16k floor (English note)
+
+**Set `LOCAL_CONTEXT_TOKENS=32768` for the unified memory path.** The
+application accepts smaller values, but the personal-memory chat path
+breaks below 16384:
+
+- the complete-memory resolver prompt alone is larger than the byte
+  budget the app derives as `(context_tokens - max_output_tokens) * 2`;
+  at `LOCAL_CONTEXT_TOKENS=8192` a real chat returns HTTP 413 (or 502
+  through some routes) — verified independently twice on 2026-11-14;
+- the graph channel requires `context_tokens` of 16384 or 32768
+  (`ApplicationModel` refuses anything else), and the index config
+  fingerprint binds an index to the context it was built with. After
+  changing `LOCAL_CONTEXT_TOKENS`, previously approved memory versions
+  go stale once (fail-closed by design) and the teacher must
+  re-approve them in the app.
+
+Current deployment: `.local.env` sets `LOCAL_CONTEXT_TOKENS=32768`
+(since 2026-11-14). If you change it, restart the app
+(`scripts/start_local.ps1`) and verify `/health/ready`, then re-approve
+memory versions as prompted.
+
 ## 5. Troubleshooting
 
 **HTTP 409 при работе с памятью – штатная реверификация.** После новых сообщений привязанного ученика прежний снимок памяти нужно заново подтвердить преподавателем (в UI – предупреждение и явное подтверждение). Новые источники не включаются в ранее разрешённую область; если изменились карточка, исправления или другие источники – требуется новая проверка. API возвращает 409 в том числе при повторном подтверждении с другим выбором (`memory was already confirmed with a different selection`) и при изменении ревизии (`learner revision changed; reload before continuing`).
