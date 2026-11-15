@@ -202,6 +202,47 @@ class TestF053BatchClientCache:
         assert stored
         assert all(json.loads(row[0])["metadata"]["backend"] == "fixture" for row in stored)
 
+    def test_legacy_cached_completions_are_restamped_on_resume(self, tmp_path):
+        """REG-2: a batch recorded before the client-identity fingerprint
+        change (legacy 4-component hash) must re-stamp and replay on resume
+        instead of failing with cache_fingerprint_mismatch."""
+        import hashlib
+
+        batch_dir = self.build_ollama_batch(tmp_path)
+        recorded = []
+
+        class RecordingFixture(FixtureClient):
+            def complete(self, messages, purpose, response_schema=None):
+                recorded.append((messages, purpose, response_schema))
+                return super().complete(messages, purpose, response_schema)
+
+        status = batch.work_batch(batch_dir, client=RecordingFixture())
+        assert status["real_model_calls"] is False
+        assert recorded, "the pending call must have executed"
+
+        # Downgrade the stored fingerprint to the legacy 4-component hash.
+        definition = json.loads((batch_dir / "batch.json").read_text(encoding="utf-8"))
+        messages, purpose, response_schema = recorded[0]
+        legacy = hashlib.sha256(batch._json({"messages": messages, "purpose": purpose,
+                                             "response_schema": response_schema,
+                                             "model_config": definition["resolved_config"]}).encode()).hexdigest()
+        conn = sqlite3.connect(batch_dir / "queue.sqlite3")
+        try:
+            conn.execute("UPDATE calls SET fingerprint=?", (legacy,))
+            conn.commit()
+        finally:
+            conn.close()
+
+        status2 = batch.work_batch(batch_dir, client=RecordingFixture())
+        assert status2["real_model_calls"] is False
+        connection = sqlite3.connect(batch_dir / "queue.sqlite3")
+        try:
+            rows = connection.execute("SELECT ordinal, fingerprint FROM calls ORDER BY ordinal").fetchall()
+        finally:
+            connection.close()
+        assert rows, "the cached call must still be present"
+        assert all(row[1] != legacy for row in rows), "legacy fingerprints must be re-stamped"
+
     def test_cached_fixture_completions_are_not_replayed_by_a_different_client(self, tmp_path):
         batch_dir = self.build_ollama_batch(tmp_path)
         batch.work_batch(batch_dir, client=FixtureClient())

@@ -270,8 +270,21 @@ class _CachedClient:
                                 (self.job_id, self.ordinal)).fetchone()
         if row:
             if row["fingerprint"] != fingerprint:
-                self.stop_reason = "cache_fingerprint_mismatch"
-                raise RuntimeError(self.stop_reason)
+                # REG-2: rows recorded before the client-identity fingerprint
+                # change carry the legacy 4-component hash. If the stored
+                # fingerprint matches that legacy hash, re-stamp it in place -
+                # the completion was recorded for exactly these inputs, and
+                # refusing it would make already-paid calls unreplayable.
+                legacy = hashlib.sha256(_json({"messages": messages, "purpose": purpose,
+                                               "response_schema": response_schema,
+                                               "model_config": self.definition["resolved_config"]}).encode()).hexdigest()
+                if row["fingerprint"] == legacy:
+                    with self.conn:
+                        self.conn.execute("UPDATE calls SET fingerprint=? WHERE job_id=? AND ordinal=?",
+                                          (fingerprint, self.job_id, self.ordinal))
+                else:
+                    self.stop_reason = "cache_fingerprint_mismatch"
+                    raise RuntimeError(self.stop_reason)
             if row["status"] not in {"succeeded", "failed"}:
                 self.stop_reason = "unknown_prior_call_outcome"
                 raise RuntimeError(self.stop_reason)
