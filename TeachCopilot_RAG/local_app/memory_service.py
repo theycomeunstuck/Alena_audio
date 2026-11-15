@@ -11,6 +11,7 @@ from copy import deepcopy
 from contextlib import nullcontext
 from datetime import date
 import json
+import logging
 import time
 import uuid
 
@@ -22,13 +23,23 @@ from research_memory.methods import APPLICATION_METHODS, Memory, messages
 from .conversation_memory import (interest_messages, interest_schema, preference_projection,
                                   validate_interest_candidates)
 from .memory_store import (DIALOGUE_CONTEXT_CHARS, SESSION_END_CONTEXT_CHARS,
-                           get_learner_memory_snapshot)
+                           MemoryQueueFullError, get_learner_memory_snapshot)
 from .memory_response_journal import (MemoryResponseJournal, ResponseJournalError,
                                       database_fingerprint, default_journal_path)
 
 
 MEMORY_BUDGET = 4000
 STALE_RETRY_LIMIT = 2  # explicit retry jobs for a background job that failed only as stale_revision
+# Every error text that means only "the learner's revisions moved meanwhile": the
+# store's finish-time marker (memory_store.py:1293) plus the three pre-generation
+# drift checks (personal_memory.py:405, personal_graph_memory.py:973 and the
+# personal-graph check in MemoryWorker._prepare) that never carry that marker.
+STALE_RETRY_MARKERS = (
+    "stale_revision",
+    "source snapshot changed before personal memory selection",
+    "source snapshot changed before personal graph indexing",
+    "learner revision changed before personal graph indexing",
+)
 STATE_FIELDS = ("sources", "summary", "records", "blocks", "events")
 TAIL_PRESENTATION_VERSION = "dialogue-pairs-v4-session-end-context"
 DIALOGUE_CONTEXT_NOTICE = (
@@ -45,6 +56,8 @@ SESSION_END_CONTEXT_NOTICE = (
     "что ученик решил задание или что задание до сих пор не завершено. Слова помощника могут "
     "содержать ошибку; при возвращении уточни текущее состояние у ученика."
 )
+
+_log = logging.getLogger(__name__)
 
 
 def memory_state(memory: Memory) -> dict:
@@ -503,7 +516,8 @@ class MemoryWorker:
     def _stale_retryable(job: dict | None) -> bool:
         """A finished background local job that failed only because the learner's revisions moved meanwhile."""
         return bool(job and job.get("status") == "failed" and job.get("kind") in {"memory_update", "next_step"}
-                    and job.get("provider") == "local" and "stale_revision" in str(job.get("error") or "")
+                    and job.get("provider") == "local"
+                    and any(marker in str(job.get("error") or "") for marker in STALE_RETRY_MARKERS)
                     and int((job.get("payload") or {}).get("stale_retry", 0)) < STALE_RETRY_LIMIT)
 
     def run_once(self) -> dict | None:
@@ -516,13 +530,21 @@ class MemoryWorker:
         """
         finished = self._run_once_single()
         while self._stale_retryable(finished):
-            retry = self.store.enqueue_memory_job(
-                finished["learner_id"], finished.get("topic_id"), finished["kind"],
-                payload={**(finished.get("payload") or {}),
-                         "stale_retry": int((finished.get("payload") or {}).get("stale_retry", 0)) + 1,
-                         "retry_of": str(finished["id"])},
-                actor_id=finished.get("actor_id") or "system", method=finished.get("method") or "tail",
-                idempotency_key=f"stale-retry:{finished['id']}", provider=finished.get("provider") or "local")
+            try:
+                retry = self.store.enqueue_memory_job(
+                    finished["learner_id"], finished.get("topic_id"), finished["kind"],
+                    payload={**(finished.get("payload") or {}),
+                             "stale_retry": int((finished.get("payload") or {}).get("stale_retry", 0)) + 1,
+                             "retry_of": str(finished["id"])},
+                    actor_id=finished.get("actor_id") or "system", method=finished.get("method") or "tail",
+                    idempotency_key=f"stale-retry:{finished['id']}", provider=finished.get("provider") or "local")
+            except MemoryQueueFullError:
+                # A full queue must not kill the worker or lose the failed job.
+                # The failed row stays failed; the teacher's next request creates
+                # a fresh job against the updated revisions.
+                _log.warning("stale-retry of memory job %s was not enqueued: the memory queue is full; "
+                             "the job stays failed", finished["id"])
+                break
             again = self._run_once_single()
             if again is None or str(again.get("id")) != str(retry.get("id")):
                 break
@@ -601,9 +623,19 @@ class MemoryWorker:
         except Exception as exc:
             # Preserve failed/truncated responses and diagnostics. No repair,
             # citation deduplication or hidden repeated model request occurs.
-            self.store.finish_memory_job(job["job_id"], error={"type": type(exc).__name__,
-                "message": str(exc), "calls": self.calls}, worker_id=self.worker_id,
-                unknown_outcome=job.get("provider") == "external")
+            try:
+                self.store.finish_memory_job(job["job_id"], error={"type": type(exc).__name__,
+                    "message": str(exc), "calls": self.calls}, worker_id=self.worker_id,
+                    unknown_outcome=job.get("provider") == "external")
+            except ValueError as finish_error:
+                if "does not own this running job" not in str(finish_error):
+                    raise
+                # A lease-expiry takeover requeued this job under another claim
+                # (memory_store.py:1286-1287), so the new claim owns the outcome.
+                # Dropping our compensating failure record is benign: the requeued
+                # job stays claimable and the polling worker keeps running.
+                _log.warning("memory job %s was requeued by a lease takeover before its failure "
+                             "could be recorded; keeping the requeued job", job["job_id"])
         return self.store.get_memory_job(job["job_id"])
 
 
