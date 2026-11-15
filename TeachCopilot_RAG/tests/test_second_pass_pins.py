@@ -60,9 +60,13 @@ def test_sp3_link_student_maps_race_loss_to_409():
 
 def test_sp4_outlet_logs_success_only_for_applied_items():
     """SP-4: update_profile returns the applied count and the outlet logs the
-    profile_update success event only when something actually applied."""
+    success line only when something actually applied. F-012: the outlet no
+    longer writes a profile_update event - the advisory event is written by
+    update_profile itself."""
     src = (ROOT / "pipeline" / "filter_function.py").read_text(encoding="utf-8")
-    assert "applied > 0" in src, "the success event must be gated on the applied count"
+    assert "applied > 0" in src, "the success line must be gated on the applied count"
+    assert '"profile_update"' not in src and "'profile_update'" not in src, (
+        "the outlet must not write a profile_update event (advisory mode)")
 
     # Unit check with the fake-connection pattern: valid item -> 1.
     from contextlib import closing

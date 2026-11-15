@@ -21,6 +21,8 @@ logger = logging.getLogger(__name__)
 # already-assessed user-message boundary (regenerate/retry must not re-apply
 # relative deltas).
 ASSESSMENT_MARKER_EVENT = "profile_assessed"
+# F-012: chat-side observations are advisory - recorded as events, never scores.
+ADVISORY_EVENT = "profile_assessment_advisory"
 
 # The assessor prompt asks for "short snake_case labels"; this is the contract
 # error tags must match after normalization before they may be persisted.
@@ -204,18 +206,6 @@ def _validate_assessment(item, child_id: str) -> tuple[str, int | float, str] | 
     return topic, score_delta, new_status
 
 
-def _apply_status_rules(new_status: str, new_score) -> str:
-    """Status transition rules (prevent oscillation), shared by the UPDATE and
-    the INSERT branch so a new topic cannot enter outside the same thresholds
-    an existing topic must obey ("knows" needs >= 75; "learning" below 40 is
-    "struggling")."""
-    if new_status == "learning" and new_score < 40:
-        return "struggling"
-    if new_status == "knows" and new_score < 75:
-        return "learning"
-    return new_status
-
-
 def already_assessed(child_id: str, message_count: int,
                      conversation_key: str | None = None) -> bool:
     """Return True if a profile assessment marker exists for this child at
@@ -251,23 +241,19 @@ def already_assessed(child_id: str, message_count: int,
 def update_profile(child_id: str, assessments: list[dict],
                    message_count: int | None = None,
                    conversation_key: str | None = None) -> None:
-    """Apply score deltas with clamping, status transitions, and error pattern tracking.
+    """Record chat-side LLM observations as an ADVISORY event (F-012).
 
-    The payload comes straight from the model's JSON reply, so every item is
-    validated first: malformed items are skipped individually with a logged
-    warning (the rest of the batch still applies), deltas are clamped to
-    -10..+15, statuses are coerced into the lowercase vocabulary the prompt
-    builder buckets on, and new topics go through the same 40/75 transition
-    rules as updates.
-
-    When message_count is given, an assessment marker row (events table,
-    ASSESSMENT_MARKER_EVENT) is written in the SAME transaction, keyed by
-    conversation (conversation_key), and a marker already present for this
-    boundary of this conversation skips application entirely —
-    regenerate/retry must not re-apply relative deltas. When validation
-    dropped EVERY item, no marker is written (the boundary stays retryable)
-    and an assessment_failed event records why (audit regression REG-4).
-    """
+    User decision 2026-11-15: the EMA zone assessment (learner cards via
+    card_updater/zpd) is the authoritative scoring system. The profile agent
+    no longer writes scores, statuses or error patterns - it validates the
+    model reply (malformed items are skipped individually with a logged
+    warning, deltas are clamped to -10..+15, statuses are coerced into the
+    lowercase vocabulary the prompt builder buckets on) and records the
+    validated observations as a profile_assessment_advisory event for
+    diagnostics. The assessment marker (conversation-keyed, REG-1) still
+    guards against re-running the assessor on regenerate/retry; a reply
+    where validation dropped EVERY item writes no marker and logs
+    assessment_failed (REG-4)."""
     try:
         # closing(): psycopg2's context manager commits/rolls back but does not
         # close the connection, so plain `with get_connection()` leaked one per call.
@@ -300,57 +286,22 @@ def update_profile(child_id: str, assessments: list[dict],
                                    type(assessments).__name__, child_id)
                     assessments = []
 
-                applied = 0
+                # F-012 (user decision 2026-11-15): advisory mode. The items
+                # are validated and recorded as ONE advisory event; nothing is
+                # written to child_knowledge or error_patterns - the EMA zone
+                # assessment (learner cards) is the authoritative scorer.
+                recorded = []
                 for a in assessments:
                     valid = _validate_assessment(a, child_id)
                     if valid is None:
                         continue  # malformed item skipped individually — batch continues
-                    applied += 1
                     topic, score_delta, new_status = valid
 
-                    # Get current score
-                    cur.execute("""
-                        SELECT score, status FROM child_knowledge
-                        WHERE child_id = %s AND topic = %s
-                    """, (child_id, topic))
-                    row = cur.fetchone()
-
-                    if row is None:
-                        # New topic discovered — create at base 50 + delta,
-                        # then apply the SAME transition rules as the UPDATE
-                        # branch (previously the INSERT branch stored
-                        # new_status verbatim, bypassing the rules).
-                        new_score = max(0, min(100, 50 + score_delta))
-                        new_status = _apply_status_rules(new_status, new_score)
-                        cur.execute("""
-                            INSERT INTO child_knowledge
-                                (child_id, subject, topic, status, score)
-                            VALUES (%s, 'math', %s, %s, %s)
-                            ON CONFLICT (child_id, subject, topic) DO NOTHING
-                        """, (child_id, topic, new_status, new_score))
-                        logger.info("New topic created: %s = %s (%s)",
-                                   topic, new_status, new_score)
-                    else:
-                        current_score = row["score"] or 0
-                        new_score = max(0, min(100, current_score + score_delta))
-
-                        # Status transition rules (prevent oscillation) — the
-                        # same helper the INSERT branch uses.
-                        new_status = _apply_status_rules(new_status, new_score)
-
-                        cur.execute("""
-                            UPDATE child_knowledge
-                            SET score = %s, status = %s, updated_at = NOW()
-                            WHERE child_id = %s AND topic = %s
-                        """, (new_score, new_status, child_id, topic))
-                        logger.info("Topic updated: %s %s→%s (%s)",
-                                   topic, current_score, new_score, new_status)
-
-                    # Upsert error patterns — tags normalized/validated first:
-                    # only labels matching the declared snake_case contract
-                    # persist; anything else the model emits is dropped. The
-                    # tags must also be list-shaped: a string would otherwise
-                    # be iterated per character.
+                    # Error tags are normalized/validated first: only labels
+                    # matching the declared snake_case contract are recorded;
+                    # anything else the model emits is dropped. The tags must
+                    # also be list-shaped: a string would otherwise be
+                    # iterated per character.
                     raw_tags = a.get("error_tags") or []
                     if not isinstance(raw_tags, (list, tuple)):
                         if raw_tags:
@@ -358,6 +309,7 @@ def update_profile(child_id: str, assessments: list[dict],
                                            "child=%s topic=%s",
                                            str(raw_tags)[:80], child_id, topic)
                         raw_tags = []
+                    tags = []
                     for raw_tag in raw_tags:
                         error_tag = _normalize_error_tag(raw_tag)
                         if not error_tag:
@@ -365,21 +317,15 @@ def update_profile(child_id: str, assessments: list[dict],
                                 logger.warning("Dropped non-conforming error tag %r for child=%s topic=%s",
                                                str(raw_tag)[:80], child_id, topic)
                             continue
-                        cur.execute("""
-                            INSERT INTO error_patterns
-                                (child_id, subject, topic, error_tag, count, last_seen)
-                            VALUES (%s, 'math', %s, %s, 1, NOW())
-                            ON CONFLICT (child_id, subject, error_tag)
-                            DO UPDATE SET count = error_patterns.count + 1,
-                                          topic = EXCLUDED.topic,
-                                          last_seen = NOW()
-                        """, (child_id, topic, error_tag))
-                        logger.info("Error pattern: %s/%s count+1", topic, error_tag)
+                        tags.append(error_tag)
+                    recorded.append({"topic": topic, "score_delta": score_delta,
+                                     "new_status": new_status, "error_tags": tags})
+                applied = len(recorded)
 
-                # Persist the assessment marker in the SAME transaction as the
-                # deltas, so a retried outlet call at this boundary is a no-op.
-                # REG-4: when validation dropped every item, keep the boundary
-                # retryable instead of burning it - record why it was skipped.
+                # Persist the assessment marker in the SAME transaction, so a
+                # retried outlet call at this boundary does not re-run the
+                # assessor. REG-4: when validation dropped every item, keep
+                # the boundary retryable instead of burning it.
                 if message_count is not None:
                     if applied == 0:
                         log_event(child_id, "assessment_failed", {
@@ -399,6 +345,16 @@ def update_profile(child_id: str, assessments: list[dict],
                          "conversation_key": key,
                          "assessment_count": applied},
                         default=str, ensure_ascii=False)))
+
+                # Advisory record: validated observations, never scores.
+                cur.execute("""
+                    INSERT INTO events (child_id, event_type, payload)
+                    VALUES (%s, %s, %s)
+                """, (child_id, ADVISORY_EVENT, json.dumps(
+                    {"message_count": int(message_count) if message_count is not None else None,
+                     "conversation_key": key,
+                     "items": recorded},
+                    default=str, ensure_ascii=False)))
 
             conn.commit()
             return applied

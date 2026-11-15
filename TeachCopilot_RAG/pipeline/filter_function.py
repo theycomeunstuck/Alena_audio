@@ -151,16 +151,15 @@ class Filter:
 
             assessments = assess_interaction(child_id, messages)
             if assessments:
+                # F-012: update_profile is advisory - it records the validated
+                # observations as a profile_assessment_advisory event itself.
+                # No success event here: the old profile_update event claimed
+                # score writes that no longer happen.
                 applied = update_profile(child_id, assessments,
                                          message_count=user_msg_count if chat_id else None,
                                          conversation_key=chat_id or None)
                 if applied > 0:
-                    log_event(child_id, "profile_update", {
-                        "trigger": f"auto_{PROFILE_UPDATE_INTERVAL}msg",
-                        "assessments": assessments,
-                        "message_count": user_msg_count
-                    })
-                    logger.info("Profile updated: child=%s topics=%d",
+                    logger.info("Profile observations recorded (advisory): child=%s items=%d",
                                child_id, applied)
         except Exception:
             logger.exception("outlet profile update failed — continuing")
