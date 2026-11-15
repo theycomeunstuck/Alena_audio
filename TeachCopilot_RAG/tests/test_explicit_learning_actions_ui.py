@@ -9,9 +9,12 @@ from __future__ import annotations
 import copy
 import re
 
-from playwright.sync_api import expect
+import pytest
 
-from test_ui_acceptance import _login, _screenshot, ui_server
+pytest.importorskip("playwright.sync_api", reason="install requirements-dev-local.txt for browser acceptance tests")
+from playwright.sync_api import expect  # noqa: E402
+
+from test_ui_acceptance import _login, _screenshot, ui_server  # noqa: E402
 
 
 CHAT_PATH = "/v1/chat/completions"

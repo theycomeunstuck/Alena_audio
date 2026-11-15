@@ -7,8 +7,10 @@ from copy import deepcopy
 import json
 
 import pytest
-from playwright.sync_api import expect
-from test_ui_acceptance import _login, ui_server  # noqa: F401
+
+pytest.importorskip("playwright.sync_api", reason="install requirements-dev-local.txt for browser acceptance tests")
+from playwright.sync_api import expect  # noqa: E402
+from test_ui_acceptance import _login, ui_server  # noqa: E402
 from local_app.explicit_learning_actions import validate_action
 from local_app.guided_division import start_state, transition, action_response, render_prompt
 

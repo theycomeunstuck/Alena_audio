@@ -3,7 +3,9 @@ from copy import deepcopy
 import json
 
 import pytest
-from playwright.sync_api import expect
+
+pytest.importorskip("playwright.sync_api", reason="install requirements-dev-local.txt for browser acceptance tests")
+from playwright.sync_api import expect  # noqa: E402
 
 from local_app.autonomous_division import (
     VERSION, action_response, public_state, render_prompt, start_state, transition,

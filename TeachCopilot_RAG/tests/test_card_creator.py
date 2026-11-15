@@ -148,7 +148,10 @@ def test_taken_pseudonym_is_flagged_because_the_validator_rejects_duplicates():
 
 def test_learner_id_is_normalised_and_kept_unique():
     draft = build_card(_payload(learner_id="Петров Миша!"), CATALOG, TODAY)
-    assert draft.learner_id == "петров-миша!".encode("ascii", "ignore").decode() or draft.learner_id
+    # A Cyrillic-only proposal normalises to an empty slug, so the code must
+    # fall back to the pseudonym-derived ASCII id (pseudonym "Миша" → "миша"
+    # is also non-ASCII, hence the fixed last-resort id "uchenik").
+    assert draft.learner_id == "uchenik"
     assert draft.learner_id not in list_learner_ids()
     assert draft.learner_id.replace("-", "").isalnum()
 

@@ -17,7 +17,9 @@ import psutil
 import pytest
 import requests
 from psycopg2.extensions import parse_dsn
-from playwright.sync_api import expect
+
+pytest.importorskip("playwright.sync_api", reason="install requirements-dev-local.txt for browser acceptance tests")
+from playwright.sync_api import expect  # noqa: E402
 
 from local_app.auth import hash_password
 from local_app.autonomous_division import TOPIC, VERSION
@@ -94,9 +96,7 @@ def assert_public(value):
 class LiveStack:
     def __init__(self, store, artifacts):
         self.store, self.artifacts = store, artifacts
-        with socket.socket() as listener:
-            listener.bind(("127.0.0.1", 0))
-            self.port = listener.getsockname()[1]
+        self.port = self._reserve_port()
         self.api_url = f"http://127.0.0.1:{self.port}"
         self.processes = []
         self.starts = []
@@ -113,38 +113,69 @@ class LiveStack:
         self.completed = False
 
     def start(self):
-        generation = len(self.starts) + 1
-        env = dict(os.environ, DATABASE_URL=self.store.dsn, OLLAMA_URL="http://127.0.0.1:9",
-            AUTONOMOUS_LIVE_ARTIFACTS=str(self.artifacts), AUTONOMOUS_LIVE_PORT=str(self.port),
-            LOCAL_MEMORY_RESPONSE_JOURNAL=str(self.artifacts / "worker-responses.sqlite3"),
-            LOCAL_AUTONOMOUS_DIVISION_ENABLED="1", LOCAL_DEMO_LOGIN="0", PYTHONIOENCODING="utf-8",
-            TEACHCOPILOT_EXTERNAL_ANSWERS_CONFIG="", LOCAL_GENERATION_RUN_BUDGET_PATH="",
-            LOCAL_GENERATION_SCHEDULER_DSN="")
-        for role in ("api", "worker"):
-            log = (self.artifacts / f"{role}-{generation}.log").open("w", encoding="utf-8")
-            command = [sys.executable, "tests/autonomous_live_process.py", role]
-            process = subprocess.Popen(command, cwd=ROOT, env=env, stdin=subprocess.DEVNULL,
-                stdout=log, stderr=subprocess.STDOUT,
-                creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0)
-            self.processes.append((process, log))
-        deadline = time.monotonic() + 20
-        while time.monotonic() < deadline:
-            self.assert_alive()
-            try:
-                if requests.get(self.api_url + "/health/ready", timeout=1).status_code == 200:
-                    self.starts.append({"generation": generation,
-                        "pids": [process.pid for process, _ in self.processes]})
-                    return
-            except requests.RequestException:
-                pass
-            time.sleep(0.05)
+        # The port probe in __init__ closes its socket before the API child
+        # binds it, so on a busy machine another process can claim the port in
+        # that window. A child that dies before readiness retries on a freshly
+        # reserved port instead of failing the whole live run on that race;
+        # a child that dies for any other reason still surfaces after three
+        # attempts, and a hang keeps the finite deadline assertion below.
+        for attempt in range(1, 4):
+            if attempt > 1:
+                self.port = self._reserve_port()
+                self.api_url = f"http://127.0.0.1:{self.port}"
+            generation = len(self.starts) + 1
+            log_suffix = "" if attempt == 1 else f"-attempt{attempt}"
+            env = dict(os.environ, DATABASE_URL=self.store.dsn, OLLAMA_URL="http://127.0.0.1:9",
+                AUTONOMOUS_LIVE_ARTIFACTS=str(self.artifacts), AUTONOMOUS_LIVE_PORT=str(self.port),
+                LOCAL_MEMORY_RESPONSE_JOURNAL=str(self.artifacts / "worker-responses.sqlite3"),
+                LOCAL_AUTONOMOUS_DIVISION_ENABLED="1", LOCAL_DEMO_LOGIN="0", PYTHONIOENCODING="utf-8",
+                TEACHCOPILOT_EXTERNAL_ANSWERS_CONFIG="", LOCAL_GENERATION_RUN_BUDGET_PATH="",
+                LOCAL_GENERATION_SCHEDULER_DSN="")
+            for role in ("api", "worker"):
+                log = (self.artifacts / f"{role}-{generation}{log_suffix}.log").open("w", encoding="utf-8")
+                command = [sys.executable, "tests/autonomous_live_process.py", role]
+                process = subprocess.Popen(command, cwd=ROOT, env=env, stdin=subprocess.DEVNULL,
+                    stdout=log, stderr=subprocess.STDOUT,
+                    creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0)
+                self.processes.append((role, process, log))
+            deadline = time.monotonic() + 20
+            died = None
+            while time.monotonic() < deadline:
+                died = next((process for _role, process, _log in self.processes
+                             if process.poll() is not None), None)
+                if died is not None:
+                    break
+                try:
+                    if requests.get(self.api_url + "/health/ready", timeout=1).status_code == 200:
+                        self.starts.append({"generation": generation,
+                            "pids": [process.pid for _role, process, _log in self.processes]})
+                        return
+                except requests.RequestException:
+                    pass
+                time.sleep(0.05)
+            if died is None:
+                raise AssertionError(f"API did not start; see {self.artifacts}")
+            for role, process, log in self.processes:
+                log.close()
+                for kind in ("process_events", "forbidden_calls"):
+                    # A dead attempt's audit files would otherwise break the
+                    # artifact assertions that count exactly one audit file
+                    # per surviving process; keep only the live generation.
+                    (self.artifacts / f"{kind}-{role}-{process.pid}.jsonl").unlink(missing_ok=True)
+            self.processes.clear()
         raise AssertionError(f"API did not start; see {self.artifacts}")
 
+    @staticmethod
+    def _reserve_port():
+        with socket.socket() as listener:
+            listener.bind(("127.0.0.1", 0))
+            return listener.getsockname()[1]
+
     def assert_alive(self):
-        assert all(process.poll() is None for process, _ in self.processes), str(self.artifacts)
+        assert all(process.poll() is None for _role, process, _log in self.processes), str(self.artifacts)
 
     def stop(self):
-        for process, log in reversed(self.processes):
+        for _role, process, log in reversed(self.processes):
             try:
                 owned = psutil.Process(process.pid)
                 children = [child for child in owned.children(recursive=True)

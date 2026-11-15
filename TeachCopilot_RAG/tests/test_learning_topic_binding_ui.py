@@ -1,7 +1,10 @@
 """Explicit child topic selection uses the real API with model-free browser fixtures."""
-from playwright.sync_api import expect
+import pytest
 
-from test_ui_acceptance import _login, ui_server
+pytest.importorskip("playwright.sync_api", reason="install requirements-dev-local.txt for browser acceptance tests")
+from playwright.sync_api import expect  # noqa: E402
+
+from test_ui_acceptance import _login, ui_server  # noqa: E402
 
 
 FRACTIONS = "math.g4.fractions.numerator_denominator"

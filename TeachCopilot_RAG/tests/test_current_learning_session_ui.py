@@ -9,7 +9,9 @@ import json
 import re
 
 import pytest
-from playwright.sync_api import expect
+
+pytest.importorskip("playwright.sync_api", reason="install requirements-dev-local.txt for browser acceptance tests")
+from playwright.sync_api import expect  # noqa: E402
 
 from test_ui_acceptance import _login, ui_server  # noqa: F401
 
