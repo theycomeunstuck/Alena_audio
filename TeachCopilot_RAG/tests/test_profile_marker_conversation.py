@@ -6,7 +6,11 @@ reaches a 5-message boundary permanently disables assessment in every later
 conversation of the same child.
 
 REG-4: the marker must not be written when payload validation dropped every
-assessment item (an all-invalid reply must not burn the boundary).
+assessment item (an all-invalid reply must not burn the boundary) - and under
+the advisory contract (F-012) it must not write a profile_assessment_advisory
+row either, only the assessment_failed diagnostic. The advisory row is written
+in the same transaction as the marker and keyed with the same conversation
+identity.
 
 Pure-Python fakes; no database, no network.
 """
@@ -78,10 +82,19 @@ def fake_db(monkeypatch):
 
 
 def test_marker_payload_carries_conversation_key(fake_db):
-    pa.update_profile("child-1", [VALID_ITEM], message_count=5, conversation_key="chat-abc")
+    result = pa.update_profile("child-1", [VALID_ITEM], message_count=5, conversation_key="chat-abc")
     markers = marker_inserts(fake_db.cursor_obj)
+    assert result == 1, "update_profile returns the number of valid items"
     assert markers, "marker must be written for an applied assessment"
     assert markers[0]["conversation_key"] == "chat-abc"
+    # F-012: the advisory row shares the transaction and the conversation key.
+    advisories = event_inserts(fake_db.cursor_obj, pa.ADVISORY_EVENT)
+    assert len(advisories) == 1, "exactly one advisory row alongside the marker"
+    assert advisories[0]["conversation_key"] == "chat-abc"
+    assert advisories[0]["message_count"] == 5
+    assert advisories[0]["items"] == [
+        {"topic": "fractions", "score_delta": 5, "new_status": "learning",
+         "error_tags": ["sign_error"]}]
 
 
 def test_already_assessed_filters_by_conversation_key(fake_db):
@@ -108,10 +121,14 @@ def test_no_marker_when_every_item_is_invalid(fake_db, monkeypatch):
     events = []
     monkeypatch.setattr(pa, "log_event", lambda child, etype, payload: events.append((child, etype, payload)))
     bad_items = [{"topic": ""}, {"topic": "t", "score_delta": "10"}, "garbage"]
-    pa.update_profile("child-1", bad_items, message_count=5, conversation_key="chat-abc")
+    result = pa.update_profile("child-1", bad_items, message_count=5, conversation_key="chat-abc")
+    assert result == 0
     assert marker_inserts(fake_db.cursor_obj) == [], "an all-invalid reply must not burn the boundary"
-    assert any(etype == "assessment_failed" and p.get("reason") == "all_items_invalid"
-               for _, etype, p in events)
+    assert event_inserts(fake_db.cursor_obj, pa.ADVISORY_EVENT) == [], \
+        "an all-invalid reply must not write an advisory row either"
+    failures = [p for _, etype, p in events if etype == "assessment_failed"]
+    assert failures == [{"reason": "all_items_invalid", "message_count": 5,
+                         "conversation_key": "chat-abc"}]
 
 
 def test_mixed_batch_still_writes_marker(fake_db):
