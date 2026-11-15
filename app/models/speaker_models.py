@@ -27,6 +27,6 @@ class RegistryVerifyResponse(BaseModel):
     matches: Optional[List[MultiVerifyMatch]] = Field(default=None, description="Диагностический Top-K список совпадений")
 
 class RegistryReloadResposne(BaseModel):
-        id_list: Optional[List] = Field(..., description="Список пользователей, которые  есть в базе данных")
+        id_list: Optional[List] = Field(default=None, description="Список пользователей, которые  есть в базе данных")
         count: int = Field(..., description="Количество пользователей в базе данных")
 
