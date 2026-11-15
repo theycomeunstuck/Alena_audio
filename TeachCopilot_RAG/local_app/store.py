@@ -1,6 +1,6 @@
 """Local PostgreSQL store isolated from the legacy public schema."""
 from __future__ import annotations
-import hashlib, json, re, os, sys, uuid
+import hashlib, json, re, os, sys, time, uuid
 from contextlib import contextmanager
 from datetime import date, datetime
 from pathlib import Path
@@ -47,12 +47,60 @@ def _day(value):
     try: return date.fromisoformat(str(value)[:10])
     except ValueError: return None
 
+class _ReuseConnectionContext:
+    """Yields one already-open connection and commits per use without closing it."""
+
+    def __init__(self, conn):
+        self._conn = conn
+
+    def __enter__(self):
+        return self._conn
+
+    def __exit__(self, exc_type, exc, tb):
+        if exc_type is None:
+            self._conn.commit()
+        else:
+            self._conn.rollback()
+        return False
+
+class _SingleConnectionClaims(MemoryStoreMixin):
+    """Runs the durable chat claim against one open connection (F-035).
+
+    Every attempt commits (or rolls back) on the shared connection, which
+    releases the queue advisory lock between attempts exactly like a fresh
+    connection per attempt, minus the per-iteration connect cost.
+    """
+
+    def __init__(self, conn):
+        self._conn = conn
+
+    def _connect(self):
+        return _ReuseConnectionContext(self._conn)
+
 class Store(MemoryStoreMixin):
     def __init__(self, dsn: str):
         self.dsn = dsn
 
     def _connect(self):
         return connect(self.dsn)
+
+    def claim_interactive_chat_job_polling(self, job_id, worker_id, lease_seconds=600,
+                                           poll_interval=0.05, timeout=180.0):
+        """Poll for an interactive chat slot reusing one connection per waiter (F-035).
+
+        Returns the claimed job row, or None once the timeout elapses without a
+        claim; the caller remains responsible for cancelling the job on None.
+        """
+        deadline = time.monotonic() + max(0.0, float(timeout))
+        with self._connect() as conn:
+            waiting = _SingleConnectionClaims(conn)
+            while True:
+                claimed = waiting.claim_interactive_chat_job(job_id, worker_id, lease_seconds=lease_seconds)
+                if claimed:
+                    return claimed
+                if time.monotonic() >= deadline:
+                    return None
+                time.sleep(max(0.0, float(poll_interval)))
 
     def ping(self) -> bool:
         with self._connect() as conn, conn.cursor() as cur:
@@ -524,6 +572,16 @@ class Store(MemoryStoreMixin):
 
     def assign_learner(self,account_id,learner_id,relationship="teacher"):
         with self._connect() as conn, conn.cursor() as cur:
+            # F-033: the guard and the insert share one transaction and the
+            # account's links are locked, so concurrent links serialize. The link
+            # set cannot be locked while it is empty, so the parent account row is
+            # locked first (the same order create_student_account uses).
+            cur.execute("SELECT id FROM teachcopilot.accounts WHERE id=%s FOR UPDATE",(account_id,))
+            if cur.fetchone() is None: raise KeyError(account_id)
+            cur.execute("SELECT learner_id FROM teachcopilot.account_learners WHERE account_id=%s FOR UPDATE",(account_id,))
+            linked=[str(row["learner_id"]) for row in cur.fetchall()]
+            if relationship=="student" and any(existing!=str(learner_id) for existing in linked):
+                raise PermissionError("student account is already linked to another learner")
             cur.execute("""INSERT INTO teachcopilot.account_learners(account_id,learner_id,relationship) VALUES (%s,%s,%s)
                 ON CONFLICT(account_id,learner_id) DO UPDATE SET relationship=EXCLUDED.relationship""",(account_id,learner_id,relationship))
 

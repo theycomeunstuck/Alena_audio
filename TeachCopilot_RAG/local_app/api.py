@@ -1,6 +1,7 @@
 """Authenticated local API for learner cards, lesson work and local RAG."""
 import logging
 import secrets
+import threading
 import time
 from datetime import date
 from pathlib import Path
@@ -30,6 +31,29 @@ def _is_dependency_unavailable(exc: Exception) -> bool:
 def _is_generation_capacity(exc: Exception) -> bool:
     from local_app.generation_scheduler import GenerationCapacityError
     return isinstance(exc, GenerationCapacityError)
+
+
+# Chat admission polling parks one threadpool thread per waiter for up to 180 s
+# (F-035), so the number of concurrent waiters is bounded; excess requests get
+# an immediate 503 instead of silently queueing behind the cap.
+CHAT_ADMISSION_WAITER_CAP = 40
+_chat_admission_waiters = 0
+_chat_admission_lock = threading.Lock()
+
+
+def _reserve_admission_slot() -> bool:
+    global _chat_admission_waiters
+    with _chat_admission_lock:
+        if _chat_admission_waiters >= CHAT_ADMISSION_WAITER_CAP:
+            return False
+        _chat_admission_waiters += 1
+        return True
+
+
+def _release_admission_slot() -> None:
+    global _chat_admission_waiters
+    with _chat_admission_lock:
+        _chat_admission_waiters -= 1
 
 
 def _value(obj: Any, *names: str, default: Any = None) -> Any:
@@ -424,18 +448,33 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None, chat_r
                    worker_id: str, idempotency_key: str | None = None):
         if not hasattr(store, "enqueue_memory_job"):
             raise HTTPException(status_code=503, detail="durable chat admission is unavailable")
-        job = store.enqueue_memory_job(learner_id, topic_id, "chat", payload, actor_id,
-                                       idempotency_key=idempotency_key)
-        deadline = time.monotonic() + min(180.0, float(_value(settings, "request_timeout", default=180)))
-        while True:
-            claimed = store.claim_interactive_chat_job(job["job_id"], worker_id, lease_seconds=600)
-            if claimed:
-                return claimed
-            if time.monotonic() >= deadline:
+        if not _reserve_admission_slot():
+            raise HTTPException(status_code=503, detail="chat busy; too many waiting requests; retry later",
+                                headers={"Retry-After": "10"})
+        try:
+            job = store.enqueue_memory_job(learner_id, topic_id, "chat", payload, actor_id,
+                                           idempotency_key=idempotency_key)
+            deadline = time.monotonic() + min(180.0, float(_value(settings, "request_timeout", default=180)))
+            poll = getattr(store, "claim_interactive_chat_job_polling", None)
+            if callable(poll):
+                # One connection per waiter for the whole poll (F-035).
+                claimed = poll(job["job_id"], worker_id, lease_seconds=600, poll_interval=0.05,
+                               timeout=max(0.0, deadline - time.monotonic()))
+            else:
+                # Injected stores without connection plumbing keep the per-attempt claim.
+                claimed = None
+                while claimed is None:
+                    claimed = store.claim_interactive_chat_job(job["job_id"], worker_id, lease_seconds=600)
+                    if claimed is not None or time.monotonic() >= deadline:
+                        break
+                    time.sleep(0.05)
+            if not claimed:
                 store.cancel_memory_job(job["job_id"], "chat_queue_wait_timeout")
                 raise HTTPException(status_code=429, detail="chat queue wait expired; send a new message later",
                                     headers={"Retry-After": "10"})
-            time.sleep(0.05)
+            return claimed
+        finally:
+            _release_admission_slot()
 
     @app.post("/learners/{learner_id}/next-step", status_code=202)
     def prepare_next_step(learner_id: str, request: NextStepRequest, user: dict = Depends(teacher)):

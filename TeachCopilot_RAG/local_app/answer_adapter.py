@@ -24,6 +24,7 @@ from local_app.checked_division_context import (
 from research_memory.spiderssense import SpiderssenseClient
 from local_app.budget_authorization import validate_budget_authorization
 from local_app.memory_response_journal import ResponseJournalError
+from local_app.generation_scheduler import GenerationCapacityError
 
 
 _EXTERNAL_SLOTS = threading.BoundedSemaphore(4)
@@ -111,8 +112,13 @@ _PURPOSE_INSTRUCTIONS = {
 }
 
 
-class AnswerCapacityError(RuntimeError):
-    """Four external calls are already active; caller may retry explicitly later."""
+class AnswerCapacityError(GenerationCapacityError):
+    """Four external calls are already active; caller may retry explicitly later.
+
+    Subclasses GenerationCapacityError so capacity classification treats the
+    exhausted external adapter as retryable capacity – never as a terminal
+    failure that consumes the reserved message as unknown_outcome.
+    """
 
 
 class ProjectionError(ValueError):
