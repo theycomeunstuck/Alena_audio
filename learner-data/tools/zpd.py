@@ -26,7 +26,10 @@ import argparse
 import copy
 import datetime
 import json
+import math
+import os
 import sys
+import tempfile
 from dataclasses import dataclass, replace
 from pathlib import Path
 
@@ -233,17 +236,46 @@ def days_since(date_text: object, today: str | None = None) -> int | None:
 
 
 def _unit_number(value: object) -> float | None:
-    """Return a 0..1 float, or None when the field is absent/unusable."""
+    """Return a 0..1 float, or None when the field is absent/unusable.
+
+    NaN and Infinity pass the plain 0..1 comparisons, and json.loads admits
+    NaN literals by default, so finiteness is checked explicitly: otherwise a
+    single NaN mastery is classified as zpd and poisons the EMA permanently.
+    """
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         return None
     number = float(value)
-    if number < 0.0 or number > 1.0:
+    if not math.isfinite(number) or number < 0.0 or number > 1.0:
         return None
     return number
 
 
 def _clamp_unit(value: float) -> float:
     return 0.0 if value < 0.0 else (1.0 if value > 1.0 else value)
+
+
+def nonfinite_json_paths(value: object, path: str = "") -> list[str]:
+    """Return the JSON paths of every non-finite number (NaN/Infinity).
+
+    json.loads admits NaN/Infinity literals by default and json.dumps writes
+    them back, so one poisoned score can enter and persist silently. The tools
+    run this scan explicitly after loading and refuse to work with such data
+    (learner_common.load_json itself cannot be narrowed without touching the
+    shared module, so the gate lives in the callers).
+    """
+    if isinstance(value, float) and not math.isfinite(value):
+        return [path or "/"]
+    if isinstance(value, dict):
+        found: list[str] = []
+        for key, item in value.items():
+            found.extend(nonfinite_json_paths(item, f"{path}/{key}"))
+        return found
+    if isinstance(value, list):
+        found = []
+        for index, item in enumerate(value):
+            found.extend(nonfinite_json_paths(item, f"{path}/{index}"))
+        return found
+    return []
 
 
 def classify(competency: object) -> ZoneVerdict:
@@ -471,15 +503,29 @@ def confirmed_zone(competency: dict, today: str | None = None) -> dict:
     return {"zone": zone, "reason": reason, "evidence_status": status, "evidence": evidence}
 
 
-def classify_card(card: dict) -> list[ZoneVerdict]:
-    """Classify every competency of one learner card, keeping card order."""
+def classify_card_dropped(card: dict) -> tuple[list[ZoneVerdict], list[int]]:
+    """Classify every competency like :func:`classify_card`, but also return the
+    indexes of the entries that had to be dropped (not an object, or no usable
+    topic_id). A zone derived while entries were dropped is incomplete, so the
+    ``--write`` path uses this list to refuse persisting it.
+    """
     competencies = (card.get("learner_model") or {}).get("competencies") or []
     verdicts: list[ZoneVerdict] = []
-    for competency in competencies:
+    dropped: list[int] = []
+    for index, competency in enumerate(competencies):
         try:
             verdicts.append(classify(competency))
         except ZpdPolicyError:
-            continue  # validate.py reports malformed entries; policy stays silent
+            dropped.append(index)
+    return verdicts, dropped
+
+
+def classify_card(card: dict) -> list[ZoneVerdict]:
+    """Classify every competency of one learner card, keeping card order."""
+    # Malformed entries are skipped silently on the read paths: validate.py
+    # reports them, and reports/planning stay usable. Only --write (see main)
+    # checks the dropped list and refuses to persist partial data.
+    verdicts, _dropped = classify_card_dropped(card)
     return verdicts
 
 
@@ -967,6 +1013,27 @@ def _render_report(card: dict, rows: list[dict], derived: dict[str, list[str]]) 
     return "\n".join(lines)
 
 
+def _write_card_atomic(path: Path, payload: str) -> None:
+    """Replace ``path`` with ``payload`` atomically: temp file + os.replace.
+
+    A plain write_text truncates the card before anything is written, so a
+    crash or power loss in that window destroys the only copy of the learner's
+    history. Writing to a temp file in the same directory and renaming keeps
+    the old card intact until the new one is fully written.
+    """
+    fd, temp_name = tempfile.mkstemp(dir=str(path.parent), prefix=f"{path.name}.", suffix=".tmp")
+    temp_path = Path(temp_name)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as stream:
+            stream.write(payload)
+        if path.exists():
+            os.chmod(temp_path, path.stat().st_mode & 0o777)  # keep the card's existing permissions
+        os.replace(temp_path, path)
+    except BaseException:
+        temp_path.unlink(missing_ok=True)
+        raise
+
+
 def main(argv: list[str] | None = None) -> int:
     configure_utf8_streams()
 
@@ -1001,6 +1068,18 @@ def main(argv: list[str] | None = None) -> int:
         print("Некорректная карточка ученика: ожидается JSON-объект", file=sys.stderr)
         return 1
 
+    # json.loads admits NaN/Infinity literals by default; refuse such a card
+    # outright so NaN can neither reach the EMA nor be written back to disk.
+    nonfinite_paths = nonfinite_json_paths(card)
+    if nonfinite_paths:
+        print(
+            "В карточке есть не-конечные числа (NaN/Infinity): " + ", ".join(nonfinite_paths)
+            + " – json допускает их по умолчанию, исправьте файл вручную "
+            "(или запустите learner-data/tools/validate.py для полного списка проблем)",
+            file=sys.stderr,
+        )
+        return 1
+
     rows = zone_report(card, catalog)
     derived = derive_zpd(card)
 
@@ -1009,16 +1088,29 @@ def main(argv: list[str] | None = None) -> int:
         if not isinstance(learner_model, dict):
             print("В карточке нет learner_model — записывать ЗБР некуда", file=sys.stderr)
             return 1
+        # Fail-closed: entries classify_card had to drop make the derived zone
+        # incomplete, and silently persisting it would bless partial data.
+        _verdicts, dropped = classify_card_dropped(card)
+        if dropped:
+            print(
+                f"Запись отклонена: {len(dropped)} записей карты компетенций не удалось разобрать "
+                f"(позиции {', '.join(str(index) for index in dropped)}); "
+                "выведенная ЗБР неполна, а частичную зону записывать нельзя. "
+                "Запустите learner-data/tools/validate.py, чтобы увидеть ошибки.",
+                file=sys.stderr,
+            )
+            return 1
         if learner_model.get("zpd") == derived:
             print("ЗБР в карточке уже совпадает с картой компетенций — файл не изменён")
         else:
             learner_model["zpd"] = derived
             path = (args.learners_dir / f"{args.learner_id}.json")
-            path.write_text(json.dumps(card, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+            payload = json.dumps(card, ensure_ascii=False, indent=2, allow_nan=False) + "\n"
+            _write_card_atomic(path, payload)
             print(f"Записано в {path}: ЗБР_сейчас {derived['current'] or '—'}, за_пределами {derived['outside'] or '—'}")
 
     if args.format == "json":
-        print(json.dumps({"learner_id": args.learner_id, "zones": rows, "zpd": derived}, ensure_ascii=False, indent=2))
+        print(json.dumps({"learner_id": args.learner_id, "zones": rows, "zpd": derived}, ensure_ascii=False, indent=2, allow_nan=False))
     else:
         print(_render_report(card, rows, derived))
     return 0

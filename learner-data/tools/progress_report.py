@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 from pathlib import Path
 
@@ -60,18 +61,65 @@ def _help_title(key: object) -> str:
     return level.title_ru if level else "—"
 
 
+def _require_int(value: object, label: str) -> int:
+    """Strict-int validation that names the field instead of crashing inside
+    sort()/sum() with a bare TypeError. validate.py flags such cards; the
+    report must fail with the field named, not with "unsupported operand"."""
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError(f"{label} должно быть целым числом, получено {value!r}")
+    return value
+
+
+def _require_score(value: object, label: str) -> None:
+    """Explicit validation error for non-numeric mastery values in history."""
+    if value is None:
+        return
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or (
+        isinstance(value, float) and not math.isfinite(value)
+    ):
+        raise ValueError(f"{label} должно быть конечным числом, получено {value!r}")
+
+
+def _mastery_text(value: object) -> str:
+    """Format one mastery score for the text report; refuse non-numeric data."""
+    if value is None:
+        return "—"
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or (
+        isinstance(value, float) and not math.isfinite(value)
+    ):
+        raise ValueError(f"значение освоения должно быть конечным числом, получено {value!r}")
+    return f"{value:.3f}"
+
+
 def _topic_dynamics(competency: dict, since: str | None, until: str | None) -> dict | None:
     """Что случилось с одной темой за период: первая и последняя точки истории."""
-    history = [
-        entry for entry in (competency.get("history") or [])
-        if isinstance(entry, dict) and _in_period(entry.get("date"), since, until)
-    ]
+    # History is stored in append order and observations may be backfilled, so
+    # it must be sorted by date before the first/last points are picked. The
+    # sort is stable (equal dates keep their stored order), and every entry
+    # that survived _in_period has a YYYY-MM-DD date string, so string
+    # comparison is date order.
+    history = sorted(
+        (
+            entry for entry in (competency.get("history") or [])
+            if isinstance(entry, dict) and _in_period(entry.get("date"), since, until)
+        ),
+        key=lambda entry: entry["date"],
+    )
     if not history:
+        return None
+
+    topic_id = competency.get("topic_id")
+    if not isinstance(topic_id, str) or not topic_id:
+        # Same guard as zpd.classify_card, but loud: one malformed competency
+        # must not kill the whole report, yet the skip must not be silent.
+        print("ВНИМАНИЕ: в карте компетенций есть запись без topic_id – тема пропущена в отчёте", file=sys.stderr)
         return None
 
     first, last = history[0], history[-1]
     mastery_before = first.get("mastery")
     mastery_after = last.get("mastery")
+    _require_score(mastery_before, f'{topic_id}: поле "mastery" первой записи истории')
+    _require_score(mastery_after, f'{topic_id}: поле "mastery" последней записи истории')
     delta = None
     if isinstance(mastery_before, (int, float)) and isinstance(mastery_after, (int, float)):
         delta = round(float(mastery_after) - float(mastery_before), 3)
@@ -118,11 +166,20 @@ def build_report(card: dict, catalog: dict, since: str | None = None, until: str
         entry for entry in ((card.get("mvp") or {}).get("lessons") or [])
         if isinstance(entry, dict) and _in_period(entry.get("date"), since, until)
     ]
-    errors = sorted(
-        (item for item in (card.get("error_patterns") or []) if isinstance(item, dict)),
-        key=lambda item: item.get("count", 0),
-        reverse=True,
-    )
+    # Null/string counts used to crash the sort below with a bare TypeError;
+    # validate.py flags them, and the report refuses with a named field.
+    error_items = [item for item in (card.get("error_patterns") or []) if isinstance(item, dict)]
+    for index, item in enumerate(error_items):
+        _require_int(item.get("count", 0), f'error_patterns[{index}]: поле "count"')
+    errors = sorted(error_items, key=lambda item: item.get("count", 0), reverse=True)
+
+    points_earned = 0
+    for index, entry in enumerate(points):
+        points_earned += _require_int(entry.get("points", 0), f'points_ledger[{index}]: поле "points"')
+    minutes_total = 0
+    for index, entry in enumerate(lessons):
+        # minutes may be absent or null (optional per schema); anything else must be an int.
+        minutes_total += _require_int(entry.get("minutes") or 0, f'lessons[{index}]: поле "minutes"')
 
     return {
         "learner_id": card.get("learner_id"),
@@ -133,8 +190,8 @@ def build_report(card: dict, catalog: dict, since: str | None = None, until: str
         "topics": topics,
         "journal": journal,
         "lessons": len(lessons),
-        "minutes": sum(entry.get("minutes", 0) or 0 for entry in lessons),
-        "points_earned": sum(entry.get("points", 0) for entry in points),
+        "minutes": minutes_total,
+        "points_earned": points_earned,
         "error_patterns": [
             {
                 "topic_id": item.get("topic_id"),
@@ -164,8 +221,8 @@ def render_text(report: dict, catalog: dict) -> str:
     else:
         lines.append("Динамика по темам:")
         for topic in report["topics"]:
-            before = "—" if topic["mastery_before"] is None else f"{topic['mastery_before']:.3f}"
-            after = "—" if topic["mastery_after"] is None else f"{topic['mastery_after']:.3f}"
+            before = _mastery_text(topic["mastery_before"])
+            after = _mastery_text(topic["mastery_after"])
             delta = ""
             if topic["mastery_delta"] is not None:
                 sign = "+" if topic["mastery_delta"] >= 0 else ""
@@ -257,9 +314,25 @@ def main(argv: list[str] | None = None) -> int:
         print("Некорректная карточка ученика: ожидается JSON-объект", file=sys.stderr)
         return 1
 
-    report = build_report(card, catalog, args.since, args.until)
+    # json.loads admits NaN/Infinity literals by default; refuse such a card
+    # outright instead of letting NaN flow into the deltas and the output.
+    nonfinite_paths = zpd.nonfinite_json_paths(card)
+    if nonfinite_paths:
+        print(
+            "В карточке есть не-конечные числа (NaN/Infinity): " + ", ".join(nonfinite_paths)
+            + " – json допускает их по умолчанию, исправьте файл вручную "
+            "(или запустите learner-data/tools/validate.py для полного списка проблем)",
+            file=sys.stderr,
+        )
+        return 1
+
+    try:
+        report = build_report(card, catalog, args.since, args.until)
+    except ValueError as exc:
+        print(f"Некорректные данные карточки: {exc}", file=sys.stderr)
+        return 1
     if args.format == "json":
-        print(json.dumps(report, ensure_ascii=False, indent=2))
+        print(json.dumps(report, ensure_ascii=False, indent=2, allow_nan=False))
     else:
         print(render_text(report, catalog))
     return 0

@@ -17,6 +17,7 @@ import argparse
 import datetime
 import difflib
 import json
+import math
 import sys
 from pathlib import Path
 
@@ -374,12 +375,35 @@ def _validate_rag_context(rag: object, catalog: dict, filename: str) -> list[Fin
 
 
 def _check_unit_number(value: object, filename: str, json_path: str, label: str) -> list[Finding]:
-    """Validate a 0..1 pedagogical score (mastery, independence, confidence)."""
+    """Validate a 0..1 pedagogical score (mastery, independence, confidence).
+
+    NaN and Infinity pass both plain 0..1 comparisons, and json.loads admits
+    NaN literals by default, so finiteness is checked explicitly.
+    """
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         return [_err(filename, json_path, f"{label} должен быть числом от 0 до 1")]
+    if not math.isfinite(float(value)):
+        return [_err(filename, json_path, f"{label} должен быть конечным числом от 0 до 1, получено {value!r}")]
     if float(value) < 0.0 or float(value) > 1.0:
         return [_err(filename, json_path, f"{label} должен быть в диапазоне от 0 до 1, получено {value}")]
     return []
+
+
+def _check_nonfinite_numbers(value: object, filename: str) -> list[Finding]:
+    """Flag NaN/Infinity anywhere in the loaded JSON data.
+
+    json.loads admits NaN/Infinity literals by default and such values pass
+    most per-field type checks, so they are flagged wherever they sit in the
+    document (zpd.nonfinite_json_paths does the recursive walk).
+    """
+    return [
+        _err(
+            filename,
+            path,
+            "значение NaN/Infinity недопустимо – json допускает их по умолчанию, замените конечным числом",
+        )
+        for path in zpd.nonfinite_json_paths(value)
+    ]
 
 
 def _validate_competencies(competencies: list, catalog: dict, filename: str) -> list[Finding]:
@@ -485,7 +509,13 @@ def _validate_competencies(competencies: list, catalog: dict, filename: str) -> 
                         or len(entry["assessment_pair_id"]) > 200
                     ):
                         findings.append(_err(filename, f"{entry_path}/assessment_pair_id", "assessment_pair_id must contain 1 to 200 characters"))
-                    if "difficulty" in entry and entry.get("difficulty") not in {"easy", "medium", "hard"}:
+                    # isinstance first: a list/dict-valued difficulty is
+                    # unhashable and would raise TypeError on set membership,
+                    # aborting validation for the whole repo.
+                    if "difficulty" in entry and (
+                        not isinstance(entry.get("difficulty"), str)
+                        or entry.get("difficulty") not in {"easy", "medium", "hard"}
+                    ):
                         findings.append(_err(filename, f"{entry_path}/difficulty", "difficulty must be easy, medium, or hard"))
                     if "note" in entry and (
                         not isinstance(entry.get("note"), str) or len(entry["note"]) > 1000
@@ -667,6 +697,10 @@ def validate_card(card: object, catalog: dict, filename: str) -> list[Finding]:
     if not isinstance(card, dict):
         findings.append(_err(filename, "/", "карточка должна быть JSON-объектом"))
         return findings
+
+    # json.loads admits NaN/Infinity literals by default: flag them wherever
+    # they sit, before any per-field check can silently accept them.
+    findings.extend(_check_nonfinite_numbers(card, filename))
 
     findings.extend(_find_unknown_keys(card, CARD_TOP_KEYS, filename, ""))
 
@@ -1021,6 +1055,8 @@ def validate_all(learners_dir: Path, catalog_file: Path) -> tuple[list[Finding],
 
     if catalog_bom:
         findings.append(_warn(catalog_label, "/", "файл начинается с BOM (byte order mark)"))
+
+    findings.extend(_check_nonfinite_numbers(catalog_data, catalog_label))
 
     catalog_findings, catalog_index = validate_catalog(catalog_data, catalog_label)
     findings.extend(catalog_findings)
