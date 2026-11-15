@@ -60,7 +60,7 @@ def transition(root: Path, catalog_path: Path, output: Path) -> dict:
             conn.execute("BEGIN IMMEDIATE")
             conn.execute("UPDATE budget_config SET blocked=1 WHERE id=1")
     configs = {}
-    from research_memory.spiderssense import SpiderssenseClient
+    from local_app.memory_ported.spiderssense import SpiderssenseClient
     for phase, cap, calls in (("evaluation", "2.40", 152), ("integration", "0.40", 20)):
         ledger = local / f"spiderssense_{phase}_v4_budget.sqlite3"
         if ledger.exists():

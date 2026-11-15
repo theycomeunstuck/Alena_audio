@@ -128,7 +128,7 @@ class AuditedOpener:
         try:
             response = self.delegate.open(request, **kwargs)
         except HTTPError as exc:
-            from research_memory.clients import MAX_RESPONSE_BYTES
+            from local_app.memory_ported.clients import MAX_RESPONSE_BYTES
             record.update(transport_error_type=type(exc).__name__, http_status=exc.code)
             try:
                 raw = exc.read(MAX_RESPONSE_BYTES + 1)

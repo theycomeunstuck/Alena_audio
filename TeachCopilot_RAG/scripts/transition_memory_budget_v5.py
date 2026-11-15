@@ -16,7 +16,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from local_app.budget_authorization import ALLOCATIONS, AUTHORIZATION_KIND
-from research_memory.spiderssense import SpiderssenseClient
+from local_app.memory_ported.spiderssense import SpiderssenseClient
 
 PRIOR_NAMES = tuple(f"spiderssense_{name}_budget.sqlite3" for name in (
     "pilot", "structured_pilot", "json_mode_pilot", "context_v3", "evaluation_v4", "integration_v4"))

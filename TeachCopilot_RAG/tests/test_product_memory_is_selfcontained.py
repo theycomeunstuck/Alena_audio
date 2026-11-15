@@ -12,6 +12,14 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 PRODUCT_DIRS = [ROOT / "local_app", ROOT / "pipeline"]
 PRODUCT_FILES = [ROOT / "server.py"]
+# The benchmark deliberately measures the RESEARCH implementation
+# (user decision on F-004: research tooling stays on the research module).
+SCRIPT_EXCEPTIONS = {
+    "benchmark_personal_graph_retrieval.py",  # benchmarks the RESEARCH workflow
+    "run_memory_research.py",  # research runner
+    "run_conversation_boundaries_v2.py",  # research runner
+    "smoke_legacy_memory_fragments.py",  # legacy research smoke
+}
 
 
 def _product_python_files():
@@ -21,6 +29,9 @@ def _product_python_files():
                 continue
             yield p
     yield PRODUCT_FILES[0]
+    for p in sorted((ROOT / "scripts").glob("*.py")):
+        if p.name not in SCRIPT_EXCEPTIONS:
+            yield p
 
 
 def test_no_product_import_of_research_memory():

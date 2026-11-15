@@ -131,7 +131,7 @@ def build_scenario(minimum_source_bytes: int = 0, max_lessons: int = 16) -> dict
 def scenario_preflight(scenario: dict, selection_budget: int) -> dict:
     """Measure the app's real chunking before creating any synthetic records."""
     from local_app.personal_graph_memory import source_lessons
-    from research_memory.personal_memory_lab.chunks import lesson_chunks
+    from local_app.memory_ported.personal_memory_lab.chunks import lesson_chunks
 
     sources = []
     lessons = [scenario["old_lesson"], *scenario["recent_lessons"]]

@@ -16,11 +16,11 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from local_app.config import Settings
-from research_memory.personal_memory_lab.archive import Archive
-from research_memory.personal_memory_lab.backends import Mem0Adapter, lesson_text, make_mem0, scope
-from research_memory.personal_memory_lab.chunks import lesson_chunks
-from research_memory.personal_memory_lab.runtime import LocalModel
-from research_memory.personal_memory_lab.workflow import PersonalMemoryWorkflow
+from local_app.memory_ported.personal_memory_lab.archive import Archive
+from local_app.memory_ported.personal_memory_lab.backends import Mem0Adapter, lesson_text, make_mem0, scope
+from local_app.memory_ported.personal_memory_lab.chunks import lesson_chunks
+from local_app.memory_ported.personal_memory_lab.runtime import LocalModel
+from local_app.memory_ported.personal_memory_lab.workflow import PersonalMemoryWorkflow
 
 
 async def run(args):

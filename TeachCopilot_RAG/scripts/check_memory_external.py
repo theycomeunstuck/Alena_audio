@@ -41,7 +41,7 @@ def run_check(config_path: Path, output: Path, *, execute=False, requests=5) -> 
     from local_app.answer_adapter import AnswerAdapter, EducationalProjection
     from local_app.config import Settings
     from local_app.runtime import OllamaRuntime
-    from research_memory.contracts import action_schema, validate_action
+    from local_app.memory_ported.contracts import action_schema, validate_action
 
     if not 1 <= requests <= 5:
         raise ValueError("finite integration pass supports 1..5 requests")

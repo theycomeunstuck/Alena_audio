@@ -97,7 +97,7 @@ def main():
         report["chat_sources_from_approved_version"] = set(context["evidence_ids"]) <= set(version["context"]["evidence_ids"])
         report["assistant_not_evidence"] = all(source["role"] != "assistant" for source in context["sources"])
         report["active_version_fresh"] = approved_graph_version(graph_snapshot, learner, "math.fractions") is not None
-        from research_memory.personal_memory_lab.archive import Archive
+        from local_app.memory_ported.personal_memory_lab.archive import Archive
         archive = Archive(dsn)
         report["other_child_has_no_sources"] = not archive.lessons(version["state"]["archive_run_id"], "other-child")
         correction = store.correct_memory_source(learner, note["source_id"], "Уточнение: речь шла о знаменателе.",

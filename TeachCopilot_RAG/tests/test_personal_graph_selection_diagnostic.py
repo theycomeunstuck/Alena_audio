@@ -4,6 +4,7 @@ import asyncio
 import importlib.util
 import json
 from pathlib import Path
+import sys
 import uuid
 
 import pytest
@@ -34,8 +35,18 @@ def test_scenario_has_old_question_help_answer_and_unrelated_recent_sessions():
     assert len(synthetic_payload.encode("utf-8")) > 12_000
 
 
-def test_preflight_uses_real_chunks_and_reports_whether_selection_budget_is_exceeded():
+def test_preflight_uses_real_chunks_and_reports_whether_selection_budget_is_exceeded(monkeypatch):
     pytest.importorskip("psycopg2")
+    # The diagnostic script still imports the research-side chunker, which the
+    # memory pipeline port moved into local_app.memory_ported (the seam the
+    # application actually runs). While the research module is absent from this
+    # tree, satisfy the script's import with the ported chunker so the preflight
+    # keeps measuring the chunking the app performs.
+    try:
+        import research_memory.personal_memory_lab.chunks  # noqa: F401
+    except ModuleNotFoundError:
+        from local_app.memory_ported.personal_memory_lab import chunks as ported_chunks
+        monkeypatch.setitem(sys.modules, "research_memory.personal_memory_lab.chunks", ported_chunks)
     summary = diagnostic.scenario_preflight(diagnostic.build_scenario(), selection_budget=10000)
     assert summary["lesson_count"] == 6
     assert summary["student_source_count"] == 12

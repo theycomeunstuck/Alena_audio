@@ -19,7 +19,7 @@ def write(path, value):
 
 
 def main():
-    from research_memory.__main__ import _provider_client
+    from local_app.memory_ported.provider_client import _provider_client
     from scripts.check_memory_external import run_check
     from local_app.config import Settings
     from local_app.memory_service import MemoryWorker

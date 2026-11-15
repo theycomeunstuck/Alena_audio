@@ -52,6 +52,9 @@ function setup() {
     URLSearchParams, errorText: error => error.message, recoveryBlocksMessages: () => false,
     renderLearningSession: () => {}, updateChat: () => {}, sendPendingMessage: () => {},
     busy: (_button, callback) => callback(), loadConversationMemory: () => {},
+    // The extracted wiring also binds the diagnostics refresh button; the
+    // diagnostics panel itself is out of scope for this harness.
+    loadMemoryDiagnostics: () => {},
     loadLearningArchive: () => {}, crypto: { randomUUID: () => 'client-id' },
   };
   vm.runInNewContext([

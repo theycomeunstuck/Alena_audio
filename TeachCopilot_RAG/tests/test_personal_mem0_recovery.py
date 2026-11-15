@@ -1,6 +1,12 @@
-"""An uncertain external write must not become trusted Mem0 evidence."""
+"""An uncertain external write must not become trusted Mem0 evidence.
 
-from research_memory.personal_memory_lab.backends import Mem0Adapter, scope
+The adapter under test is the application port (local_app.memory_ported) that
+the product actually imports since the memory pipeline became self-contained;
+the research tree copy of personal_memory_lab.backends is no longer present in
+this repository, and product behaviour must be pinned against the ported seam.
+"""
+
+from local_app.memory_ported.personal_memory_lab.backends import Mem0Adapter, scope
 
 
 def test_search_does_not_trust_lesson_with_unfinished_index():

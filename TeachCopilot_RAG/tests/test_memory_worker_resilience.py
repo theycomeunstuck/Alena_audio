@@ -2,7 +2,7 @@
 
 Drives the real MemoryWorker.run_once with an in-memory fake store that mimics only
 the documented local_app/memory_store.py behaviours under test (the finish_memory_job
-ownership check at lines 1284-1293 and the queue cap at lines 946-950). This is the
+ownership check at line 1303 and the queue cap at line 966). This is the
 same pure-Python pattern as .audit/20261115-0002/repro/V6/repro_cl2_cl4_cl5_worker_crashes.py:
 no database, no network.
 
@@ -43,7 +43,7 @@ from local_app.memory_store import MemoryQueueFullError
 DRIFT_MESSAGES = (
     "source snapshot changed before personal memory selection",      # personal_memory.py:405
     "source snapshot changed before personal graph indexing",        # personal_graph_memory.py:973
-    "learner revision changed before personal graph indexing",       # memory_service.py:366
+    "learner revision changed before personal graph indexing",       # memory_service.py:390
 )
 
 
@@ -53,8 +53,8 @@ class FakeStore:
     def __init__(self, *, rows=(), finish_raises=None, stale_on_finish=False, queue_full=False):
         self.jobs = {row["job_id"]: dict(row) for row in rows}
         self.finish_raises = finish_raises        # a store fault raised inside finish_memory_job
-        self.stale_on_finish = stale_on_finish    # the memory_store.py:1291-1293 marker path
-        self.queue_full = queue_full              # the memory_store.py:946-950 waiting-request cap
+        self.stale_on_finish = stale_on_finish    # the memory_store.py:1309 marker path
+        self.queue_full = queue_full              # the memory_store.py:966 waiting-request cap
         self.enqueued = []
 
     def claim_memory_job(self, worker_id, lease_seconds=120):
@@ -77,12 +77,12 @@ class FakeStore:
             raise self.finish_raises
         if job["status"] in ("completed", "failed", "unknown_outcome"):
             return dict(job)
-        # memory_store.py:1286-1287 – after a lease-expiry takeover requeued the row
+        # memory_store.py:1302-1303 – after a lease-expiry takeover requeued the row
         # under another claim, the losing worker's finish is rejected.
         if job["status"] != "running" or job.get("worker_id") != str(worker_id):
             raise ValueError("worker does not own this running job")
         if error is None and self.stale_on_finish:
-            # memory_store.py:1291-1293 – learner revisions moved during generation.
+            # memory_store.py:1307-1309 – learner revisions moved during generation.
             error = "stale_revision: learner card or learning sources changed during generation"
         job["status"] = ("unknown_outcome" if unknown_outcome
                          else "failed" if error else "completed")
@@ -137,8 +137,8 @@ def test_lease_takeover_rejecting_the_failure_record_is_benign(caplog):
 
     def prepare(job):
         # A concurrent claimer's lease-expiry recovery requeued the row between our
-        # claim and our finish (memory_store.py:991-995); the heartbeat in _call then
-        # reports memory_job_lease_expired (memory_service.py:294-295).
+        # claim and our finish (memory_store.py:1010-1011); the heartbeat in _call then
+        # reports memory_job_lease_expired (memory_service.py:317-319).
         store.jobs[job["job_id"]]["status"] = "queued"
         raise ValueError("memory_job_lease_expired")
 

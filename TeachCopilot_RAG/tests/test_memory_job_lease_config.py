@@ -134,6 +134,16 @@ def test_worker_claim_and_heartbeat_use_the_configured_lease():
     assert store.heartbeat_leases == [900]
 
 
+def test_worker_lease_floor_holds_for_a_runtime_below_the_minimum():
+    # Settings rejects LOCAL_JOB_LEASE_SECONDS below 60, but the worker helper is
+    # the last guard before the store's own clamp: a runtime carrying a smaller
+    # value must still claim and heartbeat with the 60-second minimum, never a
+    # lease shorter than the minimum claim window.
+    store = run_worker(settings=SimpleNamespace(job_lease_seconds=10))
+    assert store.claim_leases == [60]
+    assert store.heartbeat_leases == [60]
+
+
 # --- Interactive chat claim (both api.py claim branches) ---------------------
 
 
