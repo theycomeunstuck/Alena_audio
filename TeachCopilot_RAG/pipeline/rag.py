@@ -1,5 +1,7 @@
 # pipeline/rag.py
 import logging
+from contextlib import closing
+
 import psycopg2
 import psycopg2.extras
 import torch
@@ -105,8 +107,11 @@ def search_knowledge(query: str, subject: str | None = None,
         params = {"emb": embedding, "min_score": RAG_MIN_SCORE,
                   "top_k": top_k, "subject": subject,
                   "difficulty": difficulty, "tags": tags, "topic_ids": topic_ids, "grade": grade}
-        with psycopg2.connect(DATABASE_URL,
-                              cursor_factory=psycopg2.extras.RealDictCursor) as conn:
+        # closing(): psycopg2's context manager commits/rolls back but does not
+        # close the connection, so plain `with psycopg2.connect(...)` leaked one
+        # per search on this hot path.
+        with closing(psycopg2.connect(DATABASE_URL,
+                                      cursor_factory=psycopg2.extras.RealDictCursor)) as conn:
             with conn.cursor() as cur:
                 cur.execute(sql, params)
                 results = [dict(r) for r in cur.fetchall()]

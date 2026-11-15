@@ -19,7 +19,9 @@ from contextlib import closing
 from pipeline.db import get_child_full_profile, get_connection
 from pipeline.rag import search_knowledge
 from pipeline.prompt_builder import build_system_prompt, BASE_SYSTEM_PROMPT
-from pipeline.profile_agent import should_update, assess_interaction, update_profile
+from pipeline.profile_agent import (
+    should_update, assess_interaction, update_profile, already_assessed
+)
 from pipeline.event_logger import log_event
 from pipeline.config import DEFAULT_CHILD_ID, PROFILE_UPDATE_INTERVAL, SPEAKER_MODE
 
@@ -127,9 +129,17 @@ class Filter:
             # SPEAKER_DETECT: To re-enable, add check:
             #   if not child_id or speaker_type != "child": return body
 
+            # A persisted marker shows this user-message boundary was already
+            # assessed: regenerate/retry of the same conversation must not
+            # re-apply the same relative score deltas a second time.
+            if already_assessed(child_id, user_msg_count):
+                logger.info("Profile already assessed at boundary %s for child=%s — skipping",
+                            user_msg_count, child_id)
+                return body
+
             assessments = assess_interaction(child_id, messages)
             if assessments:
-                update_profile(child_id, assessments)
+                update_profile(child_id, assessments, message_count=user_msg_count)
                 log_event(child_id, "profile_update", {
                     "trigger": f"auto_{PROFILE_UPDATE_INTERVAL}msg",
                     "assessments": assessments,
