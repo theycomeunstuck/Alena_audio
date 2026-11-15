@@ -21,13 +21,28 @@ def get_tts_engine() -> TtsEngine:
     return _tts_engine
 
 
+def _tts_runtime(device: str | None = None) -> dict:
+    """Resolve device/dtype/attention for Qwen3-TTS from settings and env.
+
+    Defaults follow the detected device (settings.DEVICE – env DEVICE or the
+    autodetected value from core.config): bfloat16 + sdpa attention on CUDA,
+    float32 + sdpa on CPU. flash_attention_2 stays available opt-in via
+    TTS_ATTN_IMPLEMENTATION for hosts that have flash-attn installed.
+    """
+    import os
+
+    device = str(device if device is not None else settings.DEVICE)
+    dtype = torch.bfloat16 if device.startswith("cuda") else torch.float32
+    attn = os.getenv("TTS_ATTN_IMPLEMENTATION", "sdpa")
+    return {"device_map": device, "dtype": dtype, "attn_implementation": attn}
+
+
 class TtsEngine:
     def __init__(self):
+        runtime = _tts_runtime()
         self._QwenTTS = Qwen3TTSModel.from_pretrained(
             "pretrained_models/Qwen3-TTS-12Hz-1.7B-Base",
-            device_map="cuda:0",
-            dtype=torch.bfloat16,
-            attn_implementation="flash_attention_2",
+            **runtime,
         )
 
 
