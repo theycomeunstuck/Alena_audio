@@ -13,11 +13,12 @@ from urllib.error import HTTPError, URLError
 from research_memory.clients import CompletionValidationError
 from research_memory.spiderssense import BudgetError, ProviderRequestError
 from .protocol import (CRITERIA, ROOT, SCHEMA, calibration_gate, digest, lines,
-                       read, require, rows, sha, sources, validate, write)
+                       read, require, rows, sha, sources, validate, validate_expected, write)
 
 PROJECT = ROOT.parent
 FROZEN = PROJECT / ".local/research_memory/final_v4_20261018"
 MODEL = "openai/gpt-6.1-sol"
+EXPECTED_LABEL_FILES = ("calibration.expected.private.jsonl", "dev.expected.private.jsonl")
 
 
 def now():
@@ -67,6 +68,8 @@ def prepare(output, *, frozen=FROZEN):
     (output / "inputs").mkdir()
     for path in sorted((ROOT / "data").glob("*.jsonl")):
         shutil.copyfile(path, output / "inputs" / path.name)
+    for name in EXPECTED_LABEL_FILES:
+        validate_expected(rows(output / "inputs" / name))
     result_rows = list(result_rows)
     random.Random(20261022).shuffle(result_rows)
     cases, mapping = [], []
@@ -104,6 +107,8 @@ def check_inputs(workspace):
     for name, expected in stamp["input_sha256"].items():
         require(sha(workspace / "inputs" / name) == expected, f"Prepared case file changed: {name}")
     require(frozen_checks() == stamp["frozen_sha256"], "Frozen source changed since preparation")
+    for name in EXPECTED_LABEL_FILES:
+        validate_expected(rows(workspace / "inputs" / name))
 
 
 def _settings(config):
@@ -352,12 +357,6 @@ def run_phase(workspace, phase, config_path, authorization_path, *, execute=Fals
     require(not preflight["blocked"], "Authorized budget ledger is blocked")
     if phase == "dev_completion":
         require(preflight["calls_reserved"] == 6, "Dev completion requires exactly six existing reserved calls, including unknown case six")
-    claims = Path(authorization_path).resolve().parent / "assessment_v5_execution_claims"
-    claims.mkdir(exist_ok=True)
-    global_claim = claims / f"{phase}.json"
-    with global_claim.open("x", encoding="utf-8") as stream:
-        json.dump({"phase": phase, "workspace": str(workspace.resolve()), "created_at_utc": now(),
-                   "policy": "one attempt across all workspaces; unknown outcome cannot be retried"}, stream, ensure_ascii=False)
     target = workspace / phase
     target.mkdir(exist_ok=False)
     # Exclusive phase creation is deliberately irreversible, even after unknown outcome.
@@ -380,6 +379,15 @@ def run_phase(workspace, phase, config_path, authorization_path, *, execute=Fals
     if completion_proof:
         manifest["completion_proof"] = completion_proof
     write(target / "manifest.json", manifest)
+    # The cross-workspace claim is written last, after the durable setup above has fully
+    # succeeded and immediately before the first paid call – a transient setup failure
+    # must not permanently consume the paid phase with zero calls.
+    claims = Path(authorization_path).resolve().parent / "assessment_v5_execution_claims"
+    claims.mkdir(exist_ok=True)
+    global_claim = claims / f"{phase}.json"
+    with global_claim.open("x", encoding="utf-8") as stream:
+        json.dump({"phase": phase, "workspace": str(workspace.resolve()), "created_at_utc": now(),
+                   "policy": "one attempt across all workspaces; unknown outcome cannot be retried"}, stream, ensure_ascii=False)
     answers = []
     stopped = False
     try:

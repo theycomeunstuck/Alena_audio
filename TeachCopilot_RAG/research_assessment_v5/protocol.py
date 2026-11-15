@@ -146,7 +146,46 @@ def validate(text, case):
     return value
 
 
+def validate_expected(expected):
+    """Schema-check expected-label rows; must hold before any paid call depends on them."""
+    problems = []
+    seen = set()
+    for number, row in enumerate(expected, 1):
+        where = f"row {number}"
+        if not isinstance(row, dict):
+            problems.append(f"{where}: row is not a JSON object")
+            continue
+        code = row.get("answer_code")
+        if _text(code):
+            where = f"row {number} ({code})"
+            if code in seen:
+                problems.append(f"{where}: duplicate answer_code")
+            seen.add(code)
+        missing = [field for field in ("answer_code", "expected_verdict", "critical",
+                                       "required_utility", "evidence_turn_ids", "situation_type")
+                   if field not in row]
+        if missing:
+            problems.append(f"{where}: missing required fields {missing}")
+        if "answer_code" in row and not _text(row["answer_code"]):
+            problems.append(f"{where}: answer_code must be a non-empty string")
+        if "expected_verdict" in row and row["expected_verdict"] not in VERDICTS:
+            problems.append(f"{where}: expected_verdict must be one of " + ", ".join(VERDICTS))
+        if "critical" in row and type(row["critical"]) is not bool:
+            problems.append(f"{where}: critical must be a boolean")
+        if "required_utility" in row and row["required_utility"] not in UTILITIES:
+            problems.append(f"{where}: required_utility must be one of " + ", ".join(UTILITIES))
+        ids = row.get("evidence_turn_ids")
+        if "evidence_turn_ids" in row and not (isinstance(ids, list) and bool(ids)
+                and all(_text(item) for item in ids)):
+            problems.append(f"{where}: evidence_turn_ids must be a non-empty list of non-empty strings")
+        if "situation_type" in row and not _text(row["situation_type"]):
+            problems.append(f"{where}: situation_type must be a non-empty string")
+    require(not problems, "Malformed expected labels (checked before any paid call); offending rows: "
+            + "; ".join(problems))
+
+
 def calibration_gate(cases, expected, judgements):
+    validate_expected(expected)
     require(len(cases) == len(expected) == 24, "Calibration must cover 24 new cases")
     by_code = {case["answer_code"]: case for case in cases}
     want = {row["answer_code"]: row for row in expected}
