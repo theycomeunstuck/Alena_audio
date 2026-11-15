@@ -240,7 +240,7 @@ def already_assessed(child_id: str, message_count: int,
 
 def update_profile(child_id: str, assessments: list[dict],
                    message_count: int | None = None,
-                   conversation_key: str | None = None) -> None:
+                   conversation_key: str | None = None) -> int:
     """Record chat-side LLM observations as an ADVISORY event (F-012).
 
     User decision 2026-11-15: the EMA zone assessment (learner cards via

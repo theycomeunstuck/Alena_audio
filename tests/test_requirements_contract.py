@@ -41,3 +41,19 @@ def test_torch_pin_matches_between_gpu_and_cpu_requirements():
         f"requirements_GPU_noTTS_api.txt pins {gpu!r} but "
         f"requirements_cpu_noTTS_api.txt pins {cpu!r}"
     )
+
+
+def test_torchaudio_pin_matches_between_gpu_and_cpu_requirements():
+    """torchaudio is imported by the app.main chain (audio_utils, audio_service,
+    speaker_service, audio_enhancement) - the pin must exist and match across
+    both manifests (verification round 2: it was missing while four modules
+    import it at module level)."""
+    gpu = _pinned_version(_requirements_text("requirements_GPU_noTTS_api.txt"), "torchaudio")
+    cpu = _pinned_version(_requirements_text("requirements_cpu_noTTS_api.txt"), "torchaudio")
+    assert gpu is not None, "requirements_GPU_noTTS_api.txt must contain a torchaudio== pin"
+    assert cpu is not None, "requirements_cpu_noTTS_api.txt must contain a torchaudio== pin"
+    assert gpu == cpu, (
+        "torchaudio pin drifted between manifests: "
+        f"requirements_GPU_noTTS_api.txt pins {gpu!r} but "
+        f"requirements_cpu_noTTS_api.txt pins {cpu!r}"
+    )
