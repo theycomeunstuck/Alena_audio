@@ -3,7 +3,7 @@ from typing import Any, Dict, Optional, Tuple
 import numpy as np
 import torch, torchaudio
 import torch.nn.functional as F
-import os, uuid
+import os, re, tempfile, uuid
 from pathlib import Path
 from speechbrain.inference.speaker import EncoderClassifier
 from app.services.audio_utils import load_and_resample
@@ -14,6 +14,51 @@ from core.audio_utils import normalize_rms
 from core.config import TRAIN_USER_VOICE_S, EMBEDDINGS_DIR, SAMPLE_RATE, sim_threshold, EMBEDDINGS_WAV_DIR
 
 _ENCODER: Optional[EncoderClassifier] = None
+
+
+# --- Audit F-021 / F-021b / F-026 helpers: strict resource ids and per-request temp files ---
+
+# Anything interpolated into a filesystem path (EMBEDDINGS_DIR/<id>.npy,
+# EMBEDDINGS_WAV_DIR/<id>.wav, VOICES_DIR/<id>/...) must match this pattern;
+# anything else enabled traversal writes and registry poisoning (audit F-021).
+_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+
+
+def validate_resource_id(value: str, kind: str = "id") -> str:
+    """Reject ids that could traverse directories or poison the registry.
+
+    Allowed: 1..64 characters of [A-Za-z0-9_-] ("_default" included). Anything
+    else (separators, dots, spaces, empty, too long) raises ValueError, which
+    the routes map to HTTP 400.
+    """
+    if not isinstance(value, str) or _ID_RE.fullmatch(value) is None:
+        raise ValueError(f"invalid {kind}: must be 1-64 characters of [A-Za-z0-9_-]")
+    return value
+
+
+def unique_temp_file(directory: Path, original_name: Optional[str], prefix: str = "upload_") -> Path:
+    """Create a unique per-request temp file inside `directory` (audit F-021b).
+
+    The name comes from tempfile (unpredictable, collision-free); only a safe
+    suffix is carried over from the original upload name, so it can never
+    contain separators or traversal segments.
+    """
+    suffix = Path(original_name or "").suffix.lower()
+    if not re.fullmatch(r"\.[A-Za-z0-9]{1,10}", suffix):
+        suffix = ""
+    fd, name = tempfile.mkstemp(prefix=prefix, suffix=suffix, dir=str(directory))
+    os.close(fd)
+    return Path(name)
+
+
+def cleanup_temp_file(path: Optional[Path]) -> None:
+    """Best-effort removal of a per-request temp file (audit F-026)."""
+    if path is None:
+        return
+    try:
+        Path(path).unlink(missing_ok=True)
+    except OSError:
+        pass
 
 
 class SpeakerService:
@@ -80,6 +125,7 @@ class SpeakerService:
         Записывает голос с локального микрофона API-хоста, извлекает эмбеддинг и
         сохраняет в EMBEDDINGS_DIR/<user_id>.npy
         """
+        validate_resource_id(user_id, "user_id")  # audit F-021
         if user_id == "_default":
             user_id = str(uuid.uuid4().hex)
 
@@ -114,6 +160,7 @@ class SpeakerService:
 
     def train_from_file(self, probe_wav: np.ndarray, user_id: str = "_default") -> Dict[str, Any]:
 
+        validate_resource_id(user_id, "user_id")  # audit F-021
         if user_id == "_default":
             user_id = str(uuid.uuid4().hex)
 

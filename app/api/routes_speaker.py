@@ -5,7 +5,7 @@ from typing import Optional
 
 import core.config
 from app.settings import STORAGE_DIR
-from app.services.speaker_service import SpeakerService
+from app.services.speaker_service import SpeakerService, validate_resource_id, unique_temp_file, cleanup_temp_file
 from app.services.multi_speaker_matcher import get_global_matcher
 from app.services.audio_utils import load_and_resample
 from app.models.speaker_models import VerifyResponse, TrainMicResponse, MultiVerifyResponse, MultiVerifyMatch, \
@@ -21,14 +21,17 @@ async def verify(
     probe: UploadFile = File(...),
     reference: UploadFile | None = File(None),
 ):
-    probe_path = STORAGE_DIR / f"probe_{probe.filename}"
-    probe_path.write_bytes(await probe.read())
+    probe_path: Optional[Path] = None
     ref_path: Optional[Path] = None
-    if reference is not None: # Если получили второй аргумент по API
-        ref_path = STORAGE_DIR / f"ref_{reference.filename}"
-        ref_path.write_bytes(await reference.read())
-
     try:
+        # audit F-021b/F-026: unique per-request temp files instead of the
+        # predictable shared probe_/ref_ names, deleted in finally below.
+        probe_path = unique_temp_file(STORAGE_DIR, probe.filename, prefix="probe_")
+        probe_path.write_bytes(await probe.read())
+        if reference is not None: # Если получили второй аргумент по API
+            ref_path = unique_temp_file(STORAGE_DIR, reference.filename, prefix="ref_")
+            ref_path.write_bytes(await reference.read())
+
         result = svc.verify_files(probe_path, ref_path) # ожидается {'score': float, 'decision': bool}
         if not isinstance(result, dict) or "score" not in result or "decision" not in result:
             raise ValueError("invalid response from speaker service (app/api/routes_speaker.py)")
@@ -39,6 +42,9 @@ async def verify(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"internal error: {e.__class__.__name__}: {e}")
+    finally:
+        cleanup_temp_file(probe_path)
+        cleanup_temp_file(ref_path)
 
 @router.post("/verify_registry", response_model=RegistryVerifyResponse, summary="Проверка образца по всему реестру зарегистрированных голосов")
 async def verify_registry(
@@ -92,11 +98,12 @@ def registry_reload(
 @router.post("/train/microphone", response_model=TrainMicResponse)
 def train_microphone(
     user_id: str = Query("_default", description="Идентификатор пользователя. Если не задан, то генерируется случайный (uuid4)"),
-    duration: float = Query(TRAIN_USER_VOICE_S, description=f"Длительность записи, сек (по умолчанию из конфигурации: {TRAIN_USER_VOICE_S})"),
+    duration: float = Query(TRAIN_USER_VOICE_S, le=30, description=f"Длительность записи, сек (по умолчанию из конфигурации: {TRAIN_USER_VOICE_S}, максимум 30)"),  # audit F-025b: верхняя граница
 ):
     """Записывает образец голоса с локального микрофона (вроде как того, что на машине, держащем API)
     сохраняет эмбеддинг, обновляет бд."""
     try:
+        validate_resource_id(user_id, "user_id")  # audit F-021
         res = svc.train_from_microphone(user_id=user_id, duration=duration)
         matcher.reload() #обновляем бд
         return res
@@ -115,6 +122,7 @@ async def train_file(
     """Записывает образец голоса с локального микрофона (вроде как того, что на машине, держащем API)
     сохраняет эмбеддинг, обновляет бд."""
     try:
+        validate_resource_id(user_id, "user_id")  # audit F-021: до декодирования контента
         buf = await probe.read()
         audio = load_and_resample(buf)
         res = svc.train_from_file(probe_wav=audio, user_id=user_id)

@@ -9,6 +9,7 @@ import io, pathlib, tempfile
 
 from app import settings
 from app.models.audio_models import TtsIn, CloneOut
+from app.services.speaker_service import validate_resource_id, cleanup_temp_file
 from core.TTS import VoiceStore
 from core.TTS.tts_engine import get_tts_engine
 
@@ -31,13 +32,18 @@ async def clone_voice(file: UploadFile = File(...)):
     if suffix not in {".wav", ".mp3", ".flac", ".m4a", ".ogg"}:
         raise HTTPException(status_code=400, detail="Поддерживаются WAV/MP3/FLAC/M4A/OGG")
 
-    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-        tmp.write(await file.read())
-        tmp_path = pathlib.Path(tmp.name)
+    tmp_path: Optional[pathlib.Path] = None
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+            tmp.write(await file.read())
+            tmp_path = pathlib.Path(tmp.name)
 
-    meta = store.clone_from_upload(tmp_path, sample_rate=settings.TTS_SAMPLE_RATE)
+        meta = store.clone_from_upload(tmp_path, sample_rate=settings.TTS_SAMPLE_RATE)
 
-    return {"voice_id": meta.voice_id}
+        return {"voice_id": meta.voice_id}
+    finally:
+        # audit F-026: the delete=False temp file used to persist forever.
+        cleanup_temp_file(tmp_path)
 
 
 @router.post(
@@ -56,6 +62,10 @@ async def tts(req: TtsIn):
         raise HTTPException(status_code=400, detail="Текст не может быть пустым")
 
     vid = req.voice_id or "_default"
+    try:
+        validate_resource_id(vid, "voice_id")  # audit F-021
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     if not store.exists(vid):
         raise HTTPException(status_code=404, detail=f"Голос '{vid}' не найден")
 

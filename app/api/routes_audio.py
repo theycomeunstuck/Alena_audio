@@ -1,7 +1,9 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, Query
 from pathlib import Path
+from typing import Optional
 from app.settings import STORAGE_DIR
 from app.services.audio_service import AudioService
+from app.services.speaker_service import unique_temp_file, cleanup_temp_file
 from app.models.audio_models import EnhanceResponse, TranscribeResponse
 
 router = APIRouter(prefix="/audio", tags=["Audio"])
@@ -11,10 +13,15 @@ svc = AudioService(STORAGE_DIR)
              response_model=EnhanceResponse
              )
 async def enhance(file: UploadFile = File(...)):
-    in_path = STORAGE_DIR / f"upload_{file.filename}"
-    in_path.write_bytes(await file.read())
-    out_path = svc.enhance_file(in_path)
-    return {"output_filename": out_path.name}
+    # audit F-021b/F-026: unique per-request temp file instead of the
+    # predictable shared upload_ name, deleted in finally after use.
+    in_path = unique_temp_file(STORAGE_DIR, file.filename, prefix="upload_")
+    try:
+        in_path.write_bytes(await file.read())
+        out_path = svc.enhance_file(in_path)
+        return {"output_filename": out_path.name}
+    finally:
+        cleanup_temp_file(in_path)
 
 @router.post("/transcribe",
              response_model=TranscribeResponse,
@@ -23,12 +30,15 @@ async def enhance(file: UploadFile = File(...)):
 async def transcribe(file: UploadFile = File(...),
                      language: str = "ru",
                      verbose: bool = Query(False, description="Вернуть подробный объект raw")):
-    in_path = STORAGE_DIR / f"upload_{file.filename}"
-    in_path.write_bytes(await file.read())
+    # audit F-021b/F-026: unique per-request temp file, deleted in finally.
+    in_path = unique_temp_file(STORAGE_DIR, file.filename, prefix="upload_")
     try:
+        in_path.write_bytes(await file.read())
         result = svc.transcribe_file(in_path, language=language)
     except ValueError as e:
         raise HTTPException(400, str(e))
+    finally:
+        cleanup_temp_file(in_path)
 
     text = result.get("text", "")
     raw  = result.get("raw") if verbose else None
