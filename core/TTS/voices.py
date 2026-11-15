@@ -2,7 +2,7 @@
 from __future__ import annotations
 from pathlib import Path
 from pydantic import BaseModel
-import uuid, shutil, json, hashlib
+import uuid, shutil, json, hashlib, threading
 from typing import Optional
 from pydub import AudioSegment, silence  # требует ffmpeg
 # from silero_stress import load_accentor # silero-stressor. todo: Если договорюсь с @bceloss (tg), то RuAccent/
@@ -23,6 +23,22 @@ class VoiceStore:
     def __init__(self, root: Path | str):
         self.root = Path(root)
         self.root.mkdir(parents=True, exist_ok=True)
+        # audit F-024: one AsrTranscriber per language instead of a fresh
+        # Whisper load for every uncached transcription. Keyed by the language
+        # kwarg to keep its semantics (AsrTranscriber binds language at
+        # construction; None => autodetect).
+        self._transcribers: dict[Optional[str], AsrTranscriber] = {}
+        self._transcribers_lock = threading.Lock()
+
+    def _get_transcriber(self, language: Optional[str] = None) -> AsrTranscriber:
+        transcriber = self._transcribers.get(language)
+        if transcriber is None:
+            with self._transcribers_lock:
+                transcriber = self._transcribers.get(language)
+                if transcriber is None:
+                    transcriber = AsrTranscriber(language=language)
+                    self._transcribers[language] = transcriber
+        return transcriber
 
 
     def _voice_dir(self, voice_id: str) -> Path:
@@ -91,7 +107,7 @@ class VoiceStore:
         if sha1 in by_sha:
             return by_sha[sha1]
 
-        transcriber = AsrTranscriber(language=language)
+        transcriber = self._get_transcriber(language)  # audit F-024: reuse, not per-call
         text = transcriber.transcribe(wav_path)
         text = (text or "").strip()
         by_sha[sha1] = text

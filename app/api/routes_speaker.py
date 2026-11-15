@@ -2,6 +2,7 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, Query
 from pathlib import Path
 from typing import Optional
+import asyncio  # audit F-010: offload blocking model calls off the event loop
 
 import core.config
 from app.settings import STORAGE_DIR
@@ -32,7 +33,8 @@ async def verify(
             ref_path = unique_temp_file(STORAGE_DIR, reference.filename, prefix="ref_")
             ref_path.write_bytes(await reference.read())
 
-        result = svc.verify_files(probe_path, ref_path) # ожидается {'score': float, 'decision': bool}
+        # audit F-010: ECAPA embedding blocks -- run it off the event loop.
+        result = await asyncio.to_thread(svc.verify_files, probe_path, ref_path) # ожидается {'score': float, 'decision': bool}
         if not isinstance(result, dict) or "score" not in result or "decision" not in result:
             raise ValueError("invalid response from speaker service (app/api/routes_speaker.py)")
         return result
@@ -60,7 +62,8 @@ async def verify_registry(
         buf = await probe.read()
         # Для бинарного решения достаточно best из top-1, но для прозрачности собираем top_k
         audio = load_and_resample(buf)
-        result = matcher.match_probe_array(audio, top_k=top_k)
+        # audit F-010: ECAPA/SepFormer via match_probe_array blocks -- off the loop.
+        result = await asyncio.to_thread(matcher.match_probe_array, audio, top_k=top_k)
         best = result[0] if result else None
         decision = bool(best and best["score"] >= float(sim_threshold))
         best_model = MultiVerifyMatch(**best) if decision and best is not None else None
@@ -76,7 +79,8 @@ async def verify_topk(
     try:
         buf = await probe.read()
         audio = load_and_resample(buf)
-        matches = matcher.match_probe_array(audio, top_k=top_k)
+        # audit F-010: ECAPA/SepFormer via match_probe_array blocks -- off the loop.
+        matches = await asyncio.to_thread(matcher.match_probe_array, audio, top_k=top_k)
         return MultiVerifyResponse(count=len(matches), matches=[MultiVerifyMatch(**m) for m in matches])
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"internal error: {e.__class__.__name__}: {e}")
@@ -125,7 +129,8 @@ async def train_file(
         validate_resource_id(user_id, "user_id")  # audit F-021: до декодирования контента
         buf = await probe.read()
         audio = load_and_resample(buf)
-        res = svc.train_from_file(probe_wav=audio, user_id=user_id)
+        # audit F-010: noise suppression (SepFormer) + embedding (ECAPA) block -- off the loop.
+        res = await asyncio.to_thread(svc.train_from_file, probe_wav=audio, user_id=user_id)
         matcher.reload() #обновляем бд
         return res
     except ValueError as e:

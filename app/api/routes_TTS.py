@@ -6,6 +6,7 @@ from fastapi.responses import Response
 from pydantic import BaseModel, Field
 from typing import Optional, Literal
 import io, pathlib, tempfile
+import asyncio  # audit F-010: offload blocking model calls off the event loop
 
 from app import settings
 from app.models.audio_models import TtsIn, CloneOut
@@ -38,7 +39,9 @@ async def clone_voice(file: UploadFile = File(...)):
             tmp.write(await file.read())
             tmp_path = pathlib.Path(tmp.name)
 
-        meta = store.clone_from_upload(tmp_path, sample_rate=settings.TTS_SAMPLE_RATE)
+        # audit F-010: pydub processing + Whisper transcription block -- run
+        # them off the event loop (same pattern as routes_ws.py).
+        meta = await asyncio.to_thread(store.clone_from_upload, tmp_path, sample_rate=settings.TTS_SAMPLE_RATE)
 
         return {"voice_id": meta.voice_id}
     finally:

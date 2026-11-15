@@ -42,10 +42,9 @@ if True:
 
 
 
-import whisper
+import threading
+
 from torch.cuda import is_available
-from speechbrain.inference.separation import SepformerSeparation as separator
-from speechbrain.inference.speaker import SpeakerRecognition
 
 
 # ПАРАМЕТРЫ
@@ -79,23 +78,107 @@ else:
 
 # ————————————————————————————————————————————————————————————————————
 
-# Загрузка модели ASR
-asr_model = whisper.load_model(WHISPER_MODEL, device=device)
+# Audit F-019: the heavy models (Whisper, SepFormer, ECAPA) used to be built
+# here at module level, so `import core.config` (and therefore
+# `import app.main`) paid the full model load on every boot/test/reload run.
+# They are now lazy singletons: builders + accessor functions below, built on
+# first use. The old module-level names (`asr_model`, `noise_Model`,
+# `speech_verification_model`) are kept as lazy proxies so existing
+# `from core.config import asr_model` importers keep working unchanged.
+_model_build_lock = threading.Lock()
 
-noise_Model = separator.from_hparams(
-    source="speechbrain/sepformer-dns4-16k-enhancement",
-    savedir=MODELS_DIR / "SpeechBrain" / "sepformer-dns4-16k-enhancement",
-    run_opts={"device":device}).eval()
+
+def _build_asr_model():
+    import whisper  # lazy: the heavy package is only needed on first build
+    return whisper.load_model(WHISPER_MODEL, device=device)
 
 
-'''
-в API pipeline сейчас используется только энкодер от spkrec-ecapa-voxceleb. 
-Расположение app/services/embeddings_utils.py (def _get_encoder)
-'''
-speech_verification_model = SpeakerRecognition.from_hparams(
-    source="speechbrain/spkrec-ecapa-voxceleb",
-    savedir=MODELS_DIR / "SpeechBrain" / "spkrec-ecapa-voxceleb",
-    run_opts={"device":device}).eval()
+def _build_noise_model():
+    from speechbrain.inference.separation import SepformerSeparation as separator
+    return separator.from_hparams(
+        source="speechbrain/sepformer-dns4-16k-enhancement",
+        savedir=MODELS_DIR / "SpeechBrain" / "sepformer-dns4-16k-enhancement",
+        run_opts={"device":device}).eval()
+
+
+def _build_speech_verification_model():
+    from speechbrain.inference.speaker import SpeakerRecognition
+    # NOTE (audit F-019): this copy is only consumed by
+    # Audio_Enhancement.speech_verification, which has no live call sites; the
+    # live ECAPA encoder is app/services/embeddings_utils.get_encoder().
+    # With the lazy singleton it stays unloaded until someone calls it.
+    return SpeakerRecognition.from_hparams(
+        source="speechbrain/spkrec-ecapa-voxceleb",
+        savedir=MODELS_DIR / "SpeechBrain" / "spkrec-ecapa-voxceleb",
+        run_opts={"device":device}).eval()
+
+
+_asr_model = None
+
+
+def get_asr_model():
+    """Whisper ASR model; built on first use (audit F-019)."""
+    global _asr_model
+    if _asr_model is None:
+        with _model_build_lock:
+            if _asr_model is None:
+                _asr_model = _build_asr_model()
+    return _asr_model
+
+
+_noise_Model = None
+
+
+def get_noise_model():
+    """SepFormer enhancement model; built on first use (audit F-019)."""
+    global _noise_Model
+    if _noise_Model is None:
+        with _model_build_lock:
+            if _noise_Model is None:
+                _noise_Model = _build_noise_model()
+    return _noise_Model
+
+
+_speech_verification_model = None
+
+
+def get_speech_verification_model():
+    """ECAPA SpeakerRecognition copy; built on first use (audit F-019)."""
+    global _speech_verification_model
+    if _speech_verification_model is None:
+        with _model_build_lock:
+            if _speech_verification_model is None:
+                _speech_verification_model = _build_speech_verification_model()
+    return _speech_verification_model
+
+
+class _LazyModel:
+    """Compatibility proxy over a lazy model singleton.
+
+    Builds the underlying model on the first attribute access and delegates
+    everything to it. Setting attributes on the proxy (e.g. the
+    `monkeypatch.setattr(config.asr_model, "transcribe", fake)` pattern used
+    by tests/conftest.py) shadows the delegated attribute.
+    """
+
+    def __init__(self, builder):
+        self._builder = builder
+        self._obj = None
+        self._lock = threading.Lock()
+
+    def __getattr__(self, name):
+        obj = self._obj
+        if obj is None:
+            with self._lock:
+                if self._obj is None:
+                    self._obj = self._builder()
+                obj = self._obj
+        return getattr(obj, name)
+
+
+asr_model = _LazyModel(get_asr_model)
+noise_Model = _LazyModel(get_noise_model)
+speech_verification_model = _LazyModel(get_speech_verification_model)
 
 
 try:
