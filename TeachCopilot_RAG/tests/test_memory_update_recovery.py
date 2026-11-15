@@ -2,8 +2,8 @@
 
 import pytest
 
-from research_memory.contracts import ContractValidationError
-from research_memory.methods import Memory
+from local_app.memory_ported.contracts import ContractValidationError
+from local_app.memory_ported.methods import Memory
 
 
 @pytest.mark.parametrize("method", ["summary", "structured", "structured_v2"])

@@ -5,7 +5,7 @@ import pytest
 
 from local_app.memory_service import (SESSION_END_CONTEXT_NOTICE, _tail_with_dialogue_context,
     approved_chat_memory, memory_state)
-from research_memory.methods import Memory
+from local_app.memory_ported.methods import Memory
 from tests.test_dialogue_memory_context import TOPIC, prepare, source
 
 

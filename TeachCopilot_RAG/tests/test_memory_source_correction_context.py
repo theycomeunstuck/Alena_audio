@@ -5,7 +5,7 @@ import pytest
 
 from local_app.memory_service import (MemoryWorker, SOURCE_CORRECTION_NOTICE,
     _tail_with_dialogue_context, approved_chat_memory, memory_state, restore_memory)
-from research_memory.methods import Memory
+from local_app.memory_ported.methods import Memory
 from tests.test_dialogue_memory_context import SnapshotStore, TOPIC, prepare, source
 
 

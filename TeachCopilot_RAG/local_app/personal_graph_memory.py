@@ -869,8 +869,8 @@ async def graph_channel_source_ids(store, runtime, model, learner_id, question, 
     if index is None:
         return {"source_ids": None, "run_id": None, "reason": "no_ready_index"}
     run_id = index["run_id"]
-    from research_memory.personal_memory_lab.archive import Archive
-    from research_memory.personal_memory_lab.backends import GraphitiAdapter, make_graphiti
+    from local_app.memory_ported.personal_memory_lab.archive import Archive
+    from local_app.memory_ported.personal_memory_lab.backends import GraphitiAdapter, make_graphiti
     archive = None
     graph = None
     try:
@@ -912,7 +912,7 @@ class PersonalGraphProvider:
         self.store, self.runtime, self.model_call = store, runtime, model_call
 
     def _application_model(self):
-        from research_memory.personal_memory_lab.runtime import LocalModel
+        from local_app.memory_ported.personal_memory_lab.runtime import LocalModel
         model = ApplicationModel(self.runtime, self.model_call)
         # Refuse to use a server that silently ignores no-truncation flags.
         # The probe contains generated synthetic text only.
@@ -950,9 +950,9 @@ class PersonalGraphProvider:
         if not any(addresses) or any(value and value not in {"127.0.0.1", "localhost", "::1"} for value in addresses):
             raise ValueError("personal graph requires a local PostgreSQL database")
         model = self._application_model()
-        from research_memory.personal_memory_lab.archive import Archive
-        from research_memory.personal_memory_lab.backends import GraphitiAdapter, make_graphiti
-        from research_memory.personal_memory_lab.workflow import PersonalMemoryWorkflow
+        from local_app.memory_ported.personal_memory_lab.archive import Archive
+        from local_app.memory_ported.personal_memory_lab.backends import GraphitiAdapter, make_graphiti
+        from local_app.memory_ported.personal_memory_lab.workflow import PersonalMemoryWorkflow
         path = Path(self.runtime.settings.personal_graph_password_file)
         password = path.read_text(encoding="utf-8").strip()
         if not password:

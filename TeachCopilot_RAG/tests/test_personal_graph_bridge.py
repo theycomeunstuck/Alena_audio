@@ -296,7 +296,7 @@ def test_recent_tail_uses_original_turn_anchor_and_stays_inside_approved_ids():
 
 def test_application_workflow_uses_source_order_and_hydrates_lexical_hits_before_the_four_chunk_cap():
     pytest.importorskip("langgraph")
-    from research_memory.personal_memory_lab.workflow import PersonalMemoryWorkflow
+    from local_app.memory_ported.personal_memory_lab.workflow import PersonalMemoryWorkflow
 
     def lesson(lesson_id):
         return {"lesson_id": lesson_id, "observed_on": "2026-02-01", "topic_ids": ["math"],

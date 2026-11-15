@@ -17,9 +17,9 @@ import uuid
 
 from psycopg2 import InterfaceError, OperationalError
 
-from research_memory.contracts import action_schema, validate_action
-from research_memory.clients import input_budget_diagnostic
-from research_memory.methods import APPLICATION_METHODS, Memory, messages
+from local_app.memory_ported.contracts import action_schema, validate_action
+from local_app.memory_ported.clients import input_budget_diagnostic
+from local_app.memory_ported.methods import APPLICATION_METHODS, Memory, messages
 from .conversation_memory import (interest_messages, interest_schema, preference_projection,
                                   validate_interest_candidates)
 from .memory_store import (DIALOGUE_CONTEXT_CHARS, SESSION_END_CONTEXT_CHARS,

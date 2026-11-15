@@ -89,11 +89,11 @@ def test_source_top_k_wrapper_places_gate_between_retrieve_and_hydrate(monkeypat
     graph_api.StateGraph = FakeGraph
     langgraph = types.ModuleType("langgraph")
     langgraph.__path__ = []
-    workflow_module = types.ModuleType("research_memory.personal_memory_lab.workflow")
+    workflow_module = types.ModuleType("local_app.memory_ported.personal_memory_lab.workflow")
     workflow_module.State = dict
     monkeypatch.setitem(sys.modules, "langgraph", langgraph)
     monkeypatch.setitem(sys.modules, "langgraph.graph", graph_api)
-    monkeypatch.setitem(sys.modules, "research_memory.personal_memory_lab.workflow", workflow_module)
+    monkeypatch.setitem(sys.modules, "local_app.memory_ported.personal_memory_lab.workflow", workflow_module)
 
     class Workflow:
         async def retrieve(self, state):
@@ -248,8 +248,8 @@ class FakeArchive:
 
 def test_vector_compatibility_report_checks_all_scope_ids_hashes_and_current_models(tmp_path):
     import hashlib
-    from research_memory.personal_memory_lab.archive import canonical
-    from research_memory.personal_memory_lab.backends import lesson_text
+    from local_app.memory_ported.personal_memory_lab.archive import canonical
+    from local_app.memory_ported.personal_memory_lab.backends import lesson_text
 
     content = {"lesson_id": "l1", "observed_on": "2025-01-01", "topic_ids": ["math"],
                "turns": [{"turn_id": "s1", "role": "student", "text": "triangle"}]}

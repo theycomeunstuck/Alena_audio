@@ -10,7 +10,7 @@ import hashlib
 import json
 from pathlib import Path
 
-from research_memory.spiderssense import SpiderssenseClient
+from local_app.memory_ported.spiderssense import SpiderssenseClient
 
 
 AUTHORIZATION_KIND = "teachcopilot_additional_budget_v5"

@@ -14,7 +14,7 @@ from local_app.answer_adapter import AnswerAdapter, AnswerCapacityError, Educati
 from local_app.checked_division_context import (
     CHAT_CONTEXT_INSTRUCTIONS, DIVISION_TOPIC, checked_division_context,
 )
-from research_memory.spiderssense import KEY_ENV, ProviderRequestError, SpiderssenseClient
+from local_app.memory_ported.spiderssense import KEY_ENV, ProviderRequestError, SpiderssenseClient
 
 
 class LocalRuntime:
@@ -53,7 +53,7 @@ def setup_adapter(tmp_path, monkeypatch):
     transport = Mock()
     transport.open.return_value = Response()
     monkeypatch.setenv(KEY_ENV, "synthetic-test-key-123")
-    monkeypatch.setattr("research_memory.spiderssense.build_opener", lambda *args: transport)
+    monkeypatch.setattr("local_app.memory_ported.spiderssense.build_opener", lambda *args: transport)
     client = SpiderssenseClient(
         model="synthetic-test-model", input_usd_per_million="1", output_usd_per_million="2",
         pricing_verified=True, pricing_source="https://spiderssense.com/v1/models",

@@ -21,7 +21,7 @@ from local_app.checked_division_context import (
     CHAT_CONTEXT_INSTRUCTIONS, DIVISION_TOPIC, extract_literal_division_pair,
     validate_checked_division_context,
 )
-from research_memory.spiderssense import SpiderssenseClient
+from local_app.memory_ported.spiderssense import SpiderssenseClient
 from local_app.budget_authorization import validate_budget_authorization
 from local_app.memory_response_journal import ResponseJournalError
 from local_app.generation_scheduler import GenerationCapacityError

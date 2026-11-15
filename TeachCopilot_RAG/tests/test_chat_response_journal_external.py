@@ -12,8 +12,8 @@ from urllib.error import HTTPError
 import pytest
 
 from local_app.chat_response_journal import ChatResponseJournal, ResponseJournalError, journal_request
-from research_memory.clients import CompletionValidationError
-from research_memory.spiderssense import KEY_ENV, ProviderRequestError
+from local_app.memory_ported.clients import CompletionValidationError
+from local_app.memory_ported.spiderssense import KEY_ENV, ProviderRequestError
 from tests.test_answer_adapter import (
     IDENTITIES, SCHEMA, local_messages, projection, setup_adapter,  # noqa: F401 – shared fake HTTP fixture
 )

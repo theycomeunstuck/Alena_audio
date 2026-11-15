@@ -80,7 +80,7 @@ def test_worker_invalid_reference_is_failed_and_raw_response_kept_without_retry(
 
 def test_structured_v2_action_citations_are_limited_to_learning_records():
     from local_app.memory_service import MemoryWorker
-    from research_memory.contracts import ContractValidationError, action_schema, validate_action
+    from local_app.memory_ported.contracts import ContractValidationError, action_schema, validate_action
 
     store = WorkerStore()
     store.job["method"] = "structured_v2"
@@ -140,7 +140,7 @@ def test_structured_v2_action_citations_are_limited_to_learning_records():
 
 
 def test_non_v2_methods_keep_the_existing_action_evidence_default():
-    from research_memory.methods import Memory
+    from local_app.memory_ported.methods import Memory
 
     call = lambda *_args: ""
     for method in ("profile_only", "tail", "summary", "structured"):

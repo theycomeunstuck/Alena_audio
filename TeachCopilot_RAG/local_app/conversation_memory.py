@@ -37,7 +37,7 @@ def interest_messages(sources: list[dict]) -> list[dict]:
 
 def validate_interest_candidates(raw: str, sources: list[dict]) -> list[dict]:
     """Check syntax, author, identifiers and literal quotes; not semantic truth."""
-    from research_memory.contracts import parse_object
+    from local_app.memory_ported.contracts import parse_object
     data = parse_object(raw)
     if set(data) != {"candidates"} or not isinstance(data["candidates"], list):
         raise ValueError("invalid interest candidate envelope")

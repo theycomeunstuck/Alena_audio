@@ -68,12 +68,12 @@ def personal_graph_config_fingerprint(runtime, model_identities=None):
                 or not re.fullmatch(r'(?:sha256:)?[0-9a-fA-F]{64}', identities[key]['digest'])):
             raise ValueError('Immutable model digests are required')
     root = Path(__file__).resolve().parents[1]
-    files = ['research_memory/personal_memory_lab/backends.py',
-             'research_memory/personal_memory_lab/chunks.py',
-             'research_memory/personal_memory_lab/archive.py',
+    files = ['local_app/memory_ported/personal_memory_lab/backends.py',
+             'local_app/memory_ported/personal_memory_lab/chunks.py',
+             'local_app/memory_ported/personal_memory_lab/archive.py',
              'local_app/personal_graph_memory.py', 'local_app/personal_graph_contract.py',
              'local_app/personal_graph_index.py', 'local_app/runtime.py',
-             'local_app/memory_service.py', 'research_memory/clients.py']
+             'local_app/memory_service.py', 'local_app/memory_ported/clients.py']
     versions = {}
     for package in ('graphiti-core', 'neo4j', 'pydantic'):
         try:
@@ -234,8 +234,8 @@ async def _graph_integrity(graph, group_id):
 
 
 async def _health(archive, graph, run_id, learner_id, lessons, expected_manifest=None, *, dsn=None):
-    from research_memory.personal_memory_lab.backends import scope
-    from research_memory.personal_memory_lab.chunks import lesson_chunks
+    from local_app.memory_ported.personal_memory_lab.backends import scope
+    from local_app.memory_ported.personal_memory_lab.chunks import lesson_chunks
     archived = await asyncio.to_thread(archive.lessons, run_id, learner_id)
     if {x['lesson_id']: _canonical(x) for x in archived} != {x['lesson_id']: _canonical(x) for x in lessons} or len(archived) != len(lessons):
         return None
@@ -343,8 +343,8 @@ async def ensure_personal_graph_index(*, dsn, learner_id, job_id, snapshot_finge
                                       runtime, archive, graph, adapter, config_fingerprint,
                                       current_snapshot=None, lease_seconds=600):
     """Return an existing verified scope or build a fresh, fenced scope."""
-    from research_memory.personal_memory_lab.backends import lesson_text
-    from research_memory.personal_memory_lab.chunks import lesson_chunks
+    from local_app.memory_ported.personal_memory_lab.backends import lesson_text
+    from local_app.memory_ported.personal_memory_lab.chunks import lesson_chunks
     if not all(isinstance(x, str) and x for x in (learner_id, str(job_id), snapshot_fingerprint, config_fingerprint)):
         raise ValueError('Index identity is incomplete')
     if lease_seconds < 3 or not isinstance(lessons, list):

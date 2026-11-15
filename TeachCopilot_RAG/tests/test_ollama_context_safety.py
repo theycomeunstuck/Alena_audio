@@ -9,7 +9,7 @@ import pytest
 from local_app.config import Settings
 from local_app.personal_graph_memory import PersonalGraphProvider
 from local_app.runtime import IncompleteCompletionError, OllamaRuntime
-from research_memory.personal_memory_lab.runtime import ContextWindowOverflow, LocalModel
+from local_app.memory_ported.personal_memory_lab.runtime import ContextWindowOverflow, LocalModel
 
 
 def test_context_overflow_is_not_silently_truncated():

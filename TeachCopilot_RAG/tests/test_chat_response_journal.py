@@ -395,7 +395,7 @@ def test_capture_exception_is_recorded_without_private_exception_message(tmp_pat
 
 
 def test_completion_validation_error_keeps_its_dataclass_without_exception_message(tmp_path):
-    from research_memory.clients import Completion, CompletionValidationError
+    from local_app.memory_ported.clients import Completion, CompletionValidationError
     journal = ChatResponseJournal(tmp_path / "responses.sqlite3", database_identity=DATABASE_A)
     completion = Completion(text="Private returned completion", usage={"output_tokens": 3},
                             elapsed_seconds=0.1, metadata={"backend": "synthetic"})

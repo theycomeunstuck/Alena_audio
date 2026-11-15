@@ -7,8 +7,8 @@ from uuid import uuid4
 import pytest
 
 from local_app import personal_graph_index as index
-from research_memory.personal_memory_lab.archive import Archive
-from research_memory.personal_memory_lab.backends import scope
+from local_app.memory_ported.personal_memory_lab.archive import Archive
+from local_app.memory_ported.personal_memory_lab.backends import scope
 from tests.test_memory_api_flow import flow_store  # noqa: F401
 
 

@@ -10,7 +10,7 @@ from local_app.memory_service import (DIALOGUE_CONTEXT_NOTICE, MEMORY_BUDGET,
     approved_chat_memory, memory_state)
 from local_app.memory_store import DIALOGUE_CONTEXT_CHARS
 from local_app.store import RevisionConflict
-from research_memory.methods import Memory
+from local_app.memory_ported.methods import Memory
 from tests.test_memory_api_flow import flow_store
 
 
