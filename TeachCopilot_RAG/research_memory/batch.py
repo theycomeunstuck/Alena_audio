@@ -195,15 +195,21 @@ def _usage(conn, backend):
     result = {"new_calls": len(calls), "cache_hits": _meta(conn, "cache_hits"),
               "actual_model_calls": 0,
               "preflight_refusals": 0,
-              "fixture_calls": len(calls) if backend == "fixture" else 0,
+              "fixture_calls": 0,
               "known_input_tokens": 0, "known_output_tokens": 0,
               "unknown_usage_calls": 0, "failed_calls": 0, "unknown_outcome_calls": 0}
     for row in calls:
         completion = json.loads(row["completion"]) if row["completion"] else {}
+        metadata = completion.get("metadata", {})
         usage = completion.get("usage", {})
-        performed = completion.get("metadata", {}).get("network_request_performed") is not False
+        # Only a completion whose metadata explicitly proves a network request
+        # counts as a real model call. Fixture and other client-substitute
+        # completions stay visible as fixture calls even when the frozen batch
+        # definition names the ollama backend.
+        performed = metadata.get("network_request_performed") is True
         result["actual_model_calls"] += backend == "ollama" and performed
-        result["preflight_refusals"] += backend == "ollama" and not performed
+        result["preflight_refusals"] += backend == "ollama" and metadata.get("network_request_performed") is False
+        result["fixture_calls"] += metadata.get("backend") == "fixture"
         unknown = False
         for key in ("input_tokens", "output_tokens"):
             value = usage.get(key)
@@ -251,9 +257,15 @@ class _CachedClient:
         self.ordinal += 1
         if self.stop_reason:
             raise RuntimeError(self.stop_reason)
+        # The cached-call identity includes the client implementation, so a
+        # recorded completion from one client can never be replayed by a
+        # different implementation (a fixture result replayed as a real model
+        # call, or the reverse).
+        identity = type(self.client).__module__ + "." + type(self.client).__qualname__
         fingerprint = hashlib.sha256(_json({"messages": messages, "purpose": purpose,
                                              "response_schema": response_schema,
-                                             "model_config": self.definition["resolved_config"]}).encode()).hexdigest()
+                                             "model_config": self.definition["resolved_config"],
+                                             "client": identity}).encode()).hexdigest()
         row = self.conn.execute("SELECT * FROM calls WHERE job_id=? AND ordinal=?",
                                 (self.job_id, self.ordinal)).fetchone()
         if row:

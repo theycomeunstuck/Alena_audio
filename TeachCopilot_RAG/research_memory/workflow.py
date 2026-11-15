@@ -82,6 +82,17 @@ def _read_completed(step, case, protocol="legacy"):
     return rows[0]
 
 
+def _group_completed(output, group, count):
+    """True when every journaled step of a judge group already completed."""
+    for number in range(1, count + 1):
+        stamp_path = output / "steps" / group / f"{number:05d}" / "step.json"
+        if not stamp_path.is_file():
+            return False
+        if json.loads(stamp_path.read_text(encoding="utf-8")).get("status") != "completed":
+            return False
+    return True
+
+
 def _judge_group(cases, group, output, config, state, client):
     result = []
     protocol = config.get("protocol", "legacy")
@@ -306,7 +317,15 @@ def run_workflow(batch_dir, output, *, judge_backend="fixture", judge_model=None
         if judge_backend == "spiderssense" and callable(getattr(judge_client, "preflight", None)):
             provider = judge_client.preflight()
             state["provider_accounting"] = provider
-            if not provider.get("key_present") or provider.get("blocked"):
+            # A workflow whose judge steps all completed has no provider work
+            # left: resuming it must replay those steps and report their rows,
+            # never overwrite the assessed results with unassessed placeholder
+            # rows just because the credential is absent or the ledger is
+            # blocked right now.
+            finished = (_group_completed(output, "calibration",
+                                        len(_rows(output / "inputs/calibration.cases.jsonl")))
+                        and _group_completed(output, "answers", len(cases)))
+            if (not provider.get("key_present") or provider.get("blocked")) and not finished:
                 state["status"] = "provider_budget_blocked" if provider.get("blocked") else "awaiting_credentials"
                 _write(state_path, state)
                 answers = [_empty(case, state["status"]) for case in cases]

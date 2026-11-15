@@ -24,6 +24,18 @@ from .clients import Completion, CompletionValidationError, MAX_RESPONSE_BYTES
 BASE_URL = "https://spiderssense.com/v1"
 KEY_ENV = "SPIDERSSENSE_API_KEY"
 
+# Relative ledger_path/key_file values are anchored to the project root (the
+# parent of this package) at construction time, so one configuration always
+# addresses one durable ledger no matter which working directory the client
+# was constructed from. Resolving them against the process CWD instead would
+# give the same configuration a fresh budget from another directory.
+_ANCHOR = Path(__file__).resolve().parent.parent
+
+
+def _anchored(path: str | Path) -> Path:
+    value = Path(path)
+    return value if value.is_absolute() else _ANCHOR / value
+
 
 class BudgetError(RuntimeError):
     """A request cannot safely proceed under the persisted client budget."""
@@ -195,8 +207,9 @@ class SpiderssenseClient:
         self.use_json_schema = use_json_schema
         self.use_json_object = use_json_object
         self.reasoning_effort = reasoning_effort
-        self.ledger_path = Path(ledger_path)
-        self._key_file = Path(key_file) if key_file is not None else Path(".local/research_memory/spiderssense.key")
+        self.ledger_path = _anchored(ledger_path)
+        self._key_file = (_anchored(key_file) if key_file is not None
+                          else _anchored(".local/research_memory/spiderssense.key"))
         self._opener = build_opener(ProxyHandler({}), _NoRedirect())
         self._config = {
             "version": 1, "backend": "spiderssense", "base_url": BASE_URL,
