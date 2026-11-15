@@ -75,6 +75,7 @@ All values are read by `Settings.from_env()` from `local_app/config.py`; the
 Related (not memory, same config): `LOCAL_REQUEST_TIMEOUT` (180),
 `LOCAL_MAX_OUTPUT_TOKENS` (1024), `LOCAL_SESSION_HOURS` (12),
 `LOCAL_MEMORY_RESPONSE_JOURNAL`, `LOCAL_CHAT_RESPONSE_JOURNAL`,
+`LOCAL_JOB_LEASE_SECONDS` (600; допустимо 60–3600; lease воркера, heartbeat перед вызовом модели и интерактивного чата),
 `LOCAL_GENERATION_SCHEDULER_DSN`, `LOCAL_DEMO_LOGIN`.
 
 ## 3. Setup and start

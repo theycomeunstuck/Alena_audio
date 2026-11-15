@@ -60,6 +60,16 @@ SESSION_END_CONTEXT_NOTICE = (
 _log = logging.getLogger(__name__)
 
 
+def configured_job_lease_seconds(runtime) -> int:
+    """Job lease in seconds from runtime settings (LOCAL_JOB_LEASE_SECONDS, default 600).
+
+    One shared lease covers the worker claim, the heartbeat before every model
+    call and the interactive chat claim, so a single configured value can make
+    the whole claim-to-finish window outlast one slow generation (F-029).
+    """
+    return max(60, int(getattr(getattr(runtime, "settings", None), "job_lease_seconds", 600)))
+
+
 def memory_state(memory: Memory) -> dict:
     state = {"method": memory.method, "topic_id": memory.topic_id,
              **{key: deepcopy(getattr(memory, key)) for key in STATE_FIELDS}}
@@ -304,7 +314,8 @@ class MemoryWorker:
                 raise ValueError("memory_writer_input_exceeds_context")
             if self._active_job and hasattr(self.store, "start_memory_job_call"):
                 job_id = self._active_job["job_id"]
-                if not self.store.heartbeat_memory_job(job_id, self.worker_id, lease_seconds=600):
+                if not self.store.heartbeat_memory_job(job_id, self.worker_id,
+                                                       lease_seconds=configured_job_lease_seconds(self.runtime)):
                     raise ValueError("memory_job_lease_expired")
             call_id = self.response_journal.prepare(
                 job_id=str((self._active_job or {}).get("job_id") or "unbound"),
@@ -552,7 +563,8 @@ class MemoryWorker:
         return finished
 
     def _run_once_single(self) -> dict | None:
-        job = self.store.claim_memory_job(self.worker_id, lease_seconds=600)
+        job = self.store.claim_memory_job(self.worker_id,
+                                          lease_seconds=configured_job_lease_seconds(self.runtime))
         if not job:
             return None
         self.calls = []

@@ -41,6 +41,9 @@ class Settings:
     request_timeout: float = 180.0
     max_output_tokens: int = 1024
     session_hours: int = 12
+    # Memory job lease in seconds (LOCAL_JOB_LEASE_SECONDS): the worker claim,
+    # the pre-model-call heartbeat and the interactive chat claim all use it.
+    job_lease_seconds: int = 600
     rag_limit: int = 3
     minimum_similarity: float = 0.35
     learning_operation_selection_enabled: bool = False
@@ -71,6 +74,8 @@ class Settings:
             raise ValueError("Invalid context/output token limits")
         if self.request_timeout <= 0 or not 1 <= self.session_hours <= 168:
             raise ValueError("Invalid timeout/session lifetime")
+        if not 60 <= self.job_lease_seconds <= 3600:
+            raise ValueError("Invalid job lease seconds")
         if self.experimental_personal_graph_enabled:
             if self.context_tokens not in (16384, 32768):
                 raise ValueError("Experimental personal graph requires a 16k or 32k context")
@@ -100,6 +105,7 @@ class Settings:
             request_timeout=float(os.getenv("LOCAL_REQUEST_TIMEOUT", "180")),
             max_output_tokens=int(os.getenv("LOCAL_MAX_OUTPUT_TOKENS", "1024")),
             session_hours=int(os.getenv("LOCAL_SESSION_HOURS", "12")),
+            job_lease_seconds=int(os.getenv("LOCAL_JOB_LEASE_SECONDS", "600")),
             minimum_similarity=float(os.getenv("LOCAL_MIN_SIMILARITY", "0.35")),
             learning_operation_selection_enabled=os.getenv('LOCAL_LEARNING_OPERATION_SELECTION', '0') == '1',
             checked_division_context_enabled=os.getenv('LOCAL_CHECKED_DIVISION_CONTEXT', '0') == '1',

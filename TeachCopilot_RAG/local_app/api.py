@@ -455,16 +455,17 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None, chat_r
             job = store.enqueue_memory_job(learner_id, topic_id, "chat", payload, actor_id,
                                            idempotency_key=idempotency_key)
             deadline = time.monotonic() + min(180.0, float(_value(settings, "request_timeout", default=180)))
+            lease_seconds = max(60, int(_value(settings, "job_lease_seconds", default=600)))
             poll = getattr(store, "claim_interactive_chat_job_polling", None)
             if callable(poll):
                 # One connection per waiter for the whole poll (F-035).
-                claimed = poll(job["job_id"], worker_id, lease_seconds=600, poll_interval=0.05,
+                claimed = poll(job["job_id"], worker_id, lease_seconds=lease_seconds, poll_interval=0.05,
                                timeout=max(0.0, deadline - time.monotonic()))
             else:
                 # Injected stores without connection plumbing keep the per-attempt claim.
                 claimed = None
                 while claimed is None:
-                    claimed = store.claim_interactive_chat_job(job["job_id"], worker_id, lease_seconds=600)
+                    claimed = store.claim_interactive_chat_job(job["job_id"], worker_id, lease_seconds=lease_seconds)
                     if claimed is not None or time.monotonic() >= deadline:
                         break
                     time.sleep(0.05)
