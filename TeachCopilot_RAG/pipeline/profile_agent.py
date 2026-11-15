@@ -3,6 +3,7 @@
 Calls LM Studio directly (not via Open WebUI) to avoid proxy loops."""
 import json
 import logging
+import math
 import re
 from contextlib import closing
 
@@ -24,6 +25,16 @@ ASSESSMENT_MARKER_EVENT = "profile_assessed"
 # The assessor prompt asks for "short snake_case labels"; this is the contract
 # error tags must match after normalization before they may be persisted.
 ERROR_TAG_RE = re.compile(r"^[a-z0-9_]{1,64}$")
+
+# The prompt builder (pipeline/prompt_builder.py) buckets child knowledge on
+# exactly these lowercase literals; any other status would be stored but render
+# in no prompt bucket, hiding the topic from every prompt section. The assessor
+# prompt (ASSESS_PROMPT) declares the same vocabulary.
+VALID_STATUSES = ("knows", "learning", "struggling")
+
+# Declared assessment bounds (ASSESS_PROMPT: "Maximum +15", "Minimum -10").
+SCORE_DELTA_MIN = -10
+SCORE_DELTA_MAX = 15
 
 ASSESS_PROMPT = """You are a learning assessment system. Analyze this conversation
 between a tutor and a child student.
@@ -129,6 +140,82 @@ def _normalize_error_tag(value) -> str | None:
     return tag if tag and ERROR_TAG_RE.fullmatch(tag) else None
 
 
+def _coerce_score_delta(value) -> int | float | None:
+    """Coerce an LLM-proposed score_delta to a clamped number, or None.
+
+    json.loads already yields int/float for well-formed payloads; bools,
+    strings (the old clamp raised TypeError on max(-10, min(15, "10"))) and
+    non-finite floats (json accepts NaN/Infinity, and the old min/max clamp
+    silently turned them into +15) are shape violations and return None, so
+    the item is skipped instead of corrupting a score.
+    """
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    delta = float(value)
+    if not math.isfinite(delta):
+        return None
+    if delta.is_integer():
+        delta = int(delta)  # keep integral deltas integral for storage
+    return max(SCORE_DELTA_MIN, min(SCORE_DELTA_MAX, delta))
+
+
+def _validate_assessment(item, child_id: str) -> tuple[str, int | float, str] | None:
+    """Validate one LLM assessment item before anything touches the database.
+
+    Returns (topic, clamped score_delta, lowercase status from the vocabulary
+    the prompt builder buckets on) — or None when the item is malformed, so a
+    single bad model answer skips itself with a logged warning instead of
+    raising inside the open transaction and rolling back the whole batch.
+    """
+    if not isinstance(item, dict):
+        logger.warning("Skipping non-dict assessment item %r for child=%s",
+                       str(item)[:80], child_id)
+        return None
+
+    topic = item.get("topic")
+    if not isinstance(topic, str) or not topic.strip():
+        logger.warning("Skipping assessment with invalid topic %r for child=%s",
+                       str(topic)[:80], child_id)
+        return None
+
+    raw_delta = item.get("score_delta", 0)
+    score_delta = _coerce_score_delta(raw_delta)
+    if score_delta is None:
+        logger.warning("Skipping assessment for topic=%r: score_delta %r is not "
+                       "a number in [%d, %d] (child=%s)",
+                       topic, str(raw_delta)[:80], SCORE_DELTA_MIN, SCORE_DELTA_MAX, child_id)
+        return None
+
+    raw_status = item.get("new_status", "learning")
+    if not isinstance(raw_status, str):
+        logger.warning("Skipping assessment for topic=%r: new_status %r is not a "
+                       "string (child=%s)", topic, str(raw_status)[:80], child_id)
+        return None
+    new_status = raw_status.strip().lower()
+    if new_status not in VALID_STATUSES:
+        # No code maps foreign statuses to a prompt bucket, so storing them
+        # verbatim would make the topic invisible in every prompt section —
+        # skip the item instead.
+        logger.warning("Skipping assessment for topic=%r: unknown new_status %r "
+                       "(expected one of: %s) for child=%s",
+                       topic, str(raw_status)[:80], "/".join(VALID_STATUSES), child_id)
+        return None
+
+    return topic, score_delta, new_status
+
+
+def _apply_status_rules(new_status: str, new_score) -> str:
+    """Status transition rules (prevent oscillation), shared by the UPDATE and
+    the INSERT branch so a new topic cannot enter outside the same thresholds
+    an existing topic must obey ("knows" needs >= 75; "learning" below 40 is
+    "struggling")."""
+    if new_status == "learning" and new_score < 40:
+        return "struggling"
+    if new_status == "knows" and new_score < 75:
+        return "learning"
+    return new_status
+
+
 def already_assessed(child_id: str, message_count: int) -> bool:
     """Return True if a profile assessment marker exists for this child at
     this user-message boundary.
@@ -157,6 +244,13 @@ def update_profile(child_id: str, assessments: list[dict],
                    message_count: int | None = None) -> None:
     """Apply score deltas with clamping, status transitions, and error pattern tracking.
 
+    The payload comes straight from the model's JSON reply, so every item is
+    validated first: malformed items are skipped individually with a logged
+    warning (the rest of the batch still applies), deltas are clamped to
+    -10..+15, statuses are coerced into the lowercase vocabulary the prompt
+    builder buckets on, and new topics go through the same 40/75 transition
+    rules as updates.
+
     When message_count is given, an assessment marker row (events table,
     ASSESSMENT_MARKER_EVENT) is written in the SAME transaction, and a marker
     already present for this boundary skips application entirely —
@@ -182,13 +276,20 @@ def update_profile(child_id: str, assessments: list[dict],
                                     message_count, child_id)
                         return
 
-                for a in assessments:
-                    topic = a.get("topic", "")
-                    score_delta = a.get("score_delta", 0)
-                    new_status = a.get("new_status", "learning")
+                if not isinstance(assessments, (list, tuple)):
+                    # The payload comes straight from json.loads of the model
+                    # reply; a dict/None here used to crash the loop (or make
+                    # it iterate the dict's keys) and abort the transaction.
+                    logger.warning("Assessment payload is not a list (%s) for "
+                                   "child=%s; nothing to apply",
+                                   type(assessments).__name__, child_id)
+                    assessments = []
 
-                    # Clamp delta
-                    score_delta = max(-10, min(15, score_delta))
+                for a in assessments:
+                    valid = _validate_assessment(a, child_id)
+                    if valid is None:
+                        continue  # malformed item skipped individually — batch continues
+                    topic, score_delta, new_status = valid
 
                     # Get current score
                     cur.execute("""
@@ -198,38 +299,49 @@ def update_profile(child_id: str, assessments: list[dict],
                     row = cur.fetchone()
 
                     if row is None:
-                        # New topic discovered — create at base 50 + delta
+                        # New topic discovered — create at base 50 + delta,
+                        # then apply the SAME transition rules as the UPDATE
+                        # branch (previously the INSERT branch stored
+                        # new_status verbatim, bypassing the rules).
                         new_score = max(0, min(100, 50 + score_delta))
+                        new_status = _apply_status_rules(new_status, new_score)
                         cur.execute("""
                             INSERT INTO child_knowledge
                                 (child_id, subject, topic, status, score)
                             VALUES (%s, 'math', %s, %s, %s)
                             ON CONFLICT (child_id, subject, topic) DO NOTHING
                         """, (child_id, topic, new_status, new_score))
-                        logger.info("New topic created: %s = %s (%d)",
+                        logger.info("New topic created: %s = %s (%s)",
                                    topic, new_status, new_score)
                     else:
                         current_score = row["score"] or 0
                         new_score = max(0, min(100, current_score + score_delta))
 
-                        # Status transition rules (prevent oscillation)
-                        if new_status == "learning" and new_score < 40:
-                            new_status = "struggling"
-                        elif new_status == "knows" and new_score < 75:
-                            new_status = "learning"
+                        # Status transition rules (prevent oscillation) — the
+                        # same helper the INSERT branch uses.
+                        new_status = _apply_status_rules(new_status, new_score)
 
                         cur.execute("""
                             UPDATE child_knowledge
                             SET score = %s, status = %s, updated_at = NOW()
                             WHERE child_id = %s AND topic = %s
                         """, (new_score, new_status, child_id, topic))
-                        logger.info("Topic updated: %s %d→%d (%s)",
+                        logger.info("Topic updated: %s %s→%s (%s)",
                                    topic, current_score, new_score, new_status)
 
                     # Upsert error patterns — tags normalized/validated first:
                     # only labels matching the declared snake_case contract
-                    # persist; anything else the model emits is dropped.
-                    for raw_tag in a.get("error_tags") or []:
+                    # persist; anything else the model emits is dropped. The
+                    # tags must also be list-shaped: a string would otherwise
+                    # be iterated per character.
+                    raw_tags = a.get("error_tags") or []
+                    if not isinstance(raw_tags, (list, tuple)):
+                        if raw_tags:
+                            logger.warning("Dropped non-list error_tags %r for "
+                                           "child=%s topic=%s",
+                                           str(raw_tags)[:80], child_id, topic)
+                        raw_tags = []
+                    for raw_tag in raw_tags:
                         error_tag = _normalize_error_tag(raw_tag)
                         if not error_tag:
                             if raw_tag:
