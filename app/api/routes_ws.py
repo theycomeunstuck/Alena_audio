@@ -70,7 +70,8 @@ async def ws_asr(
                     await ws.send_json({"type": "partial", "text": text})
                 # авто-final при длительной тишине
                 if sess.inactive_timed_out():
-                    text, _raw = sess.finalize()
+                    # REG-3: финализация гоняет Whisper — не блокируем event loop
+                    text, _raw = await asyncio.to_thread(sess.finalize)
                     await ws.send_json({"type": "final", "text": text})
                     sess.reset()  # готов к следующей фразе (сокет остаётся)
         except asyncio.CancelledError:
@@ -115,7 +116,8 @@ async def ws_asr(
                 utt_id = payload.get("utt_id")  # опционально
 
                 if event == "flush":
-                    txt, _raw = sess._transcribe_partial()
+                    # REG-3: транскрипция — блокирующий вызов модели, гоняем в потоке
+                    txt, _raw = await asyncio.to_thread(sess._transcribe_partial)
                     out = {"type": "partial", "text": txt}
                     if utt_id is not None:
                         out["utt_id"] = utt_id
@@ -134,7 +136,8 @@ async def ws_asr(
 
                     # 2) финализируем и отправляем 'final' (даже если текст пуст)
                     try:
-                        txt, _raw = sess._transcribe_final()
+                        # REG-3: не блокируем event loop на время Whisper
+                        txt, _raw = await asyncio.to_thread(sess._transcribe_final)
                     except Exception:
                         txt = ""
                     out = {"type": "final", "text": txt}
