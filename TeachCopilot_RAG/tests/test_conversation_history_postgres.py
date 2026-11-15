@@ -17,9 +17,10 @@ pytestmark = pytest.mark.skipif(not DSN, reason="set TEACHCOPILOT_TEST_DSN for i
 
 
 @pytest.fixture
-def history_store():
-    store = Store(DSN)
-    store.migrate()
+def history_store(disposable_store):
+    # audit F-017: the guarded shared fixture migrates a fresh per-test
+    # disposable database instead of the raw TEACHCOPILOT_TEST_DSN target.
+    store = disposable_store
     learners = ["history-time-" + uuid4().hex for _ in range(2)]
     with store._connect() as conn, conn.cursor() as cur:
         for learner in learners:

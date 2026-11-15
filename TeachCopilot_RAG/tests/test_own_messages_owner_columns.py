@@ -36,12 +36,12 @@ def test_every_union_branch_selects_stored_owner_columns():
 
 
 @pytest.mark.skipif(not DSN, reason="set TEACHCOPILOT_TEST_DSN for isolated PostgreSQL tests")
-def test_owner_columns_equal_the_stored_owner_for_child_and_assistant_rows():
+def test_owner_columns_equal_the_stored_owner_for_child_and_assistant_rows(disposable_store):
+    # audit F-017: guarded shared fixture instead of a raw Store(TEACHCOPILOT_TEST_DSN).
     from tests.test_conversation_history_postgres import historical_turn
     from psycopg2.extras import Json
 
-    store = Store(DSN)
-    store.migrate()
+    store = disposable_store
     learner = "owner-cols-" + uuid4().hex
     with store._connect() as conn, conn.cursor() as cur:
         cur.execute("INSERT INTO teachcopilot.learners(learner_id,pseudonym,grade,card) VALUES (%s,'Synthetic',3,%s)",

@@ -21,10 +21,12 @@ DSN = os.getenv("TEACHCOPILOT_TEST_DSN")
 pytestmark = pytest.mark.skipif(not DSN, reason="set TEACHCOPILOT_TEST_DSN for local PostgreSQL integration tests")
 
 
-@pytest.fixture(scope="module")
-def store():
-    instance = Store(DSN)
-    instance.migrate()
+@pytest.fixture
+def store(disposable_store):
+    # audit F-017: the guarded shared fixture gives every test a fresh
+    # disposable database, so import_repository cannot overwrite working rows
+    # of whatever database TEACHCOPILOT_TEST_DSN names.
+    instance = disposable_store
     assert instance.ping()
     repo_root=Path(__file__).resolve().parents[2]
     instance.import_repository(repo_root)

@@ -30,9 +30,9 @@ class PoisonRuntime:
 
 
 @pytest.fixture
-def learner_store():
-    store = Store(DSN)
-    store.migrate()
+def learner_store(disposable_store):
+    # audit F-017: guarded shared fixture (per-test disposable database).
+    store = disposable_store
     learner = "embed-cache-" + uuid4().hex
     with store._connect() as conn, conn.cursor() as cur:
         cur.execute("INSERT INTO teachcopilot.learners(learner_id,pseudonym,grade,card) VALUES (%s,'Synthetic',3,%s)",

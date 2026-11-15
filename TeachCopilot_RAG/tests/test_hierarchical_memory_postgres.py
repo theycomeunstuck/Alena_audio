@@ -18,9 +18,9 @@ NOW = datetime(2026, 11, 7, 12, tzinfo=timezone.utc)
 
 
 @pytest.fixture
-def database():
-    store = Store(DSN)
-    store.migrate()
+def database(disposable_store):
+    # audit F-017: guarded shared fixture (per-test disposable database).
+    store = disposable_store
     learner = "hierarchy-test-" + uuid4().hex
     actors = {role: str(uuid4()) for role in ("student", "teacher", "other")}
     with store._connect() as conn, conn.cursor() as cur:

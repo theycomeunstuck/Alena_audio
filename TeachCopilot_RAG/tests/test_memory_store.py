@@ -18,9 +18,11 @@ pytestmark = pytest.mark.skipif(not DSN, reason="set TEACHCOPILOT_TEST_DSN for P
 
 
 @pytest.fixture
-def memory_store():
-    store = Store(DSN)
-    store.migrate()
+def memory_store(disposable_store):
+    # audit F-017: guarded shared fixture (per-test disposable database) —
+    # the recover_*/queue fixtures below no longer flip table-wide states in
+    # whatever database TEACHCOPILOT_TEST_DSN names.
+    store = disposable_store
     learner_ids = ["memory-test-" + uuid.uuid4().hex for _ in range(2)]
     with store._connect() as conn, conn.cursor() as cur:
         for learner_id in learner_ids:

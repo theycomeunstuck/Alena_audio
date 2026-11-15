@@ -15,9 +15,12 @@ pytestmark = pytest.mark.skipif(not DSN, reason="set TEACHCOPILOT_TEST_DSN for i
 
 
 @pytest.fixture
-def database():
-    store = Store(DSN)
-    store.migrate()
+def database(disposable_store):
+    # audit F-017: guarded shared fixture (per-test disposable database).
+    # The fixture itself skips when TEACHCOPILOT_TEST_DSN is unset, so importing
+    # modules (e.g. test_snapshot_approval_chat.py) no longer ERROR with
+    # Store(None) in parse_dsn.
+    store = disposable_store
     learners = ["personal-memory-test-" + uuid.uuid4().hex for _ in range(2)]
     with store._connect() as conn, conn.cursor() as cur:
         for learner_id in learners:

@@ -1,5 +1,6 @@
 """A reviewed snapshot can be confirmed after new child chat, with explicit acknowledgement."""
 from copy import deepcopy
+import os
 from uuid import uuid4
 
 import pytest
@@ -10,6 +11,14 @@ from local_app.store import RevisionConflict
 from tests.test_memory_api_flow import flow_store  # noqa: F401
 from tests.test_personal_memory_store_postgres import database, draft as personal_draft  # noqa: F401
 from tests.test_personal_memory_store import TOPIC as PERSONAL_TOPIC
+
+
+# audit F-017: this module's own guard. The module-level pytestmark of the
+# imported fixture modules does not transfer here, so without this line the
+# `database`-consuming tests used to ERROR (Store(None)) instead of skipping
+# when TEACHCOPILOT_TEST_DSN is unset.
+pytestmark = pytest.mark.skipif(not os.getenv("TEACHCOPILOT_TEST_DSN"),
+                                reason="set TEACHCOPILOT_TEST_DSN for isolated PostgreSQL tests")
 
 
 LEARNER = "demo-nika-04"
