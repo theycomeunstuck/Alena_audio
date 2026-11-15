@@ -80,14 +80,16 @@ class _FakeCursor:
             row = self.db._staged_knowledge.get((child_id, topic))
             self._row = {"score": row["score"], "status": row["status"]} if row else None
         elif "FROM EVENTS" in up:
-            # marker lookup: (child_id, event_type, message_count-as-text)
-            child_id, event_type, message_count = params
+            # marker lookup: (child_id, event_type, message_count, conversation_key)
+            child_id, event_type, message_count, conversation_key = params
             want = int(message_count)
             self._row = None
             for ev in self.db._staged_events:
                 if ev["child_id"] != child_id or ev["event_type"] != event_type:
                     continue
-                if json.loads(ev["payload"]).get("message_count") == want:
+                payload = json.loads(ev["payload"])
+                if payload.get("message_count") == want and \
+                        payload.get("conversation_key", "unknown") == conversation_key:
                     self._row = {"marker": 1}
                     break
         elif "INSERT INTO CHILD_KNOWLEDGE" in up:
@@ -302,7 +304,8 @@ class TestF013AssessmentMarker:
         assert pa.already_assessed(CHILD, 5) is True
         assert pa.already_assessed(CHILD, 10) is False, "other boundary must stay unassessed"
         assert pa.already_assessed(OTHER_CHILD, 5) is False, "other child must stay unassessed"
-        assert fake_db.markers() == [{"message_count": 5, "assessment_count": 1}]
+        assert fake_db.markers() == [{"message_count": 5, "conversation_key": "unknown",
+                                      "assessment_count": 1}]
 
     def test_update_profile_without_boundary_writes_no_marker(self, monkeypatch, fake_db):
         monkeypatch.setattr(pa, "get_connection", fake_db.get_connection)

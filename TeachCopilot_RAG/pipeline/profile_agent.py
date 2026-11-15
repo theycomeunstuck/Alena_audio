@@ -216,13 +216,20 @@ def _apply_status_rules(new_status: str, new_score) -> str:
     return new_status
 
 
-def already_assessed(child_id: str, message_count: int) -> bool:
+def already_assessed(child_id: str, message_count: int,
+                     conversation_key: str | None = None) -> bool:
     """Return True if a profile assessment marker exists for this child at
-    this user-message boundary.
+    this user-message boundary of THIS conversation.
+
+    The marker is keyed by (child_id, conversation_key, message_count):
+    message counts are transient per-conversation positions, so a boundary
+    reached in one chat must never suppress assessment in another chat of
+    the same child (audit regression REG-1).
 
     Fail-safe: on any DB error return False — a broken marker read must not
     block assessment entirely; the worst case is a re-applied delta.
     """
+    key = str(conversation_key or "unknown")
     try:
         # closing(): psycopg2's context manager commits/rolls back but does not
         # close the connection, so plain `with get_connection()` leaked one per call.
@@ -232,8 +239,9 @@ def already_assessed(child_id: str, message_count: int) -> bool:
                     SELECT 1 FROM events
                     WHERE child_id = %s AND event_type = %s
                       AND payload->>'message_count' = %s
+                      AND payload->>'conversation_key' = %s
                     LIMIT 1
-                """, (child_id, ASSESSMENT_MARKER_EVENT, str(int(message_count))))
+                """, (child_id, ASSESSMENT_MARKER_EVENT, str(int(message_count)), key))
                 return cur.fetchone() is not None
     except Exception:
         logger.exception("already_assessed check failed for child=%s", child_id)
@@ -241,7 +249,8 @@ def already_assessed(child_id: str, message_count: int) -> bool:
 
 
 def update_profile(child_id: str, assessments: list[dict],
-                   message_count: int | None = None) -> None:
+                   message_count: int | None = None,
+                   conversation_key: str | None = None) -> None:
     """Apply score deltas with clamping, status transitions, and error pattern tracking.
 
     The payload comes straight from the model's JSON reply, so every item is
@@ -252,9 +261,12 @@ def update_profile(child_id: str, assessments: list[dict],
     rules as updates.
 
     When message_count is given, an assessment marker row (events table,
-    ASSESSMENT_MARKER_EVENT) is written in the SAME transaction, and a marker
-    already present for this boundary skips application entirely —
-    regenerate/retry of the same conversation must not re-apply relative deltas.
+    ASSESSMENT_MARKER_EVENT) is written in the SAME transaction, keyed by
+    conversation (conversation_key), and a marker already present for this
+    boundary of this conversation skips application entirely —
+    regenerate/retry must not re-apply relative deltas. When validation
+    dropped EVERY item, no marker is written (the boundary stays retryable)
+    and an assessment_failed event records why (audit regression REG-4).
     """
     try:
         # closing(): psycopg2's context manager commits/rolls back but does not
@@ -262,18 +274,21 @@ def update_profile(child_id: str, assessments: list[dict],
         with closing(get_connection()) as conn:
             with conn.cursor() as cur:
                 # Idempotency guard: a marker row committed by a previous
-                # invocation at this boundary means these relative deltas were
-                # already applied; applying them again would double-count.
+                # invocation at this boundary of this conversation means these
+                # relative deltas were already applied; applying them again
+                # would double-count.
+                key = str(conversation_key or "unknown")
                 if message_count is not None:
                     cur.execute("""
                         SELECT 1 FROM events
                         WHERE child_id = %s AND event_type = %s
                           AND payload->>'message_count' = %s
+                          AND payload->>'conversation_key' = %s
                         LIMIT 1
-                    """, (child_id, ASSESSMENT_MARKER_EVENT, str(int(message_count))))
+                    """, (child_id, ASSESSMENT_MARKER_EVENT, str(int(message_count)), key))
                     if cur.fetchone() is not None:
-                        logger.info("Boundary %s already assessed for child=%s — skipping re-apply",
-                                    message_count, child_id)
+                        logger.info("Boundary %s already assessed for child=%s (conversation %s) — skipping re-apply",
+                                    message_count, child_id, key)
                         return
 
                 if not isinstance(assessments, (list, tuple)):
@@ -285,10 +300,12 @@ def update_profile(child_id: str, assessments: list[dict],
                                    type(assessments).__name__, child_id)
                     assessments = []
 
+                applied = 0
                 for a in assessments:
                     valid = _validate_assessment(a, child_id)
                     if valid is None:
                         continue  # malformed item skipped individually — batch continues
+                    applied += 1
                     topic, score_delta, new_status = valid
 
                     # Get current score
@@ -361,13 +378,26 @@ def update_profile(child_id: str, assessments: list[dict],
 
                 # Persist the assessment marker in the SAME transaction as the
                 # deltas, so a retried outlet call at this boundary is a no-op.
+                # REG-4: when validation dropped every item, keep the boundary
+                # retryable instead of burning it - record why it was skipped.
                 if message_count is not None:
+                    if applied == 0:
+                        log_event(child_id, "assessment_failed", {
+                            "reason": "all_items_invalid",
+                            "message_count": int(message_count),
+                            "conversation_key": key,
+                        })
+                        logger.warning("No valid assessment items for child=%s at "
+                                       "boundary %s - marker not written", child_id, message_count)
+                        conn.commit()  # persist the diagnostic event, keep the boundary retryable
+                        return
                     cur.execute("""
                         INSERT INTO events (child_id, event_type, payload)
                         VALUES (%s, %s, %s)
                     """, (child_id, ASSESSMENT_MARKER_EVENT, json.dumps(
                         {"message_count": int(message_count),
-                         "assessment_count": len(assessments)},
+                         "conversation_key": key,
+                         "assessment_count": applied},
                         default=str, ensure_ascii=False)))
 
             conn.commit()

@@ -14,7 +14,7 @@ Speaker mode is controlled by TEACHCOPILOT_SPEAKER_MODE:
 - child_only: unknown users get DEFAULT_CHILD_ID and child prompt.
 - mapped_or_adult: mapped users are children; unknown users get adult prompt.
 """
-import os, re, logging
+import os, re, logging, hashlib
 from contextlib import closing
 from pipeline.db import get_child_full_profile, get_connection
 from pipeline.rag import search_knowledge
@@ -129,17 +129,27 @@ class Filter:
             # SPEAKER_DETECT: To re-enable, add check:
             #   if not child_id or speaker_type != "child": return body
 
-            # A persisted marker shows this user-message boundary was already
-            # assessed: regenerate/retry of the same conversation must not
-            # re-apply the same relative score deltas a second time.
-            if already_assessed(child_id, user_msg_count):
-                logger.info("Profile already assessed at boundary %s for child=%s — skipping",
-                            user_msg_count, child_id)
+            # A persisted marker shows this user-message boundary of THIS
+            # conversation was already assessed: regenerate/retry of the same
+            # conversation must not re-apply the same relative score deltas,
+            # while a different conversation of the same child must still be
+            # assessed (audit regression REG-1). Open WebUI provides chat_id;
+            # without it, fall back to a stable hash of the window's first
+            # user message.
+            conversation_key = str(body.get("chat_id") or "")
+            if not conversation_key:
+                first_user = next((m.get("content", "") for m in messages
+                                   if m.get("role") == "user"), "")
+                conversation_key = hashlib.sha1(str(first_user).encode("utf-8")).hexdigest()[:16]
+            if already_assessed(child_id, user_msg_count, conversation_key=conversation_key):
+                logger.info("Profile already assessed at boundary %s for child=%s (conversation %s) — skipping",
+                            user_msg_count, child_id, conversation_key)
                 return body
 
             assessments = assess_interaction(child_id, messages)
             if assessments:
-                update_profile(child_id, assessments, message_count=user_msg_count)
+                update_profile(child_id, assessments, message_count=user_msg_count,
+                               conversation_key=conversation_key)
                 log_event(child_id, "profile_update", {
                     "trigger": f"auto_{PROFILE_UPDATE_INTERVAL}msg",
                     "assessments": assessments,

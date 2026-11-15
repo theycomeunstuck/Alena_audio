@@ -80,14 +80,16 @@ class _FakeCursor:
         s = " ".join(sql.split())
         up = s.upper()
         if "FROM EVENTS" in up:
-            # marker lookup: (child_id, event_type, message_count-as-text)
-            child_id, event_type, message_count = params
+            # marker lookup: (child_id, event_type, message_count, conversation_key)
+            child_id, event_type, message_count, conversation_key = params
             want = int(message_count)
             self._row = None
             for ev in self.db._staged_events:
                 if ev["child_id"] != child_id or ev["event_type"] != event_type:
                     continue
-                if json.loads(ev["payload"]).get("message_count") == want:
+                payload = json.loads(ev["payload"])
+                if payload.get("message_count") == want and \
+                        payload.get("conversation_key", "unknown") == conversation_key:
                     self._row = {"marker": 1}
                     break
         elif up.startswith("SELECT SCORE"):
@@ -195,14 +197,19 @@ def patched_db(monkeypatch):
 # ---------------------------------------------------------------------------
 
 class TestF015PayloadShapeValidated:
-    def test_dict_shaped_payload_does_not_abort_and_marks_boundary(self, patched_db, caplog):
+    def test_dict_shaped_payload_does_not_abort_and_marks_boundary(self, patched_db, caplog, monkeypatch):
         """V4 CL-3a(i): a dict payload used to make `for a in assessments`
         iterate the dict's string keys (AttributeError), abort the transaction
-        and roll everything back. It must be rejected without touching rows,
-        without an abort, and the boundary marker is still written."""
+        and roll everything back. It must be rejected without touching rows and
+        without an abort. REG-4: nothing valid was applied, so the boundary
+        marker is NOT written (the boundary stays retryable) and an
+        assessment_failed event records why."""
         caplog.set_level(logging.WARNING, logger="pipeline.profile_agent")
         patched_db.seed(CHILD, TOPIC, 50, "learning")
         before = copy.deepcopy(patched_db.knowledge)
+        logged = []
+        monkeypatch.setattr(pa, "log_event",
+                            lambda child, etype, payload: logged.append((child, etype, payload)))
 
         pa.update_profile(CHILD, {"assessments": [dict(_assessment())]}, message_count=3)
 
@@ -210,9 +217,10 @@ class TestF015PayloadShapeValidated:
         assert patched_db.commit_count == 1 and patched_db.rollback_count == 0, \
             f"dict payload must not abort the transaction " \
             f"(commits={patched_db.commit_count}, rollbacks={patched_db.rollback_count})"
-        markers = patched_db.markers()
-        assert len(markers) == 1 and markers[0]["message_count"] == 3, \
-            "boundary must still be marked as assessed"
+        assert patched_db.markers() == [], \
+            "an all-invalid reply must not burn the boundary (REG-4)"
+        assert len(logged) == 1 and logged[0][1] == "assessment_failed" \
+            and logged[0][2]["reason"] == "all_items_invalid"
         assert _warnings_for(caplog, "assessment")
 
     def test_non_dict_items_skipped_valid_ones_still_written(self, patched_db, caplog):
@@ -387,5 +395,6 @@ class TestF015ValidPayloadsUnchanged:
         patched_db.seed(CHILD, TOPIC, 50, "learning")
         pa.update_profile(CHILD, [_assessment(score_delta=10, status="learning",
                                               error_tags=[])], message_count=5)
-        assert patched_db.markers() == [{"message_count": 5, "assessment_count": 1}]
+        assert patched_db.markers() == [{"message_count": 5, "conversation_key": "unknown",
+                                         "assessment_count": 1}]
         assert patched_db.knowledge[(CHILD, TOPIC)]["score"] == 60
