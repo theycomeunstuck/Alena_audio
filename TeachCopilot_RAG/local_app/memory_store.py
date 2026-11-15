@@ -884,6 +884,13 @@ class MemoryStoreMixin:
 
     def complete_learning_session(self, session_id, learner_id, actor_id):
         with self._connect() as conn, conn.cursor() as cur:
+            # Take the queue advisory lock before any session or message row
+            # lock, matching the claim/enqueue order (advisory lock first, row
+            # locks after). Row locks first invert the order against
+            # claim_memory_job, which holds the advisory lock while row-locking
+            # the same pending messages, and PostgreSQL aborts one transaction
+            # with a 40P01 deadlock error.
+            cur.execute("SELECT pg_advisory_xact_lock(hashtextextended('teachcopilot_memory_queue',0))")
             cur.execute("SELECT * FROM teachcopilot.learning_sessions WHERE id=%s AND learner_id=%s FOR UPDATE", (session_id,learner_id))
             session = cur.fetchone()
             if session is None:

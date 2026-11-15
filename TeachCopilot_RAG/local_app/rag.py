@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import hashlib
 import inspect
+import logging
 from copy import deepcopy
 from contextlib import nullcontext
 from typing import Any, Sequence
@@ -13,6 +14,9 @@ from local_app.answer_adapter import AnswerAdapter, EducationalProjection
 from local_app.runtime import (IncompleteCompletionError,
                                InvalidQueryResolutionError, bound_conversation_prompt,
                                conversation_context_instructions, conversation_summary_text)
+
+
+logger = logging.getLogger(__name__)
 
 
 MEMORY_RECALL_INSTRUCTIONS = (
@@ -519,15 +523,34 @@ class RagService:
                     resolved_query, retrieval_context = anchored['query'], anchored['diagnostics']
                     # The current exchange has priority over old memory. Keep
                     # only validated literal antecedents, never the rewrite.
+                    assistant_question_anchor = (
+                        'Previous assistant question (not learner evidence): ' + history[assistant_anchor]['content']
+                        if assistant_anchor is not None else None)
+                    assistant_turn_text_anchor = (
+                        'Previous assistant turn (context only, not learner evidence): ' + history[assistant_turn_anchor]['content']
+                        if assistant_turn_anchor is not None else None)
                     current_anchors = []
                     if selected_learner_question is not None:
-                        current_anchors.append('Earlier learner question: ' + selected_learner_question)
-                    if assistant_anchor is not None:
-                        current_anchors.append('Previous assistant question (not learner evidence): ' + history[assistant_anchor]['content'])
-                    if assistant_turn_anchor is not None:
-                        current_anchors.append('Previous assistant turn (context only, not learner evidence): ' + history[assistant_turn_anchor]['content'])
-                    if sum(map(len, current_anchors)) > 4000:
-                        raise ValueError('Selected current dialogue exceeds the 4000-character retrieval anchor budget')
+                        prior_anchor = 'Earlier learner question: ' + selected_learner_question
+                        # The API accepts learner messages of up to 12000
+                        # characters, so one long earlier question can exceed the
+                        # whole anchor budget on its own. Clamp it to the
+                        # remaining budget instead of failing the request: a
+                        # follow-up that refers to the earlier message must never
+                        # become a permanent error. Retrieval only needs the head
+                        # of the earlier question.
+                        reserved = len(assistant_question_anchor or '') + len(assistant_turn_text_anchor or '')
+                        budget_left = max(0, 4000 - reserved)
+                        if len(prior_anchor) > budget_left:
+                            logger.debug(
+                                "Prior-question retrieval anchor truncated from %d to %d characters "
+                                "to fit the 4000-character anchor budget", len(prior_anchor), budget_left)
+                            prior_anchor = prior_anchor[:budget_left]
+                        if prior_anchor:
+                            current_anchors.append(prior_anchor)
+                    for anchor in (assistant_question_anchor, assistant_turn_text_anchor):
+                        if anchor:
+                            current_anchors.append(anchor)
                     if current_anchors:
                         resolved_query += '\n' + '\n'.join(current_anchors)
                     retrieval_context['current_anchor_count'] = len(current_anchors)
