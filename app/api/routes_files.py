@@ -28,7 +28,12 @@ async def upload(file: UploadFile = File(...)):
 
 @router.get("/download/{filename}")
 async def download(filename: str):
-    p = STORAGE_DIR / filename
-    if not p.exists():
+    # On Windows a backslash is a path separator, so "..\x" escapes storage
+    # even though the route regex only blocks "/". Reject explicitly, then
+    # verify containment after resolution.
+    if "\\" in filename or ".." in filename:
+        raise HTTPException(400, "Invalid filename")
+    p = _contained_path(filename)
+    if not p.is_file():
         raise HTTPException(404, "File not found")
     return FileResponse(p, media_type="application/octet-stream", filename=p.name)
