@@ -18,11 +18,9 @@ router = APIRouter(tags=["TTS"])
 # Инициализация зависимостей
 store = VoiceStore(settings.VOICES_DIR)
 
-# убедимся, что есть базовый голос
-try:
-    store.ensure_reference_wav("_default")
-except FileNotFoundError as e:  # Даём понятную ошибку при первом старте без "storage/voices/_default/reference.wav"
-    raise FileNotFoundError(f"{e}")
+# Наличие базового голоса (storage/voices_TTS/_default/reference.wav)
+# проверяется на каждый запрос в /tts (ensure_reference_wav) — проверка
+# на import-time падала при первом старте без файла и убивала весь API.
 
 
 @router.post("/tts/clone", summary="Добавить голос в БД для клонирования из аудиофайла", response_model=dict)
