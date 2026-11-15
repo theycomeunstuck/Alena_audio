@@ -35,4 +35,6 @@ VOICES_DIR.mkdir(parents=True, exist_ok=True)
 
 DEVICE = os.getenv("DEVICE", device)
 TTS_MAX_SECONDS = int(os.getenv("TTS_MAX_SECONDS", "45"))
+# Sample rate for voice-clone reference.wav (matches clone_from_upload's default).
+TTS_SAMPLE_RATE = int(os.getenv("TTS_SAMPLE_RATE", "24000"))
 
