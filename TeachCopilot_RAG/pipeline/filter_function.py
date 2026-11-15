@@ -6,7 +6,11 @@ TWO USES:
    Type = Filter. Paste only the class + its imports, not this docstring.
 
 child_id resolution:
-1. Message prefix "[child_id:UUID] question" (explicit, for testing)
+1. Message prefix "[child_id:UUID] question" (explicit, for testing) –
+   honored only when the requesting user is authorized for that child_id
+   (F-014): a child mapped to their Open WebUI user id in user_mappings, or
+   the child the normal path would resolve to anyway (DEFAULT_CHILD_ID).
+   Unauthorized prefixes log a warning and fall through to steps 2/3.
 2. user_mappings table: Open WebUI user_id -> child_id (production)
 3. DEFAULT_CHILD_ID from env (fallback)
 
@@ -61,6 +65,29 @@ def _resolve_child_id(user_id: str | None) -> tuple[str, str]:
     return DEFAULT_CHILD_ID or os.getenv("DEFAULT_CHILD_ID", ""), "child"
 
 
+def _prefix_authorized(user_id: str | None, prefix_child: str) -> bool:
+    """F-014: honor the "[child_id:...]" prefix only for a child the requesting
+    user is authorized for: a child_id mapped to their Open WebUI user id in
+    user_mappings, or the child _resolve_child_id would resolve to anyway
+    (DEFAULT_CHILD_ID fallback). The prefix alone must never grant access to
+    another child's profile or writes."""
+    if user_id:
+        try:
+            with closing(get_connection()) as conn:
+                with conn.cursor() as cur:
+                    cur.execute("SELECT child_id FROM user_mappings WHERE user_id = %s", (user_id,))
+                    rows = cur.fetchall() or []
+                    if any(str(row["child_id"]) == prefix_child for row in rows):
+                        return True
+        except Exception:
+            logger.exception("user_mappings authorization lookup failed")
+
+    # Unmapped (or lookup failed): only the child the normal path would pick –
+    # the prefix never grants new access.
+    resolved, _ = _resolve_child_id(user_id)
+    return bool(resolved) and resolved == prefix_child
+
+
 class Filter:
     def inlet(self, body: dict, user: dict | None = None) -> dict:
         try:
@@ -72,19 +99,29 @@ class Filter:
                 (m for m in reversed(messages) if m.get("role") == "user"), None
             )
 
-            # Try explicit prefix first
+            # Try explicit prefix first – F-014: only when the requesting user
+            # is authorized for that child; an unauthorized prefix is left in
+            # the message and the normal resolution path is used.
             child_id = ""
             speaker_type = "child"
+            owui_user_id = (user or {}).get("id", "")
             if last_user:
                 content = last_user.get("content", "")
                 m = _CHILD_RE.match(content)
                 if m:
-                    child_id = m.group(1)
-                    last_user["content"] = content[m.end():]
+                    prefix_child = m.group(1)
+                    if _prefix_authorized(owui_user_id, prefix_child):
+                        child_id = prefix_child
+                        last_user["content"] = content[m.end():]
+                    else:
+                        logger.warning(
+                            "Unauthorized [child_id:%s] prefix (user %s) – "
+                            "ignoring prefix, falling back to normal resolution",
+                            prefix_child, owui_user_id or "<anonymous>",
+                        )
 
             # Fallback: resolve via user_mappings
             if not child_id:
-                owui_user_id = (user or {}).get("id", "")
                 child_id, speaker_type = _resolve_child_id(owui_user_id)
 
             query   = (last_user or {}).get("content", "")
@@ -117,10 +154,19 @@ class Filter:
             # Resolve child_id the SAME way inlet does: explicit prefix first
             # (if it survived into the outlet body), then user_mappings. Otherwise
             # a prefix-driven session would update DEFAULT_CHILD_ID or nothing.
+            # F-014: an unauthorized prefix child must never receive writes –
+            # fall through to the same resolution inlet used.
             child_id = _child_id_from_prefix(messages)
             speaker_type = "child"
+            owui_user_id = (user or {}).get("id", "")
+            if child_id and not _prefix_authorized(owui_user_id, child_id):
+                logger.warning(
+                    "Unauthorized [child_id:%s] prefix (user %s) – profile "
+                    "update falls back to normal child resolution",
+                    child_id, owui_user_id or "<anonymous>",
+                )
+                child_id = ""
             if not child_id:
-                owui_user_id = (user or {}).get("id", "")
                 child_id, speaker_type = _resolve_child_id(owui_user_id)
 
             if not child_id:
