@@ -5,11 +5,12 @@ import argparse
 import asyncio
 from dataclasses import replace
 import json
+import os
 from pathlib import Path
 import sys
 from uuid import uuid4
 
-from psycopg2.extensions import make_dsn
+from psycopg2.extensions import make_dsn, parse_dsn
 from psycopg2.extras import Json
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -35,6 +36,12 @@ def main():
     if not dbname.startswith("nirs_personal_graph_it_") or not dbname.replace("_", "").isalnum():
         raise ValueError("This smoke only accepts the isolated synthetic database")
     settings = Settings.from_env()
+    # Audit F-049: only a loopback PostgreSQL endpoint is allowed (same guard
+    # as smoke_personal_graph_pilot.py / smoke_personal_memory_pilot.py).
+    params = parse_dsn(settings.database_url)
+    hosts = (params.get("host"), params.get("hostaddr"), os.getenv("PGHOSTADDR"))
+    if not (any(hosts) and all(not host or host in {"localhost", "127.0.0.1", "::1"} for host in hosts)):
+        raise SystemExit("Refusing to run: only a loopback PostgreSQL endpoint is allowed")
     dsn = make_dsn(settings.database_url, dbname=dbname)
     nonce = uuid4().hex[:12]
     journal_path = args.output.parent / ("app-smoke-journal-" + nonce + ".sqlite3")

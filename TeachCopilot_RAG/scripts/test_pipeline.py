@@ -293,4 +293,7 @@ if failed == 0:
     print("ALL STEPS PASSED")
 else:
     print(f"!!! {failed} STEP(S) FAILED — fix before continuing")
+    # Audit F-045: the script used to always exit 0, so automation saw a green
+    # signal even when checks failed (mirror scripts/test_server.py).
+    sys.exit(1)
 print("=" * 60)

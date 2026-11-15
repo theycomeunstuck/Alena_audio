@@ -4,13 +4,14 @@ from __future__ import annotations
 import argparse
 from dataclasses import replace
 import json
+import os
 from pathlib import Path
 import shutil
 import sys
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
-from psycopg2.extensions import make_dsn
+from psycopg2.extensions import make_dsn, parse_dsn
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -53,6 +54,12 @@ def main():
     (fixture / "learner-data/learners" / (learner + ".json")).write_text(
         json.dumps(card, ensure_ascii=False), encoding="utf-8")
     settings = Settings.from_env()
+    # Audit F-049: only a loopback PostgreSQL endpoint is allowed (same guard
+    # as smoke_personal_graph_pilot.py / smoke_personal_memory_pilot.py).
+    params = parse_dsn(settings.database_url)
+    hosts = (params.get("host"), params.get("hostaddr"), os.getenv("PGHOSTADDR"))
+    if not (any(hosts) and all(not host or host in {"localhost", "127.0.0.1", "::1"} for host in hosts)):
+        raise SystemExit("Refusing to run: only a loopback PostgreSQL endpoint is allowed")
     dsn = make_dsn(settings.database_url, dbname=dbname)
     settings = replace(settings, database_url=dsn, generation_scheduler_dsn=dsn, context_tokens=16384,
         experimental_personal_graph_enabled=True, request_timeout=300,

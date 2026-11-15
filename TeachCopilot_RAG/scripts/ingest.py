@@ -4,6 +4,7 @@ Supports --mode text (dedup) and --mode pdf (qwen3-vl multimodal)."""
 import sys
 import argparse
 import base64
+import hashlib
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -297,7 +298,17 @@ def ingest_json(json_path: Path):
     with psycopg2.connect(DATABASE_URL) as conn:
         with conn.cursor() as cur:
             for t in tasks:
-                task_id = t.get("task_id", "unknown")
+                task_id = t.get("task_id")
+                if not task_id:
+                    # Audit F-046: every record without a task_id used to share
+                    # the "unknown" upsert key, collapsing distinct records into
+                    # one knowledge_base row (second record silently won).
+                    # Derive a stable per-record key from the canonical record
+                    # instead so no data is lost.
+                    task_id = "auto-" + hashlib.sha256(
+                        _json.dumps(t, sort_keys=True, ensure_ascii=False).encode("utf-8")
+                    ).hexdigest()[:12]
+                    print(f"  [WARN] record without task_id; derived stable key {task_id} from its content")
                 topic_id = t.get("topic_id", "general")
                 subject = t.get("subject", "math")
                 content = str(t.get("content") or t.get("question") or t.get("text") or "")

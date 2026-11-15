@@ -37,7 +37,13 @@ def transition(root: Path, catalog_path: Path, output: Path) -> dict:
     # Review all balances before retiring the active ledger. Unknown reservations count in full.
     balances = []
     for name in prior_names:
-        with sqlite3.connect(local / name) as conn:
+        ledger_path = local / name
+        if not ledger_path.is_file():
+            # Audit F-050: sqlite3.connect used to run before any existence
+            # check and silently materialized an empty canonical-named ledger
+            # file, later misleading the v5 is_file guard.
+            raise FileNotFoundError(f"A canonical prior ledger is missing: {ledger_path}")
+        with sqlite3.connect(ledger_path) as conn:
             rows = conn.execute("SELECT charged_usd,status FROM budget_calls").fetchall()
             blocked = conn.execute("SELECT blocked FROM budget_config WHERE id=1").fetchone()
             if blocked is None:

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Manage the isolated local TeachCopilot PostgreSQL database."""
 from __future__ import annotations
-import argparse, getpass, json, os, subprocess, sys
+import argparse, getpass, json, os, subprocess, sys, tempfile
 import psycopg2
 from pathlib import Path
 from urllib.parse import urlsplit, unquote
@@ -103,8 +103,19 @@ def run(args=None):
     if a.command=="backup":
         dbname=validate_container_target(a.dsn,a.container)
         a.out.parent.mkdir(parents=True,exist_ok=True)
-        with a.out.open("wb") as backup:
-            subprocess.run(["docker","exec",a.container,"pg_dump","--format=custom","--no-owner","--no-privileges","--username","teachcopilot","--dbname",dbname],stdout=backup,check=True)
+        # Audit F-047: the target used to be opened with "wb" (truncate) before
+        # pg_dump ran, so a failed dump destroyed the previous backup. Dump to a
+        # temp file in the same directory and atomically replace on success.
+        fd,tmp_name=tempfile.mkstemp(dir=a.out.parent,prefix=a.out.name+".",suffix=".partial")
+        os.close(fd)
+        tmp=Path(tmp_name)
+        try:
+            with tmp.open("wb") as backup:
+                subprocess.run(["docker","exec",a.container,"pg_dump","--format=custom","--no-owner","--no-privileges","--username","teachcopilot","--dbname",dbname],stdout=backup,check=True)
+            os.replace(tmp,a.out)
+        except BaseException:
+            tmp.unlink(missing_ok=True)
+            raise
         print(f"Backup written to {a.out}"); return 0
     return 2
 

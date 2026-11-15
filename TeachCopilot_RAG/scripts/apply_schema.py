@@ -7,7 +7,7 @@ import psycopg2
 from pipeline.config import DATABASE_URL
 
 sql = (Path(__file__).parent.parent / "db" / "schema.sql").read_text(encoding="utf-8")
-print(f"Applying schema to: {DATABASE_URL}")
+print(f"Applying schema to: {DATABASE_URL.rsplit('@', 1)[-1]}")
 with psycopg2.connect(DATABASE_URL) as conn:
     conn.autocommit = True
     with conn.cursor() as cur:
