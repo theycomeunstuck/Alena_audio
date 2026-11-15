@@ -7,7 +7,7 @@ from app.services.audio_utils import (
     SAMPLE_RATE,
     ensure_float_mono_16k_from_pcm16,
 )
-from app.services.multi_speaker_matcher import get_global_matcher
+from app.services.multi_speaker_matcher import get_global_matcher, cos01_to_raw
 
 class StreamingVerifySession:
     """
@@ -64,5 +64,8 @@ class StreamingVerifySession:
         matcher = get_global_matcher()
         matches = matcher.match_probe_array(self.buffer, top_k=top_k)
         best = matches[0] if matches else None
-        decision = bool(best and best["score"] >= float(threshold))
+        # audit F-008: threshold is on the raw-cosine scale while matches carry
+        # [0..1] display scores — invert the mapping before comparing; the score
+        # fields themselves stay mapped to [0..1] for display.
+        decision = bool(best and cos01_to_raw(best["score"]) >= float(threshold))
         return {"decision": decision, "threshold": float(threshold), "best": best if decision else None, "matches": matches}

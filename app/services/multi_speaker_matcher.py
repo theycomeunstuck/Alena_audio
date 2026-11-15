@@ -18,6 +18,17 @@ def _cos_to01(x: torch.Tensor) -> torch.Tensor:
     """Косинус [-1..1] → [0..1]."""
     return (torch.clamp(x, -1.0, 1.0) + 1.0) * 0.5
 
+
+def cos01_to_raw(score01: float) -> float:
+    """Exact inverse of _cos_to01: display score [0..1] → raw cosine [-1..1].
+
+    Audit F-008: sim_threshold (core/config.py) is a RAW-cosine threshold, while
+    match_probe_array returns [0..1] display scores. Decision paths must invert
+    the display mapping (2*score − 1) before comparing against the threshold;
+    the API `score` fields stay mapped to [0..1] for display only.
+    """
+    return 2.0 * float(score01) - 1.0
+
 class MultiSpeakerMatcher:
     """
     Реестр спикеров хранится только в EMBEDDINGS_DIR как <user_id>.npy.
@@ -146,7 +157,9 @@ class MultiSpeakerMatcher:
         if not matches:
             return False, None
         best = matches[0]
-        return (best["score"] >= float(threshold)), best
+        # audit F-008: threshold is on the raw-cosine scale, matches carry [0..1]
+        # display scores — invert the mapping before comparing.
+        return (cos01_to_raw(best["score"]) >= float(threshold)), best
 
 
 

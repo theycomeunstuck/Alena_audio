@@ -7,7 +7,7 @@ import asyncio  # audit F-010: offload blocking model calls off the event loop
 import core.config
 from app.settings import STORAGE_DIR
 from app.services.speaker_service import SpeakerService, validate_resource_id, unique_temp_file, cleanup_temp_file
-from app.services.multi_speaker_matcher import get_global_matcher
+from app.services.multi_speaker_matcher import get_global_matcher, cos01_to_raw
 from app.services.audio_utils import load_and_resample
 from app.models.speaker_models import VerifyResponse, TrainMicResponse, MultiVerifyResponse, MultiVerifyMatch, \
     RegistryVerifyResponse, RegistryReloadResposne
@@ -65,7 +65,10 @@ async def verify_registry(
         # audit F-010: ECAPA/SepFormer via match_probe_array blocks -- off the loop.
         result = await asyncio.to_thread(matcher.match_probe_array, audio, top_k=top_k)
         best = result[0] if result else None
-        decision = bool(best and best["score"] >= float(sim_threshold))
+        # audit F-008: sim_threshold is a raw-cosine threshold while match_probe_array
+        # returns [0..1] display scores — invert the mapping before comparing; the
+        # score fields themselves stay mapped to [0..1] for display.
+        decision = bool(best and cos01_to_raw(best["score"]) >= float(sim_threshold))
         best_model = MultiVerifyMatch(**best) if decision and best is not None else None
         return {"decision": decision, "best": best_model, "threshold": float(sim_threshold), "matches": result}
     except Exception as e:

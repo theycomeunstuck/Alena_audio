@@ -68,6 +68,9 @@ def test_match_top1_correct_and_sorted_desc(tmp_registry, monkeypatch):
 
 
 def test_binary_decision_threshold(tmp_registry, monkeypatch):
+    # Probe direction: raw cosine to the best registry entry ("b") is 1/sqrt(2) ~ 0.7071.
+    # Audit F-008: the threshold is compared against the RAW cosine, while the
+    # returned display score stays mapped to [0..1]: (0.7071 + 1) / 2 ~ 0.8536.
     v = torch.tensor([0.0, 1.0, 1.0], dtype=torch.float32)
     v = torch.nn.functional.normalize(v, p=2, dim=-1)
     monkeypatch.setattr(msm, "embed_speechbrain", lambda audio: v, raising=True)
@@ -77,8 +80,14 @@ def test_binary_decision_threshold(tmp_registry, monkeypatch):
     audio = np.zeros(16000, dtype=np.float32)
 
     decision, best = m.binary_decision(audio, threshold=0.9)
-    assert decision is False
+    assert decision is False  # raw 0.7071 < 0.9
     assert best is not None  # best всегда есть при наличии реестра
+    assert best["score"] == pytest.approx((1.0 / 2 ** 0.5 + 1.0) / 2.0, abs=1e-6)  # display score stays [0..1]-mapped
 
+    # Before the F-008 fix the mapped display score 0.8536 >= 0.8 was accepted;
+    # on the raw-cosine scale 0.7071 < 0.8, so the decision is now False.
     decision2, _ = m.binary_decision(audio, threshold=0.8)
-    assert decision2 is True
+    assert decision2 is False
+
+    decision3, _ = m.binary_decision(audio, threshold=0.7)
+    assert decision3 is True  # raw 0.7071 >= 0.7

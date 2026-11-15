@@ -49,6 +49,12 @@ def test_buffer_trim_and_min_duration_gate(patched_resampler, patched_matcher):
     res = sess.current_best(top_k=3)
     assert len(res) == 3 and res[0]["user_id"] == "u0"
 
+    # Audit F-008: the binary decision compares the threshold against the RAW
+    # cosine (2*score − 1). The DummyMatcher's mapped display score 0.8 is a
+    # raw 0.6, so threshold=0.7 rejects, threshold=0.55 accepts.
     out2 = sess.current_best_binary(threshold=0.7, top_k=3)
-    assert out2["decision"] is True and out2["best"]["user_id"] == "u0"
+    assert out2["decision"] is False and out2["best"] is None
+    assert out2["matches"][0]["user_id"] == "u0"  # diagnostics keep the matches
+    out3 = sess.current_best_binary(threshold=0.55, top_k=3)
+    assert out3["decision"] is True and out3["best"]["user_id"] == "u0"
 # (обрезка буфера, 300мс-гейт, стабильная форма ответа)
