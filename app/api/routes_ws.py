@@ -19,7 +19,7 @@ async def ws_asr(
     language: str = Query("ru", description="Код языка"),
     sample_rate: int = Query(SAMPLE_RATE, ge=8000, le=48000, description="Частота входящих PCM16 кадров"),
     channels: int = Query(1, ge=1, le=2, description="Число каналов входящих PCM16 кадров"),
-    window_sec: float = Query(8.0, gt=0, description="Скользящее окно для буфера, сек. то есть окно, с которым мы работаем; храним последние window_sec сек."),
+    window_sec: float = Query(8.0, gt=0, le=60, description="Скользящее окно для буфера, сек. то есть окно, с которым мы работаем; храним последние window_sec сек."),
     emit_sec: float = Query(2.0, gt=0, description="Интервал эмиссии partial, сек. Частота обращения клиента к серверу "),
     inactivity_sec: Optional[float] = Query(None, description="Авто-final при тишине float сек; empty = off"),
 ):
@@ -27,7 +27,8 @@ async def ws_asr(
     ДОЛГОЖИВУЩИЙ сокет:
       - бинарные кадры = PCM16 (любая частота/каналы) → приводим к mono 16k
       - 'flush'  -> прислать partial
-      - 'stop'   -> прислать final и СБРОСИТЬ буфер (сокет остаётся открытым)
+      - 'stop'   -> прислать final и СБРОСИТЬ буфер (сокет остаётся открытым,
+                    фоновый эмиттер перезапускается и продолжает partial/авто-final)
       - 'reset'  -> принудительно очистить буфер (без final)
     Поддерживает utt_id для корреляции: пришлёте в 'flush/stop/reset' — вернём тем же в ответе.
     """
@@ -87,6 +88,16 @@ async def ws_asr(
             # БИНАРНЫЕ КАДРЫ: PCM16
             data = msg.get("bytes")
             if data is not None:
+                # Валидация размера кадра (как в /ws/speaker/verify): нечётный/битый
+                # кадр не должен убивать долгоживущий сокет — шлём notice и продолжаем
+                bytes_per_frame = 2 * channels
+                if len(data) % bytes_per_frame != 0:
+                    await ws.send_json({
+                        "type": "error",
+                        "code": "bad_frame_size",
+                        "detail": {"got_bytes": len(data), "bytes_per_frame": bytes_per_frame},
+                    })
+                    continue
                 # приведём к mono float32@16k + положим в буфер
                 sess.ingest_pcm16_chunk(data)
                 continue
@@ -136,6 +147,13 @@ async def ws_asr(
                         sess.reset()
                     except Exception:
                         pass
+
+                    # 4) перезапускаем фонового эмиттера: сокет остаётся открытым
+                    #    (документированный контракт долгоживущего сокета), поэтому
+                    #    partial/авто-final должны работать и после stop. Перезапуск
+                    #    идёт после отправки final, так что 'partial' не прилетит
+                    #    поверх 'final'.
+                    bg_task = asyncio.create_task(bg_loop())
 
                 elif event == "reset":
                     sess.reset()
@@ -211,6 +229,7 @@ async def ws_speaker_verify(
     })
 
     stop_reason: str | None = None
+    final_sent = False  # защита от двойного 'final' (тикер и receive-цикл могут финализировать одновременно)
     send_lock = asyncio.Lock()  # один отправитель за раз (тикер/receive)
 
     dirty = asyncio.Event()
@@ -234,12 +253,17 @@ async def ws_speaker_verify(
         await compute_and_send("partial")
 
     async def send_final(reason: str | None):
+        nonlocal final_sent
+        if final_sent:
+            return
+        final_sent = True
         res = await asyncio.to_thread(sess.current_best_binary, sim_threshold, top_k=top_k)
         async with send_lock:
             await safe_send({"type": "final", **res, "reason": reason})
 
     # фон-таск, который шлёт partial по таймеру
     async def ticker():
+        nonlocal stop_reason
         try:
             while True:
                 try: # ждём новый звук, но не реже чем раз в interval
@@ -248,6 +272,17 @@ async def ws_speaker_verify(
                     pass
                 dirty.clear()
                 await compute_and_send("partial")
+                # Авто-STOP по молчанию: проверяем и в тикере, чтобы авто-финал
+                # срабатывал и при полном молчании клиента (когда сообщения не
+                # приходят и receive-цикл спит в ws.receive())
+                if sess.inactive_timed_out():
+                    stop_reason = "inactivity"
+                    await send_final(stop_reason)
+                    try:
+                        await ws.close(code=1000)
+                    except Exception:
+                        pass
+                    break
         except asyncio.CancelledError:
             pass
 
