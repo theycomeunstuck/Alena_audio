@@ -342,7 +342,7 @@ class TestF013AssessmentMarker:
 
         monkeypatch.setattr(ff, "assess_interaction", fake_assess)
 
-        body = {"messages": []}
+        body = {"chat_id": "chat-test-1", "messages": []}
         for i in range(1, 6):
             body["messages"].append({"role": "user", "content": f"USER-{i}"})
             body["messages"].append({"role": "assistant", "content": f"A-{i}"})

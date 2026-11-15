@@ -21,10 +21,13 @@ Modes (``TEACHCOPILOT_MASTERY_MODE``):
 """
 from __future__ import annotations
 
+import contextlib
 import datetime
 import json
 import logging
+import os
 import re
+import uuid
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Callable, Iterable, Sequence
@@ -861,7 +864,18 @@ def write_card(learner_id: str, card: dict) -> Path:
     backup = backup_card(learner_id)
     if backup is not None:
         logger.info("Backup saved: %s", backup)
-    path.write_text(json.dumps(card, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    # SP-5: this file is the only copy of the card's history - never truncate
+    # it in place. Write to a temp file in the same directory and os.replace,
+    # like the atomic zpd writer (F-055).
+    payload = json.dumps(card, ensure_ascii=False, indent=2) + "\n"
+    tmp_path = path.with_name(f"{path.name}.tmp-{uuid.uuid4().hex[:8]}")
+    try:
+        tmp_path.write_text(payload, encoding="utf-8")
+        os.replace(tmp_path, path)
+    except BaseException:
+        with contextlib.suppress(Exception):
+            tmp_path.unlink(missing_ok=True)
+        raise
     logger.info("Learner card written: %s", path)
     return path
 

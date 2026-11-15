@@ -467,6 +467,9 @@ class MemoryStoreMixin:
                 or len(client_correction_id)>180):
             raise ValueError("client correction identifier must contain 1 to 180 characters")
         with self._connect() as conn, conn.cursor() as cur:
+            # SP-1: take the queue advisory lock before the learners row lock
+            # (this transaction enqueues via _enqueue_memory_job further down).
+            cur.execute("SELECT pg_advisory_xact_lock(hashtextextended('teachcopilot_memory_queue',0))")
             learner = self._memory_learner(cur,learner_id)
             source_key = "correction:" + client_correction_id
             cur.execute("SELECT * FROM teachcopilot.memory_sources WHERE learner_id=%s AND source_key=%s",
@@ -940,8 +943,14 @@ class MemoryStoreMixin:
             raise ValueError("structured_v2_is_teacher_next_step_only")
         if method in ARCHIVE_MEMORY_METHODS and (kind != "next_step" or provider != "local"):
             raise ValueError(f"{method}_is_local_teacher_next_step_only")
-        learner = self._memory_learner(cur,learner_id,expected_revision)
+        # SP-1: the advisory lock must come before the learners row lock in
+        # EVERY transaction that enqueues, otherwise this order inverts
+        # against complete_learning_session (advisory first, learners UPDATE
+        # later) and re-creates the F-031 deadlock on a different pair. The
+        # xact-scoped lock is reentrant, so callers that already hold it are
+        # unaffected.
         cur.execute("SELECT pg_advisory_xact_lock(hashtextextended('teachcopilot_memory_queue',0))")
+        learner = self._memory_learner(cur,learner_id,expected_revision)
         self._recover_chat_messages(cur)
         if idempotency_key is not None:
             cur.execute("SELECT * FROM teachcopilot.memory_jobs WHERE learner_id=%s AND kind=%s AND idempotency_key=%s", (learner_id,kind,idempotency_key))

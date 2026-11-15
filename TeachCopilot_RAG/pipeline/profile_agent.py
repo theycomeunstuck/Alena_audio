@@ -289,7 +289,7 @@ def update_profile(child_id: str, assessments: list[dict],
                     if cur.fetchone() is not None:
                         logger.info("Boundary %s already assessed for child=%s (conversation %s) — skipping re-apply",
                                     message_count, child_id, key)
-                        return
+                        return 0
 
                 if not isinstance(assessments, (list, tuple)):
                     # The payload comes straight from json.loads of the model
@@ -390,7 +390,7 @@ def update_profile(child_id: str, assessments: list[dict],
                         logger.warning("No valid assessment items for child=%s at "
                                        "boundary %s - marker not written", child_id, message_count)
                         conn.commit()  # persist the diagnostic event, keep the boundary retryable
-                        return
+                        return 0
                     cur.execute("""
                         INSERT INTO events (child_id, event_type, payload)
                         VALUES (%s, %s, %s)
@@ -401,5 +401,6 @@ def update_profile(child_id: str, assessments: list[dict],
                         default=str, ensure_ascii=False)))
 
             conn.commit()
+            return applied
     except Exception:
         logger.exception("update_profile failed for child=%s", child_id)

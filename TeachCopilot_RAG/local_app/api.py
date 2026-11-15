@@ -1164,7 +1164,12 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None, chat_r
         ]
         if any(existing_id != learner_id for existing_id in existing):
             raise HTTPException(status_code=409, detail="student account is already linked")
-        store.assign_learner(_account_id(student), learner_id, relationship="student")
+        try:
+            store.assign_learner(_account_id(student), learner_id, relationship="student")
+        except PermissionError as exc:
+            # SP-3: the store-level race guard (F-033) raises here when a
+            # concurrent link won - surface the documented 409, not a 500.
+            raise HTTPException(status_code=409, detail=str(exc) or "student account is already linked") from exc
         return {"learner_id": learner_id, "student_account_id": _account_id(student), "linked": True}
 
     @app.post("/learners/{learner_id}/students", status_code=201)

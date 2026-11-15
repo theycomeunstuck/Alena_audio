@@ -14,7 +14,7 @@ Speaker mode is controlled by TEACHCOPILOT_SPEAKER_MODE:
 - child_only: unknown users get DEFAULT_CHILD_ID and child prompt.
 - mapped_or_adult: mapped users are children; unknown users get adult prompt.
 """
-import os, re, logging, hashlib
+import os, re, logging
 from contextlib import closing
 from pipeline.db import get_child_full_profile, get_connection
 from pipeline.rag import search_knowledge
@@ -133,30 +133,35 @@ class Filter:
             # conversation was already assessed: regenerate/retry of the same
             # conversation must not re-apply the same relative score deltas,
             # while a different conversation of the same child must still be
-            # assessed (audit regression REG-1). Open WebUI provides chat_id;
-            # without it, fall back to a stable hash of the window's first
-            # user message.
-            conversation_key = str(body.get("chat_id") or "")
-            if not conversation_key:
-                first_user = next((m.get("content", "") for m in messages
-                                   if m.get("role") == "user"), "")
-                conversation_key = hashlib.sha1(str(first_user).encode("utf-8")).hexdigest()[:16]
-            if already_assessed(child_id, user_msg_count, conversation_key=conversation_key):
+            # assessed (audit regression REG-1). The key must be a real
+            # conversation identity: Open WebUI provides chat_id. SP-2: a
+            # content-hash fallback would collide across conversations and
+            # shift on edits, so without chat_id the marker is not used at
+            # all (the retry window narrows to the process boundary - the
+            # honest trade-off).
+            chat_id = str(body.get("chat_id") or "")
+            if chat_id and already_assessed(child_id, user_msg_count, conversation_key=chat_id):
                 logger.info("Profile already assessed at boundary %s for child=%s (conversation %s) — skipping",
-                            user_msg_count, child_id, conversation_key)
+                            user_msg_count, child_id, chat_id)
                 return body
+            if not chat_id:
+                logger.warning("No chat_id in body - profile assessment marker "
+                               "skipped for child=%s; a regenerate at this boundary "
+                               "may re-apply deltas", child_id)
 
             assessments = assess_interaction(child_id, messages)
             if assessments:
-                update_profile(child_id, assessments, message_count=user_msg_count,
-                               conversation_key=conversation_key)
-                log_event(child_id, "profile_update", {
-                    "trigger": f"auto_{PROFILE_UPDATE_INTERVAL}msg",
-                    "assessments": assessments,
-                    "message_count": user_msg_count
-                })
-                logger.info("Profile updated: child=%s topics=%d",
-                           child_id, len(assessments))
+                applied = update_profile(child_id, assessments,
+                                         message_count=user_msg_count if chat_id else None,
+                                         conversation_key=chat_id or None)
+                if applied > 0:
+                    log_event(child_id, "profile_update", {
+                        "trigger": f"auto_{PROFILE_UPDATE_INTERVAL}msg",
+                        "assessments": assessments,
+                        "message_count": user_msg_count
+                    })
+                    logger.info("Profile updated: child=%s topics=%d",
+                               child_id, applied)
         except Exception:
             logger.exception("outlet profile update failed — continuing")
         return body
