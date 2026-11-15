@@ -24,7 +24,8 @@ from __future__ import annotations
 import datetime
 import json
 import logging
-from dataclasses import dataclass, field
+import re
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Callable, Iterable, Sequence
 
@@ -582,6 +583,22 @@ def _sync_derived(card: dict) -> list[str]:
     return changes
 
 
+def _observation_recorded(card: dict, observation: ObservedAttempt, today: str) -> bool:
+    """True when history already holds this attempt: same topic, date, help level."""
+    competencies = {
+        item["topic_id"]: item
+        for item in ((card.get("learner_model") or {}).get("competencies") or [])
+        if isinstance(item, dict) and isinstance(item.get("topic_id"), str)
+    }
+    history = (competencies.get(observation.topic_id) or {}).get("history") or []
+    return any(
+        isinstance(entry, dict)
+        and entry.get("date") == today
+        and entry.get("help_level") == observation.help_level
+        for entry in history
+    )
+
+
 def already_applied(card: dict, proposal: CardUpdateProposal, today: str) -> str | None:
     """Return a reason when this proposal looks like it was already written.
 
@@ -595,6 +612,10 @@ def already_applied(card: dict, proposal: CardUpdateProposal, today: str) -> str
     * an identical journal entry (same date, same text) already exists;
     * every observation in the proposal already has a history entry with the
       same date and the same help level.
+
+    A partially overlapping re-run (a repeated observation plus a new one)
+    deliberately passes this guard: :func:`apply_proposal` then applies only
+    the new facts via :func:`_drop_repeated_facts`.
     """
     journal = ((card.get("mvp") or {}).get("journal")) or []
     if proposal.journal_note and any(
@@ -608,21 +629,62 @@ def already_applied(card: dict, proposal: CardUpdateProposal, today: str) -> str
     if not proposal.observations:
         return None
 
-    competencies = {
-        item["topic_id"]: item
-        for item in ((card.get("learner_model") or {}).get("competencies") or [])
-        if isinstance(item, dict) and isinstance(item.get("topic_id"), str)
-    }
     for observation in proposal.observations:
-        history = (competencies.get(observation.topic_id) or {}).get("history") or []
-        if not any(
-            isinstance(entry, dict)
-            and entry.get("date") == today
-            and entry.get("help_level") == observation.help_level
-            for entry in history
-        ):
+        if not _observation_recorded(card, observation, today):
             return None
     return "все наблюдения уже записаны сегодня с тем же уровнем помощи"
+
+
+def _drop_repeated_facts(card: dict, proposal: CardUpdateProposal, today: str) -> CardUpdateProposal:
+    """Drop the facts a partially overlapping re-run has already recorded.
+
+    The all-or-nothing guard in :func:`already_applied` only catches a proposal
+    whose every observation is already written. The normal re-run — the model
+    re-words the notes and adds one new observation — passes that guard, and
+    re-applying the recorded facts would move the EMA twice from one recorded
+    attempt and inflate the error counters. An observation with the same date
+    and help level, and an error pattern last seen today, are not new facts:
+    they are dropped here with a warning, and only the new facts are applied.
+    """
+    skipped: list[str] = []
+    observations = []
+    for observation in proposal.observations:
+        if _observation_recorded(card, observation, today):
+            skipped.append(
+                f"наблюдение по «{observation.topic_id}» ({zpd_help_title(observation.help_level)})"
+                " уже записано сегодня с тем же уровнем помощи — пропущено"
+            )
+        else:
+            observations.append(observation)
+
+    patterns = card.get("error_patterns") or []
+    error_patterns = []
+    for topic_id, error_tag in proposal.new_error_patterns:
+        existing = next(
+            (
+                item
+                for item in patterns
+                if isinstance(item, dict)
+                and item.get("topic_id") == topic_id
+                and item.get("error_tag") == error_tag
+            ),
+            None,
+        )
+        if existing is not None and existing.get("last_seen") == today:
+            skipped.append(
+                f"ошибка «{error_tag}» ({topic_id}) уже записана сегодня — счётчик не увеличен"
+            )
+        else:
+            error_patterns.append((topic_id, error_tag))
+
+    if not skipped:
+        return proposal
+    return replace(
+        proposal,
+        observations=tuple(observations),
+        new_error_patterns=tuple(error_patterns),
+        warnings=proposal.warnings + tuple(skipped),
+    )
 
 
 def apply_proposal(
@@ -637,7 +699,9 @@ def apply_proposal(
     """Apply one proposal to a copy of ``card`` and return the new card plus a diff.
 
     The input card is never mutated: callers compare, print and only then write.
-    ``force`` applies the update even when it looks like a repeat.
+    ``force`` applies the update even when it looks like a repeat. Without it,
+    an identical repeat is skipped whole, and a partially overlapping re-run
+    applies only the facts not already recorded for today.
     """
     resolved_mode = (mode or MASTERY_MODE).strip().lower()
     if resolved_mode not in MASTERY_MODES:
@@ -659,6 +723,7 @@ def apply_proposal(
                     "Повторите с --force, если запись нужна ещё раз.",
                 ),
             )
+        proposal = _drop_repeated_facts(card, proposal, stamp)
 
     changes, pending = _apply_observations(
         updated, proposal, mode=resolved_mode, today=stamp, confirmed_topics=confirmed_topics
@@ -758,7 +823,17 @@ def backup_card(learner_id: str, *, stamp: str | None = None) -> Path | None:
     target = backups / f"{learner_id}-{moment}.json"
     target.write_text(source.read_text(encoding="utf-8-sig"), encoding="utf-8")
 
-    previous = sorted(backups.glob(f"{learner_id}-*.json"))
+    # Prune only this learner's own timestamped backups. Sibling ids produced by
+    # _unique_learner_id ({learner}-{n}) share this directory: a plain
+    # {learner_id}-*.json glob matches them, lexicographic order puts them
+    # before this learner's files, and the quota would delete another child's
+    # history. Only the exact "{learner_id}-YYYYMMDD-HHMMSS.json" shape counts.
+    own_backup = re.compile(rf"{re.escape(learner_id)}-\d{{8}}-\d{{6}}\.json")
+    previous = sorted(
+        path
+        for path in backups.glob(f"{learner_id}-*.json")
+        if own_backup.fullmatch(path.name)
+    )
     for stale in previous[:-BACKUPS_KEPT]:
         stale.unlink(missing_ok=True)
     return target
@@ -791,6 +866,26 @@ def write_card(learner_id: str, card: dict) -> Path:
     return path
 
 
+def _ensure_unchanged_on_disk(learner_id: str, loaded: dict) -> None:
+    """Fail closed when the card file changed between the load and the write.
+
+    The store path carries its revision into save_card (expected_revision);
+    the plain JSON path has no revisions, so the file is re-read right before
+    the overwrite and compared with the card the update was computed from.
+    A human edit landing in between aborts the write instead of being
+    silently clobbered by a card built from a stale snapshot.
+    """
+    path = card_path(learner_id)
+    try:
+        current = json.loads(path.read_text(encoding="utf-8-sig"))
+    except (OSError, ValueError) as exc:
+        raise CardUpdateError(f"карточка «{learner_id}» не перечитана перед записью: {exc}") from exc
+    if current != loaded:
+        raise CardUpdateError(
+            f"карточка «{learner_id}» изменилась на диске с момента загрузки — запись отменена"
+        )
+
+
 def update_from_notes(
     notes: str,
     learner_ids: Sequence[str],
@@ -820,6 +915,10 @@ def update_from_notes(
             proposal = filter_proposal(proposal, decide)
             if proposal.is_empty():
                 continue
+        # The revision is fetched before the load so it names the state we are
+        # about to read: if the store moves in the meantime, save_card raises
+        # RevisionConflict instead of overwriting the newer card blindly.
+        expected_revision = store.get_revision(learner_id) if (apply and store is not None) else None
         try:
             card, _catalog = load_validated_card(learner_id, store=store)
         except LearnerContextError as exc:
@@ -829,8 +928,9 @@ def update_from_notes(
         )
         if apply and result.changed():
             if store is not None:
-                store.save_card(result.card, actor_id=actor_id)
+                store.save_card(result.card, actor_id=actor_id, expected_revision=expected_revision)
             else:
+                _ensure_unchanged_on_disk(learner_id, card)
                 write_card(learner_id, result.card)
         results.append(result)
     return results
