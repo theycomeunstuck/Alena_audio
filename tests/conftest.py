@@ -1,5 +1,5 @@
 # tests/conftest.py
-import sys, os, io
+import sys, os, io, wave
 from pathlib import Path
 
 
@@ -11,7 +11,6 @@ if str(ROOT) not in sys.path:
 
 import numpy as np
 import pytest
-import torchaudio, torch
 
 from fastapi.testclient import TestClient
 
@@ -35,10 +34,25 @@ def make_sine(sr: int, duration: float, freq: float = 440.0, amp: float = 0.5) -
 
 
 def wav_bytes_from_np(x: np.ndarray, sr: int) -> bytes:
-    """Создаёт WAV (RIFF) из 1D float32 numpy через torchaudio.save в память."""
-    tensor = torch.from_numpy(x).unsqueeze(0)  # [1, N]
+    """Создаёт WAV (RIFF) из 1D float32 numpy через стандартный модуль wave.
+
+    torchaudio.save/load в этом окружении не работает (torchcodec не может
+    загрузить свою DLL — см. комментарий в tests/test_voices_cache.py), поэтому
+    хелпер не должен зависеть от torchaudio только ради генерации тестовых
+    байтов: PCM16 WAV пишется стандартным модулем wave, который читают все
+    потребители (product load_and_resample / pydub).
+    """
+    x = np.asarray(x, dtype=np.float32)
+    if x.ndim > 1:
+        x = x.mean(axis=0)
+    x = np.clip(x, -1.0, 1.0)
+    pcm16 = (x * 32767.0).astype("<i2")
     buf = io.BytesIO()
-    torchaudio.save(buf, tensor, sr, format="wav")
+    with wave.open(buf, "wb") as wf:
+        wf.setnchannels(1)
+        wf.setsampwidth(2)
+        wf.setframerate(sr)
+        wf.writeframes(pcm16.tobytes())
     return buf.getvalue()
 
 

@@ -1,9 +1,11 @@
 # Tests for /files/upload filename sanitization (audit F-001).
-# The storage-dir attributes are patched in both places the code has used,
-# so the tests never touch the real storage tree.
+# routes_files has no module-level STORAGE_DIR binding: the handlers read
+# app.settings.STORAGE_DIR on every call, so patching the settings attribute
+# is what redirects the tests away from the real storage tree.
 import io
 
 import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -14,7 +16,6 @@ client = TestClient(app)
 @pytest.fixture()
 def storage(tmp_path, monkeypatch):
     monkeypatch.setattr("app.settings.STORAGE_DIR", tmp_path, raising=False)
-    monkeypatch.setattr("app.api.routes_files.STORAGE_DIR", tmp_path, raising=False)
     return tmp_path
 
 
@@ -55,13 +56,28 @@ def test_upload_rejects_absolute_and_escaped_names(storage, name):
 
 def test_containment_rejects_absolute_paths(storage):
     # The multipart layer normalizes some absolute names before the handler,
-    # so the containment check is exercised directly.
+    # so the containment check is exercised directly. It must raise a 400
+    # HTTPException, not any other error type.
     from app.api import routes_files
 
-    with pytest.raises(Exception):  # HTTPException 400
-        routes_files._contained_path(r"C:\Windows\evil.txt")
-    with pytest.raises(Exception):
-        routes_files._contained_path("../escape.txt")
+    for name in (r"C:\Windows\evil.txt", "../escape.txt"):
+        with pytest.raises(HTTPException) as exc_info:
+            routes_files._contained_path(name)
+        assert exc_info.value.status_code == 400, (
+            f"{name!r} must map to HTTP 400, got {exc_info.value.status_code}")
+
+
+def test_upload_accepts_bare_name_and_roundtrips(storage):
+    # Positive path with a payload that never needs the (broken) torchaudio
+    # decoder: upload writes raw bytes, download serves them back unchanged.
+    r = client.post("/files/upload", files={"file": ("hello.txt", io.BytesIO(b"hello world"), "text/plain")})
+    assert r.status_code == 200
+    assert r.json() == {"filename": "hello.txt"}
+    assert (storage / "hello.txt").read_bytes() == b"hello world"
+
+    r2 = client.get("/files/download/hello.txt")
+    assert r2.status_code == 200
+    assert r2.content == b"hello world"
 
 
 def test_upload_empty_filename_rejected(storage):

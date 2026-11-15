@@ -47,16 +47,41 @@ def test_audio_transcribe(client, mock_asr_transcribe):
     assert data["text"].startswith("len=")
 
 
-def test_speaker_verify(client, mock_enhancement):
-    # probe и reference обе подаются, verify вернёт заглушку (0.91, True)
-    x = make_sine(SAMPLE_RATE, 0.12, freq=300)
-    y = make_sine(SAMPLE_RATE, 0.12, freq=500)
+def test_speaker_verify(client, monkeypatch, tmp_path):
+    """Route contract for /speaker/verify with the service seam faked.
+
+    The old version relied on the conftest Audio_Enhancement fake, but
+    SpeakerService.verify_files never uses Audio_Enhancement — it decodes the
+    uploads and embeds them via speechbrain (ECAPA). That made the test load a
+    real model in a healthy environment and die in the broken torchaudio
+    decoder here. The route's own contract lives at the service seam: temp
+    files are written per request and the {score, decision} dict passes
+    through the VerifyResponse model.
+    """
+    import app.api.routes_speaker as rs
+
+    # probe/reference temp files must not land in the real storage tree
+    monkeypatch.setattr(rs, "STORAGE_DIR", tmp_path, raising=False)
+
+    def fake_verify_files(probe_wav, reference_wav=None):
+        from pathlib import Path
+
+        assert Path(probe_wav).read_bytes() == b"PROBE-BYTES", (
+            "the service must read this request's probe upload")
+        assert reference_wav is not None and Path(reference_wav).read_bytes() == b"REF-BYTES", (
+            "the service must receive this request's reference upload")
+        return {"score": 0.91, "decision": True}
+
+    monkeypatch.setattr(rs.svc, "verify_files", fake_verify_files, raising=True)
+
     files = {
-        "probe": ("p.wav", wav_bytes_from_np(x, SAMPLE_RATE), "audio/wav"),
-        "reference": ("r.wav", wav_bytes_from_np(y, SAMPLE_RATE), "audio/wav"),
+        "probe": ("p.wav", b"PROBE-BYTES", "audio/wav"),
+        "reference": ("r.wav", b"REF-BYTES", "audio/wav"),
     }
     r = client.post("/speaker/verify", files=files)
     assert r.status_code == 200
     data = r.json()
-    assert 0.0 <= data["score"] <= 1.0
-    assert isinstance(data["decision"], bool)
+    # exact passthrough of the service dict (score/decision) through the route
+    assert data["score"] == 0.91
+    assert data["decision"] is True
+    assert list(tmp_path.iterdir()) == [], "probe/reference temp files must be cleaned up"

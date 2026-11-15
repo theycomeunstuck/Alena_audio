@@ -1,4 +1,7 @@
 # Tests for /files/download containment (audit F-007).
+# routes_files has no module-level STORAGE_DIR binding: the handlers read
+# app.settings.STORAGE_DIR on every call, so patching the settings attribute
+# is what redirects the tests away from the real storage tree.
 import pytest
 from fastapi.testclient import TestClient
 
@@ -10,7 +13,6 @@ client = TestClient(app)
 @pytest.fixture()
 def storage(tmp_path, monkeypatch):
     monkeypatch.setattr("app.settings.STORAGE_DIR", tmp_path, raising=False)
-    monkeypatch.setattr("app.api.routes_files.STORAGE_DIR", tmp_path, raising=False)
     (tmp_path / "ok.txt").write_bytes(b"data")
     return tmp_path
 

@@ -85,6 +85,39 @@ def test_tts_explicit_voice_id_media_type(monkeypatch, tmp_path):
     assert engine.calls[0]["out_format"] == "mp3"
 
 
+def test_tts_rejects_whitespace_only_text(monkeypatch, tmp_path):
+    # The route strips the text before validating, so "   " must fail like ""
+    client, engine = _make_tts_client(monkeypatch, tmp_path)
+
+    r = client.post("/tts", json={"text": "   \n\t "})
+    assert r.status_code == 400
+    assert engine.calls == []  # до синтеза дело не дошло
+
+
+def test_tts_all_documented_formats_map_to_media_types(monkeypatch, tmp_path):
+    client, engine = _make_tts_client(monkeypatch, tmp_path)
+
+    for fmt, media in (("wav", "audio/wav"), ("mp3", "audio/mpeg"), ("ogg", "audio/ogg")):
+        r = client.post("/tts", json={"text": "ok", "format": fmt})
+        assert r.status_code == 200, r.text
+        assert r.headers["content-type"].startswith(media), (
+            f"format={fmt!r} must be served as {media}")
+        assert r.headers["content-disposition"] == f'attachment; filename="tts.{fmt}"'
+
+    assert [c["out_format"] for c in engine.calls] == ["wav", "mp3", "ogg"], (
+        "the route must forward the requested format to the engine")
+
+
+def test_tts_clone_rejects_unsupported_suffix(monkeypatch, tmp_path):
+    # /tts/clone accepts only WAV/MP3/FLAC/M4A/OGG uploads; anything else must
+    # be rejected before the store (and its Whisper transcription) is touched.
+    client, engine = _make_tts_client(monkeypatch, tmp_path)
+
+    r = client.post("/tts/clone", files={"file": ("notes.txt", b"hello", "text/plain")})
+    assert r.status_code == 400
+    assert "WAV" in r.json()["detail"]  # форматный hint в detail
+
+
 def test_errors(monkeypatch, tmp_path):
     client, engine = _make_tts_client(monkeypatch, tmp_path)
 
@@ -96,6 +129,7 @@ def test_errors(monkeypatch, tmp_path):
     # несуществующий voice_id -> 404
     r = client.post("/tts", json={"text": "ok", "voice_id": "no-such-id"})
     assert r.status_code == 404
+    assert engine.calls == []  # 404 тоже не доходит до синтеза
 
     # невалидный voice_id (обход каталога) -> 400 через validate_resource_id
     r = client.post("/tts", json={"text": "ok", "voice_id": "../escape"})
