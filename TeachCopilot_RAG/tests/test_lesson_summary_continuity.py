@@ -47,9 +47,11 @@ SCRIPTED_LESSON = """# Урок: Деление на 10, 20 минут
 class RecordingRuntime(OllamaRuntime):
     """Observe the final Ollama requests and optionally replace the transport."""
 
-    def __init__(self, settings, *, live):
+    def __init__(self, settings, *, live, recall_mode="full_quote"):
         super().__init__(settings)
         self.live = live
+        # Scripted answer to the recall question: the full source text or a paraphrase.
+        self.recall_mode = recall_mode
         self.requests = []
 
     def _available_models(self):
@@ -87,7 +89,8 @@ class RecordingRuntime(OllamaRuntime):
             answer = {"in_scope": False, "uses_prior_context": False, "search_query": "",
                       "personal_memory_recall": True}
         elif "<own_conversation_retrieval_untrusted>" in system and FIRST in system:
-            answer = "«" + FIRST.split(". ", 1)[0] + ".»"
+            answer = ("«" + FIRST + "»" if self.recall_mode == "full_quote"
+                      else "Ты рассказывала про деление на 10 и потерянный ноль.")
         else:
             answer = "В найденных репликах этого нет."
         return {"message": {"content": answer if isinstance(answer, str) else json.dumps(answer, ensure_ascii=False)},
@@ -184,12 +187,14 @@ def finish_and_read(client, teacher, student, service, teacher_id, worker, sessi
     return result["summary"], source["source_id"]
 
 
-def recall_after_restart(settings, live, student_account, other_account, password, old_source_id, old_session):
+def recall_after_restart(settings, live, student_account, other_account, password, old_source_id, old_session,
+                         recall_mode="full_quote"):
     store = Store(settings.database_url)
-    runtime = RecordingRuntime(settings, live=live)
+    runtime = RecordingRuntime(settings, live=live, recall_mode=recall_mode)
     events = []
     with TestClient(make_app(settings, store, runtime, events.append)) as client:
-        for learner, account in ((LEARNER, student_account), (OTHER_LEARNER, other_account)):
+        # The other learner goes first so isolation is checked whatever happens to the quote.
+        for learner, account in ((OTHER_LEARNER, other_account), (LEARNER, student_account)):
             events.clear()
             runtime.requests.clear()
             headers = login(client, account, password)
@@ -208,14 +213,25 @@ def recall_after_restart(settings, live, student_account, other_account, passwor
                 assert old_source_id in final["delivered_source_ids"]
                 assert any(FIRST in row["content"] for row in runtime.requests[-1]["messages"])
                 assert FIRST.split(". ", 1)[0] in answer, answer
+                check = final.get("quote_check")
+                assert check, final
+                assert check["status"] in {"model_verbatim", "inserted"}, check
+                assert check["selected_source_id"] == old_source_id, check
+                if not live:
+                    assert check["status"] == {"full_quote": "model_verbatim",
+                                               "paraphrase": "inserted"}[recall_mode], check
+                print(f"quote_check={check['status']}")
             else:
                 assert all(old_source_id not in event["delivered_source_ids"] for event in answer_events)
                 assert all(FIRST not in row["content"] for call in runtime.requests for row in call["messages"])
                 assert FIRST.split(". ", 1)[0] not in answer, answer
 
 
-@pytest.mark.parametrize("live", [False, pytest.param(True, marks=pytest.mark.live)], ids=["scripted", "live"])
-def test_two_assigned_lessons_and_restart(unified_store, accounts, live, tmp_path):
+@pytest.mark.parametrize("live, recall_mode", [
+    (False, "full_quote"), (False, "paraphrase"),
+    pytest.param(True, "full_quote", marks=pytest.mark.live)],
+    ids=["scripted-full", "scripted-paraphrase", "live"])
+def test_two_assigned_lessons_and_restart(unified_store, accounts, live, recall_mode, tmp_path):
     store = unified_store
     configured = Settings.from_env()
     context = configured.context_tokens if live else 16384
@@ -280,7 +296,7 @@ def test_two_assigned_lessons_and_restart(unified_store, accounts, live, tmp_pat
 
     # A fresh interpreter rebuilds Store, API, RAG and Ollama runtime before recall.
     process = multiprocessing.get_context("spawn").Process(target=recall_after_restart, args=(
-        settings, live, accounts.student, other, accounts.password, first_source_id, first))
+        settings, live, accounts.student, other, accounts.password, first_source_id, first, recall_mode))
     process.start()
     process.join(timeout=420 if live else 30)
     if process.is_alive():
