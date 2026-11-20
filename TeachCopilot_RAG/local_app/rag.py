@@ -948,7 +948,7 @@ class RagService:
         return quotes
 
     def _emit_answer_prompt(self, trace, route: str, *, delivered, hydrated, messages,
-                            max_output_tokens, response) -> None:
+                            max_output_tokens, response, **extra) -> None:
         """Record the exact final answer-model input and its admitted evidence."""
         if trace is None:
             return
@@ -964,7 +964,7 @@ class RagService:
             model=response.get("model") or getattr(self.settings, "chat_model", None),
             backend=(response.get("answer_routing") or {}).get("backend"),
             usage={"prompt_tokens": response.get("prompt_eval_count", 0),
-                   "completion_tokens": response.get("eval_count", 0)})
+                   "completion_tokens": response.get("eval_count", 0)}, **extra)
         trace.mark_generation()
         trace.add_delivered(delivered or [])
 
@@ -1094,11 +1094,25 @@ class RagService:
         text = str((response.get("message") or {}).get("content") or "").strip()
         if not text or len(text) > 900:
             raise IncompleteCompletionError("Local social chat returned no brief answer")
+        quote_check = None
+        quote_replacement = None
+        if personal_recall and conversation_retrieval is not None:
+            from local_app.recall_quote_guard import recall_quote_guard
+            latest_user_message = next((row["content"] for row in reversed(history)
+                                        if row.get("role") == "user"), "")
+            quote_check = recall_quote_guard(latest_user_message, conversation_retrieval.get("sources") or [], text)
+            if quote_check is not None and "answer" in quote_check:
+                quote_replacement = {**quote_check, "rejected_answer": text}
+                text = quote_check["answer"]
+            if quote_check is not None:
+                quote_check = {key: quote_check[key] for key in
+                               ("status", "selected_source_id", "candidate_source_ids")}
         if trace is not None:
             hydrated = (self._conversation_hydrated_quotes(conversation_retrieval)
                         + self._memory_hydrated_quotes(memory_context))
             self._emit_answer_prompt(trace, social_route, delivered=delivered, hydrated=hydrated,
-                                     messages=model_messages, max_output_tokens=192, response=response)
+                                     messages=model_messages, max_output_tokens=192, response=response,
+                                     **({"quote_check": quote_check} if quote_check is not None else {}))
         prompt_tokens, output_tokens = response.get("prompt_eval_count", 0), response.get("eval_count", 0)
         return {
             "id": response.get("id"), "object": "chat.completion",
@@ -1108,8 +1122,19 @@ class RagService:
             "citations": [], "sources": [],
             "usage": {"prompt_tokens": prompt_tokens, "completion_tokens": output_tokens,
                       "total_tokens": prompt_tokens + output_tokens},
-            "answer_routing": {"backend": "local", "reason": (
-                "personal_memory_recall" if memory_context or personal_recall else "brief_social_turn")},
+            "answer_routing": ({"backend": "deterministic_local",
+                                "reason": "verbatim_quote_" + quote_replacement["status"],
+                                "model_attempt_backend": (response.get("answer_routing") or {}).get("backend") or "local"}
+                               if quote_replacement else {"backend": "local", "reason": (
+                                   "personal_memory_recall" if memory_context or personal_recall else "brief_social_turn")}),
+            **({"answer_validation": {"status": "replaced" if quote_replacement["status"] == "inserted" else "clarification",
+                                       "reason": "verbatim_quote_" + quote_replacement["status"]},
+                "_local_diagnostics": {"type": "VerbatimQuoteMismatch",
+                                       "message": "The model response did not contain an eligible verbatim quote.",
+                                       "model_response": {"rejected_answer": quote_replacement["rejected_answer"],
+                                                          "candidate_source_ids": quote_replacement["candidate_source_ids"],
+                                                          "selected_source_id": quote_replacement["selected_source_id"]}},
+                "usage_scope": "includes_rejected_model_answer"} if quote_replacement else {}),
             **({"conversation_context": conversation_diagnostics} if conversation_diagnostics is not None else {}),
             **({"conversation_retrieval": {"method": "conversation_retrieval",
                 "source_count": len(conversation_retrieval.get("sources", [])),

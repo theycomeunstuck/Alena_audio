@@ -2466,6 +2466,8 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None, chat_r
             if isinstance(local_diagnostics, dict):
                 if local_diagnostics.get('type') == 'InvalidQueryResolutionError':
                     logger.warning("Chat resolver returned an invalid decision; clarification sent")
+                elif local_diagnostics.get('type') == 'VerbatimQuoteMismatch':
+                    logger.warning("Chat verbatim quote check replaced the model answer")
                 else:
                     logger.warning('Chat answer named a different exercise; clarification sent')
             if reserved:
