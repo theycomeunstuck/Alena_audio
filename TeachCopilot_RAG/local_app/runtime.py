@@ -917,13 +917,13 @@ class OllamaRuntime:
         uses_memory = result.get("uses_approved_memory", False)
         needs_clarification = result.get("needs_clarification", False)
         personal_recall = result.get("personal_memory_recall", False)
-        # A real local model shape: recall decided true with social_turn left
-        # false or omitted. The recall grant itself is unchanged (own-context
-        # availability, no retrieval, no anchors, no approved memory); only the
-        # companion social flag is no longer demanded from the raw decision.
+        # Own-archive recall may set the prior-context flag to mean recalling
+        # past turns. Only this path can disregard the flag without an anchor.
+        # Explicit anchors, search and approved-memory usage remain invalid.
         if personal_recall and (not personal_recall_available
                                 or result["in_scope"]
-                                or result["uses_prior_context"] or uses_memory or needs_clarification
+                                or (result["uses_prior_context"] and conversation_context is None)
+                                or uses_memory or needs_clarification
                                 or raw_anchor is not None
                                 or assistant_anchor is not None or assistant_turn_anchor is not None
                                 or result["search_query"].strip()):
@@ -978,8 +978,8 @@ class OllamaRuntime:
         # explicitly wins if both flags are true; this is not a second call or
         # a repaired model response. Other retrieval validation still applies.
         if personal_recall and not result["in_scope"]:
-            # The raw decision kept every recall constraint; normalize the
-            # companion social flag here instead of rejecting the real shape.
+            # Canonical recall uses the server-scoped archive and no
+            # curriculum context, regardless of the raw companion flags.
             return {"in_scope": False, "uses_prior_context": False,
                     "search_query": "", "social_turn": True,
                     "personal_memory_recall": True,

@@ -194,6 +194,22 @@ def test_real_recall_shape_without_social_turn_is_normalized_not_rejected():
     assert len(session.requests) == 1
 
 
+@pytest.mark.parametrize("prior", [[], PRIOR])
+def test_archive_recall_ignores_a_prior_flag_without_a_selected_anchor(prior):
+    raw = {"in_scope": False, "uses_prior_context": True, "search_query": "",
+           "personal_memory_recall": True, "social_turn": False, "needs_clarification": False}
+    context = {"method": "conversation_history", "system_text": "сводка", "recent_messages": []}
+    query = "Вспомни мой первый урок. Процитируй мою первую фразу о результате."
+    session = LocalSession(json.dumps(raw))
+    decision = OllamaRuntime(Settings(), session=session).resolve_chat_query(
+        query, prior, "math", conversation_context=context)
+    assert decision["personal_memory_recall"] is True
+    assert decision["social_turn"] is True
+    assert decision["uses_prior_context"] is False
+    assert decision["search_query"] == ""
+    assert len(session.requests) == 1
+
+
 def test_recall_with_retrieval_or_memory_flags_stays_invalid():
     for decision in (
         {"in_scope": True, "uses_prior_context": False, "search_query": "x",
@@ -207,7 +223,7 @@ def test_recall_with_retrieval_or_memory_flags_stays_invalid():
         session = LocalSession(json.dumps(decision))
         with pytest.raises(InvalidQueryResolutionError):
             OllamaRuntime(Settings(), session=session).resolve_chat_query(
-                "вопрос", [], "math",
+                "вопрос", PRIOR, "math",
                 conversation_context={"method": "conversation_history", "system_text": "сводка",
                                       "recent_messages": []})
 

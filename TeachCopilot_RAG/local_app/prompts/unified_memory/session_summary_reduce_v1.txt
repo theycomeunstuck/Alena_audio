@@ -7,7 +7,10 @@ Merge rules:
 - Preserve the distinction between observed student actions (achievements) and assistant plans
   or explanations. A generated task or an assistant explanation is never an achievement.
 - "repeat" collects everything the student has not mastered or asked to revisit.
+  Keep a reported mistake with its operation and incorrect result, even if an explanation followed.
 - "next_step" is ONE concrete unfinished step; prefer the latest chunk's step when they differ.
+  Preserve its skill, operation, numbers, units, and task identifiers when supplied. If two
+  descriptions refer to the same work, keep the more specific one.
 - If some chunks are missing or failed, still summarize only the provided ones; the caller
   marks coverage separately. Never invent the missing parts.
 

@@ -200,16 +200,17 @@ def recall_after_restart(settings, live, student_account, other_account, passwor
                               headers=headers, json={"topic_id": TOPIC, "client_session_id": "after-restart"})
             reply = chat(client, headers, started["learning_session_id"], "recall", RECALL)
             answer = reply["choices"][0]["message"]["content"]
-            final = next(event for event in events if event["phase"] == "answer_prompt")
-            wire = runtime.requests[-1]
+            answer_events = [event for event in events if event["phase"] == "answer_prompt"]
             if learner == LEARNER:
+                assert len(answer_events) == 1, events
+                final = answer_events[0]
                 assert final["route"] == "personal_recall", events
                 assert old_source_id in final["delivered_source_ids"]
-                assert any(FIRST in row["content"] for row in wire["messages"])
+                assert any(FIRST in row["content"] for row in runtime.requests[-1]["messages"])
                 assert FIRST.split(". ", 1)[0] in answer, answer
             else:
-                assert old_source_id not in final["delivered_source_ids"]
-                assert all(FIRST not in row["content"] for row in wire["messages"])
+                assert all(old_source_id not in event["delivered_source_ids"] for event in answer_events)
+                assert all(FIRST not in row["content"] for call in runtime.requests for row in call["messages"])
                 assert FIRST.split(". ", 1)[0] not in answer, answer
 
 
@@ -243,11 +244,13 @@ def test_two_assigned_lessons_and_restart(unified_store, accounts, live, tmp_pat
         first_summary, first_source_id = finish_and_read(client, teacher, student, service,
                                                         teacher_id, worker, first, FIRST)
         context = service.previous_lesson_context(LEARNER, teacher_id)
-        assert context and "10" in context["next_step"], context
-        review = context["review_focus"].casefold()
-        assert re.search(r"н[оу]л", review) or {"12", "1200"} <= set(re.findall(r"\d+", review)), context
-        assert context["next_step"] in first_summary["text"]
-        assert context["review_focus"] in first_summary["text"]
+        assert context and re.search(r"\b(?:10|десять|десяти|десятью)\b", context["next_step"], re.I), context
+        summary_text = first_summary["text"]
+        # The review item may name the corrected exercise. The full summary
+        # must preserve the actual error or the lost zero.
+        assert re.search(r"н[оу]л", summary_text, re.I) or {"12", "1200"} <= set(re.findall(r"\d+", summary_text))
+        assert context["next_step"] in summary_text
+        assert context.get("review_focus") and context["review_focus"] in summary_text
         assert context["source_ref"] == {"kind": "unified_summary_version", "session_id": first,
                                          "lesson_id": first_lesson["lesson_id"],
                                          "summary_id": first_summary["summary_id"]}
