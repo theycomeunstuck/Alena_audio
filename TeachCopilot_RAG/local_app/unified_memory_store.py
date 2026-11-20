@@ -1000,6 +1000,33 @@ class UnifiedMemoryStoreMixin:
                 (learner_id, session_id))
             return [_row(row) for row in cur.fetchall()]
 
+    def latest_completed_lesson_summary(self, learner_id):
+        """Pick the session by completion time, even when its summary is pending."""
+        with self._connect() as conn, conn.cursor() as cur:
+            cur.execute("""SELECT previous.session_id,previous.lesson_id,previous.topic_id,
+                    previous.completed_on,summary.id AS summary_id,summary.text
+                FROM (
+                    SELECT s.id AS session_id,s.learner_id,l.id AS lesson_id,l.topic_id,
+                        (COALESCE(s.completed_at,s.created_at) AT TIME ZONE
+                            COALESCE(s.event_timezone,learner.learning_timezone))::date AS completed_on
+                    FROM teachcopilot.learning_sessions s
+                    JOIN teachcopilot.unified_lesson_states state
+                        ON state.learning_session_id=s.id AND state.learner_id=s.learner_id
+                    JOIN teachcopilot.unified_lessons l
+                        ON l.id=state.lesson_id AND l.learner_id=state.learner_id
+                    JOIN teachcopilot.learners learner ON learner.learner_id=s.learner_id
+                    WHERE s.learner_id=%s AND s.status='completed'
+                    ORDER BY COALESCE(s.completed_at,s.created_at) DESC,s.id DESC LIMIT 1
+                ) previous
+                JOIN LATERAL (
+                    SELECT v.id,v.text FROM teachcopilot.unified_summary_versions v
+                    WHERE v.learner_id=previous.learner_id AND v.session_id=previous.session_id
+                        AND NOT v.provisional
+                    ORDER BY v.version_index DESC,v.id DESC LIMIT 1
+                ) summary ON TRUE""", (learner_id,))
+            row = cur.fetchone()
+            return _row(row) if row else None
+
     # ---------------------------------------------- session snapshot (source)
     def unified_session_snapshot(self, learner_id, session_id):
         """Ordered, learner-scoped session transcript for processing.

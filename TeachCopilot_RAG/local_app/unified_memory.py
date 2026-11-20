@@ -23,8 +23,11 @@ from .unified_memory_profile import replay_personal_changes
 from .unified_memory_processing import (
     EXTRACT_PROMPT,
     EXTRACT_SCHEMA,
+    MAX_ITEM_CHARS,
     SUMMARY_CHUNK_PROMPT,
     SUMMARY_CHUNK_SCHEMA,
+    SUMMARY_HEADING_NEXT,
+    SUMMARY_HEADING_REPEAT,
     SUMMARY_REDUCE_PROMPT,
     normalize_chunk_summary,
     prompt_recipe,
@@ -277,6 +280,34 @@ class UnifiedMemoryService:
                 "session": session_view,
                 "source_refs": {"profile_authority": "learner_card",
                                 "conversation_authority": "unified_personal_changes"}}
+
+    def previous_lesson_context(self, learner_id, actor_id):
+        """Read the latest finished lesson's recommendation for teacher generation."""
+        self._require_teacher(actor_id, learner_id)
+        summary = self.store.latest_completed_lesson_summary(learner_id)
+        if summary is None:
+            return None
+        # Existing summary versions store the four sections as rendered text.
+        def first_item(heading):
+            _, _, section = summary["text"].rpartition(f"\n\n{heading}\n")
+            first_line, _, _ = section.partition("\n")
+            item = first_line.removeprefix("- ").strip()
+            if first_line.startswith("- ") and item != "(нет данных)":
+                return item[:MAX_ITEM_CHARS]
+            return ""
+
+        next_step = first_item(SUMMARY_HEADING_NEXT)
+        if not next_step:
+            return None
+        context = {"completed_on": summary["completed_on"].isoformat(),
+                   "topic_id": summary["topic_id"], "next_step": next_step,
+                   "source_ref": {"kind": "unified_summary_version",
+                                  "summary_id": str(summary["summary_id"]),
+                                  "session_id": str(summary["session_id"]),
+                                  "lesson_id": str(summary["lesson_id"])}}
+        if review_focus := first_item(SUMMARY_HEADING_REPEAT):
+            context["review_focus"] = review_focus
+        return context
 
     # --------------------------------------------------------------- recall
     def recall(self, learner_id, actor_id, query, *, session_id=None, budget_bytes=4000,

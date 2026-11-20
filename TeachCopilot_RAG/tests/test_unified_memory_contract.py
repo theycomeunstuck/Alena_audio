@@ -130,6 +130,17 @@ def test_unavailable_or_cross_chunk_sources_are_discarded():
     assert changes == [] and any(w["code"] == "unavailable_source" for w in warnings)
 
 
+def test_assistant_suggestion_cannot_be_applied_as_a_durable_interest():
+    suggestion = "Если бы ты создавала свой графический роман..."
+    source = {**SOURCE, "author_role": "assistant", "text": suggestion}
+    changes, _, warnings = validate_extraction({"changes": [{
+        "category": "interest", "operation": "add", "value": "создание графических романов",
+        "scope": "durable", "explicit_durable": True, "source_id": source["source_id"],
+        "evidence_text": suggestion}]}, {"source_ids": [source["source_id"]]}, {source["source_id"]: source})
+    assert changes == []
+    assert [warning["code"] for warning in warnings] == ["personal_evidence_not_student"]
+
+
 def test_numeric_academic_proposals_are_never_stored():
     _, candidates, warnings = extract({"changes": [], "candidates": [{
         "category": "knowledge_observation",

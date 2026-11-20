@@ -212,6 +212,9 @@ def validate_extraction(payload, chunk, sources_by_id):
         if source is None or source_id not in chunk_source_ids:
             warnings.append(_warning("unavailable_source", source_id=str(source_id)[:64]))
             continue
+        if source["author_role"] != "student":
+            warnings.append(_warning("personal_evidence_not_student", source_id=source_id))
+            continue
         if not _find_literal_evidence(evidence_text, source["text"]):
             warnings.append(_warning("evidence_not_literal", source_id=source_id))
             continue

@@ -90,6 +90,10 @@ class FakeUnifiedMemory:
         self.calls.append(("access", learner_id, actor_id))
 
     # --- core facade methods ---------------------------------------------
+    def previous_lesson_context(self, learner_id, actor_id):
+        self._check_access(learner_id, actor_id)
+        return None
+
     def fast_memory(self, learner_id, actor_id, *, session_id=None):
         self._check_access(learner_id, actor_id)
         # The real facade shape: effective records with value/source_refs.

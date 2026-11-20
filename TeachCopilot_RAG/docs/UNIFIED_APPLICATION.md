@@ -1,5 +1,11 @@
 # Unified application – lesson workflows and final integration (client B)
 
+The Alena dev integration uses `theycomeunstuck/Alena_audio:dev` at
+`843ca30` as its base and the unified-lesson and memory code from `f5792e3`.
+Use the previous-lesson continuity check below to verify this branch.
+The historical merge commits and run counts below refer to the original
+candidate.
+
 Status: integrated. The peer's ready commit `7fbace3` (unified memory
 backend) is merged as `c687d2f`; integration corrections, disposable
 PostgreSQL verification, the live model smoke and the browser check are
@@ -106,8 +112,17 @@ Worker behavior changes (`MemoryWorker`):
 - Claims `lesson_generate`/`session_process` jobs and routes them to the
   facade with `model_call=self._call`, so the response journal, lease
   heartbeat before every model call and generation admission stay effective.
-- `lesson_generate`: `fast_memory` → bounded profile → ported workflow →
-  `save_lesson` (answers split defensively from the draft). Validation
+- `lesson_generate`: `fast_memory` → bounded profile plus the previous lesson's
+  recommendation → ported workflow → `save_lesson` (answers split defensively
+  from the draft). With personal memory enabled, the worker adds the completion
+  date, topic, first next step, optional review focus and exact summary-version
+  reference for the learner's latest completed session with an attached lesson.
+  The date uses the session's event time zone, with the learner's learning time
+  zone as the fallback for older sessions. The block is omitted while that session lacks a
+  final summary or if its summary has no recommendation. The recommendation is
+  untrusted planning context and leaves the profile and confirmed observations
+  untouched. The job result records `previous_lesson_summary_ref` separately
+  from the fast-memory revision. Validation
   failures after the corrective attempt fail the job with the problems in the
   error; nothing is stored.
 - New model purposes (`lesson_generate`, `unified_personal_extract`,
@@ -177,6 +192,31 @@ uv run --locked python scripts/unified_app_browser_check.py    # real uvicorn + 
   student context reloads, sees the persisted lesson state and a
   «Продолжить занятие» action. Screenshots are saved under `.local/`.
 
+### Previous-lesson continuity check
+
+Run from `TeachCopilot_RAG` in PowerShell. The test uses the configured loopback
+PostgreSQL credentials to create and drop a fresh database with synthetic learners.
+
+```powershell
+$env:TEACHCOPILOT_TEST_DSN = uv run --locked python -c "from local_app.config import Settings; print(Settings.from_env().database_url)"
+uv run --locked python -m pytest -q tests/test_lesson_summary_continuity.py -m 'not live'
+
+$env:OLLAMA_URL = 'http://127.0.0.1:11434'  # Set to the local Ollama instance with both models.
+$env:LOCAL_CHAT_MODEL = 'gemma4:12b'
+$env:LOCAL_EMBEDDING_MODEL = 'bge-m3'
+$env:LOCAL_CONTEXT_TOKENS = '32768'
+uv run --locked python -m pytest -q tests/test_lesson_summary_continuity.py -m live
+```
+
+The scripted case uses a 16k window. Both modes confirm, assign, start and
+complete two lessons about division. The first student reply loses a zero and
+requests more practice. The assertions check the actual second generation
+request, teacher access, two separate immutable summary versions, repeat
+completion, and delivery of the first lesson's verbatim reply to ordinary
+chat in a fresh OS process. A second learner exercises both generation and
+archive isolation. To run the same live checks on Qwen, set `LOCAL_CHAT_MODEL`
+to the exact Qwen 3.5 tag served by the loopback Ollama instance.
+
 ## 6. Tests
 
 - `tests/test_lesson_agent_workflows.py` (30): ported validation, the
@@ -199,7 +239,7 @@ uv run --locked python scripts/unified_app_browser_check.py    # real uvicorn + 
   – P1.1 verified attempts, «хз»/marker/silence never complete, original
   wording in the guided prompt; `test_r2_app_creative_routing` – P0.4
   bounded creative route (2048 tokens, archive retrieval, fiction
-  separation, brief greetings, legacy compatibility); 
+  separation, brief greetings, legacy compatibility);
   `test_r2_app_failure_handling` – P1.2 queue-full honesty, lease takeover,
   malformed output with journals, repeated submissions;
   `test_r2_app_quality_runner` – P1.3 record-before-score, gold-leak scan,

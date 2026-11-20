@@ -613,8 +613,12 @@ class MemoryWorker:
             # and an empty field must not be refilled from the card.
             profile["interests"] = card.get("interests") or []
             profile["learning_goal"] = goal.get("goal")
+        previous_lesson = None
+        if getattr(getattr(self.runtime, "settings", None), "personal_memory_enabled", True):
+            previous_lesson = service.previous_lesson_context(learner_id, actor_id)
         outcome = generate_lesson(self._call, profile=profile, topic_id=topic_id,
-                                  topic=topic_title, minutes=minutes, fast_memory=fast)
+                                  topic=topic_title, minutes=minutes, fast_memory=fast,
+                                  previous_lesson=previous_lesson)
         validation = outcome["validation"]
         if not validation["ok"]:
             raise ValueError("lesson failed validation after "
@@ -627,7 +631,8 @@ class MemoryWorker:
         return {"lesson_id": saved.get("lesson_id"), "lesson_revision": saved.get("revision"),
                 "lesson_status": saved.get("status"), "topic_id": topic_id, "minutes": minutes,
                 "validation": validation, "memory_revision": (fast or {}).get("revision"),
-                "fast_memory_diagnostics": outcome.get("fast_memory_diagnostics")}
+                "fast_memory_diagnostics": outcome.get("fast_memory_diagnostics"),
+                "previous_lesson_summary_ref": previous_lesson["source_ref"] if previous_lesson else None}
 
     @staticmethod
     def _stale_retryable(job: dict | None) -> bool:

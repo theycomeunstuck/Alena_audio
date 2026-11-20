@@ -83,6 +83,12 @@ by a client is never trusted as authorization.
   requests replay idempotently via the stored request id. No hidden chain of
   thought is stored.
 
+- `previous_lesson_context(learner_id, actor_id)` is a teacher-only read used
+  by lesson generation. It returns the completion day, topic, next step and
+  optional review focus from the latest final summary of the learner's latest
+  completed session with an attached lesson, plus the exact summary, lesson and
+  session IDs. It returns `None` if a final summary or next step is missing.
+
 ### Processing and review
 
 - `process_session(learner_id, actor_id, session_id, *, request_id)` –
@@ -119,7 +125,7 @@ by a client is never trusted as authorization.
   current projection (`store.project_personal_changes`). Only
   `explicit_durable=true` durable facts apply automatically and only with
   literal evidence: the validator requires the quoted `evidence_text` to be a
-  verbatim substring of the referenced learner-scoped source. Session-scoped
+  verbatim substring of the referenced learner-scoped student message. Session-scoped
   claims are never applied; non-explicit durable claims stay `proposed` for
   teacher review. Teacher `revert` appends a reverting event and never
   rewrites history.

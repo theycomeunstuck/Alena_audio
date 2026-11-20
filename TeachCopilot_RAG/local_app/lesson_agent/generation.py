@@ -43,7 +43,8 @@ def _profile_payload(profile: dict, *, bounded: bool = True) -> dict:
 
 
 def generate_lesson(model_call, *, profile: dict, topic_id: str, topic: str,
-                    minutes: int, fast_memory: dict | None = None) -> dict:
+                    minutes: int, fast_memory: dict | None = None,
+                    previous_lesson: dict | None = None) -> dict:
     """Run the generate → validate → one corrective attempt workflow.
 
     Returns ``lesson_text`` (or None), the per-attempt ``validation`` results,
@@ -74,7 +75,8 @@ def generate_lesson(model_call, *, profile: dict, topic_id: str, topic: str,
     problems: list[str] = []
     while attempts < MAX_ATTEMPTS:
         attempts += 1
-        lesson_text = _invoke(model_call, lesson_messages(prompt_profile, topic, minutes, feedback))
+        lesson_text = _invoke(model_call, lesson_messages(
+            prompt_profile, topic, minutes, feedback, previous_lesson=previous_lesson))
         problems = validate_lesson(lesson_text, topic_id)
         attempts_log.append({"attempt": attempts, "problems": list(problems)})
         if not problems:
