@@ -51,3 +51,10 @@
 .daily-checkin{padding:12px;margin:0 0 16px;border:1px solid var(--line);border-radius:6px;background:#fff}.daily-checkin h3{font-size:13px;margin:0 0 7px;color:var(--sea-dark)}.daily-checkin textarea{width:100%;resize:vertical;min-height:58px;font:inherit;padding:8px;border:1px solid var(--line);border-radius:4px}.daily-checkin-buttons{display:flex;align-items:center;gap:12px;margin-top:8px}.conversation-message-time{display:block;margin:5px 0;color:var(--muted);font-size:10px}.memory-summary-card .memory-sources>summary{line-height:1.55}
 #display-timezone-label{display:inline-block;max-width:110px;overflow:hidden;text-overflow:ellipsis;vertical-align:bottom;white-space:nowrap}@media(max-width:620px){#display-timezone-label{max-width:65px}.timezone-preferences{font-size:10px}}
 .memory-diagnostics-index{margin:0 0 14px}.memory-diagnostics-results{display:grid;gap:12px;margin:12px 0}.diagnostics-table{width:100%;border-collapse:collapse;margin:8px 0 2px;font-size:12px}.diagnostics-table th,.diagnostics-table td{border-top:1px solid var(--line);padding:6px 8px 6px 0;text-align:left;vertical-align:top;overflow-wrap:anywhere;font-weight:400}.diagnostics-table th{color:#587079;font-weight:600;width:46%}
+/* Full lesson workflow (unified application) */
+.lesson-text { margin: 10px 0; padding: 12px; background: #fff; border: 1px solid var(--line); border-radius: 6px; font: 12px/1.6 ui-monospace, monospace; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 420px; overflow-y: auto; }
+.memory-changes-list { display: grid; gap: 8px; margin: 10px 0; }
+.memory-change-item { padding: 10px; background: #fff; border: 1px solid var(--line); border-radius: 6px; font-size: 12px; overflow-wrap: anywhere; }
+.memory-change-item .change-meta { color: var(--muted); font-size: 11px; margin-top: 4px; }
+.memory-change-actions { display: flex; gap: 8px; margin-top: 8px; }
+#guided-lesson-toggle { margin: 6px 0 2px; }

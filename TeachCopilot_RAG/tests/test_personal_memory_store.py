@@ -293,5 +293,7 @@ def test_draft_approval_still_rejects_a_changed_global_revision():
 
 @pytest.mark.parametrize("kind,provider", [("chat","local"), ("memory_update","local"), ("next_step","external")])
 def test_enqueue_rejects_personal_memory_outside_local_teacher_next_step(kind,provider):
-    with pytest.raises(ValueError, match="personal_memory_is_local_teacher_next_step_only"):
+    # Migration 025 additionally allows local session_process; every other
+    # combination keeps the original restriction under the renamed message.
+    with pytest.raises(ValueError, match="personal_memory_method_is_local_next_step_or_session_process_only"):
         Store()._enqueue_memory_job(None,LEARNER,TOPIC,kind,method="personal_memory",provider=provider)

@@ -174,3 +174,57 @@ def test_invalid_memory_input_is_not_reclassified_as_a_model_decision_failure():
     with pytest.raises(ValueError, match="Approved memory text exceeds its context budget"):
         answer(OllamaRuntime(Settings(), session=session), memory={"text": "x" * 4001})
     assert session.requests == []
+
+
+def test_real_recall_shape_without_social_turn_is_normalized_not_rejected():
+    # Live round-3 shape (probe r2-mem-b:B6): the local model returned
+    # personal_memory_recall true with social_turn false. The recall grant is
+    # unchanged; only the companion flag is normalized at the resolver boundary.
+    session = LocalSession(json.dumps({"in_scope": False, "uses_prior_context": False,
+                                       "search_query": "", "personal_memory_recall": True,
+                                       "social_turn": False}))
+    decision = OllamaRuntime(Settings(), session=session).resolve_chat_query(
+        "В какие дни недели ученик ходит на плавание?", [], "math",
+        conversation_context={"method": "conversation_history", "system_text": "сводка",
+                              "recent_messages": []})
+    assert decision["personal_memory_recall"] is True
+    assert decision["social_turn"] is True
+    assert decision["in_scope"] is False
+    assert decision["search_query"] == ""
+    assert len(session.requests) == 1
+
+
+def test_recall_with_retrieval_or_memory_flags_stays_invalid():
+    for decision in (
+        {"in_scope": True, "uses_prior_context": False, "search_query": "x",
+         "personal_memory_recall": True, "social_turn": False},
+        {"in_scope": False, "uses_prior_context": True, "search_query": "",
+         "personal_memory_recall": True, "social_turn": False,
+         "prior_learner_question_index": 0},
+        {"in_scope": False, "uses_prior_context": False, "search_query": "",
+         "personal_memory_recall": True, "social_turn": False, "uses_approved_memory": True},
+    ):
+        session = LocalSession(json.dumps(decision))
+        with pytest.raises(InvalidQueryResolutionError):
+            OllamaRuntime(Settings(), session=session).resolve_chat_query(
+                "вопрос", [], "math",
+                conversation_context={"method": "conversation_history", "system_text": "сводка",
+                                      "recent_messages": []})
+
+
+def test_creative_decision_with_recall_flag_is_normalized_creative_not_rejected():
+    # Live round-3 shape (probe r2-mem-b:B4): the model set creative_mode,
+    # needs_archive and personal_memory_recall together for shared fiction.
+    session = LocalSession(json.dumps({"in_scope": False, "uses_prior_context": False,
+                                       "search_query": "", "social_turn": False,
+                                       "personal_memory_recall": True,
+                                       "creative_mode": True, "needs_archive": True}))
+    decision = OllamaRuntime(Settings(), session=session).resolve_chat_query(
+        "Продолжи историю, которую мы начали раньше. С чего она началась?", [], None,
+        conversation_context={"method": "conversation_history", "system_text": "сводка",
+                              "recent_messages": []})
+    assert decision["creative_mode"] is True
+    assert decision["needs_archive"] is True
+    assert decision["personal_memory_recall"] is False
+    assert decision["social_turn"] is True
+    assert decision["in_scope"] is False

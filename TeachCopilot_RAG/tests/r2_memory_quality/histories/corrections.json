@@ -1,0 +1,10 @@
+[
+ {
+  "history_id": "r2-mem-final",
+  "corrects_key": "final.brother_age",
+  "key": "final.brother_age_correction",
+  "day_offset": -18,
+  "author_role": "teacher",
+  "text": "Правка преподавателя: брат старше ученика на семь лет, а не на пять."
+ }
+]

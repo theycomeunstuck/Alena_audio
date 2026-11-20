@@ -60,4 +60,5 @@ explicit = true
 testpaths = ["tests"]
 markers = [
     "live: end-to-end checks against the real local Ollama runtime and a disposable PostgreSQL database (deselected by default)",
+    "postgres: needs the local disposable PostgreSQL server; skips cleanly when it is unreachable",
 ]

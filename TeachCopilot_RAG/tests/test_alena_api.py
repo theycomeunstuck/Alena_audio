@@ -263,7 +263,12 @@ def test_archive_retrieval_callback_is_server_scoped_and_excludes_current_submis
     assert calls == []
     result = rag.received["conversation_retriever"]("dragon name")
     assert result["system_text"] == "OLD OWN MEMORY"
-    assert calls == [("learner-a", "student-a", "dragon name", {"exclude_source_id": "current-user-source"})]
+    # The fallback keeps the same-scope exclusion and carries the context's
+    # personal-memory selection budget (round-3 recall grounding).
+    assert len(calls) == 1
+    assert calls[0][:3] == ("learner-a", "student-a", "dragon name")
+    assert calls[0][3]["exclude_source_id"] == "current-user-source"
+    assert isinstance(calls[0][3]["budget_bytes"], int) and calls[0][3]["budget_bytes"] > 0
 
 
 def test_completed_reply_survives_postwrite_summary_failure(monkeypatch):

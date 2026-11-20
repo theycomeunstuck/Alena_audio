@@ -1,0 +1,172 @@
+{
+  "protocol": "zcode-r2-v1",
+  "manifest_id": "r2-memory-selection-20261120",
+  "frozen_by": "client A (selection round)",
+  "frozen_at_utc": "2026-11-20T00:00:00Z",
+  "base_sha": "42adb64dd556c8831ed4c25108c037430f2dbec1",
+  "purpose": "Supplemental paraphrases and similar-episode discriminators prepared BEFORE retrieval tuning (selection round). Eight new rows targeting the documented failure families of regression18-next-b2: exact-wording routing (A5), one-time vs standing requests (B2), wrong-episode candy confusion (F5), unfinished-item selection loss (A3/F4), same-template episode confusion (A2/F3). Rows are run IN ADDITION to the frozen 18-question manifest (r2-memory-gold-20261117) with the same memory budget and context window; no frozen row is replaced or re-worded in place.",
+  "source_key_mapping": {
+    "concrete": "Every turn in a frozen history file has a stable key <history>-s<session>-t<index>; ':a' suffix selects the assistant source of the same exchange. The loader maps every concrete and semantic key to the actual persisted source id at insert time and returns that mapping.",
+    "semantic": "Rows reference existing semantic keys (declared in the frozen history files' key_block_keys, e.g. 'a.exact_hours_minutes') or stable concrete keys (e.g. 'r2-mem-final-s1-t1:a'). No new semantic keys are introduced by this manifest.",
+    "immutability": "History files are committed and frozen (seed 20261117). This manifest references them; it never redefines or re-freezes them.",
+    "evaluation_only": "expected_answer and expected_source_keys are evaluation-side data only: they must never enter generation, resolver, extraction or retrieval-tuning prompts. The prompt-side view (questions without gold) is published separately in coordination/SELECTION_A_PARAPHRASES.json."
+  },
+  "histories": [
+    {
+      "history_id": "r2-mem-a",
+      "role": "development",
+      "sessions": 6,
+      "note": "Reuses the frozen r2-mem-a history; see manifest.json for the full history summary."
+    },
+    {
+      "history_id": "r2-mem-b",
+      "role": "development",
+      "sessions": 6,
+      "note": "Reuses the frozen r2-mem-b history."
+    },
+    {
+      "history_id": "r2-mem-final",
+      "role": "final_check",
+      "sessions": 6,
+      "note": "Reuses the frozen r2-mem-final history (held-out)."
+    }
+  ],
+  "case_types": [
+    "exact_wording",
+    "temporary_request",
+    "unfinished_task",
+    "similar_episode_discriminator"
+  ],
+  "questions": [
+    {
+      "question_id": "SA1-verbatim-hours-paraphrase",
+      "history_id": "r2-mem-a",
+      "case": "exact_wording",
+      "question": "Вспомни вопрос про часы и минуты, который ты задавал раньше. Повтори его дословно, слово в слово.",
+      "expected_answer": "Дословно: «Итак, вопрос про время, слушай внимательно: сколько минут в двух с половиной часах? Подумай и ответь полным решением.» Ученик ответил: 150 минут (120 + 30), и ассистент подтвердил.",
+      "expected_source_keys": [
+        "a.exact_hours_minutes",
+        "a.exact_hours_minutes:a"
+      ],
+      "must_not_sources": [],
+      "notes": "Paraphrase of A5-exact-wording gold with different wording and structure. Routing must still classify this as personal-memory recall; the A5 failure family is an out_of_scope fallback with zero search calls. Any answer that does not contain the verbatim question text is a failure.",
+      "probe_query": "повтори дословно вопрос про часы и минуты"
+    },
+    {
+      "question_id": "SA2-one-day-request-paraphrase",
+      "history_id": "r2-mem-b",
+      "case": "temporary_request",
+      "question": "Была ли у ученика просьба, которая действовала только один день? Что это было и почему это разовая договорённость, а не постоянное правило?",
+      "expected_answer": "Разовая просьба: после плавания, когда устали глаза, ученик попросил только лёгкие задачки и сам оговорил «только на сегодня, не на всегда». Ассистент подтвердил: разовая договорённость именно на сегодня, не постоянное правило.",
+      "expected_source_keys": [
+        "b.easy_tasks_today",
+        "b.easy_tasks_today:a"
+      ],
+      "must_not_sources": [],
+      "notes": "Paraphrase of B2-temporary-request gold. In the reported b2 run the gold exchange was retrieved but never selected/delivered. A correct answer names the easy-tasks request and its one-day scope; answering with the pirate-story preference or mislabeling it one-time is the known confusion failure.",
+      "probe_query": "просьба только на один день лёгкие задачки"
+    },
+    {
+      "question_id": "SA3-candy-division-paraphrase",
+      "history_id": "r2-mem-final",
+      "case": "exact_wording",
+      "question": "Напомни задачу про деление конфет между друзьями: как звучал вопрос и сколько конфет получил каждый?",
+      "expected_answer": "Вопрос: «раздели 96 конфет между четырьмя друзьями поровну. Сколько получит каждый?» Ученик ответил: 24 конфеты, потому что 96 : 4 = 24; ассистент подтвердил проверкой умножением 24 × 4 = 96.",
+      "expected_source_keys": [
+        "final.exact_candies",
+        "final.exact_candies:a"
+      ],
+      "must_not_sources": [],
+      "notes": "Paraphrase of F5-exact-candies gold. In the reported b2 run both gold texts were visible in the prompt yet the answer quoted the older 34-candy two-step task. The discriminator pair for that confusion is SD1-lost-candies-two-step.",
+      "probe_query": "раздели конфеты между друзьями поровну"
+    },
+    {
+      "question_id": "SA4-unfinished-aquarium-paraphrase",
+      "history_id": "r2-mem-final",
+      "case": "unfinished_task",
+      "question": "Какой пункт упражнения про аквариум и дроби остался незакрытым и в чём он заключался?",
+      "expected_answer": "Пункт 2: составить свою задачу про аквариум и дроби с полным решением. Пункт 1 (из аквариума, заполненного на 3/4, вылили 1/4 – осталось 2/4, половина) был решён верно, а свою задачу ученик не составил: «остаётся незавершённым, вернёмся к нему в следующий раз».",
+      "expected_source_keys": [
+        "final.unfinished_aquarium"
+      ],
+      "must_not_sources": [],
+      "notes": "Paraphrase of F4-unfinished-aquarium gold. In the reported b2 run the whole exchange was retrieved but never selected, and the model falsely claimed no unfinished tasks exist. The rockets unfinished item (r2-mem-a) is the cross-history sibling case; this row pins the aquarium one.",
+      "probe_query": "пункт упражнения про аквариум и дроби остался незакрытым"
+    },
+    {
+      "question_id": "SD1-lost-candies-two-step",
+      "history_id": "r2-mem-final",
+      "case": "similar_episode_discriminator",
+      "question": "Была задача, где конфеты потерялись по дороге домой. Повтори её условие дословно и скажи, какой ответ получился.",
+      "expected_answer": "Дословно: «Задача в два шага: у Соня было 34 конфет. Она отдала 7 конфет подруге и потеряла ещё 4 по дороге домой. Сколько конфеты осталось у Соня? Реши и объясни, как считал.» Ответ ученика: сначала 34 – 7 = 27, потом 27 – 4 = 23; ассистент подтвердил обратным действием (23 + 4 + 7 = 34).",
+      "expected_source_keys": [
+        "r2-mem-final-s1-t1:a",
+        "r2-mem-final-s1-t2"
+      ],
+      "must_not_sources": [],
+      "notes": "Similar-but-different discriminator in the F5 family: the required episode is the OLDER two-step 34-candy task (s1-t1/t2, 2026-10-06), while the more recent 96-candy division task (final.exact_candies, s6-t18, 2026-11-17) is the distractor. Quoting the 96-candy task is exactly the recorded F5 failure. The expected answer must carry the 34/7/4 numbers and the 23 result.",
+      "probe_query": "конфеты потерялись по дороге домой задача в два шага"
+    },
+    {
+      "question_id": "SD2-pirate-story-preference",
+      "history_id": "r2-mem-b",
+      "case": "similar_episode_discriminator",
+      "question": "Есть ли просьба о том, каких историй избегать? Что именно ученик просил не делать и это правило или разовая договорённость?",
+      "expected_answer": "Постоянное правило: ученик просил не рассказывать страшные истории про пиратов, потому что боится их. Ассистент согласился не включать такие истории в занятия, а интерес к динозаврам остаётся.",
+      "expected_source_keys": [
+        "b.pirates_avoidance",
+        "b.pirates_avoidance:a"
+      ],
+      "must_not_sources": [],
+      "notes": "Similar-but-different discriminator in the B2 family: the required episode is the standing pirate-story avoidance (s2), while the one-day easy-tasks request (b.easy_tasks_today) is the distractor. A correct answer labels the pirate request standing (the assistant ack scopes it to lesson stories), unlike the one-time load request; a correct answer to SA2 does the opposite. Asserting the pirate episode is 'выдумка' is itself wrong — the exchange exists in the archive.",
+      "probe_query": "каких историй избегать пираты страшные"
+    },
+    {
+      "question_id": "SD3-square-example-numbers",
+      "history_id": "r2-mem-final",
+      "case": "similar_episode_discriminator",
+      "question": "Расскажи, как ты объяснял разницу между периметром и площадью на своём примере квадрата: что за квадрат был и какие числа получились?",
+      "expected_answer": "Квадрат 3×3: периметр 12 сантиметров, площадь 9 квадратных сантиметров. Числа разные, потому что это разные величины; ученик ответил: «периметр по контуру, площадь внутри».",
+      "expected_source_keys": [
+        "final.perimeter_area_repeat",
+        "final.perimeter_area_repeat:a"
+      ],
+      "must_not_sources": [],
+      "notes": "Similar-but-different discriminator in the F3 family: the assistant's own worked square example is the 3×3 episode (s4-t24/t25). Distractors in the same history: the definition-only perimeter episode (s1-t19, no numbers), the student-computed 4×4 square (16/16, s4-t23) and the 11×11 square (44/121, s5-t19) right before the aquarium exercise. The expected numbers are 12 and 9.",
+      "probe_query": "объяснял периметр и площадь на примере квадрата числа"
+    },
+    {
+      "question_id": "SD4-training-minutes-recall",
+      "history_id": "r2-mem-a",
+      "case": "similar_episode_discriminator",
+      "question": "Сколько минут получилось в задаче про тренировку в самый последний раз и как мы перевели часы в минуты?",
+      "expected_answer": "270 минут: 4 часа – это 240 минут, плюс 30 минут; перевод 1 час = 60 минут, часы умножаем на 60. Ассистент подтвердил: «Да: 240 + 30 = 270».",
+      "expected_source_keys": [
+        "r2-mem-a-s5-t75:a",
+        "r2-mem-a-s5-t76",
+        "r2-mem-a-s5-t77:a"
+      ],
+      "must_not_sources": [],
+      "notes": "Similar-but-different discriminator probing recency selection: the identical training task (4 часа 30 минут) appears verbatim in s1-t133/t134 and s2-t101/t102 with the same 270-minute outcome, and in s5-t75..t77 (the most recent, 2026-11-07). 'в самый последний раз' must select the s5 episode; delivery metrics show WHICH source ids reached the prompt even though the answer text is identical across distractors.",
+      "probe_query": "задача про тренировку сколько минут последний раз"
+    }
+  ],
+  "evaluation_protocol": {
+    "owner": "client B after merging A's ready commit (selection round)",
+    "rules": [
+      "Gold answers and expected source keys never enter generation, resolver, extraction or retrieval-tuning prompts; they are evaluation-side data only.",
+      "Rows run in addition to the frozen 18-question manifest with the same memory budget and context window (<= 32k); the frozen rows are neither replaced nor re-worded.",
+      "Load the same frozen histories with tests/r2_memory_quality/loader.py into a disposable database; the loader returns the key-to-source-id mapping.",
+      "Record immutable prompts, selected source ids, answers and errors for every run before scoring.",
+      "Expected-answer text is checked semantically against the sources; the evaluator's stage metrics (retrieved/selected/delivered/visible) are labeled per row.",
+      "A question whose trace shows no search call is a miss in the end-to-end result, not an excluded row (A5 rule from the selection-round audit)."
+    ]
+  },
+  "revision_history": [
+    {
+      "revision_utc": "2026-11-20T00:00:00Z",
+      "author": "client A (selection round)",
+      "change": "Initial selection set: 4 paraphrases (SA1-SA4) of the disputed gold rows and 4 similar-episode discriminators (SD1-SD4), built from the regression18-next-b2 audit. Gold keys and expected answers verified against the frozen history files and the b2 run source_key_map."
+    }
+  ]
+}

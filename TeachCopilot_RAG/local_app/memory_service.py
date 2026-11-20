@@ -26,6 +26,7 @@ from .memory_store import (DIALOGUE_CONTEXT_CHARS, SESSION_END_CONTEXT_CHARS,
                            MemoryQueueFullError, get_learner_memory_snapshot)
 from .memory_response_journal import (MemoryResponseJournal, ResponseJournalError,
                                       database_fingerprint, default_journal_path)
+from .unified_app import UNIFIED_JOB_KINDS, resolve_unified_memory
 
 
 MEMORY_BUDGET = 4000
@@ -41,6 +42,15 @@ STALE_RETRY_MARKERS = (
     "learner revision changed before personal graph indexing",
 )
 STATE_FIELDS = ("sources", "summary", "records", "blocks", "events")
+# Model purposes the unified application layer (client B) sends through this
+# worker's _call hook. They keep the journal, lease heartbeat and model
+# admission of the ordinary memory worker; budgets follow the writer rules.
+UNIFIED_MODEL_PURPOSES = frozenset({
+    "lesson_generate",
+    "unified_personal_extract",
+    "unified_session_summary_chunk",
+    "unified_session_summary_reduce",
+})
 TAIL_PRESENTATION_VERSION = "dialogue-pairs-v4-session-end-context"
 DIALOGUE_CONTEXT_NOTICE = (
     "Слова ассистента ниже – только контекст ответа ученика. Они не доказывают действия, "
@@ -285,7 +295,8 @@ def attach_session_summaries(store, context, learner_id, topic_id, context_token
 
 class MemoryWorker:
     def __init__(self, store, runtime, worker_id: str | None = None, *, response_journal=None,
-                 personal_graph_factory=None, personal_memory_factory=None):
+                 personal_graph_factory=None, personal_memory_factory=None,
+                 unified_memory_factory=None):
         self.store, self.runtime = store, runtime
         self.worker_id = worker_id or "memory-" + uuid.uuid4().hex
         self.response_journal = response_journal if response_journal is not None else MemoryResponseJournal(
@@ -294,17 +305,22 @@ class MemoryWorker:
         self._active_job: dict | None = None
         self.personal_graph_factory = personal_graph_factory
         self.personal_memory_factory = personal_memory_factory
+        self.unified_memory_factory = unified_memory_factory
         self._personal_memory_provider = None
 
     def _call(self, prompt_messages: list[dict], purpose: str, schema: dict | None) -> str:
         # Unlike conversation bounding, writer inputs may never be silently cut.
         encoded = json.dumps(prompt_messages, ensure_ascii=False)
         context_tokens = int(getattr(self.runtime, "context_tokens", 8192))
-        max_output_tokens = 2048 if purpose in {"extract_v2", "personal_graph_extract"} else 1536
+        max_output_tokens = 2048 if purpose in {"extract_v2", "personal_graph_extract", *UNIFIED_MODEL_PURPOSES} else 1536
         diagnostic = input_budget_diagnostic(prompt_messages, schema, context_tokens=context_tokens,
             max_output_tokens=max_output_tokens, purpose="extract" if purpose == "personal_graph_extract" else purpose)
         if purpose == "conversation_interests":
             # The frozen research helper knows only its academic writer names.
+            diagnostic["enforced"] = True
+        if purpose in UNIFIED_MODEL_PURPOSES:
+            # The unified writer purposes keep the same whole-input guard:
+            # oversized inputs fail loudly instead of being truncated.
             diagnostic["enforced"] = True
         started = time.perf_counter()
         event = {"purpose": purpose, "input_chars": len(encoded), "input_budget": diagnostic}
@@ -347,7 +363,8 @@ class MemoryWorker:
                 from local_app.runtime import IncompleteCompletionError
                 raise IncompleteCompletionError("Ollama did not confirm a complete graph-memory response",
                                                 raw_response=response)
-            if purpose in {"summary", "extract", "extract_v2", "conversation_interests", "personal_graph_extract"} and int(response.get("prompt_eval_count") or 0) >= context_tokens - max_output_tokens:
+            if purpose in {"summary", "extract", "extract_v2", "conversation_interests", "personal_graph_extract",
+                           *UNIFIED_MODEL_PURPOSES} and int(response.get("prompt_eval_count") or 0) >= context_tokens - max_output_tokens:
                 raise ValueError("context_saturation_requires_review")
             if not isinstance(text, str) or not text.strip():
                 raise ValueError("empty_memory_completion")
@@ -523,10 +540,108 @@ class MemoryWorker:
             context["interest_extraction"] = {"status": "failed", "type": type(exc).__name__,
                                                "message": str(exc), "learning_session_id": session_id}
 
+    def _run_unified_job(self, job: dict) -> dict:
+        """Dispatch the two unified application job kinds to the memory facade.
+
+        Lesson generation runs the ported generate → validate → one corrective
+        attempt workflow through this worker's ``model_call`` hook (journal,
+        lease heartbeat and model admission stay effective) and saves a valid
+        draft through the facade. Session processing delegates to
+        ``process_session`` with the same hook. Without the merged facade the
+        job fails honestly; nothing fakes success.
+        """
+        from local_app.runtime import generation_priority
+        try:
+            with generation_priority("background"):
+                if self.unified_memory_factory is not None:
+                    service = self.unified_memory_factory(self.store, self.runtime, model_call=self._call)
+                else:
+                    service = resolve_unified_memory(self.store, self.runtime, model_call=self._call)
+                if service is None:
+                    raise ValueError("unified memory backend is unavailable; the job needs the merged memory facade")
+                payload = job.get("payload") or {}
+                actor_id = str(job.get("actor_id") or "system")
+                learner_id = job["learner_id"]
+                if job["kind"] == "lesson_generate":
+                    result = self._run_lesson_generation(service, job, payload, learner_id, actor_id)
+                elif job["kind"] == "session_process":
+                    session_id = str(payload.get("learning_session_id") or "")
+                    if not session_id:
+                        raise ValueError("session_process payload requires learning_session_id")
+                    result = service.process_session(learner_id, actor_id, session_id,
+                        request_id=str(payload.get("client_request_id") or job["job_id"]))
+                else:
+                    raise ValueError("unsupported unified job kind")
+                result = dict(result or {})
+                result["calls"] = self.calls
+                self.store.finish_memory_job(job["job_id"], result=result, worker_id=self.worker_id)
+        except (OperationalError, InterfaceError, ResponseJournalError):
+            # Neither a lost DB acknowledgement nor a journal failure permits
+            # a second finish or generation.
+            raise
+        except Exception as exc:
+            try:
+                self.store.finish_memory_job(job["job_id"], error={"type": type(exc).__name__,
+                    "message": str(exc), "calls": self.calls}, worker_id=self.worker_id,
+                    unknown_outcome=False)
+            except ValueError as finish_error:
+                if "does not own this running job" not in str(finish_error):
+                    raise
+                _log.warning("memory job %s was requeued by a lease takeover before its failure "
+                             "could be recorded; keeping the requeued job", job["job_id"])
+        return self.store.get_memory_job(job["job_id"])
+
+    def _run_lesson_generation(self, service, job: dict, payload: dict,
+                               learner_id: str, actor_id: str) -> dict:
+        from local_app.lesson_agent.generation import generate_lesson
+        from local_app.lesson_agent.validation import answers_section
+        topic_id = str(job.get("topic_id") or payload.get("topic_id") or "general")
+        minutes = int(payload.get("minutes") or 20)
+        request_id = str(payload.get("client_request_id") or job["job_id"])
+        fast = service.fast_memory(learner_id, actor_id) if callable(getattr(service, "fast_memory", None)) else None
+        card = self.store.get_card(learner_id) or {}
+        goal = (card.get("rag_context") or {}).get("current_goal") or {}
+        catalog_title = None
+        if callable(getattr(self.store, "catalog", None)):
+            catalog_title = ((self.store.catalog() or {}).get(topic_id) or {}).get("title_ru")
+        topic_title = str(payload.get("topic_title") or catalog_title or topic_id)
+        profile = {"grade": card.get("grade"), "language": card.get("language"),
+                   "preferred_subject": topic_title}
+        if not isinstance(fast, dict):
+            # Legacy card projection only when the facade has no fast memory:
+            # with the facade present its effective records are authoritative
+            # and an empty field must not be refilled from the card.
+            profile["interests"] = card.get("interests") or []
+            profile["learning_goal"] = goal.get("goal")
+        outcome = generate_lesson(self._call, profile=profile, topic_id=topic_id,
+                                  topic=topic_title, minutes=minutes, fast_memory=fast)
+        validation = outcome["validation"]
+        if not validation["ok"]:
+            raise ValueError("lesson failed validation after "
+                             f"{validation['attempts']} attempts: " + "; ".join(validation["problems"]))
+        lesson_text = outcome["lesson_text"]
+        saved = service.save_lesson(learner_id, actor_id, topic_id=topic_id, minutes=minutes,
+            lesson_text=lesson_text, answers_text=answers_section(lesson_text) or "",
+            validation=validation, request_id=request_id,
+            memory_revision=(fast or {}).get("revision"))
+        return {"lesson_id": saved.get("lesson_id"), "lesson_revision": saved.get("revision"),
+                "lesson_status": saved.get("status"), "topic_id": topic_id, "minutes": minutes,
+                "validation": validation, "memory_revision": (fast or {}).get("revision"),
+                "fast_memory_diagnostics": outcome.get("fast_memory_diagnostics")}
+
     @staticmethod
     def _stale_retryable(job: dict | None) -> bool:
-        """A finished background local job that failed only because the learner's revisions moved meanwhile."""
-        return bool(job and job.get("status") == "failed" and job.get("kind") in {"memory_update", "next_step"}
+        """A finished background local job that failed only because the learner's revisions moved meanwhile.
+
+        Round-2: unified ``session_process`` jobs are included — the enqueue-time
+        revision guard in ``finish_memory_job`` legitimately trips when the
+        learner's sources moved between enqueue and processing (for example the
+        completion of another session), while the facade's own fingerprint and
+        claim checks decide actual processing freshness. The retry carries a
+        fresh facade request id, so the failed run stays inspectable and the
+        fresh fingerprint is processed honestly.
+        """
+        return bool(job and job.get("status") == "failed" and job.get("kind") in {"memory_update", "next_step", "session_process"}
                     and job.get("provider") == "local"
                     and any(marker in str(job.get("error") or "") for marker in STALE_RETRY_MARKERS)
                     and int((job.get("payload") or {}).get("stale_retry", 0)) < STALE_RETRY_LIMIT)
@@ -536,17 +651,22 @@ class MemoryWorker:
 
         Direct chat messages are persisted, so a message sent while a job generates changes the source revision and
         used to fail that job. Each retry is its own job row with its own recorded calls (no hidden repeated model
-        request inside one job). Only the retry itself is followed; if another job is claimed first, the retry stays
-        queued for the worker's next cycle.
+        request inside one job). Unified session processing retries get a fresh facade request id because the
+        learner's fingerprint has legitimately moved. Only the retry itself is followed; if another job is claimed
+        first, the retry stays queued for the worker's next cycle.
         """
         finished = self._run_once_single()
         while self._stale_retryable(finished):
+            retry_payload = {**(finished.get("payload") or {}),
+                             "stale_retry": int((finished.get("payload") or {}).get("stale_retry", 0)) + 1,
+                             "retry_of": str(finished["id"])}
+            if finished.get("kind") == "session_process":
+                base_request = str(retry_payload.get("client_request_id") or "on-complete")
+                retry_payload["client_request_id"] = f"{base_request}:retry{retry_payload['stale_retry']}"
             try:
                 retry = self.store.enqueue_memory_job(
                     finished["learner_id"], finished.get("topic_id"), finished["kind"],
-                    payload={**(finished.get("payload") or {}),
-                             "stale_retry": int((finished.get("payload") or {}).get("stale_retry", 0)) + 1,
-                             "retry_of": str(finished["id"])},
+                    payload=retry_payload,
                     actor_id=finished.get("actor_id") or "system", method=finished.get("method") or "tail",
                     idempotency_key=f"stale-retry:{finished['id']}", provider=finished.get("provider") or "local")
             except MemoryQueueFullError:
@@ -570,6 +690,8 @@ class MemoryWorker:
         self.calls = []
         self._active_job = job
         self._personal_memory_provider = None
+        if job.get("kind") in UNIFIED_JOB_KINDS:
+            return self._run_unified_job(job)
         try:
             from local_app.runtime import generation_priority
             with generation_priority("background" if job["kind"] == "memory_update" else "interactive"):

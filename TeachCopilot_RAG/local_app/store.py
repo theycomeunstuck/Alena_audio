@@ -9,6 +9,7 @@ import psycopg2
 from psycopg2.extensions import parse_dsn
 from psycopg2.extras import Json, RealDictCursor
 from local_app.memory_store import MemoryStoreMixin
+from local_app.unified_memory_store import UnifiedMemoryStoreMixin
 
 MIGRATIONS = Path(__file__).resolve().parent.parent / "db" / "migrations"
 LEARNER_ID = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
@@ -77,7 +78,7 @@ class _SingleConnectionClaims(MemoryStoreMixin):
     def _connect(self):
         return _ReuseConnectionContext(self._conn)
 
-class Store(MemoryStoreMixin):
+class Store(MemoryStoreMixin, UnifiedMemoryStoreMixin):
     def __init__(self, dsn: str):
         self.dsn = dsn
 

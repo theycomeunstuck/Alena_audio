@@ -118,6 +118,40 @@
             </section>
             <form id="task-form" class="work-form"><label for="topic-select">Тема</label><select id="topic-select"><option value="">Загрузка тем…</option></select><label for="task-mode">Как подготовить</label><select id="task-mode"><option value="source_template">По учебным материалам</option><option value="generated">Новый черновик с локальной моделью</option></select><label for="task-count">Заданий в черновике</label><select id="task-count"><option value="1" selected>1 задание</option><option value="3">3 задания</option><option value="5">5 заданий</option></select><button id="create-task" class="button primary wide" type="submit">Собрать задания</button></form>
             <div id="task-result" class="result-block" hidden><div class="result-heading"><h3>Черновик заданий</h3><label class="answer-toggle"><input type="checkbox" id="show-answers"><span>Показать ответы</span></label></div><p class="review-note">Проверьте содержание перед работой с ребёнком.</p><div id="task-cards"></div></div>
+            <div class="divider-label"><span>Полный урок</span></div>
+            <section id="full-lesson-panel" class="work-form compact-form" aria-labelledby="full-lesson-title">
+              <h3 id="full-lesson-title">Подготовить полный урок</h3>
+              <p class="review-note">Урок создаётся локальной моделью по текущей памяти ученика, проходит автоматическую проверку и сохраняется черновиком. Подтвердите его перед занятием.</p>
+              <label for="lesson-topic-select">Тема</label>
+              <select id="lesson-topic-select"><option value="">Загрузка тем…</option></select>
+              <label for="lesson-minutes">Длительность урока <span class="optional-label">минуты, 5–90</span></label>
+              <input id="lesson-minutes" type="number" min="5" max="90" step="5" value="20" inputmode="numeric" autocomplete="off">
+              <button id="create-lesson" class="button primary wide" type="button">Создать урок</button>
+              <p id="lesson-job-status" class="review-note" role="status" aria-live="polite"></p>
+              <div id="lesson-view" class="result-block" hidden>
+                <div class="result-heading"><h3>Черновик урока</h3><span id="lesson-revision-label" class="revision-label"></span></div>
+                <div id="lesson-validation" class="review-note" role="status"></div>
+                <pre id="lesson-text" class="lesson-text" aria-label="Текст урока"></pre>
+                <details id="lesson-answers-details" class="learning-archive"><summary>Ответы к заданиям – только для учителя</summary><pre id="lesson-answers-text" class="lesson-text"></pre></details>
+                <button id="confirm-lesson" class="button secondary wide" type="button" hidden>Подтвердить урок</button>
+                <p id="lesson-confirm-status" class="review-note" role="status"></p>
+                <button id="assign-lesson" class="button secondary wide" type="button" hidden>Выдать задание ученику</button>
+                <p id="lesson-assign-status" class="review-note" role="status"></p>
+              </div>
+            </section>
+            <section id="memory-changes-panel" class="work-form compact-form" aria-labelledby="memory-changes-title">
+              <h3 id="memory-changes-title">Изменения памяти и учебные гипотезы</h3>
+              <p class="review-note">Автоматические предложения появляются после обработки занятия. Учебные оценки применяются только после вашего подтверждения; личные изменения можно откатить.</p>
+              <button id="refresh-memory-changes" class="button secondary wide" type="button">Показать изменения</button>
+              <p id="memory-changes-status" class="review-note" role="status" aria-live="polite"></p>
+              <div id="memory-changes-list" class="memory-changes-list"></div>
+            </section>
+            <section id="lesson-processing-panel" class="work-form compact-form" aria-labelledby="lesson-processing-title" hidden>
+              <h3 id="lesson-processing-title">Обработка занятия</h3>
+              <p id="lesson-processing-status" class="review-note" role="status"></p>
+              <pre id="lesson-summary-text" class="lesson-text" aria-label="Итоги занятия"></pre>
+              <div id="lesson-provenance" class="review-note"></div>
+            </section>
             <div class="divider-label"><span>После занятия</span></div>
             <form id="observation-form" class="work-form compact-form"><label for="observation-topic">Наблюдение по теме</label><select id="observation-topic"><option value="">Сначала выберите ученика</option></select><label for="observation-task">Задание <span class="optional-label">краткое название</span></label><input id="observation-task" type="text" placeholder="Например: сравнить 1/3 и 1/5" required><label for="assessment-pair">Пара сопоставимых проверок <span class="optional-label">необязательно</span></label><input id="assessment-pair" type="text" placeholder="Например: fractions-01" aria-describedby="assessment-pair-hint"><small id="assessment-pair-hint" class="field-hint">Один ID для двух похожих попыток: сначала без подсказки, затем с помощью. Для следующей пары используйте новый ID.</small><label for="observation-difficulty">Сложность задания</label><select id="observation-difficulty"><option value="easy">Доступное</option><option value="medium" selected>Обычное</option><option value="hard">Повышенное</option></select><label class="check-line"><input id="solved" type="checkbox"><span>Решил задание</span></label><label for="support-level">Какая опора понадобилась?</label><select id="support-level"><option value="independent">Без подсказок</option><option value="hint_question">Наводящий вопрос</option><option value="visual">Наглядная опора</option><option value="joint">Решали вместе</option></select><label for="observation-notes">Заметка учителя <span class="optional-label">необязательно</span></label><textarea id="observation-notes" rows="2" placeholder="Что заметили в ходе работы?"></textarea><button id="save-observation" class="button secondary wide" type="submit">Сохранить наблюдение</button></form>
             <div class="divider-label"><span>Заметки к занятию</span></div>
@@ -141,7 +175,21 @@
             <label for="chat-memory-method" class="section-kicker">Память помощника</label>
             <select id="chat-memory-method" class="chat-subject" aria-describedby="chat-memory-method-hint"><option value="tail" selected>Мои беседы – обычный режим</option><option value="personal_memory">Подтверждённая учителем память – поиск</option><option value="personal_graph" hidden disabled>Персональный граф – эксперимент</option></select>
             <p id="chat-memory-method-hint" class="review-note">Помощник помнит твои беседы автоматически. Поиск по проверенным учителем записям доступен после подтверждения памяти по выбранной теме.</p>
+            <section id="assignments-panel" class="work-form compact-form" aria-labelledby="assignments-title" hidden>
+              <h3 id="assignments-title">Задания от учителя</h3>
+              <div id="assignments-list" class="memory-changes-list"></div>
+              <p id="assignments-status" class="review-note" role="status" aria-live="polite"></p>
+            </section>
+            <label class="check-line" id="guided-lesson-toggle" hidden><input type="checkbox" id="chat-guided-lesson"><span>Вести подготовленный урок (по плану учителя)</span></label>
+            <p id="guided-lesson-state" class="review-note" role="status" hidden></p>
             <div class="learning-session-controls"><p id="learning-session-status" class="review-note" role="status">Занятие начнётся с первого вопроса.</p><p id="learning-session-recovery-note" class="review-note" role="status" hidden></p><button id="refresh-learning-session" type="button" class="text-button">Обновить занятие</button><button id="complete-learning-session" type="button" class="text-button" hidden>Завершить занятие</button></div>
+            <section id="lesson-summary-panel" class="learning-archive" aria-labelledby="lesson-summary-title" hidden>
+              <h3 id="lesson-summary-title">Итоги занятия</h3>
+              <p class="review-note">Итоги появляются после обработки занятия. План урока и слова помощника не доказывают твои успехи – только твои собственные ответы.</p>
+              <button id="show-lesson-summary" type="button" class="text-button">Показать итоги занятия</button>
+              <p id="lesson-summary-status" class="review-note" role="status"></p>
+              <pre id="student-lesson-summary-text" class="lesson-text" aria-label="Итоги занятия"></pre>
+            </section>
             <details id="learning-archive" class="learning-archive">
               <summary>Прошлые занятия</summary>
               <p class="review-note">Здесь можно перечитать завершённые диалоги. Текущее занятие продолжится отдельно.</p>

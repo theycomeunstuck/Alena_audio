@@ -21,6 +21,22 @@ APPLICATION_ID = 0x54434352
 SCHEMA_VERSION = 1
 DEFAULT_PATH = Path(__file__).resolve().parents[1] / ".local" / "chat-responses.sqlite3"
 
+
+def _journal_default(value):
+    """Known non-JSON-native database types stay in the durable evidence.
+
+    Captured responses may carry PostgreSQL values (Decimal scores, datetime
+    stamps) inside retrieval diagnostics; losing the whole journal record to
+    a TypeError would defeat the journal's purpose. Anything else stays
+    rejected: opaque objects are refused, not silently stringified.
+    """
+    from decimal import Decimal
+    if isinstance(value, Decimal):
+        return str(value)
+    if isinstance(value, datetime):
+        return value.isoformat()
+    raise TypeError(f"Object of type {type(value).__name__} is not JSON serializable")
+
 _TABLES = {
     "requests": """CREATE TABLE requests (
         request_id TEXT PRIMARY KEY, database_identity TEXT NOT NULL,
@@ -169,7 +185,8 @@ class ChatResponseJournal:
         try:
             payload = json.dumps({"outcome": outcome, "raw_response": raw_response,
                                   "error_type": error_type, "elapsed_seconds": elapsed_seconds},
-                                 ensure_ascii=True, sort_keys=True, separators=(",", ":"), allow_nan=False)
+                                 ensure_ascii=True, sort_keys=True, separators=(",", ":"),
+                                 allow_nan=False, default=_journal_default)
         except (TypeError, ValueError, OverflowError, RecursionError):
             raise ResponseJournalError("Chat response cannot be serialized durably") from None
         with self._connect(write=True) as connection:

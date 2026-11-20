@@ -840,14 +840,20 @@ class MemoryStoreMixin:
                     CASE WHEN m.status='completed' AND m.completed_at<=%(cutoff)s
                         THEN m.assistant_source_id END AS paired_source_id,
                     m.actor_role,s.author_role AS original_source_role,
-                    s.learner_id AS learner_id,s.actor_id AS actor_id
+                    s.learner_id AS learner_id,s.actor_id AS actor_id,
+                    corr.id AS superseded_by
                 FROM own_pairs m JOIN teachcopilot.memory_sources s
                     ON s.id=m.source_id AND s.learner_id=m.learner_id
+                LEFT JOIN LATERAL (
+                    SELECT c.id FROM teachcopilot.memory_sources c
+                    WHERE c.corrects_source_id=s.id AND c.learner_id=s.learner_id
+                    ORDER BY c.created_at,c.id LIMIT 1) corr ON TRUE
                 UNION ALL
                 SELECT a.id,a.source_order,a.author_role,'assistant',a.content,a.created_at,
                     a.learning_session_id,a.topic_id,a.event_timezone,a.activity_timezone,a.activity_day,
                     'context_only',m.status,m.source_id,m.source_id,m.actor_role,a.author_role,
-                    a.learner_id AS learner_id,m.actor_id AS actor_id
+                    a.learner_id AS learner_id,m.actor_id AS actor_id,
+                    NULL::text AS superseded_by
                 FROM own_pairs m JOIN teachcopilot.memory_sources a
                     ON a.id=m.assistant_source_id AND a.learner_id=m.learner_id
                     AND a.learning_session_id=m.learning_session_id AND a.topic_id=m.topic_id
@@ -857,7 +863,8 @@ class MemoryStoreMixin:
                 SELECT a.id,a.source_order,a.author_role,'assistant',a.content,a.created_at,
                     a.learning_session_id,a.topic_id,a.event_timezone,a.activity_timezone,a.activity_day,
                     'context_only','shown',NULL::text,NULL::text,account.role,a.author_role,
-                    a.learner_id AS learner_id,c.actor_id AS actor_id
+                    a.learner_id AS learner_id,c.actor_id AS actor_id,
+                    NULL::text AS superseded_by
                 FROM teachcopilot.daily_checkins c
                 JOIN teachcopilot.accounts account ON account.id::text=c.actor_id AND account.role='student'
                 JOIN teachcopilot.memory_sources a ON a.id=c.assistant_source_id
@@ -937,12 +944,21 @@ class MemoryStoreMixin:
             return dict(_row(session),job=job,job_id=job["id"])
 
     def _enqueue_memory_job(self, cur, learner_id, topic_id, kind, payload=None, actor_id="system", expected_revision=None, method="tail", idempotency_key=None, provider="local"):
-        if kind not in ("memory_update","next_step","chat") or method not in ("profile_only","tail","summary","structured","structured_v2","personal_graph","personal_memory") or provider not in ("local","external"):
+        # Unified memory backend (migration 025) adds lesson_generate and
+        # session_process; session processing uses the local personal_memory
+        # method. The older method restrictions keep their original scope.
+        if kind not in ("memory_update","next_step","chat","lesson_generate","session_process") or method not in ("profile_only","tail","summary","structured","structured_v2","personal_graph","personal_memory") or provider not in ("local","external"):
             raise ValueError("invalid memory job options")
         if method == "structured_v2" and kind != "next_step":
             raise ValueError("structured_v2_is_teacher_next_step_only")
-        if method in ARCHIVE_MEMORY_METHODS and (kind != "next_step" or provider != "local"):
-            raise ValueError(f"{method}_is_local_teacher_next_step_only")
+        if method == "personal_graph" and (kind != "next_step" or provider != "local"):
+            raise ValueError("personal_graph_is_local_teacher_next_step_only")
+        if method == "personal_memory" and (kind not in ("next_step", "session_process") or provider != "local"):
+            raise ValueError("personal_memory_method_is_local_next_step_or_session_process_only")
+        if kind in ("lesson_generate", "session_process"):
+            required = {"topic_id","minutes","client_request_id"} if kind == "lesson_generate" else {"learning_session_id","client_request_id"}
+            if not isinstance(payload,dict) or not required <= set(payload):
+                raise ValueError(f"{kind} payload is missing required fields")
         # SP-1: the advisory lock must come before the learners row lock in
         # EVERY transaction that enqueues, otherwise this order inverts
         # against complete_learning_session (advisory first, learners UPDATE

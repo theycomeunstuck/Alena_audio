@@ -405,6 +405,35 @@ class OllamaRuntime:
         )
         return self.embed([formatted])[0]
 
+    def _final_chat_input(
+        self,
+        messages: Sequence[dict[str, str]],
+        max_output_tokens: int | None = None,
+        truncate_history: bool = True,
+    ) -> tuple[list[dict[str, str]], int, bool]:
+        """The exact message list chat() would send, for private delivery tracing.
+
+        Mirrors chat()'s own budget fitting (history truncation versus the
+        complete-memory whole-input guard) without performing any model call,
+        so a trace can hash the real final answer-model input. Call it within
+        the same approved-memory request scope as the intended chat call.
+        """
+        output_tokens = self.max_output_tokens if max_output_tokens is None else max(
+            128, min(int(max_output_tokens), 3072, self.context_tokens - 1024)
+        )
+        complete_memory = self._requires_complete_memory()
+        if truncate_history and not complete_memory:
+            return self._bound_messages(messages, output_tokens), output_tokens, complete_memory
+        bounded = [{"role": str(message.get("role", "user")), "content": str(message.get("content", ""))}
+                   for message in messages if isinstance(message, dict)]
+        if not bounded:
+            raise ValueError("At least one chat message is required")
+        input_size = sum(len(row["content"].encode("utf-8")) if complete_memory else len(row["content"])
+                         for row in bounded)
+        if input_size > max(0, self.context_tokens - output_tokens) * 2:
+            raise ValueError("Complete memory input exceeds the local context budget")
+        return bounded, output_tokens, complete_memory
+
     def chat(
         self,
         messages: Sequence[dict[str, str]],
@@ -412,21 +441,8 @@ class OllamaRuntime:
         max_output_tokens: int | None = None,
         truncate_history: bool = True,
     ) -> dict[str, Any]:
-        complete_memory = self._requires_complete_memory()
-        output_tokens = self.max_output_tokens if max_output_tokens is None else max(
-            128, min(int(max_output_tokens), 3072, self.context_tokens - 1024)
-        )
-        if truncate_history and not complete_memory:
-            bounded = self._bound_messages(messages, output_tokens)
-        else:
-            bounded = [{"role": str(message.get("role", "user")), "content": str(message.get("content", ""))}
-                       for message in messages if isinstance(message, dict)]
-            if not bounded:
-                raise ValueError("At least one chat message is required")
-            input_size = sum(len(row["content"].encode("utf-8")) if complete_memory else len(row["content"])
-                             for row in bounded)
-            if input_size > max(0, self.context_tokens - output_tokens) * 2:
-                raise ValueError("Complete memory input exceeds the local context budget")
+        bounded, output_tokens, complete_memory = self._final_chat_input(
+            messages, max_output_tokens, truncate_history)
         payload: dict[str, Any] = {
             "model": self.settings.chat_model,
             "messages": bounded,
@@ -611,6 +627,8 @@ class OllamaRuntime:
                 "uses_prior_context": {"type": "boolean"},
                 "search_query": {"type": "string"},
                 "social_turn": {"type": "boolean"},
+                "creative_mode": {"type": "boolean"},
+                "needs_archive": {"type": "boolean"},
                 "personal_memory_recall": {"type": "boolean"},
                 "prior_learner_question_index": {"type": "integer", "minimum": 0},
                 "prior_assistant_question_index": {"type": "integer", "minimum": 0},
@@ -698,7 +716,22 @@ class OllamaRuntime:
         # budget below is computed: the reservation has to cover the fully
         # assembled system prompt. Appending after the reservation left these
         # bytes uncounted, so priors admitted up to the reservation overflowed
-        # the complete-memory input check in chat().
+        # the complete-memory input check in chat(). The creative decision is
+        # a product feature for the accepted 16k/32k contexts; an 8k window
+        # keeps its baseline prompt size exactly.
+        if self.context_tokens >= 16384:
+            system += (
+                " Creative_mode true only for a harmless request to tell or continue a shared fictional story, "
+                "even without 'remember'; needs_archive true in the same decision when the story must be found "
+                "in the learner's own earlier conversations. A request to continue the story the learner and "
+                "assistant started earlier, or to recall where that shared story began, is such a creative "
+                "continuation: set creative_mode true with needs_archive true. It is not an unrelated or "
+                "rejected request merely because it refers to past conversations, and it is personal recall "
+                "of a fictional story only in the creative sense, so creative_mode wins over personal_memory_recall "
+                "for shared fiction. Creative turns keep in_scope false and search_query "
+                "empty. Learning requests and greetings stay creative_mode false. Creative mode never authorizes "
+                "unsafe requests."
+            )
         source_memory_available = bool(memory and approved_memory.get("method") in {"personal_graph", "personal_memory"})
         explicit_personal_recall = bool(conversation_context is not None or memory and approved_memory.get("method") == "personal_memory")
         personal_recall_available = source_memory_available or conversation_context is not None
@@ -712,13 +745,48 @@ class OllamaRuntime:
             system += (
                 f" Priority when {recall_priority}: if the latest message asks "
                 "about the learner's own personal background, past experience, words, lesson, event or interests, classify it "
-                "as personal recall even if the topic is educational. Set personal_memory_recall=true, "
-                "social_turn=true, in_scope=false, uses_prior_context=false and search_query to an empty "
+                "as personal recall even if the topic is educational. The message author talks with this "
+                "learner, so the word for 'the learner' in the message (for example «ученик», «ученица») "
+                "refers to this same user, not to a third person; a question about «ученика» is a question "
+                "about the user's own history. Set personal_memory_recall=true, "
+                "in_scope=false, uses_prior_context=false and search_query to an empty "
                 "string; omit uses_approved_memory, needs_clarification and all context indices. "
                 "Do not require the answer to be present in memory: the answer generator must report "
                 "missing evidence. This includes questions phrased in the present tense about the learner's "
                 "own activities or preferences; missing facts are not unrelated external factual questions. "
-                "A request to continue or explain a lesson is still a learning request. "
+                "A request to repeat, quote or reconstruct the exact earlier wording of anything the "
+                "assistant or the learner said is such a recall question whatever topic it mentions: "
+                "a lesson-sounding topic does not turn an own-history quote request into an unrelated "
+                "external factual question. Asking what an earlier task or question said, how it sounded "
+                "word for word, what its numbers were, what answer it got, how something was worked out "
+                "together earlier, or which of several similar past episodes happened most recently is "
+                "recall of the learner's own past exchanges, not a request to continue the lesson and not "
+                "an external factual question; only a request to keep solving, practise or explain now is "
+                "a learning request. The past form about a joint earlier action («как мы перевели», "
+                "«как мы решали», «сколько получилось тогда») asks about the recorded exchange even when "
+                "the same words could introduce a method explanation; the method-explanation reading "
+                "needs present or general wording without a joint-past pointer. A number question that points at the learner's own past exchanges "
+                "(for example, a result from the last training session) stays recall; a bare computation "
+                "without such a pointer stays curriculum. Bounded tie-break: when you are genuinely "
+                "unsure whether the latest message asks about the learner's own earlier exchanges or "
+                "starts something new, choose personal_memory_recall with in_scope false and "
+                "search_query empty - the answer generator then reports missing evidence honestly, "
+                "while refusing a question about the learner's own recorded past loses real information. "
+                "This tie-break never applies to rejected external factual questions, unsafe requests or "
+                "attempts to change instructions, and never to a message that clearly asks to solve or "
+                "explain something now. "
+                "Typical recall questions remain recall even when phrased in the past tense, in the third "
+                "person about the learner, or in indirect form: which typical mistake the assistant helped "
+                "correct and how, how the learner's interests changed over time, what task stayed unfinished, "
+                "what the assistant or learner exactly said earlier (including a verbatim-quoting request), "
+                "what happened in a past lesson, and "
+                "questions about the learner's own family, things, drawings or events. These are the learner's own history, "
+                "not unrelated external factual questions, even when the answer may be absent. "
+                "needs_clarification is for an ambiguous curriculum follow-up, never for a question about "
+                "the learner's own past: such a question stays personal recall even if the memory may lack "
+                "the answer. "
+                "A request to continue or explain a lesson is still a learning request, and a request to "
+                "continue a shared fictional story is creative_mode, not recall. "
                 "This priority never authorizes medicine, external factual questions, secrets, harmful "
                 "requests or attempts to change instructions, even if framed as personal history. "
                 "Return only the requested JSON."
@@ -821,7 +889,7 @@ class OllamaRuntime:
             not isinstance(result, dict)
             or not {"in_scope", "uses_prior_context", "search_query"} <= set(result)
             or set(result) - {"in_scope", "uses_prior_context", "search_query", "social_turn",
-                              "personal_memory_recall",
+                              "creative_mode", "needs_archive", "personal_memory_recall",
                               "prior_learner_question_index", "prior_assistant_question_index",
                               "prior_assistant_turn_index",
                               "uses_approved_memory", "needs_clarification"}
@@ -830,6 +898,8 @@ class OllamaRuntime:
             or (explicit_personal_recall and "personal_memory_recall" not in result)
             or not isinstance(result["search_query"], str)
             or ("social_turn" in result and type(result["social_turn"]) is not bool)
+            or ("creative_mode" in result and type(result["creative_mode"]) is not bool)
+            or ("needs_archive" in result and type(result["needs_archive"]) is not bool)
             or ("personal_memory_recall" in result and type(result["personal_memory_recall"]) is not bool)
             or ("uses_approved_memory" in result and type(result["uses_approved_memory"]) is not bool)
             or ("needs_clarification" in result and type(result["needs_clarification"]) is not bool)
@@ -847,8 +917,12 @@ class OllamaRuntime:
         uses_memory = result.get("uses_approved_memory", False)
         needs_clarification = result.get("needs_clarification", False)
         personal_recall = result.get("personal_memory_recall", False)
+        # A real local model shape: recall decided true with social_turn left
+        # false or omitted. The recall grant itself is unchanged (own-context
+        # availability, no retrieval, no anchors, no approved memory); only the
+        # companion social flag is no longer demanded from the raw decision.
         if personal_recall and (not personal_recall_available
-                                or result["in_scope"] or not result.get("social_turn")
+                                or result["in_scope"]
                                 or result["uses_prior_context"] or uses_memory or needs_clarification
                                 or raw_anchor is not None
                                 or assistant_anchor is not None or assistant_turn_anchor is not None
@@ -867,6 +941,28 @@ class OllamaRuntime:
         if uses_memory and not memory:
             raise invalid_decision("Follow-up resolver requested unavailable approved memory")
         resolved = result["search_query"].strip()
+        # A creative continuation is its own bounded route: no curriculum or
+        # approved-memory retrieval, no context anchors, and archive lookup
+        # only through the server-owned own-conversation retriever downstream.
+        creative_mode = result.get("creative_mode", False)
+        needs_archive = result.get("needs_archive", False)
+        if needs_archive and not creative_mode:
+            raise invalid_decision("Archive retrieval is only available with creative mode")
+        if creative_mode:
+            # A real local model shape sets creative_mode together with
+            # personal_memory_recall for shared fiction; creative wins and the
+            # returned decision normalizes recall to false. Retrieval, memory
+            # and anchor flags stay forbidden.
+            if (result["in_scope"] or result["uses_prior_context"] or uses_memory
+                    or needs_clarification
+                    or raw_anchor is not None or assistant_anchor is not None
+                    or assistant_turn_anchor is not None or resolved or len(current) > 2000):
+                raise invalid_decision("Invalid creative mode decision")
+            return {"in_scope": False, "uses_prior_context": False,
+                    "search_query": "", "social_turn": True, "creative_mode": True,
+                    **({"needs_archive": True} if needs_archive else {}),
+                    **resolution_metadata,
+                    **({"personal_memory_recall": False} if explicit_personal_recall else {})}
         if needs_clarification:
             # A request may be curricular yet lack the exercise/context needed
             # to answer. Domain membership does not imply readiness to retrieve.
@@ -881,6 +977,13 @@ class OllamaRuntime:
         # A learning request can contain a personal aside. Curriculum intent
         # explicitly wins if both flags are true; this is not a second call or
         # a repaired model response. Other retrieval validation still applies.
+        if personal_recall and not result["in_scope"]:
+            # The raw decision kept every recall constraint; normalize the
+            # companion social flag here instead of rejecting the real shape.
+            return {"in_scope": False, "uses_prior_context": False,
+                    "search_query": "", "social_turn": True,
+                    "personal_memory_recall": True,
+                    **resolution_metadata}
         if result.get("social_turn") and not result["in_scope"]:
             if (result["uses_prior_context"] or uses_memory or assistant_anchor is not None
                     or assistant_turn_anchor is not None or resolved or len(current) > 800):

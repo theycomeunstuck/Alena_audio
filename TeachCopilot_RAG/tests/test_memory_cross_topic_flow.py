@@ -106,7 +106,20 @@ def test_two_topic_memories_survive_new_store_and_only_current_message_is_sent(f
             _message(browser, student_headers, session, "short-reply", "хз")
             response = browser.post(f"/learning-sessions/{session}/complete", headers=student_headers)
             assert response.status_code == 202, response.text
-            assert MemoryWorker(store, EmptyInterestsRuntime()).run_once()["status"] == "completed"
+            # Round-2 P0.3: completion also enqueues the unified session_process
+            # kind; drain the FIFO queue until the legacy memory_update job
+            # completes. This minimal runtime cannot run unified processing
+            # (no model identity), so that job fails honestly and stays
+            # inspectable while the legacy tail still completes.
+            legacy_done = False
+            for _ in range(4):
+                job = MemoryWorker(store, EmptyInterestsRuntime()).run_once()
+                if not job:
+                    break
+                if job.get("kind") == "memory_update" and job.get("status") == "completed":
+                    legacy_done = True
+                    break
+            assert legacy_done, "the legacy memory_update job did not complete"
             snapshot = store.get_learner_memory(LEARNER, topic)
             version = snapshot["versions"][0]
             assert not version["approved"]

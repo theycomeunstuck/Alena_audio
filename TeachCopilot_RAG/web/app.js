@@ -154,7 +154,7 @@
     if (state.learnerId !== id) resetLearningAction();
     state.learnerId = id; state.dashboard = null; state.task = null; state.proposal = null; renderRoster();
     resetLearningArchive();
-    if (state.account?.role === 'student') { renderChatHistory(id); restoreLearningSession(); }
+    if (state.account?.role === 'student') { renderChatHistory(id); restoreLearningSession(); loadAssignments(); }
     renderNextStep(); $('#memory-history').replaceChildren(); $('#memory-summaries').replaceChildren(); $('#memory-status').textContent = '';
     $('#memory-diagnostics-section').hidden = true; $('#memory-diagnostics-index').replaceChildren(); $('#memory-diagnostics-results').replaceChildren(); $('#memory-diagnostics-status').textContent = '';
     $('#conversation-memory-section').hidden = true; $('#conversation-memory-cards').replaceChildren(); $('#daily-checkin').hidden = true;
@@ -293,9 +293,9 @@
     if (state.account?.role === 'student') renderLearningSession();
   }
   function fillTopicOptions() {
-    for (const select of [$('#topic-select'), $('#observation-topic')]) {
+    for (const select of [$('#topic-select'), $('#observation-topic'), $('#lesson-topic-select')]) {
       const previous = select.value; select.replaceChildren();
-      const first = document.createElement('option'); first.value = ''; first.textContent = select.id === 'topic-select' ? 'Выберите тему' : 'Выберите тему'; select.append(first);
+      const first = document.createElement('option'); first.value = ''; first.textContent = select.id === 'lesson-topic-select' ? 'Выберите тему урока' : 'Выберите тему'; select.append(first);
       const goalId = state.dashboard?.profile?.rag_context?.current_goal?.topic_id;
       const candidates = [...state.topics];
       if (goalId && !candidates.some(t => (t.topic_id || t.id) === goalId)) candidates.unshift({ topic_id: goalId, title: goalId });
@@ -1377,6 +1377,7 @@
         if ($('#chat-mode').value === 'autonomous_division') refreshAutonomous();
         else refreshGuided();
       }
+      refreshGuidedLessonState();
     } catch (error) {
       if (!currentView()) return;
       sessionRecovery.set(learnerId, { loading:false, error:errorText(error) });
@@ -1832,6 +1833,7 @@
         sessionRecovery.set(learnerId, { loading:false, unresolved_status:null, history_truncated:false });
       }
       const body = { model: 'teachcopilot-rag', learning_session_id: session.learning_session_id, client_message_id: pending.client_message_id, messages: pending.learning_action ? [] : [{ role: 'user', content: pending.content }], metadata: { subject_id: session.subject_id || pending.subject_id } };
+      if (!pending.learning_action && $('#chat-guided-lesson')?.checked) body.metadata.lesson_mode = 'guided';
       if (!pending.learning_action && ['tail', 'personal_memory', 'personal_graph'].includes(pending.memory_method)) body.metadata.memory_method = pending.memory_method;
       if (!pending.learning_action && pending.checkin_id) body.metadata.checkin_id = pending.checkin_id;
       if (session.session_mode === 'autonomous_division') body.learning_protocol = autonomousProtocol;
@@ -1852,6 +1854,7 @@
       state.pendingMessages.delete(learnerId);
       if (state.learnerId === learnerId) updateChat('assistant', message, data.citations || data.sources || [], data.learning_tool);
       else { const history = state.chatByLearner.get(learnerId) || []; history.push({ role: 'assistant', content: message, tool: data.learning_tool }); state.chatByLearner.set(learnerId, history); }
+      if (!pending.learning_action && data.answer_routing?.reason === 'guided_lesson') refreshGuidedLessonState();
     } catch (error) {
       if (state.token === token) {
         if ((pending.session_mode === 'autonomous_division' || state.learningSessionsByLearner.get(learnerId)?.session_mode === 'autonomous_division') && autonomousAccessDenied(error)) {
@@ -2133,5 +2136,226 @@
       }
     }
   });
+  // Полный урок (unified application): создание, проверка, подтверждение,
+  // прикрепление к занятию, изменения памяти и итоги занятия.
+  let currentLesson = null;
+  const stageLabels = { not_started: 'не начат', warmup: 'разминка', explanation: 'объяснение', practice: 'практика', check: 'проверка', completed: 'завершён' };
+
+  function lessonTopicId() { return $('#lesson-topic-select').value; }
+
+  async function createFullLesson() {
+    const learnerId = state.learnerId;
+    if (!learnerId || !lessonTopicId()) { toast('Выберите тему урока.'); return; }
+    const minutes = Number($('#lesson-minutes').value || 0);
+    if (!(minutes >= 5 && minutes <= 90)) { toast('Длительность урока – от 5 до 90 минут.'); return; }
+    $('#lesson-view').hidden = true; currentLesson = null;
+    $('#lesson-job-status').textContent = 'Урок ставится в очередь локальной генерации…';
+    const queued = await request(`/learners/${encodeURIComponent(learnerId)}/lessons`, { method: 'POST', body: { topic_id: lessonTopicId(), minutes, client_request_id: crypto.randomUUID() } });
+    $('#lesson-job-status').textContent = 'Урок в очереди. Это может занять несколько минут.';
+    await pollLessonJob(learnerId, queued.job_id, 0);
+  }
+
+  async function pollLessonJob(learnerId, jobId, attempt) {
+    if (!jobId || attempt > 120) { $('#lesson-job-status').textContent = 'Ожидание генерации превысило лимит. Обновите статус позже.'; return; }
+    await new Promise(resolve => setTimeout(resolve, 5000));
+    if (state.learnerId !== learnerId) return;
+    let job;
+    try { job = await request(`/memory/jobs/${encodeURIComponent(jobId)}`); }
+    catch (error) { $('#lesson-job-status').textContent = `Статус недоступен: ${errorText(error)}`; return; }
+    if (job.status === 'completed') {
+      $('#lesson-job-status').textContent = 'Урок создан и сохранён черновиком.';
+      const lessonId = job.result?.lesson_id;
+      if (lessonId) await openLesson(lessonId);
+      else $('#lesson-job-status').textContent = 'Генерация завершилась без идентификатора урока. Проверьте журнал задания.';
+      return;
+    }
+    if (job.status === 'failed' || job.status === 'unknown_outcome') {
+      const problems = job.error?.message || job.error || 'причина не указана';
+      $('#lesson-job-status').textContent = `Генерация не удалась: ${typeof problems === 'string' ? problems : JSON.stringify(problems)}`;
+      return;
+    }
+    $('#lesson-job-status').textContent = `Генерация урока: ${job.status}…`;
+    await pollLessonJob(learnerId, jobId, attempt + 1);
+  }
+
+  async function openLesson(lessonId) {
+    const learnerId = state.learnerId;
+    const lesson = await request(`/learners/${encodeURIComponent(learnerId)}/lessons/${encodeURIComponent(lessonId)}?audience=teacher`);
+    currentLesson = lesson;
+    $('#lesson-view').hidden = false;
+    $('#lesson-revision-label').textContent = lesson.status === 'approved' ? 'Подтверждён' : 'Черновик';
+    const validation = lesson.validation || {};
+    const problems = Array.isArray(validation.problems) ? validation.problems : [];
+    $('#lesson-validation').textContent = problems.length ? `Проверка нашла: ${problems.join('; ')}.` :
+      'Автоматическая проверка пройдена. Проверьте содержание и подтвердите урок.';
+    $('#lesson-text').textContent = lesson.lesson_text || '(текст урока пуст)';
+    $('#lesson-answers-text').textContent = lesson.answers_text || '(раздел ответов не выделен)';
+    $('#lesson-answers-details').open = false;
+    $('#confirm-lesson').hidden = lesson.status === 'approved';
+    $('#confirm-lesson').disabled = false;
+    $('#assign-lesson').hidden = lesson.status !== 'approved';
+    $('#assign-lesson').disabled = false;
+    $('#lesson-confirm-status').textContent = '';
+    $('#lesson-assign-status').textContent = '';
+  }
+
+  async function confirmLesson() {
+    if (!currentLesson?.lesson_id) return;
+    const learnerId = state.learnerId;
+    const confirmed = await request(`/learners/${encodeURIComponent(learnerId)}/lessons/${encodeURIComponent(currentLesson.lesson_id)}/confirm`, { method: 'POST', body: { expected_revision: currentLesson.revision, request_id: crypto.randomUUID() } });
+    // The facade answers the lesson projection flat; the revision is stable
+    // on confirm (content changes create a new revision).
+    currentLesson = { ...currentLesson, ...(confirmed.lesson || {}), ...(confirmed.lesson ? {} : confirmed),
+      revision: confirmed.revision ?? confirmed.lesson?.revision ?? currentLesson.revision,
+      status: confirmed.status || confirmed.lesson?.status || 'approved' };
+    $('#lesson-revision-label').textContent = 'Подтверждён';
+    $('#confirm-lesson').hidden = true;
+    $('#assign-lesson').hidden = false;
+    $('#lesson-confirm-status').textContent = 'Урок подтверждён. Теперь его можно выдать ученику заданием.';
+  }
+
+  async function assignLesson() {
+    if (!currentLesson?.lesson_id) return;
+    const learnerId = state.learnerId;
+    $('#lesson-assign-status').textContent = 'Выдаём задание ученику…';
+    const assigned = await request(`/learners/${encodeURIComponent(learnerId)}/lessons/${encodeURIComponent(currentLesson.lesson_id)}/assignments`, { method: 'POST', body: { expected_lesson_revision: currentLesson.revision, request_id: crypto.randomUUID() } });
+    const statusLabel = assigned.status === 'started' ? 'задание уже начато учеником' : 'задание ждёт ученика';
+    $('#lesson-assign-status').textContent = `Задание выдано (ревизия урока ${assigned.lesson_revision}), ${statusLabel}. Ученик увидит его в списке «Задания от учителя» и начнёт своё занятие.`;
+  }
+
+  function changeActions(change) {
+    const row = el('div', 'memory-change-item');
+    const value = typeof change.value === 'string' ? change.value : JSON.stringify(change.value);
+    const titles = { personal_change: 'Автоматическое личное изменение', academic_candidate: 'Учебная гипотеза – требует подтверждения' };
+    row.append(el('strong', '', `${titles[change.kind] || change.kind}: ${change.category || ''}`));
+    row.append(el('p', '', value));
+    const meta = el('p', 'change-meta', `Статус: ${change.status || '—'}${change.scope ? ` · область: ${change.scope}` : ''}`);
+    row.append(meta);
+    const actions = el('div', 'memory-change-actions');
+    const possible = change.kind === 'academic_candidate'
+      ? (change.status === 'pending' ? [['accept', 'Принять'], ['reject', 'Отклонить']] : [])
+      : (change.status === 'applied' ? [['revert', 'Откатить']] : change.status === 'pending' ? [['accept', 'Принять'], ['reject', 'Отклонить']] : []);
+    possible.forEach(([action, label]) => {
+      const button = el('button', 'text-button', label);
+      button.addEventListener('click', () => busy(button, () => reviewChange(change, action)));
+      actions.append(button);
+    });
+    if (possible.length) row.append(actions);
+    return row;
+  }
+
+  async function loadMemoryChanges() {
+    const learnerId = state.learnerId;
+    $('#memory-changes-status').textContent = 'Загрузка…';
+    const data = await request(`/learners/${encodeURIComponent(learnerId)}/memory-changes`);
+    const root = $('#memory-changes-list'); root.replaceChildren();
+    const items = Array.isArray(data.items) ? data.items : [];
+    if (!items.length) { $('#memory-changes-status').textContent = 'Автоматических изменений пока нет.'; return; }
+    items.forEach(change => root.append(changeActions(change)));
+    $('#memory-changes-status').textContent = `Изменений: ${items.length}. Ревизия списка: ${data.revision ?? '—'}.`;
+  }
+
+  async function reviewChange(change, action) {
+    const learnerId = state.learnerId;
+    const data = await request(`/learners/${encodeURIComponent(learnerId)}/memory-changes/review`, { method: 'POST', body: { expected_revision: change.list_revision ?? change.revision, actions: [{ id: change.change_id || change.id, action }], request_id: crypto.randomUUID() } });
+    toast('Решение записано.');
+    await loadMemoryChanges();
+    return data;
+  }
+
+  async function showLessonProcessing(sessionId) {
+    const learnerId = state.learnerId;
+    const panel = $('#lesson-processing-panel');
+    const data = await request(`/learners/${encodeURIComponent(learnerId)}/learning-sessions/${encodeURIComponent(sessionId)}/processing-result`);
+    panel.hidden = false;
+    const statusText = { completed: 'Обработка завершена.', partial: 'Обработка завершена частично – часть материалов не учтена.', failed: 'Обработка не удалась. Сообщение сохранено, повторите обработку позже.', pending: 'Обработка ещё выполняется или не начата.' };
+    $('#lesson-processing-status').textContent = statusText[data.status] || `Статус: ${data.status || '—'}`;
+    const summary = data.summary || {};
+    $('#lesson-summary-text').textContent = summary.text || '(итогов пока нет)';
+    const provenance = [];
+    if (summary.source_refs?.length) provenance.push(`Источники итогов: ${summary.source_refs.length}.`);
+    if (Array.isArray(summary.coverage?.omitted) && summary.coverage.omitted.length) provenance.push(`Пропущенные фрагменты: ${summary.coverage.omitted.length}.`);
+    if (Array.isArray(data.warnings) && data.warnings.length) provenance.push(`Предупреждения: ${data.warnings.length}.`);
+    $('#lesson-provenance').textContent = provenance.join(' ') || '';
+  }
+
+  async function refreshGuidedLessonState() {
+    const learnerId = state.learnerId, session = state.learningSessionsByLearner.get(learnerId);
+    const stateNode = $('#guided-lesson-state'), toggle = $('#guided-lesson-toggle');
+    if (state.account?.role !== 'student' || !session) { toggle.hidden = true; stateNode.hidden = true; return; }
+    try {
+      const lessonState = await request(`/learners/${encodeURIComponent(learnerId)}/learning-sessions/${encodeURIComponent(session.learning_session_id)}/lesson-state`);
+      toggle.hidden = !lessonState.lesson_id;
+      if (lessonState.lesson_id) {
+        $('#chat-guided-lesson').checked = true;
+        stateNode.hidden = false;
+        stateNode.textContent = `Подготовленный урок учителя. Этап: ${stageLabels[lessonState.stage] || lessonState.stage || '—'}.`;
+      } else { stateNode.hidden = true; }
+    } catch (error) {
+      if (error.status === 503) { toggle.hidden = true; stateNode.hidden = true; }
+      else if (error.status !== 404) { toggle.hidden = false; }
+    }
+  }
+
+  $('#create-lesson').addEventListener('click', () => busy($('#create-lesson'), createFullLesson));
+  $('#confirm-lesson').addEventListener('click', () => busy($('#confirm-lesson'), confirmLesson));
+  $('#assign-lesson').addEventListener('click', () => busy($('#assign-lesson'), assignLesson));
+  $('#refresh-memory-changes').addEventListener('click', () => busy($('#refresh-memory-changes'), loadMemoryChanges));
+  $('#show-lesson-summary').addEventListener('click', () => busy($('#show-lesson-summary'), async () => {
+    const session = state.learningSessionsByLearner.get(state.learnerId);
+    if (!session?.learning_session_id) { toast('Сначала начните занятие.'); return; }
+    await showLessonProcessing(session.learning_session_id);
+  }));
+  $('#chat-guided-lesson').addEventListener('change', () => { if (!$('#chat-guided-lesson').checked) $('#guided-lesson-state').hidden = true; });
+
+  const assignmentStatusLabels = { pending: 'Новое задание – можно начать', started: 'Занятие начато – можно продолжить', completed: 'Задание завершено' };
+  async function loadAssignments() {
+    if (state.account?.role !== 'student' || !state.learnerId) { $('#assignments-panel').hidden = true; return; }
+    const learnerId = state.learnerId, token = state.token, revision = state.viewRevision;
+    $('#assignments-panel').hidden = false;
+    $('#assignments-status').textContent = 'Загрузка…';
+    try {
+      const data = await request(`/learners/${encodeURIComponent(learnerId)}/lesson-assignments`);
+      if (token !== state.token || revision !== state.viewRevision || learnerId !== state.learnerId) return;
+      renderAssignments(Array.isArray(data.items) ? data.items : []);
+    } catch (error) {
+      if (token !== state.token || learnerId !== state.learnerId) return;
+      if (error.status === 503) { $('#assignments-panel').hidden = true; return; }
+      $('#assignments-status').textContent = `Не удалось загрузить задания. ${errorText(error)}`;
+    }
+  }
+  function renderAssignments(items) {
+    const list = $('#assignments-list'); list.replaceChildren();
+    if (!items.length) { $('#assignments-status').textContent = 'Новых заданий пока нет. Начните обычную беседу или подождите учителя.'; return; }
+    items.forEach(item => {
+      const row = el('div', 'memory-change-item');
+      row.append(el('strong', '', item.lesson_title || 'Подготовленный урок учителя'));
+      row.append(el('p', '', assignmentStatusLabels[item.status] || `Статус: ${item.status || '—'}`));
+      if (item.status !== 'completed') {
+        const button = el('button', 'text-button', item.status === 'started' ? 'Продолжить занятие' : 'Начать занятие');
+        button.addEventListener('click', () => busy(button, () => startAssignment(item)));
+        row.append(button);
+      }
+      list.append(row);
+    });
+    $('#assignments-status').textContent = `Заданий: ${items.length}.`;
+  }
+  async function startAssignment(item) {
+    const learnerId = state.learnerId;
+    $('#assignments-status').textContent = 'Открываем занятие…';
+    const data = await request(`/learners/${encodeURIComponent(learnerId)}/lesson-assignments/${encodeURIComponent(item.assignment_id)}/start`, { method: 'POST', body: { request_id: crypto.randomUUID() } });
+    toast(data.status === 'started' ? 'Возвращаемся к занятию.' : 'Занятие началось.');
+    // Provisional session so the restore below sees an active one; the server
+    // response then replaces it with the persisted truth and messages.
+    state.learningSessionsByLearner.set(learnerId, { learning_session_id: data.learning_session_id,
+      topic_id: item.topic_id || data.topic_id || 'math', topic_title: item.lesson_title || 'Подготовленный урок',
+      subject_id: 'math', status: 'active', session_mode: 'standard' });
+    await restoreLearningSession();
+    $('#chat-guided-lesson').checked = true;
+    renderLearningSession();
+    await refreshGuidedLessonState();
+    await loadAssignments();
+    return data;
+  }
   boot();
 })();

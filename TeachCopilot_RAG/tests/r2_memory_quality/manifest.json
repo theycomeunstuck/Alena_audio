@@ -1,0 +1,319 @@
+{
+ "protocol": "zcode-r2-v1",
+ "manifest_id": "r2-memory-gold-20261117",
+ "frozen_by": "client A (backend)",
+ "frozen_at_utc": "2026-11-17T21:50:00Z",
+ "base_sha": "95bec61168aa491acdc4d1a18cc1211a179f73bb",
+ "purpose": "Frozen gold manifest for the round-2 long-history acceptance. Frozen BEFORE client B's live run. Gold answers and source keys are evaluation-side data only and must never enter generation, resolver or extraction prompts.",
+ "source_key_mapping": {
+  "concrete": "Every turn in a frozen history file has a stable key <history>-s<session>-t<index>; ':a' suffix selects the assistant source of the same exchange. The loader maps every concrete and semantic key to the actual persisted source id at insert time and returns that mapping.",
+  "semantic": "Questions below reference semantic keys (e.g. 'a.comics_interest') resolved through the frozen history files' key_block_keys. Corrections appear under their own key ('final.brother_age_correction').",
+  "immutability": "History files, this manifest and the corrections list are committed and frozen. Regeneration is deterministic (seed 20261117) but never replaces a frozen file during a round."
+ },
+ "histories": [
+  {
+   "history_id": "r2-mem-a",
+   "role": "development",
+   "sessions": 6,
+   "approx_chars": 123175,
+   "exceeds_32768_token_window": true,
+   "note": "The oversized archive: at a conservative 2.5-3.2 characters per Russian token the transcript is >= 38000 tokens, above the 32768 window. Every individual model request stays bounded by the 900-character chunk recipe."
+  },
+  {
+   "history_id": "r2-mem-b",
+   "role": "development",
+   "sessions": 6,
+   "approx_chars": 31401,
+   "exceeds_32768_token_window": false
+  },
+  {
+   "history_id": "r2-mem-final",
+   "role": "final_check",
+   "sessions": 6,
+   "approx_chars": 31490,
+   "exceeds_32768_token_window": false,
+   "note": "Held out: the first live result on this history is the final-check evidence. After adapting to its failures, later attempts are regression runs, not fresh held-out evidence."
+  }
+ ],
+ "case_types": [
+  "changed_interest",
+  "interest_plus_separate_story_avoidance",
+  "old_error_and_help",
+  "temporary_request",
+  "unfinished_task",
+  "ambiguous_short_answer_with_question",
+  "incidental_fact",
+  "corrected_source",
+  "story_continuation",
+  "genuinely_missing_fact",
+  "exact_wording",
+  "old_fact_outside_recent_and_seven_day_view"
+ ],
+ "questions": [
+  {
+   "question_id": "A1-changed-interest",
+   "history_id": "r2-mem-a",
+   "case": "changed_interest",
+   "question": "Какие интересы ученика изменились за весь архив и с чего на что?",
+   "expected_answer": "Раньше ученик больше всего любил комиксы про супергероев (читал каждый вечер, самый ранний визит). Позже он прямо сказал, что комиксы ему стали скучны, и теперь ему нравится космос и ракеты – он хочет задачи и мультики про космос и ракеты.",
+   "expected_source_keys": [
+    "a.comics_interest",
+    "a.space_interest_change"
+   ],
+   "must_not_sources": [],
+   "notes": "Both the early and the changed statement must be retrieved; the answer must present the change, not just the newest interest.",
+   "probe_query": "комиксы про супергероев надоели, теперь нравится космос и ракеты"
+  },
+  {
+   "question_id": "A2-old-error-help",
+   "history_id": "r2-mem-a",
+   "case": "old_error_and_help",
+   "question": "С какой типичной ошибкой ученику помог разобраться ассистент и как именно?",
+   "expected_answer": "Ученик путал «во сколько раз больше» и «на сколько больше». Ассистент объяснил на числах 6 и 2: «во сколько раз» – деление, 6 : 2 = 3 (в 3 раза), «на сколько» – вычитание, 6 – 2 = 4 (на 4), и дал правило: «во сколько» – умножаем или делим, «на сколько» – складываем или вычитаем.",
+   "expected_source_keys": [
+    "a.times_error_help"
+   ],
+   "must_not_sources": [],
+   "notes": "The explanation source (assistant turn inside the same exchange) is required evidence.",
+   "probe_query": "во сколько раз больше на сколько больше путаюсь правило"
+  },
+  {
+   "question_id": "A3-unfinished-task",
+   "history_id": "r2-mem-a",
+   "case": "unfinished_task",
+   "question": "Какое упражнение из занятий осталось незавершённым и в чём состоял незакрытый пункт?",
+   "expected_answer": "Упражнение про деление (84 : 12 и обратная задача) из третьего пункта: составить свою задачу про ракеты с делением и записать её решение. Ученик придумал идею (ракета летит к Марсу и делит топливные баки между отсеками), но сказал, что допишет завтра, и пункт остался незавершённым; в поздних занятиях он не был закрыт.",
+   "expected_source_keys": [
+    "a.unfinished_rockets"
+   ],
+   "must_not_sources": [],
+   "notes": "The answer must not invent completion; the archive never shows пункты 1-3 being finished.",
+   "probe_query": "составь свою задачу про ракеты с делением пункт остался незавершённым"
+  },
+  {
+   "question_id": "A4-incidental-dog",
+   "history_id": "r2-mem-a",
+   "case": "incidental_fact",
+   "question": "Как зовут собаку ученика и какой это породы?",
+   "expected_answer": "Собаку зовут Байтик, это австралийская овчарка; упомянуто мимоходом при разговоре про прогулки после школы.",
+   "expected_source_keys": [
+    "a.dog_baitik"
+   ],
+   "must_not_sources": [],
+   "notes": "A passing fact with no dedicated exercise around it.",
+   "probe_query": "собака Байтик австралийская овчарка"
+  },
+  {
+   "question_id": "A5-exact-wording",
+   "history_id": "r2-mem-a",
+   "case": "exact_wording",
+   "question": "Как именно ассистент сформулировал вопрос про часы и минуты? Приведи формулировку дословно.",
+   "expected_answer": "Дословно: «сколько минут в двух с половиной часах?» – ассистент просил подумать и ответить полным решением. Верный ответ ученика: 150 минут (120 + 30).",
+   "expected_source_keys": [
+    "a.exact_hours_minutes",
+    "a.exact_hours_minutes:a"
+   ],
+   "must_not_sources": [],
+   "notes": "Exact-wording case: the assistant question source and the student answer source must both be reachable.",
+   "probe_query": "сколько минут в двух с половиной часах"
+  },
+  {
+   "question_id": "A6-old-aquarium",
+   "history_id": "r2-mem-a",
+   "case": "old_fact_outside_recent_and_seven_day_view",
+   "question": "Что есть у ученика дома, о чём он говорил в самом начале архива?",
+   "expected_answer": "Дома есть аквариум с тремя гуппи; ученик кормит их каждое утро перед школой. Это одно из самых старых упоминаний архива, далеко за пределами последних сообщений и семи активных дней.",
+   "expected_source_keys": [
+    "a.aquarium"
+   ],
+   "must_not_sources": [],
+   "notes": "Session 1 fact: must be found across the whole oversized archive, not only the recent window.",
+   "probe_query": "дома аквариум с тремя гуппи кормлю"
+  },
+  {
+   "question_id": "B1-dinosaurs-pirates",
+   "history_id": "r2-mem-b",
+   "case": "interest_plus_separate_story_avoidance",
+   "question": "Что ученик любит в историях и чего просит избегать? Это одно и то же или разные вещи?",
+   "expected_answer": "Это разные вещи. Ученик обожает истории про динозавров (особенно про тираннозавра) – это устойчивый интерес. Отдельно он просит не рассказывать страшные истории про пиратов, потому что их боится – это запрет именно на сюжет страшных пиратских историй, а не исчезновение интереса.",
+   "expected_source_keys": [
+    "b.dinosaurs_interest",
+    "b.pirates_avoidance"
+   ],
+   "must_not_sources": [],
+   "notes": "The avoidance must not suppress or be merged with the interest; interest and avoided story theme stay separate.",
+   "probe_query": "обожаю истории про динозавров не рассказывай страшные истории про пиратов"
+  },
+  {
+   "question_id": "B2-temporary-request",
+   "history_id": "r2-mem-b",
+   "case": "temporary_request",
+   "question": "Просил ли ученик когда-нибудь чего-то одноразового? Что именно и это разовое или постоянное?",
+   "expected_answer": "Да, разовое: после плавания, когда устали глаза, ученик попросил только лёгкие задачки, и он сам оговорил «только на сегодня». Это разовая договорённость на тот день, а не постоянное правило.",
+   "expected_source_keys": [
+    "b.easy_tasks_today"
+   ],
+   "must_not_sources": [],
+   "notes": "A session-scoped request must not be reported as a durable preference.",
+   "probe_query": "только лёгкие задачки сегодня устали глаза после плавания"
+  },
+  {
+   "question_id": "B3-hzy-with-question",
+   "history_id": "r2-mem-b",
+   "case": "ambiguous_short_answer_with_question",
+   "question": "На какой вопрос ученик ответил «хз» и что было дальше?",
+   "expected_answer": "Ученик ответил «хз» на вопрос про сравнение дробей: какая дробь больше – 2/5 или 3/5. Дальше ассистент разобрал: знаменатели одинаковые, сравниваются числители, 3 больше 2, поэтому 3/5 больше, и сформулировал правило про одинаковые знаменатели.",
+   "expected_source_keys": [
+    "b.hzy_fractions",
+    "b.hzy_fractions:a",
+    "r2-mem-b-s3-t20",
+    "r2-mem-b-s3-t20:a"
+   ],
+   "must_not_sources": [],
+   "notes": "The short non-answer must stay paired with its original question; the explanation followed it. Revision 2026-11-18 (follow-up): added the s3-t20 хз+разбор exchange keys, which the original gold omitted; scoring becomes stricter, not looser.",
+   "probe_query": "какая дробь больше 2/5 или 3/5 хз знаменатель числитель"
+  },
+  {
+   "question_id": "B4-story-continuation",
+   "history_id": "r2-mem-b",
+   "case": "story_continuation",
+   "question": "Продолжи историю, которую мы начали раньше. С чего она началась?",
+   "expected_answer": "История про лисёнка Рыжика: он нашёл в лесу старую карту с тремя загадками; первая загадка была про лапки трёх лисят (3 × 4 = 12). Позже Рыжик дошёл до развилки и встретил ежа-проводника, который знал дорогу к третьей загадке, а за чернику ёж согласился показать путь. Продолжение должно опираться на лисёнка Рыжика, карту с загадками и ежа, а не начинать новую историю.",
+   "expected_source_keys": [
+    "b.story_fox_start",
+    "b.story_fox_start:a",
+    "b.story_fox_continue"
+   ],
+   "must_not_sources": [],
+   "notes": "Story continuation requires the earliest story context; fiction stays fiction and never updates the real profile.",
+   "probe_query": "лисёнок Рыжик нашёл в лесу старую карту с тремя загадками ёж"
+  },
+  {
+   "question_id": "B5-missing-color",
+   "history_id": "r2-mem-b",
+   "case": "genuinely_missing_fact",
+   "question": "Какой у ученика любимый цвет?",
+   "expected_answer": "В архиве нет данных о любимом цвете: ученик никогда его не называл. Честный ответ – сообщить о недостатке данных, ничего не выдумывать и не переносить цвета из других контекстов.",
+   "expected_source_keys": [],
+   "absence": true,
+   "must_not_sources": [],
+   "notes": "Absence case: the correct behavior is an explicit no-data answer, not a fabricated or borrowed fact.",
+   "probe_query": "любимый цвет"
+  },
+  {
+   "question_id": "B6-swimming-days",
+   "history_id": "r2-mem-b",
+   "case": "old_fact_outside_recent_and_seven_day_view",
+   "question": "В какие дни недели ученик ходит на плавание?",
+   "expected_answer": "По вторникам и четвергам; в эти дни уроки короткие и проходят после обеда. Упомянуто в самом первом занятии архива, за пределами последних сообщений и семи активных дней.",
+   "expected_source_keys": [
+    "b.swim_days"
+   ],
+   "must_not_sources": [],
+   "notes": "Session 1 fact of a six-session archive.",
+   "probe_query": "плавание по вторникам и четвергам"
+  },
+  {
+   "question_id": "F1-lego-to-programming",
+   "history_id": "r2-mem-final",
+   "case": "changed_interest",
+   "question": "Как изменились интересы ученика в этом архиве?",
+   "expected_answer": "Раньше ученик любил LEGO и собирал из него всё подряд, а теперь ему интереснее программирование и Scratch; он просил задачи в эту сторону.",
+   "expected_source_keys": [
+    "final.lego_to_programming"
+   ],
+   "must_not_sources": [],
+   "notes": "Old and new interests are stated in one explicit change of interest.",
+   "probe_query": "Раньше любил LEGO теперь интереснее программирование и Scratch"
+  },
+  {
+   "question_id": "F2-corrected-brother-age",
+   "history_id": "r2-mem-final",
+   "case": "corrected_source",
+   "question": "На сколько лет брат ученика старше него?",
+   "expected_answer": "На семь лет. Сначала ученик сказал «на пять лет», но позже при сверке сам поправил: «кажется, уже семь – у него в этом году был день рождения», и преподаватель зафиксировал правку: брат старше на семь лет, а не на пять. Ответ «на пять лет» без правки – устаревший.",
+   "expected_source_keys": [
+    "final.brother_age",
+    "final.brother_age_check",
+    "final.brother_age_correction"
+   ],
+   "must_not_sources": [],
+   "notes": "Corrected-source case: the corrected wording must win over the superseded original; the answer must not claim five years as current.",
+   "probe_query": "брат старше меня на пять лет поправка на семь лет"
+  },
+  {
+   "question_id": "F3-perimeter-area-help",
+   "history_id": "r2-mem-final",
+   "case": "old_error_and_help",
+   "question": "Чем ассистент помогал ученику с периметром и площадью и как это объяснялось?",
+   "expected_answer": "Периметр объяснялся как сумма длин всех сторон по контуру (сколько идём вокруг фигуры), площадь – как место внутри. На примере квадрата 3×3: периметр 12 сантиметров, площадь 9 квадратных сантиметров; числа разные, потому что величины разные, и единицы у них разные. Ученик подтвердил: по контуру – периметр, внутри – площадь.",
+   "expected_source_keys": [
+    "final.perimeter_area_intro",
+    "final.perimeter_area_repeat"
+   ],
+   "must_not_sources": [],
+   "notes": "Help appeared twice (introduction and the 3×3 example); both should be reachable.",
+   "probe_query": "периметр по контуру площадь внутри квадрат 3×3"
+  },
+  {
+   "question_id": "F4-unfinished-aquarium",
+   "history_id": "r2-mem-final",
+   "case": "unfinished_task",
+   "question": "Какое задание осталось незавершённым в этом архиве?",
+   "expected_answer": "Пункт 2 упражнения про аквариум и дроби: составить свою задачу про аквариум и дроби с полным решением. Пункт 1 (из аквариума, заполненного на 3/4, вылили 1/4 – осталось 2/4, половина) был решён верно, а свою задачу ученик не составил и сказал, что додумает в следующий раз.",
+   "expected_source_keys": [
+    "final.unfinished_aquarium"
+   ],
+   "must_not_sources": [],
+   "notes": "The answer must keep the unfinished status; the archive never shows пункт 2 completed.",
+   "probe_query": "составь свою задачу про аквариум и дроби остаётся незавершённым"
+  },
+  {
+   "question_id": "F5-exact-candies",
+   "history_id": "r2-mem-final",
+   "case": "exact_wording",
+   "question": "Как дословно звучал вопрос про конфеты и какой был ответ?",
+   "expected_answer": "Дословно: «раздели 96 конфет между четырьмя друзьями поровну. Сколько получит каждый?» Ответ ученика: 24 конфеты, потому что 96 : 4 = 24; ассистент подтвердил проверкой умножением 24 × 4 = 96.",
+   "expected_source_keys": [
+    "final.exact_candies",
+    "final.exact_candies:a"
+   ],
+   "must_not_sources": [],
+   "notes": "Exact-wording case from the final-check history.",
+   "probe_query": "раздели 96 конфет между четырьмя друзьями поровну"
+  },
+  {
+   "question_id": "F6-missing-future-job",
+   "history_id": "r2-mem-final",
+   "case": "genuinely_missing_fact",
+   "question": "Кем ученик хочет работать в будущем?",
+   "expected_answer": "В архиве нет данных о будущей профессии: ученик никогда об этом не говорил. Честный ответ – сообщить об отсутствии данных, не выдумывать и не выводить профессию из интересов вроде Scratch или космоса.",
+   "expected_source_keys": [],
+   "absence": true,
+   "must_not_sources": [],
+   "notes": "Absence case on the held-out history: no fabrication from related interests.",
+   "probe_query": "работать в будущем профессия"
+  }
+ ],
+ "evaluation_protocol": {
+  "owner": "client B after merging A's ready commit",
+  "rules": [
+   "Gold answers and expected source keys never enter generation, resolver or extraction prompts; they are evaluation-side data only.",
+   "Load the histories with tests/r2_memory_quality/loader.py into a disposable database; the loader returns the key-to-source-id mapping.",
+   "Before scoring, record immutable prompts, selected source ids, answers and errors for every run.",
+   "A's plumbing check uses 'probe_query' (lexical-channel reachability with a recording embedder); B's live quality run uses the natural 'question' text with the real BGE-M3 embeddings.",
+   "Compare answers semantically against the sources, not by heading presence or substring-only scoring.",
+   "Evaluate retrieval, answer correctness and usefulness, false or misattributed claims, missing-evidence behavior, timings, model-call counts and context usage.",
+   "Label the whole assessment automated; the coding agent's review is not an independent human study.",
+   "Preserve the first final-check result on r2-mem-final; after adapting to its failures, later attempts are regression runs, not fresh held-out evidence.",
+   "Keep each individual model request within the 16k/32k local window; the oversized history is split by the bounded chunk recipe, never sent whole."
+  ]
+ },
+ "revision_history": [
+  {
+   "revision_utc": "2026-11-18T18:30:00Z",
+   "author": "client A (evaluation truth)",
+   "change": "B3-hzy-with-question: expected_source_keys extended with the s3-t20 хз+разбор exchange (r2-mem-b-s3-t20, :a). The original gold covered only the assistant question block (s3-t19) and omitted the block carrying the explanation the expected answer requires. Verified against the frozen history file; stricter scoring; discovered during the follow-up integration review."
+  }
+ ]
+}
