@@ -98,6 +98,16 @@ class SpeakerService:
             self.storage_dir / "reference.wav",
         ]
 
+    def _display_path(self, path: Path) -> str:
+        """Client-facing form of a server path: STORAGE_DIR/… or project-relative."""
+        resolved = Path(path).resolve()
+        for base, prefix in ((self.storage_dir.resolve(), "STORAGE_DIR/"), (self._project_root(), "")):
+            try:
+                return prefix + resolved.relative_to(base).as_posix()
+            except ValueError:
+                continue
+        return resolved.name
+
     def _find_default_ref(self) -> Optional[Path]:
         for p in self._default_ref_candidates():
             if p.is_file():
@@ -115,7 +125,9 @@ class SpeakerService:
                 default_ref_path = self._find_default_ref()
                 if default_ref_path is None:
                     searched = self._default_ref_candidates()
-                    hint = ";  ".join(f"- {p}" for p in searched)
+                    # audit F-066: show candidates relative to the project or
+                    # STORAGE_DIR, never as absolute server paths.
+                    hint = ";  ".join(f"- {self._display_path(p)}" for p in searched)
                     raise ValueError(
                         "reference не задан и не найден дефолтный образец. "
                         "Положите файл по одному из путей: " + hint

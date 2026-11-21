@@ -76,3 +76,44 @@ def test_config_does_not_silence_torch_pickle_warning():
     source = (Path(__file__).resolve().parents[1] / "core" / "config.py").read_text(encoding="utf-8")
     ignores = [line for line in source.splitlines() if "filterwarnings" in line and "ignore" in line]
     assert not [line for line in ignores if re.search(r"weights_only", line)]
+
+
+def test_registry_matches_name_the_embedding_file_without_a_server_path(monkeypatch, tmp_path):
+    import numpy as np
+    import torch
+    import app.services.multi_speaker_matcher as msm
+
+    np.save(tmp_path / "alena.npy", np.asarray([1.0, 0.0], dtype=np.float32))
+
+    class NoOpEnhancement:
+        def __init__(self, audio):
+            self.audio = audio
+
+        def noise_suppression(self):
+            return self.audio
+
+    monkeypatch.setattr(msm, "CFG_DEVICE", "cpu", raising=False)
+    monkeypatch.setattr(msm, "Audio_Enhancement", NoOpEnhancement, raising=True)
+    monkeypatch.setattr(msm, "embed_speechbrain", lambda audio: torch.tensor([1.0, 0.0]), raising=True)
+    matcher = msm.MultiSpeakerMatcher(embeddings_dir=tmp_path)
+    matcher.reload()
+    match = matcher.match_probe_array(np.zeros(16000, dtype=np.float32), top_k=1)[0]
+    assert match["ref_path"] == "alena.npy"
+    assert str(tmp_path) not in str(match)
+
+
+def test_missing_reference_hint_lists_no_absolute_paths(monkeypatch, tmp_path):
+    import numpy as np
+    import app.services.speaker_service as speaker_service
+
+    storage = _patch_route_globals(monkeypatch, tmp_path)
+    monkeypatch.setattr(speaker_service, "load_and_resample", lambda path: np.zeros(16000, dtype=np.float32))
+    monkeypatch.setattr(rs.svc, "_find_default_ref", lambda: None)
+    probe = tmp_path / "p.wav"
+    probe.write_bytes(WAV)
+    with pytest.raises(ValueError) as caught:
+        rs.svc.verify_files(probe)
+    message = str(caught.value)
+    root = str(Path(__file__).resolve().parents[1])
+    assert root not in message and str(storage) not in message
+    assert "STORAGE_DIR/_default/reference.wav" in message

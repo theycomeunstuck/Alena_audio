@@ -14,7 +14,7 @@ class TrainMicResponse(BaseModel):
 class MultiVerifyMatch(BaseModel):
     user_id: str = Field(..., description="ID пользователя/голоса")
     score: float = Field(..., description="Схожесть в диапазоне [0..1] (ближе к 1 — лучше)")
-    ref_path: str = Field(..., description="Путь к референс-файлу WAV")
+    ref_path: str = Field(..., description="Имя файла эмбеддинга .npy в реестре (без серверного пути)")
 
 class MultiVerifyResponse(BaseModel):
     count: int
