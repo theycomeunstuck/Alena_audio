@@ -86,17 +86,13 @@ def mock_enhancement(monkeypatch):
     import core.audio_enhancement as core_enh
 
     class DummyEnh:
-        def __init__(self, audio, ref=None):
+        # Mirrors the real Audio_Enhancement API (audit F-067: noise suppression only).
+        def __init__(self, audio):
             self.audio = np.asarray(audio, dtype=np.float32)
-            self.ref = None if ref is None else np.asarray(ref, dtype=np.float32)
 
         def noise_suppression(self):
             # имитируем «улучшение» — просто возвращаем как есть
             return self.audio
-
-        def speech_verification(self):
-            # стабильная «верификация»
-            return (0.91, True)
 
     # Патчим и место, откуда вызывает сервис
     monkeypatch.setattr(core_enh, "Audio_Enhancement", DummyEnh)

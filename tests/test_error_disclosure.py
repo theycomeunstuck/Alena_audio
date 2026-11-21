@@ -117,3 +117,11 @@ def test_missing_reference_hint_lists_no_absolute_paths(monkeypatch, tmp_path):
     root = str(Path(__file__).resolve().parents[1])
     assert root not in message and str(storage) not in message
     assert "STORAGE_DIR/_default/reference.wav" in message
+
+
+def test_audio_enhancement_has_no_dead_speech_verification():
+    """Audit F-067: Audio_Enhancement.speech_verification compared an ECAPA
+    embedding with a raw waveform and had no live callers; the live speaker
+    check is app/services/speaker_service.verify_files."""
+    from core.audio_enhancement import Audio_Enhancement
+    assert not hasattr(Audio_Enhancement, "speech_verification")

@@ -4,10 +4,7 @@ import torch.nn.functional as F
 import numpy as np
 
 from app.services.audio_utils import load_and_resample
-from core.config import (device, SAMPLE_RATE, TARGET_DBFS,
-                    noise_Model, speech_verification_model,
-
-                    )
+from core.config import device, SAMPLE_RATE, TARGET_DBFS, noise_Model
 from core.audio_utils import normalize_rms
 
 
@@ -51,17 +48,16 @@ def to_numpy(audio) -> np.ndarray:
 
 class Audio_Enhancement:
     """
-    Класс для обработки аудио: шумоподавление и верификация по голосу.
-    Автоматически конвертирует входы в тензоры и обрабатывает ошибки.
+    Класс для обработки аудио: шумоподавление и нормализация громкости.
+    Автоматически конвертирует вход в тензор и обрабатывает ошибки.
+    Сравнение голосов выполняет app/services/speaker_service.verify_files
+    (audit F-067: прежний speech_verification был мёртвым кодом).
     """
 
     @handle_exceptions
-    def __init__(self, audio, audio_ref=None):
-        # Конвертация входных сигналов с защитой от ошибок
+    def __init__(self, audio):
+        # Конвертация входного сигнала с защитой от ошибок
         self.audio = to_tensor(audio, pad_to_min=True)
-        self.audio_ref = None
-        if audio_ref is not None:
-            self.audio_ref = to_tensor(audio_ref, pad_to_min=True)
 
     @handle_exceptions
     def noise_suppression(self) -> np.ndarray:
@@ -74,38 +70,4 @@ class Audio_Enhancement:
         enhanced = est_sources[:, :].detach().cpu().squeeze()
         enhanced = normalize_rms(enhanced, target_dBFS=TARGET_DBFS)
         return enhanced
-
-
-
-
-    @handle_exceptions
-    def speech_verification(self) -> np.ndarray:
-        """
-        Сравнивает self.audio и self.audio_ref по голосовым эмбеддингам.
-        Возвращает (score: float, prediction: bool).
-        """
-
-        if self.audio_ref is None:
-            raise ValueError("audio_ref не задан для верификации. "
-                             "Передайте reference файл или настройте поиск по базе.")
-
-
-
-        with torch.no_grad():
-            audio_emb = speech_verification_model.encode_batch(self.audio)
-            audio_emb = audio_emb.squeeze(1) #torch.Size([1, 192])
-
-        # Фиксация несовпадения размерностей (256->192)
-        if audio_emb.shape[1] != self.audio_ref.shape[1]:
-            target_dim = min(audio_emb.shape[1], self.audio_ref.shape[1], 192)
-            audio_emb = audio_emb[:, :target_dim]
-            ref_emb = self.audio_ref[:, :target_dim]
-        else:
-            ref_emb = self.audio_ref
-
-        emb1 = F.normalize(audio_emb, p=2, dim=1)  # [1, 192]
-        emb2 = F.normalize(ref_emb, p=2, dim=1)
-        score_t = F.cosine_similarity(emb1, emb2)
-
-        return score_t[0].item()
 

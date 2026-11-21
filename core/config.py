@@ -103,10 +103,10 @@ def _build_noise_model():
 
 def _build_speech_verification_model():
     from speechbrain.inference.speaker import SpeakerRecognition
-    # NOTE (audit F-019): this copy is only consumed by
-    # Audio_Enhancement.speech_verification, which has no live call sites; the
-    # live ECAPA encoder is app/services/embeddings_utils.get_encoder().
-    # With the lazy singleton it stays unloaded until someone calls it.
+    # NOTE (audit F-019, F-067): no product code consumes this copy any more –
+    # the dead Audio_Enhancement.speech_verification was removed; the live
+    # ECAPA encoder is app/services/embeddings_utils.get_encoder(). The lazy
+    # accessor stays for compatibility and is never built unless called.
     return SpeakerRecognition.from_hparams(
         source="speechbrain/spkrec-ecapa-voxceleb",
         savedir=MODELS_DIR / "SpeechBrain" / "spkrec-ecapa-voxceleb",
