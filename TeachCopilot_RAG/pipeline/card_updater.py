@@ -344,8 +344,48 @@ def propose_updates(
                 continue
             proposal = _parse_learner_block(block, cards, catalog)
             if proposal is not None and not proposal.is_empty():
-                proposals[proposal.learner_id] = proposal
+                previous = proposals.get(proposal.learner_id)
+                proposals[proposal.learner_id] = (proposal if previous is None
+                                                  else _merge_proposals(previous, proposal))
     return proposals
+
+
+def _merge_proposals(first: CardUpdateProposal, second: CardUpdateProposal) -> CardUpdateProposal:
+    """Audit F-069: two reply blocks for one learner used to overwrite each
+    other (the first was dropped silently). Merge them: facts are united in
+    order without duplicates, notes are joined, and for single-valued fields
+    the first value wins with a warning when the blocks disagree."""
+    logger.warning("Model reply contained duplicate blocks for learner %s; merged them", first.learner_id)
+
+    def unite(*groups):
+        merged = []
+        for group in groups:
+            merged.extend(item for item in group if item not in merged)
+        return tuple(merged)
+
+    def join(left: str, right: str, limit: int) -> str:
+        if not right or right == left:
+            return left
+        return _clean(f"{left} {right}" if left else right, limit)
+
+    warnings = list(first.warnings) + list(second.warnings)
+    for name in ("new_goal", "lesson_minutes"):
+        left, right = getattr(first, name), getattr(second, name)
+        if left not in ("", None) and right not in ("", None) and left != right:
+            warnings.append(f"{name}: duplicate blocks disagree ({left!r} vs {right!r}); kept the first")
+    return CardUpdateProposal(
+        learner_id=first.learner_id,
+        observations=unite(first.observations, second.observations),
+        new_error_patterns=unite(first.new_error_patterns, second.new_error_patterns),
+        effective_scaffolding=unite(first.effective_scaffolding, second.effective_scaffolding),
+        journal_note=join(first.journal_note, second.journal_note, 1000),
+        progress_note=join(first.progress_note, second.progress_note, RAG_TEXT_MAX),
+        new_interests=unite(first.new_interests, second.new_interests),
+        new_story_preferences=unite(first.new_story_preferences, second.new_story_preferences),
+        new_goal=first.new_goal or second.new_goal,
+        lesson_minutes=first.lesson_minutes if first.lesson_minutes is not None else second.lesson_minutes,
+        warnings=unite(warnings),
+    )
 
 
 # --- Пошаговое согласование ---------------------------------------------------
