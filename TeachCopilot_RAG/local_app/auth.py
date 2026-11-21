@@ -7,7 +7,8 @@ import secrets
 from datetime import datetime, timedelta, timezone
 
 PBKDF2_ITERATIONS = 600_000
-SESSION_TTL = timedelta(hours=12)
+# Audit F-075: session lifetime comes only from settings.session_hours
+# (LOCAL_SESSION_HOURS); the unused SESSION_TTL duplicate was removed.
 
 
 def hash_password(password: str, *, salt: bytes | None = None) -> str:
