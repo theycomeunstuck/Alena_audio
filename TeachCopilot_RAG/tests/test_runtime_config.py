@@ -1,10 +1,32 @@
 import importlib
+import os
 import sys
 from pathlib import Path
+
+import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
+
+
+@pytest.fixture(autouse=True)
+def isolate_config_reloads(monkeypatch):
+    """Audit F-080: importlib.reload keeps the test's env values in the module
+    objects after monkeypatch restores os.environ, and the reload's
+    load_dotenv() adds .env values to the process environment. Restore the
+    environment, reload both modules from it, and restore it once more."""
+    saved = dict(os.environ)
+    yield
+    monkeypatch.undo()
+    os.environ.clear()
+    os.environ.update(saved)
+    import pipeline.config as config
+    import pipeline.prompt_builder as prompt_builder
+    importlib.reload(config)
+    importlib.reload(prompt_builder)
+    os.environ.clear()
+    os.environ.update(saved)
 
 
 def test_cpu_debug_defaults_to_cpu(monkeypatch):
@@ -46,3 +68,18 @@ def test_adult_prompt_is_config_gated(monkeypatch):
 
     assert "режиме педагога" in prompt
     assert "Ученик: Миша" in prompt
+
+
+def test_reloaded_config_does_not_leak_into_later_tests():
+    """Audit F-080: the reloads above used to leave pipeline.config and
+    pipeline.prompt_builder with the test's env values for the rest of the
+    session (test order dependent). The autouse fixture reloads them with the
+    restored environment."""
+    import os
+
+    import pipeline.config as config
+    import pipeline.prompt_builder as prompt_builder
+
+    expected = os.getenv("TEACHCOPILOT_SPEAKER_MODE", "child_only").strip().lower()
+    assert config.SPEAKER_MODE == expected
+    assert prompt_builder.SPEAKER_MODE == expected

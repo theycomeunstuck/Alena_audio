@@ -53,8 +53,20 @@ def test_arithmetic_in_the_task_bank_adds_up():
     assert not problems, "\n".join(problems)
 
 
-def test_retrieval_actually_returns_material_for_each_needed_topic():
-    """Покрытие по метаданным ничего не стоит, если поиск это не находит."""
+def test_retrieval_actually_returns_material_for_each_needed_topic(monkeypatch):
+    """Покрытие по метаданным ничего не стоит, если поиск это не находит.
+
+    Audit F-080: with DATABASE_URL set this used to query the real database
+    and load the embedding model, and any failure there was swallowed into
+    the lexical fallback. The test checks the shipped knowledge bank, so the
+    pgvector source is switched off explicitly.
+    """
+    import pipeline.retrieval as retrieval
+
+    def no_pgvector(*args, **kwargs):
+        return []
+
+    monkeypatch.setattr(retrieval, "_search_pgvector", no_pgvector)
     empty = []
     for topic_id in sorted(COVERAGE.needed):
         grade = "3" if ".g3." in topic_id else "4"
@@ -62,3 +74,16 @@ def test_retrieval_actually_returns_material_for_each_needed_topic():
         if not found:
             empty.append(topic_id)
     assert not empty, f"поиск не вернул материал по темам: {empty}"
+
+
+def test_coverage_retrieval_never_touches_the_database(monkeypatch):
+    """Audit F-080 guard: the coverage check must not reach pipeline.rag."""
+    import pipeline.retrieval as retrieval
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("coverage test reached the pgvector source")
+
+    monkeypatch.setattr(retrieval, "_search_pgvector", lambda *a, **k: [])
+    monkeypatch.setattr("pipeline.rag.search_knowledge", forbidden, raising=False)
+    topic_id = sorted(COVERAGE.needed)[0]
+    assert retrieve_material(topic_id, topic_id=topic_id, grade="3" if ".g3." in topic_id else "4", limit=1)
