@@ -43,9 +43,15 @@ def test_024_preserves_existing_conversation_and_old_draft(tmp_path, monkeypatch
     full_migrations = store_module.MIGRATIONS
     old_migrations = tmp_path / "old-migrations"
     old_migrations.mkdir()
+    # Migrations 025+ arrived after 024; this test exercises exactly the 023 -> 024
+    # step, so it applies the chain through 024 only (the full chain was 4 steps).
+    through_024 = tmp_path / "through-024"
+    through_024.mkdir()
     for path in full_migrations.glob("[0-9][0-9][0-9]_*.sql"):
         if int(path.name[:3]) <= 23:
             shutil.copy(path, old_migrations / path.name)
+        if int(path.name[:3]) <= 24:
+            shutil.copy(path, through_024 / path.name)
     monkeypatch.setattr(store_module, "MIGRATIONS", old_migrations)
     assert store.migrate() == 23
     assert store.schema_version() == 23
@@ -82,7 +88,7 @@ def test_024_preserves_existing_conversation_and_old_draft(tmp_path, monkeypatch
             return learners, sources, messages, versions
 
     before = original_rows()
-    monkeypatch.setattr(store_module, "MIGRATIONS", full_migrations)
+    monkeypatch.setattr(store_module, "MIGRATIONS", through_024)
     assert store.migrate() == 1
     assert store.schema_version() == 24
     assert original_rows() == before

@@ -42,7 +42,10 @@ def test_recall_passes_approved_memory_to_local_generation_without_retrieval_or_
     system = answer["messages"][0]["content"]
     assert "<approved_memory_untrusted>\n" + TEXT + "\n</approved_memory_untrusted>" in system
     assert "исправления" in system and "причинность" in system and "устойчивый интерес" in system
-    assert "требует актуализации" in system and "подходящих сведений нет" in system
+    # f505523 scoped the absence wording: "nothing in the found records", never
+    # "nothing in the whole archive".
+    assert "требует актуализации" in system and "в найденных записях этого нет" in system
+    assert "не утверждая, что этого нет во всём архиве" in system
     assert answer["messages"][-1]["content"] == QUERY
     assert result["answer_routing"] == {"backend": "local", "reason": "personal_memory_recall"}
     assert result["sources"] == result["citations"] == []
@@ -82,7 +85,7 @@ def test_ordinary_social_turn_does_not_forward_available_memory():
 
 
 @pytest.mark.parametrize("override", [
-    {"social_turn": False}, {"in_scope": True}, {"uses_prior_context": True},
+    {"in_scope": True}, {"uses_prior_context": True},
     {"uses_approved_memory": True}, {"search_query": "внешний факт"}, {"needs_clarification": True},
     {"personal_memory_recall": "true"},
 ])
@@ -90,6 +93,18 @@ def test_invalid_recall_decisions_are_rejected(override):
     runtime, _ = runtime_for({**RECALL, **override})
     with pytest.raises(InvalidQueryResolutionError):
         runtime.resolve_chat_query(QUERY, [], "math", approved_memory=MEMORY, topic_id=TOPIC)
+
+
+def test_recall_with_social_turn_false_is_normalized_not_rejected():
+    # Since f505523 the real local-model shape (recall true, social_turn false)
+    # is normalized at the resolver boundary instead of rejected; the recall
+    # constraints themselves are unchanged (see test_invalid_query_resolution).
+    runtime, session = runtime_for({**RECALL, "social_turn": False})
+    decision = runtime.resolve_chat_query(QUERY, [], "math", approved_memory=MEMORY, topic_id=TOPIC)
+    assert decision["personal_memory_recall"] is True
+    assert decision["social_turn"] is True
+    assert decision["in_scope"] is False and decision["search_query"] == ""
+    assert len(session.requests) == 1
 
 
 def test_safety_instructions_do_not_authorize_external_facts_or_unsafe_requests():
