@@ -89,8 +89,9 @@ class RecordingRuntime(OllamaRuntime):
             answer = {"in_scope": False, "uses_prior_context": False, "search_query": "",
                       "personal_memory_recall": True}
         elif "<own_conversation_retrieval_untrusted>" in system and FIRST in system:
-            answer = ("«" + FIRST + "»" if self.recall_mode == "full_quote"
-                      else "Ты рассказывала про деление на 10 и потерянный ноль.")
+            answer = {"full_quote": "«" + FIRST + "»",
+                      "first_sentence": "«" + FIRST.split(". ", 1)[0] + ".»",
+                      "paraphrase": "Ты рассказывала про деление на 10 и потерянный ноль."}[self.recall_mode]
         else:
             answer = "В найденных репликах этого нет."
         return {"message": {"content": answer if isinstance(answer, str) else json.dumps(answer, ensure_ascii=False)},
@@ -217,10 +218,15 @@ def recall_after_restart(settings, live, student_account, other_account, passwor
                 assert check, final
                 assert check["status"] in {"model_verbatim", "inserted"}, check
                 assert check["selected_source_id"] == old_source_id, check
+                assert (check["match"] is None) == (check["status"] == "inserted"), check
+                if check["status"] == "model_verbatim":
+                    assert check["match"] in {"full", "sentence"}, check
                 if not live:
-                    assert check["status"] == {"full_quote": "model_verbatim",
-                                               "paraphrase": "inserted"}[recall_mode], check
-                print(f"quote_check={check['status']}")
+                    status, match = {"full_quote": ("model_verbatim", "full"),
+                                     "first_sentence": ("model_verbatim", "sentence"),
+                                     "paraphrase": ("inserted", None)}[recall_mode]
+                    assert (check["status"], check["match"]) == (status, match), check
+                print(f"quote_check={check['status']} match={check['match']}")
             else:
                 assert all(old_source_id not in event["delivered_source_ids"] for event in answer_events)
                 assert all(FIRST not in row["content"] for call in runtime.requests for row in call["messages"])
@@ -228,9 +234,9 @@ def recall_after_restart(settings, live, student_account, other_account, passwor
 
 
 @pytest.mark.parametrize("live, recall_mode", [
-    (False, "full_quote"), (False, "paraphrase"),
+    (False, "full_quote"), (False, "first_sentence"), (False, "paraphrase"),
     pytest.param(True, "full_quote", marks=pytest.mark.live)],
-    ids=["scripted-full", "scripted-paraphrase", "live"])
+    ids=["scripted-full", "scripted-sentence", "scripted-paraphrase", "live"])
 def test_two_assigned_lessons_and_restart(unified_store, accounts, live, recall_mode, tmp_path):
     store = unified_store
     configured = Settings.from_env()
