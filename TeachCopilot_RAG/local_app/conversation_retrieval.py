@@ -651,6 +651,8 @@ def retrieve_conversation_context(store, runtime, learner_id, actor_id, question
     if fallback:
         result["diagnostics"]["time_filter_fallback"] = True
     if not chunks or not budget_bytes:
+        # No quotes are selected on this path, so there is nothing to mark.
+        result["diagnostics"]["correction_refs_status"] = "not_needed"
         return result
     embedder = degraded = None
     try:
