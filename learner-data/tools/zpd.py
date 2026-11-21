@@ -1056,6 +1056,11 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         catalog = load_catalog(args.catalog)
+    except (OSError, UnicodeDecodeError, ValueError) as exc:
+        # Audit F-079: a missing catalog used to be reported as a missing learner.
+        print(f"Не удалось загрузить каталог навыков {args.catalog}: {exc}", file=sys.stderr)
+        return 1
+    try:
         card, _had_bom = load_learner(args.learners_dir, args.learner_id)
     except FileNotFoundError:
         print(f"Ученик '{args.learner_id}' не найден", file=sys.stderr)

@@ -808,7 +808,9 @@ def validate_card(card: object, catalog: dict, filename: str) -> list[Finding]:
             findings.append(_err(filename, f"{json_path}/topic_id", 'поле "topic_id" должно быть строкой'))
 
         status = item.get("status")
-        if status is not None and status not in KNOWLEDGE_STATUSES:
+        # Audit F-079: "status": null passed and silently dropped the topic from
+        # the RAG projection; a missing key is reported by the required-key check.
+        if "status" in item and status not in KNOWLEDGE_STATUSES:
             findings.append(
                 _err(filename, f"{json_path}/status", f'"{status}" нет в списке допустимых статусов {KNOWLEDGE_STATUSES}')
             )

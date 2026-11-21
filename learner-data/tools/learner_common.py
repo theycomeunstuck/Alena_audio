@@ -79,9 +79,16 @@ def load_catalog(path: Path) -> dict:
     data, _had_bom = load_json(path)
     topics = data.get("topics", []) if isinstance(data, dict) else []
     catalog: dict = {}
+    duplicate: set = set()
     for entry in topics:
         if isinstance(entry, dict) and "id" in entry:
+            if entry["id"] in catalog:
+                duplicate.add(entry["id"])
             catalog[entry["id"]] = entry
+    if duplicate:
+        # Audit F-079: single-file mode silently kept the last entry; directory
+        # mode and validate_catalog already treat duplicates as corruption.
+        raise ValueError(f'Duplicate curriculum identifiers: {sorted(duplicate)}')
     return catalog
 
 
