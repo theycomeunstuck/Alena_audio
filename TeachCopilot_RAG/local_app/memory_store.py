@@ -800,7 +800,8 @@ class MemoryStoreMixin:
 
     def get_own_conversation_messages(self, learner_id, actor_id, *, limit=20,
                                       active_day_limit=None, learning_timezone=None,
-                                      exclude_source_id=None, before_source_order=None, as_of=None):
+                                      exclude_source_id=None, before_source_order=None, as_of=None,
+                                      _cursor=None):
         """Read one actor's own messages and associated assistant context.
 
         Every actual student message remains eligible even if generation failed.
@@ -823,8 +824,7 @@ class MemoryStoreMixin:
         values = {"learner": learner_id, "actor": str(actor_id), "limit": limit,
                   "day_limit": active_day_limit, "excluded": exclude_source_id,
                   "before": before_source_order, "cutoff": cutoff}
-        with self._connect() as connection, connection.cursor() as cur:
-            connection.set_session(readonly=True, isolation_level="REPEATABLE READ")
+        def query(cur):
             cur.execute("""WITH own_pairs AS (
                 SELECT m.*,s.topic_id,s.actor_id,account.role AS actor_role
                 FROM teachcopilot.learning_messages m
@@ -889,7 +889,15 @@ class MemoryStoreMixin:
             ) SELECT * FROM eligible
                 WHERE %(day_limit)s::integer IS NULL OR activity_day IN (SELECT activity_day FROM selected_days)
                 ORDER BY source_order DESC LIMIT %(limit)s""", values)
-            rows = cur.fetchall()
+            return cur.fetchall()
+
+        if _cursor is not None:
+            # A caller-held read-only snapshot (get_own_conversation_message_windows).
+            rows = query(_cursor)
+        else:
+            with self._connect() as connection, connection.cursor() as cur:
+                connection.set_session(readonly=True, isolation_level="REPEATABLE READ")
+                rows = query(cur)
         messages = []
         for row in reversed(rows):
             message = _row(row)
@@ -897,6 +905,16 @@ class MemoryStoreMixin:
             message["content"] = message["text"]
             messages.append(message)
         return messages
+
+    def get_own_conversation_message_windows(self, learner_id, actor_id, windows, **options):
+        """Audit F-060: read several message windows (for example the active-day
+        window and the recent tail) from ONE read-only REPEATABLE READ snapshot,
+        so a message committed between two separate reads cannot appear in one
+        view and be missing from the other."""
+        with self._connect() as connection, connection.cursor() as cur:
+            connection.set_session(readonly=True, isolation_level="REPEATABLE READ")
+            return [self.get_own_conversation_messages(learner_id, actor_id, _cursor=cur, **window, **options)
+                    for window in windows]
 
     def complete_learning_session(self, session_id, learner_id, actor_id):
         with self._connect() as conn, conn.cursor() as cur:

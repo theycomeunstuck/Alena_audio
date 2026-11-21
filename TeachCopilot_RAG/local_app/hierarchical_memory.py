@@ -272,8 +272,15 @@ def build_conversation_memory(store, learner_id, actor_id, *, exclude_source_id=
     learning_timezone = store.get_learner_learning_timezone(learner_id)
     ZoneInfo(learning_timezone)
     options = {"learning_timezone": learning_timezone, "exclude_source_id": exclude_source_id, "as_of": cutoff}
-    window_rows = store.get_own_conversation_messages(learner_id, actor_id, limit=None, active_day_limit=ACTIVE_DAY_LIMIT, **options)
-    recent_rows = store.get_own_conversation_messages(learner_id, actor_id, limit=RECENT_MESSAGE_LIMIT, **options)
+    windows_reader = getattr(store, "get_own_conversation_message_windows", None)
+    if callable(windows_reader):
+        # Audit F-060: both windows from one snapshot, so the recent tail and the
+        # day/rolling summaries cannot disagree about a just-committed message.
+        window_rows, recent_rows = windows_reader(learner_id, actor_id, [
+            {"limit": None, "active_day_limit": ACTIVE_DAY_LIMIT}, {"limit": RECENT_MESSAGE_LIMIT}], **options)
+    else:
+        window_rows = store.get_own_conversation_messages(learner_id, actor_id, limit=None, active_day_limit=ACTIVE_DAY_LIMIT, **options)
+        recent_rows = store.get_own_conversation_messages(learner_id, actor_id, limit=RECENT_MESSAGE_LIMIT, **options)
     window_messages = _canonical_messages(window_rows, learning_timezone)
     recent_messages = _canonical_messages(recent_rows, learning_timezone)[-RECENT_MESSAGE_LIMIT:]
     grouped = defaultdict(list)
