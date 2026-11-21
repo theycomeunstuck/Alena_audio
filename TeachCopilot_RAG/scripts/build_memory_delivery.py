@@ -28,6 +28,14 @@ def number(value):
     return "не измерено" if value is None else f"{value:.1f}"
 
 
+def pytest_passed_tests(app: dict) -> int:
+    check = next((row for row in app.get("checks", []) if row.get("name") == "pytest"), None)
+    if check is None or "passed_tests" not in check:
+        raise RuntimeError("application_verification/latest.json has no pytest check with passed_tests; "
+                           "delivery not built")
+    return check["passed_tests"]
+
+
 def build():
     freeze = read(PACKAGE / "freeze.json")
     source = ROOT / "research_memory"
@@ -43,6 +51,9 @@ def build():
     load_path = ROOT / ".local/memory-verification/final_20261018_v4/load.json"
     load = read(load_path)
     app = read(PACKAGE / "application_verification/latest.json")
+    # Audit F-077: validated before the first artifact is written – a missing
+    # check used to raise StopIteration mid-build and leave a half-built delivery.
+    tests = pytest_passed_tests(app)
     budget = []
     for path in sorted((ROOT / ".local/research_memory").glob("*budget.sqlite3")):
         with sqlite3.connect(path) as conn:
@@ -120,7 +131,6 @@ def build():
     write_text(research_doc, "\n".join(lines))
     external = integration.get("external", {})
     demo = integration.get("demo", {})
-    tests = next(row for row in app["checks"] if row["name"] == "pytest")["passed_tests"]
     lines = ["# Интеграция памяти и нагрузочная проверка", "", "18 октября 2026 года.", "",
         f"Приложение проверено: {tests} тест прошёл без пропусков, отдельно – 52 проверки учебной политики. "
         "Полный набор включает браузерные сценарии и сквозной синтетический проход API с настоящей PostgreSQL. "

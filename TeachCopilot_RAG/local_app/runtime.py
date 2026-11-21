@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import threading
 import time
 from copy import deepcopy
@@ -74,6 +75,22 @@ class IncompleteCompletionError(ConnectionError):
 
 class InvalidQueryResolutionError(IncompleteCompletionError):
     """Complete resolver JSON violates its decision contract after parsing."""
+
+
+_CODE_SPAN = re.compile(r"```.*?```|`[^`\n]*`", re.DOTALL)
+
+
+def normalize_completion_dashes(text: str) -> str:
+    """Rewrite em dashes to en dashes in prose only (house style). Audit F-073:
+    fenced code blocks and inline code spans stay verbatim – a learner copying
+    an example must get the exact string the model wrote."""
+    parts, position = [], 0
+    for match in _CODE_SPAN.finditer(text):
+        parts.append(text[position:match.start()].replace(chr(0x2014), chr(0x2013)))
+        parts.append(match.group(0))
+        position = match.end()
+    parts.append(text[position:].replace(chr(0x2014), chr(0x2013)))
+    return "".join(parts)
 
 
 def conversation_summary_text(context: dict[str, Any] | None) -> str:
@@ -493,7 +510,7 @@ class OllamaRuntime:
         message = response.get("message")
         if not isinstance(message, dict) or not isinstance(message.get("content"), str):
             raise IncompleteCompletionError("Ollama chat response has no valid message content", raw_response=raw_response)
-        message['content'] = message['content'].replace(chr(0x2014), chr(0x2013))
+        message['content'] = normalize_completion_dashes(message['content'])
         content = message["content"]
         if not content.strip():
             raise IncompleteCompletionError("Ollama returned an empty completion", raw_response=raw_response)

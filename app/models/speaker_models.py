@@ -7,14 +7,14 @@ class VerifyResponse(BaseModel):
 
 class TrainMicResponse(BaseModel):
     user_id: str = Field(..., description="uuid4 Пользователя")
-    wav_path: str = Field(..., description="Путь к референс-файлу .wav")
-    npy_path: str = Field(..., description="Путь к эмбеддинг-файлу .npy")
+    wav_path: str = Field(..., description="Путь к референс-файлу .wav относительно STORAGE_DIR")
+    npy_path: str = Field(..., description="Путь к эмбеддинг-файлу .npy относительно STORAGE_DIR")
 
 
 class MultiVerifyMatch(BaseModel):
     user_id: str = Field(..., description="ID пользователя/голоса")
     score: float = Field(..., description="Схожесть в диапазоне [0..1] (ближе к 1 — лучше)")
-    ref_path: str = Field(..., description="Путь к референс-файлу WAV")
+    ref_path: str = Field(..., description="Имя файла эмбеддинга .npy в реестре (без серверного пути)")
 
 class MultiVerifyResponse(BaseModel):
     count: int

@@ -7,7 +7,8 @@ import secrets
 from datetime import datetime, timedelta, timezone
 
 PBKDF2_ITERATIONS = 600_000
-SESSION_TTL = timedelta(hours=12)
+# Audit F-075: session lifetime comes only from settings.session_hours
+# (LOCAL_SESSION_HOURS); the unused SESSION_TTL duplicate was removed.
 
 
 def hash_password(password: str, *, salt: bytes | None = None) -> str:
@@ -27,6 +28,18 @@ def verify_password(password: str, encoded: str) -> bool:
         return hmac.compare_digest(actual.hex(), digest_hex)
     except (ValueError, TypeError, AttributeError):
         return False
+
+
+_DUMMY_PASSWORD_HASH = (f"pbkdf2_sha256${PBKDF2_ITERATIONS}${secrets.token_hex(16)}"
+                        f"${secrets.token_hex(32)}")
+
+
+def dummy_password_hash() -> str:
+    """Audit F-074: a well-formed hash with the production iteration count that
+    no password matches (random salt and digest, created without PBKDF2 work).
+    Verifying against it costs the same as a real account, so failed logins for
+    unknown or inactive emails no longer answer measurably faster."""
+    return _DUMMY_PASSWORD_HASH
 
 
 def new_session_token() -> str:

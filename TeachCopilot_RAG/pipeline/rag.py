@@ -115,8 +115,9 @@ def search_knowledge(query: str, subject: str | None = None,
             with conn.cursor() as cur:
                 cur.execute(sql, params)
                 results = [dict(r) for r in cur.fetchall()]
-                logger.debug("RAG: %d results for query=%r", len(results), query)
+                logger.debug("RAG: %d results for a %d chars query", len(results), len(query))
                 return results
     except Exception:
-        logger.exception("RAG search failed for query=%r", query)
+        # Audit F-070: the query is the child's own message – log its size, not its text.
+        logger.exception("RAG search failed for a %d chars query", len(query))
         return []

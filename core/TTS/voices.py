@@ -2,7 +2,7 @@
 from __future__ import annotations
 from pathlib import Path
 from pydantic import BaseModel
-import uuid, shutil, json, hashlib, threading
+import os, uuid, shutil, json, hashlib, threading
 from typing import Optional
 from pydub import AudioSegment, silence  # требует ffmpeg
 # from silero_stress import load_accentor # silero-stressor. todo: Если договорюсь с @bceloss (tg), то RuAccent/
@@ -29,6 +29,8 @@ class VoiceStore:
         # construction; None => autodetect).
         self._transcribers: dict[Optional[str], AsrTranscriber] = {}
         self._transcribers_lock = threading.Lock()
+        # audit F-064: serialises the transcription-cache read-modify-write.
+        self._cache_lock = threading.Lock()
 
     def _get_transcriber(self, language: Optional[str] = None) -> AsrTranscriber:
         transcriber = self._transcribers.get(language)
@@ -60,8 +62,15 @@ class VoiceStore:
         return {}
 
     def _save_cache(self, cache: dict) -> None:
+        # audit F-064: temp file + os.replace, so a crash never leaves torn JSON.
         p = self._cache_path()
-        p.write_text(json.dumps(cache, ensure_ascii=False, indent=2), encoding="utf-8")
+        tmp = p.with_name(f".{p.name}.{uuid.uuid4().hex}.tmp")
+        try:
+            tmp.write_text(json.dumps(cache, ensure_ascii=False, indent=2), encoding="utf-8")
+            os.replace(tmp, p)
+        except BaseException:
+            tmp.unlink(missing_ok=True)
+            raise
 
 
 
@@ -101,18 +110,21 @@ class VoiceStore:
         Локальный кэш транскрипций в VOICES_DIR/whisper_transcriptions.json.
         Использует openai/whisper (через AsrTranscriber).
         """
-        cache = self._load_cache()
         sha1 = self._sha1(wav_path)
-        by_sha = cache.setdefault("by_sha1", {})
-        if sha1 in by_sha:
-            return by_sha[sha1]
+        cached = self._load_cache().get("by_sha1", {})
+        if sha1 in cached:
+            return cached[sha1]
 
         transcriber = self._get_transcriber(language)  # audit F-024: reuse, not per-call
         text = transcriber.transcribe(wav_path)
         text = (text or "").strip()
-        by_sha[sha1] = text
-        cache.setdefault("by_path", {})[str(wav_path)] = text
-        self._save_cache(cache)
+        # audit F-064: re-read under the lock after the slow transcription, so a
+        # concurrent update that landed meanwhile is merged, not overwritten.
+        with self._cache_lock:
+            cache = self._load_cache()
+            cache.setdefault("by_sha1", {})[sha1] = text
+            cache.setdefault("by_path", {})[str(wav_path)] = text
+            self._save_cache(cache)
         return text
 
     def clone_from_upload(self, up_path: Path, sample_rate: int = 24000, language: Optional[str] = None) -> VoiceMeta:

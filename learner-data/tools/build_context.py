@@ -183,11 +183,13 @@ def main(argv: list[str] | None = None) -> int:
     except FileNotFoundError:
         print(f"Ученик '{args.learner_id}' не найден", file=sys.stderr)
         return 2
+    except json.JSONDecodeError as e:
+        # Audit F-079: must precede ValueError – JSONDecodeError subclasses it,
+        # so this detailed branch was unreachable.
+        print(f"Ошибка разбора JSON в карточке ученика: строка {e.lineno}, колонка {e.colno}: {e.msg}", file=sys.stderr)
+        return 1
     except (ValueError, UnicodeDecodeError) as e:
         print(f"Не удалось прочитать карточку ученика: {e}", file=sys.stderr)
-        return 1
-    except json.JSONDecodeError as e:
-        print(f"Ошибка разбора JSON в карточке ученика: строка {e.lineno}, колонка {e.colno}: {e.msg}", file=sys.stderr)
         return 1
 
     if not isinstance(card, dict):

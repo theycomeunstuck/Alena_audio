@@ -20,7 +20,7 @@ Speaker mode is controlled by TEACHCOPILOT_SPEAKER_MODE:
 """
 import os, re, logging
 from contextlib import closing
-from pipeline.db import get_child_full_profile, get_connection
+from pipeline.db import ProfileUnavailable, get_child_full_profile, get_connection
 from pipeline.rag import search_knowledge
 from pipeline.prompt_builder import build_system_prompt, BASE_SYSTEM_PROMPT
 from pipeline.profile_agent import (
@@ -31,6 +31,13 @@ from pipeline.config import DEFAULT_CHILD_ID, PROFILE_UPDATE_INTERVAL, SPEAKER_M
 
 logger = logging.getLogger(__name__)
 _CHILD_RE = re.compile(r"^\[child_id:([^\]]+)\]\s*", re.IGNORECASE)
+# Audit F-058: inlet strips the prefix before the model sees it, and outlet runs
+# on the same body – so inlet records the child it resolved under this key and
+# outlet reads it first (still re-checked by _prefix_authorized).
+RESOLVED_CHILD_KEY = "teachcopilot_child_id"
+# Audit F-059: set to "unavailable" when the profile store could not be read and
+# the answer was built without personalization.
+PROFILE_STATUS_KEY = "teachcopilot_profile_status"
 
 
 def _child_id_from_prefix(messages: list) -> str:
@@ -125,7 +132,15 @@ class Filter:
                 child_id, speaker_type = _resolve_child_id(owui_user_id)
 
             query   = (last_user or {}).get("content", "")
-            profile = get_child_full_profile(child_id) if child_id else None
+            profile = None
+            if child_id:
+                try:
+                    profile = get_child_full_profile(child_id)
+                except ProfileUnavailable:
+                    # F-059: degrade explicitly – base prompt, logged and marked.
+                    logger.error("Profile store unavailable for child_id=%s – answering "
+                                 "without personalization", child_id)
+                    body[PROFILE_STATUS_KEY] = "unavailable"
             rag     = search_knowledge(query) if query else []
             system  = build_system_prompt(BASE_SYSTEM_PROMPT, profile, rag,
                                           speaker_type=speaker_type)
@@ -136,6 +151,8 @@ class Filter:
                 messages.insert(0, {"role": "system", "content": system})
 
             body["messages"] = messages
+            if child_id:
+                body[RESOLVED_CHILD_KEY] = child_id
             logger.info("Filter OK: child_id=%s speaker=%s rag=%d",
                        child_id, speaker_type, len(rag))
         except Exception:
@@ -156,7 +173,9 @@ class Filter:
             # a prefix-driven session would update DEFAULT_CHILD_ID or nothing.
             # F-014: an unauthorized prefix child must never receive writes –
             # fall through to the same resolution inlet used.
-            child_id = _child_id_from_prefix(messages)
+            # F-058: inlet already stripped the prefix from this body; prefer the
+            # child it recorded, then a prefix that survived (older clients).
+            child_id = str(body.get(RESOLVED_CHILD_KEY) or "") or _child_id_from_prefix(messages)
             speaker_type = "child"
             owui_user_id = (user or {}).get("id", "")
             if child_id and not _prefix_authorized(owui_user_id, child_id):

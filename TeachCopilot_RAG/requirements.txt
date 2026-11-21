@@ -4,12 +4,6 @@
 # `torch==2.12.1+cpu` pin below cannot be resolved by a plain
 # `pip install -r requirements.txt`. Keep this line (re-add it if you regenerate).
 --extra-index-url https://download.pytorch.org/whl/cpu
-aiohappyeyeballs==2.6.1
-    # via aiohttp
-aiohttp==3.13.5
-    # via langchain-community
-aiosignal==1.4.0
-    # via aiohttp
 annotated-doc==0.0.4
     # via
     #   fastapi
@@ -27,24 +21,15 @@ appnope==0.1.4 ; sys_platform == 'darwin'
     # via ipykernel
 asttokens==3.0.1
     # via stack-data
-attrs==26.1.0
-    # via
-    #   aiohttp
-    #   jsonschema
-    #   referencing
-bcrypt==5.0.0
-    # via chromadb
-beautifulsoup4==4.14.3
-    # via teachcopilot-rag
+backoff==2.2.1
+    # via posthog
 blockbuster==1.5.26
     # via langgraph-runtime-inmem
-build==1.5.0
-    # via chromadb
-certifi==2026.4.22
+certifi==2026.10.23
     # via
+    #   graphiti-core
     #   httpcore
     #   httpx
-    #   kubernetes
     #   requests
 cffi==2.0.0 ; implementation_name == 'pypy' or platform_python_implementation != 'PyPy'
     # via
@@ -52,10 +37,6 @@ cffi==2.0.0 ; implementation_name == 'pypy' or platform_python_implementation !=
     #   pyzmq
 charset-normalizer==3.4.7
     # via requests
-chromadb==1.5.9
-    # via
-    #   langchain-chroma
-    #   teachcopilot-rag
 click==8.3.3
     # via
     #   langgraph-cli
@@ -63,9 +44,8 @@ click==8.3.3
     #   uvicorn
 cloudpickle==3.1.2
     # via langgraph-api
-colorama==0.4.6 ; (os_name != 'nt' and sys_platform == 'win32') or (os_name == 'nt' and sys_platform != 'darwin')
+colorama==0.4.6 ; sys_platform == 'win32'
     # via
-    #   build
     #   click
     #   ipython
     #   pytest
@@ -77,16 +57,14 @@ croniter==6.2.2
     # via langgraph-runtime-inmem
 cryptography==46.0.7
     # via langgraph-api
-dataclasses-json==0.6.7
-    # via langchain-community
 debugpy==1.8.20
     # via ipykernel
 decorator==5.2.1
     # via ipython
 distro==1.9.0
-    # via openai
-durationpy==0.10
-    # via kubernetes
+    # via
+    #   openai
+    #   posthog
 executing==2.2.1
     # via stack-data
 fastapi==0.136.1
@@ -95,31 +73,25 @@ filelock==3.29.0
     # via
     #   huggingface-hub
     #   torch
-flatbuffers==25.12.19
-    # via onnxruntime
 forbiddenfruit==0.1.4 ; implementation_name == 'cpython'
     # via blockbuster
-frozenlist==1.8.0
-    # via
-    #   aiohttp
-    #   aiosignal
 fsspec==2026.4.0
     # via
     #   huggingface-hub
     #   torch
 googleapis-common-protos==1.75.0
+    # via opentelemetry-exporter-otlp-proto-http
+graphiti-core==0.31.2
+greenlet==3.5.0
     # via
-    #   opentelemetry-exporter-otlp-proto-grpc
-    #   opentelemetry-exporter-otlp-proto-http
-greenlet==3.5.0 ; platform_machine == 'AMD64' or platform_machine == 'WIN32' or platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'ppc64le' or platform_machine == 'win32' or platform_machine == 'x86_64'
-    # via sqlalchemy
+    #   playwright
+    #   sqlalchemy
 grpcio==1.78.0
     # via
-    #   chromadb
     #   grpcio-health-checking
     #   grpcio-tools
     #   langgraph-api
-    #   opentelemetry-exporter-otlp-proto-grpc
+    #   qdrant-client
 grpcio-health-checking==1.78.0
     # via langgraph-api
 grpcio-tools==1.78.0
@@ -128,8 +100,12 @@ h11==0.16.0
     # via
     #   httpcore
     #   uvicorn
+h2==4.4.1
+    # via httpx
 hf-xet==1.5.0 ; platform_machine == 'AMD64' or platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'arm64' or platform_machine == 'x86_64'
     # via huggingface-hub
+hpack==4.2.0
+    # via h2
 httpcore==1.0.9
     # via httpx
 httptools==0.7.1
@@ -138,31 +114,28 @@ httptools==0.7.1
     #   uvicorn
 httpx==0.28.1
     # via
-    #   chromadb
     #   huggingface-hub
     #   langgraph-api
     #   langgraph-cli
     #   langgraph-sdk
     #   langsmith
+    #   mem0ai
     #   openai
-httpx-sse==0.4.3
-    # via langchain-community
+    #   qdrant-client
 huggingface-hub==1.14.0
     # via
-    #   langchain-huggingface
     #   sentence-transformers
     #   tokenizers
     #   transformers
+hyperframe==6.1.0
+    # via h2
 idna==3.13
     # via
     #   anyio
     #   httpx
     #   requests
-    #   yarl
 importlib-metadata==8.7.1
     # via opentelemetry-api
-importlib-resources==7.1.0
-    # via chromadb
 iniconfig==2.3.0
     # via pytest
 ipykernel==7.2.0
@@ -182,54 +155,27 @@ jsonpatch==1.33
     # via langchain-core
 jsonpointer==3.1.1
     # via jsonpatch
-jsonschema==4.26.0
-    # via chromadb
 jsonschema-rs==0.44.1
     # via langgraph-api
-jsonschema-specifications==2025.9.1
-    # via jsonschema
 jupyter-client==8.8.0
     # via ipykernel
 jupyter-core==5.9.1
     # via
     #   ipykernel
     #   jupyter-client
-kubernetes==35.0.0
-    # via chromadb
-langchain==1.2.18
-    # via teachcopilot-rag
-langchain-chroma==1.1.0
-    # via teachcopilot-rag
-langchain-classic==1.0.7
-    # via langchain-community
-langchain-community==0.4.1
-    # via teachcopilot-rag
 langchain-core==1.3.3
     # via
-    #   langchain
-    #   langchain-chroma
-    #   langchain-classic
-    #   langchain-community
-    #   langchain-huggingface
-    #   langchain-openai
     #   langchain-text-splitters
     #   langgraph
     #   langgraph-api
     #   langgraph-checkpoint
     #   langgraph-prebuilt
-langchain-huggingface==1.2.2
-    # via teachcopilot-rag
-langchain-openai==1.2.1
-    # via teachcopilot-rag
 langchain-protocol==0.0.15
     # via langchain-core
 langchain-text-splitters==1.1.2
-    # via
-    #   langchain-classic
-    #   teachcopilot-rag
+    # via teachcopilot-rag
 langgraph==1.1.10
     # via
-    #   langchain
     #   langgraph-api
     #   langgraph-runtime-inmem
     #   teachcopilot-rag
@@ -255,73 +201,51 @@ langgraph-sdk==0.3.14
     #   langgraph-cli
 langsmith==0.8.3
     # via
-    #   langchain-classic
-    #   langchain-community
     #   langchain-core
     #   langgraph-api
-    #   teachcopilot-rag
 lxml==6.1.0
     # via python-docx
-markdown==3.10.2
-    # via teachcopilot-rag
 markdown-it-py==4.2.0
     # via rich
 markupsafe==3.0.3
     # via jinja2
-marshmallow==3.26.2
-    # via dataclasses-json
 matplotlib-inline==0.2.2
     # via
     #   ipykernel
     #   ipython
 mdurl==0.1.2
     # via markdown-it-py
-mmh3==5.2.1
-    # via chromadb
+mem0ai==2.2.1
 mpmath==1.3.0
     # via sympy
-multidict==6.7.1
-    # via
-    #   aiohttp
-    #   yarl
-mypy-extensions==1.1.0
-    # via typing-inspect
+neo4j==6.4.1
+    # via graphiti-core
 nest-asyncio==1.6.0
     # via ipykernel
 networkx==3.6.1
     # via torch
 numpy==2.4.4
     # via
-    #   chromadb
-    #   langchain-chroma
-    #   langchain-community
-    #   onnxruntime
+    #   graphiti-core
+    #   qdrant-client
     #   scikit-learn
     #   scipy
     #   sentence-transformers
     #   teachcopilot-rag
     #   transformers
-oauthlib==3.3.1
-    # via requests-oauthlib
-onnxruntime==1.26.0
-    # via chromadb
 openai==2.36.0
-    # via langchain-openai
+    # via
+    #   graphiti-core
+    #   mem0ai
 opentelemetry-api==1.41.1
     # via
-    #   chromadb
     #   langgraph-api
     #   langsmith
-    #   opentelemetry-exporter-otlp-proto-grpc
     #   opentelemetry-exporter-otlp-proto-http
     #   opentelemetry-sdk
     #   opentelemetry-semantic-conventions
 opentelemetry-exporter-otlp-proto-common==1.41.1
-    # via
-    #   opentelemetry-exporter-otlp-proto-grpc
-    #   opentelemetry-exporter-otlp-proto-http
-opentelemetry-exporter-otlp-proto-grpc==1.41.1
-    # via chromadb
+    # via opentelemetry-exporter-otlp-proto-http
 opentelemetry-exporter-otlp-proto-http==1.41.1
     # via
     #   langgraph-api
@@ -329,36 +253,27 @@ opentelemetry-exporter-otlp-proto-http==1.41.1
 opentelemetry-proto==1.41.1
     # via
     #   opentelemetry-exporter-otlp-proto-common
-    #   opentelemetry-exporter-otlp-proto-grpc
     #   opentelemetry-exporter-otlp-proto-http
 opentelemetry-sdk==1.41.1
     # via
-    #   chromadb
     #   langgraph-api
     #   langsmith
-    #   opentelemetry-exporter-otlp-proto-grpc
     #   opentelemetry-exporter-otlp-proto-http
 opentelemetry-semantic-conventions==0.62b1
     # via opentelemetry-sdk
 orjson==3.11.9
     # via
-    #   chromadb
     #   langgraph-api
     #   langgraph-sdk
     #   langsmith
 ormsgpack==1.12.2
     # via langgraph-checkpoint
-overrides==7.7.0
-    # via chromadb
 packaging==26.2
     # via
-    #   build
     #   huggingface-hub
     #   ipykernel
     #   langchain-core
     #   langsmith
-    #   marshmallow
-    #   onnxruntime
     #   pytest
     #   transformers
 parso==0.8.7
@@ -371,22 +286,26 @@ pillow==12.2.0
     # via teachcopilot-rag
 platformdirs==4.9.6
     # via jupyter-core
+playwright==1.65.1
 pluggy==1.6.0
     # via pytest
+portalocker==4.4.2
+    # via qdrant-client
+posthog==7.90.0
+    # via
+    #   graphiti-core
+    #   mem0ai
 prompt-toolkit==3.0.52
     # via ipython
-propcache==0.5.2
-    # via
-    #   aiohttp
-    #   yarl
 protobuf==6.33.6
     # via
     #   googleapis-common-protos
     #   grpcio-health-checking
     #   grpcio-tools
     #   langgraph-api
-    #   onnxruntime
+    #   mem0ai
     #   opentelemetry-proto
+    #   qdrant-client
 psutil==7.2.2
     # via
     #   ipykernel
@@ -397,28 +316,21 @@ ptyprocess==0.7.0 ; sys_platform != 'emscripten' and sys_platform != 'win32'
     # via pexpect
 pure-eval==0.2.3
     # via stack-data
-pybase64==1.4.3
-    # via chromadb
 pycparser==3.0 ; (implementation_name != 'PyPy' and platform_python_implementation != 'PyPy') or (implementation_name == 'pypy' and platform_python_implementation == 'PyPy')
     # via cffi
 pydantic==2.13.4
     # via
-    #   chromadb
     #   fastapi
-    #   langchain
-    #   langchain-classic
+    #   graphiti-core
     #   langchain-core
     #   langgraph
     #   langsmith
+    #   mem0ai
     #   openai
-    #   pydantic-settings
+    #   qdrant-client
     #   teachcopilot-rag
 pydantic-core==2.46.4
     # via pydantic
-pydantic-settings==2.14.1
-    # via
-    #   chromadb
-    #   langchain-community
 pygments==2.20.0
     # via
     #   ipython
@@ -429,33 +341,26 @@ pyjwt==2.12.1
     # via langgraph-api
 pymupdf==1.27.2.3
     # via teachcopilot-rag
-pypdf==6.11.0
-    # via teachcopilot-rag
-pypika==0.51.1
-    # via chromadb
-pyproject-hooks==1.2.0
-    # via build
 pytest==9.0.3
 python-dateutil==2.9.0.post0
     # via
     #   croniter
     #   jupyter-client
-    #   kubernetes
 python-docx==1.2.0
     # via teachcopilot-rag
 python-dotenv==1.2.2
     # via
+    #   graphiti-core
     #   langgraph-cli
-    #   pydantic-settings
     #   teachcopilot-rag
     #   uvicorn
+pytz==2026.6
+    # via
+    #   mem0ai
+    #   neo4j
 pyyaml==6.0.3
     # via
-    #   chromadb
     #   huggingface-hub
-    #   kubernetes
-    #   langchain-classic
-    #   langchain-community
     #   langchain-core
     #   transformers
     #   uvicorn
@@ -463,37 +368,24 @@ pyzmq==27.1.0
     # via
     #   ipykernel
     #   jupyter-client
-referencing==0.37.0
-    # via
-    #   jsonschema
-    #   jsonschema-specifications
+qdrant-client==1.20.0
+    # via mem0ai
 regex==2026.5.9
     # via
     #   tiktoken
     #   transformers
 requests==2.33.1
     # via
-    #   kubernetes
-    #   langchain-classic
-    #   langchain-community
     #   langsmith
     #   opentelemetry-exporter-otlp-proto-http
-    #   requests-oauthlib
+    #   posthog
     #   requests-toolbelt
     #   teachcopilot-rag
     #   tiktoken
-requests-oauthlib==2.0.0
-    # via kubernetes
 requests-toolbelt==1.0.0
     # via langsmith
 rich==15.0.0
-    # via
-    #   chromadb
-    #   typer
-rpds-py==0.30.0
-    # via
-    #   jsonschema
-    #   referencing
+    # via typer
 ruff==0.15.12
 safetensors==0.7.0
     # via transformers
@@ -512,17 +404,11 @@ setuptools==81.0.0
 shellingham==1.5.4
     # via typer
 six==1.17.0
-    # via
-    #   kubernetes
-    #   python-dateutil
+    # via python-dateutil
 sniffio==1.3.1
     # via openai
-soupsieve==2.8.3
-    # via beautifulsoup4
 sqlalchemy==2.0.49
-    # via
-    #   langchain-classic
-    #   langchain-community
+    # via mem0ai
 sse-starlette==3.3.4
     # via
     #   langgraph-api
@@ -545,21 +431,15 @@ sympy==1.14.0
     # via torch
 tenacity==9.1.4
     # via
-    #   chromadb
-    #   langchain-community
+    #   graphiti-core
     #   langchain-core
     #   langgraph-api
 threadpoolctl==3.6.0
     # via scikit-learn
 tiktoken==0.12.0
-    # via
-    #   langchain-openai
-    #   teachcopilot-rag
+    # via teachcopilot-rag
 tokenizers==0.22.2
-    # via
-    #   chromadb
-    #   langchain-huggingface
-    #   transformers
+    # via transformers
 torch==2.12.1 ; sys_platform == 'darwin'
     # via
     #   sentence-transformers
@@ -574,7 +454,6 @@ tornado==6.5.5
     #   jupyter-client
 tqdm==4.67.3
     # via
-    #   chromadb
     #   huggingface-hub
     #   openai
     #   sentence-transformers
@@ -592,15 +471,11 @@ truststore==0.10.4
     # via langgraph-api
 typer==0.25.1
     # via
-    #   chromadb
     #   huggingface-hub
     #   transformers
 typing-extensions==4.15.0
     # via
-    #   aiosignal
     #   anyio
-    #   beautifulsoup4
-    #   chromadb
     #   fastapi
     #   grpcio
     #   huggingface-hub
@@ -608,30 +483,27 @@ typing-extensions==4.15.0
     #   langchain-protocol
     #   openai
     #   opentelemetry-api
-    #   opentelemetry-exporter-otlp-proto-grpc
     #   opentelemetry-exporter-otlp-proto-http
     #   opentelemetry-sdk
     #   opentelemetry-semantic-conventions
+    #   posthog
     #   pydantic
     #   pydantic-core
     #   python-docx
-    #   referencing
     #   sentence-transformers
     #   sqlalchemy
     #   starlette
     #   torch
-    #   typing-inspect
     #   typing-inspection
-typing-inspect==0.9.0
-    # via dataclasses-json
 typing-inspection==0.4.2
     # via
     #   fastapi
     #   pydantic
-    #   pydantic-settings
+tzdata==2026.6
+    # via teachcopilot-rag
 urllib3==2.7.0
     # via
-    #   kubernetes
+    #   qdrant-client
     #   requests
 uuid-utils==0.14.1
     # via
@@ -640,7 +512,6 @@ uuid-utils==0.14.1
     #   langsmith
 uvicorn==0.46.0
     # via
-    #   chromadb
     #   langgraph-api
     #   teachcopilot-rag
 uvloop==0.22.1 ; sys_platform != 'win32'
@@ -653,16 +524,12 @@ watchfiles==1.1.1
     #   uvicorn
 wcwidth==0.7.0
     # via prompt-toolkit
-websocket-client==1.9.0
-    # via kubernetes
 websockets==16.0
     # via uvicorn
 xxhash==3.7.0
     # via
     #   langgraph
     #   langsmith
-yarl==1.23.0
-    # via aiohttp
 zipp==3.23.1
     # via importlib-metadata
 zstandard==0.25.0

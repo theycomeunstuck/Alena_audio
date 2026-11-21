@@ -256,13 +256,24 @@ def session_summary_views(store, learner_id, *, topic_id=None, approved_source_i
     """Materialize the two session windows after the caller's access check."""
     if not hasattr(store, "_connect"):
         return None
-    from .session_summaries import get_or_build_summaries
-    return {
-        "last_session": get_or_build_summaries(store, learner_id, limit=1,
-            topic_id=topic_id, approved_source_ids=approved_source_ids),
-        "last_seven_sessions": get_or_build_summaries(store, learner_id, limit=7,
-            topic_id=topic_id, approved_source_ids=approved_source_ids),
-    }
+    from . import session_summaries
+
+    def latest(view):
+        sessions = (view or {}).get("sessions") or []
+        return (sessions[0].get("learning_session_id"), sessions[0].get("input_fingerprint")) if sessions else None
+
+    # Audit F-060: the two views are built in separate transactions. A session
+    # completion or source correction in between made them disagree about the
+    # latest session; rebuild both until they agree (as each view already
+    # retries its own snapshot), and fail closed otherwise.
+    for _ in range(3):
+        last_session = session_summaries.get_or_build_summaries(store, learner_id, limit=1,
+            topic_id=topic_id, approved_source_ids=approved_source_ids)
+        last_seven = session_summaries.get_or_build_summaries(store, learner_id, limit=7,
+            topic_id=topic_id, approved_source_ids=approved_source_ids)
+        if latest(last_session) == latest(last_seven):
+            return {"last_session": last_session, "last_seven_sessions": last_seven}
+    raise RuntimeError("session_summary_snapshot_changed; retry the request")
 
 
 def attach_session_summaries(store, context, learner_id, topic_id, context_tokens):
@@ -482,8 +493,22 @@ class MemoryWorker:
                 if source.get("session_end_context_omitted"):
                     selection_events.append({"event": "session_end_context_omitted",
                         "source_id": str(source.get("source_id")), **source["session_end_context_omitted"]})
+            tail_sources = sources
+            if update_failure is not None:
+                # Audit F-072: the restored fallback state predates the current
+                # archive. A teacher correction that arrived after it referenced
+                # a turn missing from the restored blocks and failed the whole
+                # job; the stale tail is served from the sources it contains.
+                restored = {str(source_id) for source_id, _ in memory.blocks}
+                tail_sources = [row for row in sources
+                                if str(row.get("source_id") or row.get("turn_id")) in restored]
+                later_corrections = [str(row.get("source_id") or row.get("turn_id")) for row in sources
+                                     if row.get("corrects_source_id") and row not in tail_sources]
+                if later_corrections:
+                    selection_events.append({"event": "fallback_correction_after_version",
+                                             "source_ids": later_corrections})
             selected.text, selected.evidence_ids, dialogue_context = _tail_with_dialogue_context(
-                memory, sources, selection_events=selection_events, session_end_context=session_end_context)
+                memory, tail_sources, selection_events=selection_events, session_end_context=session_end_context)
         if method == "structured_v2":
             context_metadata = {"record_schema_version": 2,
                                 "selection_events": deepcopy(memory.events),

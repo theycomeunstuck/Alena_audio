@@ -196,14 +196,15 @@ class RagService:
         embed_texts: list[str] = []
         for row in rows:
             material = dict(row)
-            content = str(material.get("content") or "").strip()
-            if not content:
-                content = self._material_text(material)
-                material["content"] = content
-            if not content:
+            # Audit F-073: material["content"] must stay the stored value – it
+            # is the snapshot update_embeddings compares against the database.
+            # Rewriting an empty content with derived text made every reindex
+            # fail with StaleMaterialSnapshotError. Derived text is embedded only.
+            embed_text = self._material_text(material)
+            if not embed_text:
                 continue
             materials.append(material)
-            embed_texts.append(self._material_text(material))
+            embed_texts.append(embed_text)
         if not materials:
             index_status = self.status()
             if not index_status.get("ready"):

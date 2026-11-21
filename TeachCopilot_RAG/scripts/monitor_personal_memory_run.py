@@ -11,6 +11,27 @@ import time
 import psutil
 
 
+def is_target_run(command, run_name: str) -> bool:
+    """Audit F-077: the run name used to match as a substring of any argument,
+    so "final_v4" also sampled a concurrent "final_v4_warm". The experiment's
+    run is identified by its --output location: a path component or the file
+    stem must equal the run name exactly."""
+    from pathlib import PurePath
+    command = [str(arg) for arg in command or []]
+    if not any("research_memory.personal_memory_lab.experiment" in arg for arg in command):
+        return False
+    for index, arg in enumerate(command):
+        value = None
+        if arg == "--output" and index + 1 < len(command):
+            value = command[index + 1]
+        elif arg.startswith("--output="):
+            value = arg.split("=", 1)[1]
+        if value is not None:
+            path = PurePath(value)
+            return run_name in path.parts or path.stem == run_name
+    return False
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--run-name", required=True)
@@ -28,8 +49,7 @@ def main():
             for process in psutil.process_iter(["pid", "cmdline"]):
                 try:
                     command = process.info.get("cmdline") or []
-                    if any("research_memory.personal_memory_lab.experiment" in str(arg) for arg in command) \
-                            and any(args.run_name in str(arg) for arg in command):
+                    if is_target_run(command, args.run_name):
                         targets.append(process)
                 except (psutil.AccessDenied, psutil.NoSuchProcess):
                     continue

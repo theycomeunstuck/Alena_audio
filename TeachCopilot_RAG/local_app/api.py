@@ -3,7 +3,7 @@ import logging
 import secrets
 import threading
 import time
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any, Literal
 from uuid import UUID
@@ -13,7 +13,8 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field, StrictBool
 
-from local_app.auth import hash_password, hash_session_token, new_session_token, session_expiry, verify_password
+from local_app.auth import (dummy_password_hash, hash_password, hash_session_token, new_session_token,
+                            session_expiry, verify_password)
 
 logger = logging.getLogger("teachcopilot")
 WEB_ROOT = Path(__file__).resolve().parents[1] / "web"
@@ -33,10 +34,34 @@ def _is_generation_capacity(exc: Exception) -> bool:
     return isinstance(exc, GenerationCapacityError)
 
 
+def _is_run_budget_exhausted(exc: Exception) -> bool:
+    from local_app.generation_run_budget import GenerationRunBudgetExceeded
+    return isinstance(exc, GenerationRunBudgetExceeded)
+
+
+def learner_local_day(store, learner_id: str, *, now: datetime | None = None) -> date:
+    """Audit F-075: the learner's calendar day, not the server's local date.
+    Falls back to the default learning timezone for stores without one."""
+    from local_app.timezones import DEFAULT_LEARNING_TIMEZONE
+    zone = DEFAULT_LEARNING_TIMEZONE
+    reader = getattr(store, "get_learner_learning_timezone", None)
+    if callable(reader):
+        try:
+            zone = reader(learner_id) or DEFAULT_LEARNING_TIMEZONE
+        except KeyError:
+            pass
+    from zoneinfo import ZoneInfo
+    return (now or datetime.now(timezone.utc)).astimezone(ZoneInfo(zone)).date()
+
+
 # Chat admission polling parks one threadpool thread per waiter for up to 180 s
 # (F-035), so the number of concurrent waiters is bounded; excess requests get
 # an immediate 503 instead of silently queueing behind the cap.
 CHAT_ADMISSION_WAITER_CAP = 40
+# Audit F-074: /v1/chat/completions accepted an unbounded message list (each
+# item up to 12000 characters). The web client sends one message per turn;
+# OpenAI-style clients that resend history stay well under this cap.
+MAX_CHAT_MESSAGES = 200
 _chat_admission_waiters = 0
 _chat_admission_lock = threading.Lock()
 
@@ -1249,18 +1274,24 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None, chat_r
     @app.get("/ready")
     @app.get("/health/ready")
     def readiness():
+        # Audit F-075: name the failing subsystem in the log instead of always
+        # "Database readiness check failed" (index and model failures too).
+        subsystem = "database"
         try:
             store.ping()
             from local_app.store import MIGRATIONS
             expected_schema = max((int(path.name.split("_", 1)[0]) for path in MIGRATIONS.glob("[0-9][0-9][0-9]_*.sql")), default=0)
+            subsystem = "database migrations"
             schema = store.schema_version()
             if schema < expected_schema:
                 raise RuntimeError("database migrations are incomplete")
+            subsystem = "embedding index"
             if app.state.rag_service is None or not callable(getattr(app.state.rag_service, "status", None)):
                 raise RuntimeError("RAG readiness status is unavailable")
             index_status = app.state.rag_service.status()
             if not index_status.get("ready", False):
                 raise RuntimeError("embedding index is incomplete")
+            subsystem = "local models"
             if app.state.runtime is None or not callable(getattr(app.state.runtime, "check_models", None)):
                 raise RuntimeError("local model readiness check is unavailable")
             models_status = app.state.runtime.check_models()
@@ -1268,7 +1299,7 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None, chat_r
                 raise RuntimeError("configured local models are unavailable")
             return {"status": "ready", "database": "ok", "schema_version": schema, "index": index_status, "models": models_status}
         except Exception as exc:
-            logger.exception("Database readiness check failed")
+            logger.exception("Readiness check failed: %s", subsystem)
             raise HTTPException(status_code=503, detail={"status": "not_ready", "reason": "database, index, or local model readiness check failed"}) from exc
 
     def issue_login_session(account: dict) -> dict:
@@ -1280,8 +1311,11 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None, chat_r
     @app.post("/auth/login")
     def login(request: LoginRequest):
         account = store.get_account(email=request.email.strip().lower())
-        encoded = account.get("password_hash", "") if account else ""
-        if not account or not account.get("active", True) or not verify_password(request.password, encoded):
+        usable = bool(account) and account.get("active", True) and bool(account.get("password_hash"))
+        # Audit F-074: unknown or inactive emails used to skip PBKDF2 and answer
+        # measurably faster. Every attempt now costs exactly one password hash.
+        password_ok = verify_password(request.password, account["password_hash"] if usable else dummy_password_hash())
+        if not usable or not password_ok:
             raise HTTPException(status_code=401, detail="invalid email or password")
         return issue_login_session(account)
 
@@ -1706,7 +1740,7 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None, chat_r
         zpd = tools.load_learner_data_tools().zpd
         if not callable(getattr(zpd, "record_observation", None)):
             raise HTTPException(status_code=503, detail="evidence-aware ZPD recording is unavailable")
-        observed_on = (request.observed_on or date.today()).isoformat()
+        observed_on = (request.observed_on or learner_local_day(store, learner_id)).isoformat()
         try:
             updated = zpd.record_observation(
                 card,
@@ -1924,7 +1958,8 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None, chat_r
                 base_revisions=revisions, proposed_cards=snapshots,
                 metadata={"notes": request.notes, "mode": mode, "learner_ids": list(snapshots),
                     "memory_sources": {learner_id: {"topic_id": ((snapshots[learner_id].get("rag_context") or {}).get("current_goal") or {}).get("topic_id") or "general", "text": request.notes,
-                        "observed_on": date.today().isoformat(), "group_note": len(snapshots) > 1}
+                        "observed_on": learner_local_day(store, learner_id).isoformat(),
+                        "group_note": len(snapshots) > 1}
                         for learner_id in snapshots}},
             )
             proposal_id = proposal.get("proposal_id") or proposal.get("id")
@@ -2041,6 +2076,8 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None, chat_r
             messages = [{"role": "user", "content": action_text}]
         if not isinstance(messages, list):
             raise HTTPException(status_code=422, detail="messages must be an array")
+        if len(messages) > MAX_CHAT_MESSAGES:
+            raise HTTPException(status_code=422, detail=f"messages must contain at most {MAX_CHAT_MESSAGES} items")
         # Preserve only chat roles and content. Ignore client model, tools, sampling
         # controls, learner identity overrides and other upstream fields.
         clean_messages = [{"role": message.get("role"), "content": message.get("content")} for message in messages if isinstance(message, dict) and message.get("role") in {"user", "assistant"}]
@@ -2552,6 +2589,10 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None, chat_r
                 trace.complete(output_status="error", technical_error=type(exc).__name__)
             from local_app.memory_response_journal import ResponseJournalError
             capacity = _is_generation_capacity(exc)
+            # Audit F-075: the local run budget is checked before any provider
+            # call, so the message is not an unknown outcome and stays retryable.
+            budget_exhausted = _is_run_budget_exhausted(exc)
+            capacity = capacity or budget_exhausted
             # Lost PostgreSQL acknowledgement can follow a committed result.
             # Do not issue another terminal write or replace it with a failure.
             database_failure = psycopg2 is not None and isinstance(exc, psycopg2.Error)
@@ -2567,6 +2608,9 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None, chat_r
                         store.finish_memory_job(chat_job["job_id"], error=diagnostic, worker_id=chat_worker_id, unknown_outcome=call_started and not capacity)
                 except Exception as cleanup_error:
                     logger.error("Chat cleanup unavailable (%s); no replay attempted", type(cleanup_error).__name__)
+            if budget_exhausted:
+                logger.warning("Local run budget exhausted (%s); chat rejected without a provider call", exc)
+                raise HTTPException(status_code=429, detail=f"local run budget is exhausted: {exc}") from exc
             if capacity:
                 raise HTTPException(status_code=429, detail="generation queue is full; retry later", headers={"Retry-After": "10"}) from exc
             if (isinstance(exc, ValueError)

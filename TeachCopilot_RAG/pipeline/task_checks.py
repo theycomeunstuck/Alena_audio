@@ -44,6 +44,10 @@ _DELIBERATE_MISTAKE_MARKERS = (
 # и знаком деления («30 : 6»). Отличаем по пробелу слева: у деления он есть.
 _PUNCTUATION_COLON = re.compile(r"(?<=\S):(?=\s)")
 
+# Точка в конце предложения (после неё пробел или конец текста) разделяет
+# равенства; десятичная точка между цифрами – нет.
+_SENTENCE_PERIOD = re.compile(r"\.(?=\s|$)")
+
 # Выражение, у которого срезали левый операнд («x + 7 = 15» → «+ 7 = 15»),
 # посчитается как унарный плюс и даст ложную тревогу.
 _LEADING_OPERATOR = re.compile(r"^[+\-−–—·⋅*:/]")
@@ -109,9 +113,13 @@ def evaluate_expression(expression: str) -> float:
         raise _Unevaluatable("нет чисел")
     try:
         tree = ast.parse(text, mode="eval")
+        return _evaluate(tree)
     except SyntaxError as exc:
         raise _Unevaluatable("не разбирается") from exc
-    return _evaluate(tree)
+    except (RecursionError, MemoryError) as exc:
+        # Audit F-070: a very long or deeply nested expression used to escape
+        # as RecursionError from the parser or the recursive evaluator.
+        raise _Unevaluatable("слишком длинное выражение") from exc
 
 
 def check_arithmetic(text: str) -> list[str]:
@@ -127,7 +135,12 @@ def check_arithmetic(text: str) -> list[str]:
         return []
 
     problems: list[str] = []
-    for match in _EXPRESSION_RUN.finditer(_PUNCTUATION_COLON.sub("\n", text)):
+    # Audit F-070: a period that ends a sentence («2 + 2 = 4. 3 + 3 = 7») used to
+    # glue two equalities into one unparseable run, so the wrong one was never
+    # checked. A period followed by whitespace or the end is a break; a decimal
+    # point between digits («2.5») stays part of the number.
+    separated = _SENTENCE_PERIOD.sub("|", _PUNCTUATION_COLON.sub("\n", text))
+    for match in _EXPRESSION_RUN.finditer(separated):
         run = match.group(0)
         if "=" not in run:
             continue

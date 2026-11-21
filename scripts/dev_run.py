@@ -2,7 +2,6 @@
 from __future__ import annotations
 import sys, asyncio, uvicorn, argparse
 from pathlib import Path
-from print_routes import *
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -22,6 +21,9 @@ def main():
     args = parser.parse_args()
 
     if args.print_routes:
+        # audit F-061: print_routes imports app.main; import it only on request,
+        # so the uvicorn reload supervisor does not load the app and its models.
+        from print_routes import print_routes_
         print_routes_()
 
     uvicorn.run(

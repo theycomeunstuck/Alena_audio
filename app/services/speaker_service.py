@@ -16,6 +16,24 @@ from core.config import TRAIN_USER_VOICE_S, EMBEDDINGS_DIR, SAMPLE_RATE, sim_thr
 _ENCODER: Optional[EncoderClassifier] = None
 
 
+def atomic_save_npy(path: Path, array: np.ndarray) -> None:
+    """Audit F-064: write <path> through a temp file in the same directory and
+    os.replace it, so a crash never leaves a torn .npy in the speaker registry.
+    The temp name does not end in .npy, so registry scans never pick it up."""
+    path = Path(path)
+    tmp = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
+    try:
+        with open(tmp, "wb") as fh:
+            np.save(fh, array)
+        os.replace(tmp, path)
+    except BaseException:
+        try:
+            tmp.unlink()
+        except FileNotFoundError:
+            pass
+        raise
+
+
 # --- Audit F-021 / F-021b / F-026 helpers: strict resource ids and per-request temp files ---
 
 # Anything interpolated into a filesystem path (EMBEDDINGS_DIR/<id>.npy,
@@ -80,6 +98,16 @@ class SpeakerService:
             self.storage_dir / "reference.wav",
         ]
 
+    def _display_path(self, path: Path) -> str:
+        """Client-facing form of a server path: STORAGE_DIR/… or project-relative."""
+        resolved = Path(path).resolve()
+        for base, prefix in ((self.storage_dir.resolve(), "STORAGE_DIR/"), (self._project_root(), "")):
+            try:
+                return prefix + resolved.relative_to(base).as_posix()
+            except ValueError:
+                continue
+        return resolved.name
+
     def _find_default_ref(self) -> Optional[Path]:
         for p in self._default_ref_candidates():
             if p.is_file():
@@ -97,7 +125,9 @@ class SpeakerService:
                 default_ref_path = self._find_default_ref()
                 if default_ref_path is None:
                     searched = self._default_ref_candidates()
-                    hint = ";  ".join(f"- {p}" for p in searched)
+                    # audit F-066: show candidates relative to the project or
+                    # STORAGE_DIR, never as absolute server paths.
+                    hint = ";  ".join(f"- {self._display_path(p)}" for p in searched)
                     raise ValueError(
                         "reference не задан и не найден дефолтный образец. "
                         "Положите файл по одному из путей: " + hint
@@ -106,12 +136,20 @@ class SpeakerService:
 
             emb_p = embed_speechbrain(probe)
             emb_r = embed_speechbrain(ref)
-
+            # audit F-065: embed_speechbrain returns None for an empty/silent
+            # signal – that is a bad recording (400), not a server fault.
+            if emb_p is None:
+                raise ValueError("В образце нет сигнала для сравнения – запишите голос ещё раз")
+            if emb_r is None:
+                raise ValueError("В эталоне нет сигнала для сравнения – выберите другой файл")
 
             sb_score = float(F.cosine_similarity(emb_p.unsqueeze(0), emb_r.unsqueeze(0)).item())
             sb_decision = bool(sb_score >= sim_threshold)  # пример порога
+        except ValueError:
+            # audit F-065: keep client errors as ValueError so the route maps them to 400.
+            raise
         except Exception as e:
-            raise Exception(f"app/service/speaker_service:: verify_files()\n{e}")
+            raise RuntimeError("speaker verification failed") from e
 
         result = {
             "score": sb_score,
@@ -153,7 +191,7 @@ class SpeakerService:
         emb = emb.detach().cpu()  # если уже float32 — отлично
         if emb.dtype != torch.float32:
             emb = emb.to(torch.float32)  # привести один раз в torch
-        np.save(out_npy_path, emb.numpy())
+        atomic_save_npy(out_npy_path, emb.numpy())
 
 
         return {"user_id": user_id, "wav_path": str(out_wav_path), "npy_path": str(out_npy_path)}
@@ -187,10 +225,7 @@ class SpeakerService:
         emb = torch.nn.functional.normalize(emb, p=2, dim=-1, eps=1e-12).float() # L2-norm
 
         emb = emb.detach()
-        np.save(
-            out_npy_path,
-            emb.cpu().numpy().astype(np.float32)
-        )
+        atomic_save_npy(out_npy_path, emb.cpu().numpy().astype(np.float32))
 
 
 

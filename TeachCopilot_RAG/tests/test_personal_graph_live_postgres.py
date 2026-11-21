@@ -17,6 +17,8 @@ from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
+
+from tests.live_guard import skip_unless_live_selected
 import requests
 from fastapi.testclient import TestClient
 
@@ -52,8 +54,8 @@ def _skip_unless_explicitly_selected(request):
     skip them; ``-m live`` (or any expression pytest used to select this item)
     executes them.
     """
-    if not str(request.config.getoption("markexpr") or "").strip():
-        pytest.skip("live checks are deselected by default; run with -m live")
+    # Audit F-080: any unrelated -m filter used to enable live model calls.
+    skip_unless_live_selected(request)
 
 
 def _ollama_reachable() -> bool:

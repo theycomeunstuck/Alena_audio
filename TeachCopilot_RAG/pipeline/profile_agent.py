@@ -11,7 +11,7 @@ import requests
 from pipeline.config import (
     PROFILE_LLM_API_URL, PROFILE_LLM_MODEL, PROFILE_UPDATE_INTERVAL
 )
-from pipeline.db import get_child_full_profile, get_connection
+from pipeline.db import ProfileUnavailable, get_child_full_profile, get_connection
 from pipeline.event_logger import log_event
 
 logger = logging.getLogger(__name__)
@@ -87,7 +87,13 @@ def assess_interaction(child_id: str, messages: list[dict]) -> list[dict]:
         log_event(child_id, "assessment_failed", {"reason": "model_not_configured"})
         return []
 
-    profile = get_child_full_profile(child_id)
+    try:
+        profile = get_child_full_profile(child_id)
+    except ProfileUnavailable:
+        # Audit F-059: a store failure is not "no profile" – record which it was.
+        logger.error("Profile store unavailable for child=%s; skipping assessment", child_id)
+        log_event(child_id, "assessment_failed", {"reason": "profile_store_unavailable"})
+        return []
     if not profile:
         logger.warning("Profile unavailable for child=%s; skipping assessment", child_id)
         log_event(child_id, "assessment_failed", {"reason": "profile_unavailable"})

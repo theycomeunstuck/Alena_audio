@@ -114,7 +114,7 @@ class MultiSpeakerMatcher:
     def match_probe_array(self, audio: np.ndarray, top_k: int = 5) -> List[Dict[str, Any]]:
         """
         Считает эмбеддинг пробы и возвращает top-k совпадений по сходству в [0..1],
-        вместе с путями к .npy (ref_path).
+        вместе с именем файла эмбеддинга .npy (ref_path, без серверного пути).
         """
         with self._lock:
             if self._embs.shape[0] == 0:
@@ -141,7 +141,8 @@ class MultiSpeakerMatcher:
             topk_val, topk_idx = torch.topk(scores, k)
 
         return [
-            {"user_id": user_ids[i], "score": float(v), "ref_path": str(emb_paths[i])} # [DEBUG] todo: ref_path передаётся для отладки. позже он не нужен
+            # audit F-066: only the embedding file name, never the absolute server path.
+            {"user_id": user_ids[i], "score": float(v), "ref_path": Path(emb_paths[i]).name}
             for v, i in zip(topk_val.tolist(), topk_idx.tolist())
         ]
 

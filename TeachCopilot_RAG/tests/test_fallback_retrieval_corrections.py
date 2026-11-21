@@ -108,3 +108,16 @@ def test_literal_span_and_assistant_correction_keep_the_same_prompt():
     assert result["sources"][0]["text"] == baseline["sources"][0]["text"]
     assert result["system_text"].encode("utf-8") == baseline["system_text"].encode("utf-8")
     assert recall_quote_guard("Процитируй дословно слова помощника про Сокол", result["sources"], "пересказ")["status"] == "skipped_correction"
+
+
+def test_correction_status_is_reported_on_the_early_exit():
+    """Closeout of the PR #2 limitation: retrieve_conversation_context returned
+    early (empty archive or zero budget) without correction_refs_status."""
+    from local_app.conversation_retrieval import retrieve_conversation_context
+    from tests.test_conversation_retrieval import Runtime, Store, message
+
+    empty = retrieve_conversation_context(Store([]), Runtime(), "child", "account", "что я рисовала?")
+    assert empty["diagnostics"]["correction_refs_status"] == "not_needed"
+    no_budget = retrieve_conversation_context(Store([message(0, "Я рисовала корабль.")]), Runtime(),
+                                              "child", "account", "что я рисовала?", budget_bytes=0)
+    assert no_budget["diagnostics"]["correction_refs_status"] == "not_needed"

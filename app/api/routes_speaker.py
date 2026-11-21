@@ -3,6 +3,7 @@ from fastapi import APIRouter, UploadFile, File, HTTPException, Query
 from pathlib import Path
 from typing import Optional
 import asyncio  # audit F-010: offload blocking model calls off the event loop
+import logging
 
 import core.config
 from app.settings import STORAGE_DIR
@@ -14,6 +15,30 @@ from app.models.speaker_models import VerifyResponse, TrainMicResponse, MultiVer
 from core.config import TRAIN_USER_VOICE_S, sim_threshold as _sim_threshold
 
 router = APIRouter(prefix="/speaker", tags=["Speaker"])
+logger = logging.getLogger(__name__)
+
+
+def _internal_error(route: str) -> HTTPException:
+    """Audit F-066: log the failure server-side; never echo exception text
+    (it can carry server paths and model internals) to the client."""
+    logger.exception("speaker route %s failed", route)
+    return HTTPException(status_code=500, detail="internal error")
+
+
+def _public_path(value) -> str:
+    """Audit F-066: report stored files relative to STORAGE_DIR, not as
+    absolute server paths; a file outside storage is reported by name only."""
+    path = Path(str(value))
+    try:
+        return path.resolve().relative_to(Path(STORAGE_DIR).resolve()).as_posix()
+    except ValueError:
+        return path.name
+
+
+def _public_training_result(result: dict) -> dict:
+    return {**result, **{key: _public_path(result[key]) for key in ("wav_path", "npy_path") if key in result}}
+
+
 svc = SpeakerService(STORAGE_DIR)
 matcher = get_global_matcher()
 
@@ -43,7 +68,7 @@ async def verify(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"internal error: {e.__class__.__name__}: {e}")
+        raise _internal_error("verify") from e
     finally:
         cleanup_temp_file(probe_path)
         cleanup_temp_file(ref_path)
@@ -72,7 +97,7 @@ async def verify_registry(
         best_model = MultiVerifyMatch(**best) if decision and best is not None else None
         return {"decision": decision, "best": best_model, "threshold": float(sim_threshold), "matches": result}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"internal error: {e.__class__.__name__}: {e}")
+        raise _internal_error("verify_registry") from e
 
 @router.post("/verify/topk", response_model=MultiVerifyResponse, summary="Top-K совпадений по всему реестру")
 async def verify_topk(
@@ -86,7 +111,7 @@ async def verify_topk(
         matches = await asyncio.to_thread(matcher.match_probe_array, audio, top_k=top_k)
         return MultiVerifyResponse(count=len(matches), matches=[MultiVerifyMatch(**m) for m in matches])
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"internal error: {e.__class__.__name__}: {e}")
+        raise _internal_error("verify_topk") from e
 
 @router.post("/registry/reload", response_model=RegistryReloadResposne, summary="Перечитать реестр голосов с диска и обновить RAM")
 def registry_reload(
@@ -99,7 +124,7 @@ def registry_reload(
         return {"count": int(count)}
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"internal error: {e.__class__.__name__}: {e}")
+        raise _internal_error("registry_reload") from e
 
 
 @router.post("/train/microphone", response_model=TrainMicResponse)
@@ -113,11 +138,11 @@ def train_microphone(
         validate_resource_id(user_id, "user_id")  # audit F-021
         res = svc.train_from_microphone(user_id=user_id, duration=duration)
         matcher.reload() #обновляем бд
-        return res
+        return _public_training_result(res)
     except ValueError as e:
         raise HTTPException(400, str(e))
     except Exception as e:
-        raise HTTPException(500, f"internal error: {e.__class__.__name__}\n {e}")
+        raise _internal_error("train_microphone") from e
 
 
 
@@ -135,9 +160,9 @@ async def train_file(
         # audit F-010: noise suppression (SepFormer) + embedding (ECAPA) block -- off the loop.
         res = await asyncio.to_thread(svc.train_from_file, probe_wav=audio, user_id=user_id)
         matcher.reload() #обновляем бд
-        return res
+        return _public_training_result(res)
     except ValueError as e:
         raise HTTPException(400, str(e))
     except Exception as e:
-        raise HTTPException(500, f"internal error: {e.__class__.__name__}")
+        raise _internal_error("train_file") from e
 
