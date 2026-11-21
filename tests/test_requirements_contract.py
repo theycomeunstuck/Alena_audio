@@ -57,3 +57,25 @@ def test_torchaudio_pin_matches_between_gpu_and_cpu_requirements():
         f"requirements_GPU_noTTS_api.txt pins {gpu!r} but "
         f"requirements_cpu_noTTS_api.txt pins {cpu!r}"
     )
+
+
+def _version_tuple(version: str):
+    return tuple(int(part) for part in version.split("+", 1)[0].split(".")[:2])
+
+
+def test_speechbrain_pin_imports_with_the_pinned_torchaudio():
+    """speechbrain 1.0.x calls torchaudio.list_audio_backends() at import time;
+    torchaudio 2.9 removed it, so `import app.main` (speaker_service imports
+    speechbrain) failed with the round-2 torchaudio 2.11.1 pin. speechbrain
+    1.1 dropped that call. Both manifests must pin a compatible pair."""
+    for name in ("requirements_GPU_noTTS_api.txt", "requirements_cpu_noTTS_api.txt"):
+        text = _requirements_text(name)
+        speechbrain = _pinned_version(text, "speechbrain")
+        torchaudio = _pinned_version(text, "torchaudio")
+        assert speechbrain is not None, f"{name} must contain a speechbrain== pin"
+        assert torchaudio is not None, f"{name} must contain a torchaudio== pin"
+        if _version_tuple(torchaudio) >= (2, 9):
+            assert _version_tuple(speechbrain) >= (1, 1), (
+                f"{name}: speechbrain {speechbrain} imports torchaudio.list_audio_backends, "
+                f"which torchaudio {torchaudio} no longer provides"
+            )
