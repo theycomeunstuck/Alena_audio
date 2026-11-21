@@ -3,20 +3,28 @@ from __future__ import annotations
 
 from datetime import date, datetime
 import re
-from typing import Any, Mapping, Sequence
+from typing import Any, Literal, Mapping, Sequence
 
 from local_app.conversation_retrieval import _stem_list
 
 
 _MARKERS = ("дословн", "процитир", "цитат", "слово в слово", "теми же словами", "точными словами")
-_ASSISTANT = re.compile(
-    r"\bты\s+(мне\s+)?(сказал|написал|ответил|объяснял|спрашивал|показывал)"
-)
+_VERBS = r"(?:сказал|написал|ответил|объяснял|спрашивал|показывал)\w*"
+_ASSISTANT_PATTERNS = tuple(re.compile(pattern) for pattern in (
+    rf"\bты\s+(?:мне\s+)?{_VERBS}",
+    rf"\b(?:ассистент|помощник)\s+(?:мне\s+)?{_VERBS}",
+    rf"{_VERBS}\s+(?:мне\s+)?(?:ассистент|помощник)\b",
+    r"\b(?:слова|фраз[ауы]?|ответ[ы]?)\s+(?:ассистента|помощника)\b",
+    r"\bтво(?:й|ю|и|им|его|ей)\s+(?:ответ|слов|фраз)",
+))
 _STOP_WORDS = ("вспомни процитируй дословно цитата цитату фраза фразу первый первую урок уроке "
-               "слово словами точно точными получилось сказала сказал написала написал")
+               "слово словами точно точными получилось сказала сказал написала написал "
+               "ответил объяснял спрашивал показывал ассистент помощник твой твою твои")
 _STOP_STEMS = frozenset(_stem_list(_STOP_WORDS))
 _UNAVAILABLE = ("В найденных репликах нет фразы, которую можно привести дословно. "
                 "Подскажи, когда это было или о чём шла речь?")
+_ASSISTANT_UNAVAILABLE = ("В найденных репликах нет моего ответа, который можно привести дословно. "
+                          "Подскажи, когда это было или о чём шла речь?")
 
 
 def _normalized_question(text: str) -> str:
@@ -30,16 +38,18 @@ def is_verbatim_request(question: str) -> bool:
 
 def is_assistant_quote_request(question: str) -> bool:
     question = _normalized_question(question)
-    return bool(_ASSISTANT.search(question) or "ассистент" in question or "помощник" in question)
+    return any(pattern.search(question) for pattern in _ASSISTANT_PATTERNS)
 
 
 def quote_features(text: str) -> set[str]:
     return (set(_stem_list(text)) - _STOP_STEMS) | set(re.findall(r"\d+", text))
 
 
-def eligible_sources(sources: Sequence[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
+def eligible_sources(sources: Sequence[Mapping[str, Any]],
+                     author: Literal["user", "assistant"] = "user") -> list[Mapping[str, Any]]:
+    usage = "self_report" if author == "user" else "context_only"
     return [source for source in sources if isinstance(source, Mapping)
-            and source.get("role") == "user" and source.get("usage") == "self_report"
+            and source.get("role") == author and source.get("usage") == usage
             and isinstance(source.get("text"), str) and source["text"].strip()]
 
 
@@ -59,6 +69,31 @@ def select_quote_sources(question: str, sources: Sequence[Mapping[str, Any]]) ->
 
 def contains_full_quote(answer: str, quote: str) -> bool:
     return " ".join(quote.split()) in " ".join(answer.split())
+
+
+def best_sentences(question: str, text: str) -> list[str]:
+    sentences = [" ".join(part.split()).rstrip(".!?…")
+                 for part in re.split(r"(?<=[.!?…])\s+", text)]
+    sentences = [sentence for sentence in sentences if len(re.findall(r"\w+", sentence)) >= 4]
+    if not sentences:
+        return []
+    features = quote_features(question)
+    if not features:
+        return sentences
+    scores = [len(features & quote_features(sentence)) for sentence in sentences]
+    highest = max(scores)
+    return [sentence for sentence, score in zip(sentences, scores) if score == highest]
+
+
+def answer_quote_match(question: str, answer: str,
+                       leaders: Sequence[Mapping[str, Any]]) -> Literal["full", "sentence"] | None:
+    if any(contains_full_quote(answer, source["text"]) for source in leaders):
+        return "full"
+    normalized_answer = " ".join(answer.split())
+    if any(re.search(r"(?<!\w)" + re.escape(sentence) + r"(?!\w)", normalized_answer)
+           for source in leaders for sentence in best_sentences(question, source["text"])):
+        return "sentence"
+    return None
 
 
 def truncate_quote(text: str, limit: int) -> str:
@@ -89,30 +124,32 @@ def _activity_day(value: Any) -> str | None:
     return None
 
 
-def format_inserted(source: Mapping[str, Any]) -> str:
+def format_inserted(source: Mapping[str, Any], author: Literal["user", "assistant"] = "user") -> str:
     day = _activity_day(source.get("activity_day"))
     date_text = f" (запись от {day})" if day else ""
-    return f"Вот твоя фраза дословно{date_text}: «{truncate_quote(source['text'], 700)}»"
+    heading = "Вот твоя фраза дословно" if author == "user" else "Вот мой ответ дословно"
+    return f"{heading}{date_text}: «{truncate_quote(source['text'], 700)}»"
 
 
-def format_ambiguous(sources: Sequence[Mapping[str, Any]]) -> str:
-    lines = ["Нашлось несколько похожих фраз:"]
+def format_ambiguous(sources: Sequence[Mapping[str, Any]], author: Literal["user", "assistant"] = "user") -> str:
+    lines = ["Нашлось несколько похожих фраз:" if author == "user"
+             else "Нашлось несколько похожих моих ответов:"]
     for index, source in enumerate(sources[:2], 1):
         day = _activity_day(source.get("activity_day"))
         date_text = f"({day}) " if day else ""
         lines.append(f"{index}. {date_text}«{truncate_quote(source['text'], 300)}»")
-    return "\n".join([*lines, "Какую из них ты имеешь в виду?"])
+    question = "Какую из них ты имеешь в виду?" if author == "user" else "Какой из них ты имеешь в виду?"
+    return "\n".join([*lines, question])
 
 
 def recall_quote_guard(question: str, sources: Sequence[Mapping[str, Any]], answer: str) -> dict[str, Any] | None:
     if not is_verbatim_request(question):
         return None
-    candidates = eligible_sources(sources)
+    author = "assistant" if is_assistant_quote_request(question) else "user"
+    candidates = eligible_sources(sources, author)
     candidate_ids = [str(source["source_id"]) for source in candidates if source.get("source_id") is not None]
-    check: dict[str, Any] = {"status": "not_applicable", "selected_source_id": None,
-                             "candidate_source_ids": candidate_ids}
-    if is_assistant_quote_request(question):
-        return check
+    check: dict[str, Any] = {"status": "unavailable", "selected_source_id": None,
+                             "candidate_source_ids": candidate_ids, "match": None, "author": author}
     selection, leaders = select_quote_sources(question, candidates)
     if selection == "unique":
         source = leaders[0]
@@ -121,12 +158,14 @@ def recall_quote_guard(question: str, sources: Sequence[Mapping[str, Any]], answ
         if source.get("superseded_by") or source.get("corrects_source_id"):
             check["status"] = "skipped_correction"
             return check
-    if leaders and any(contains_full_quote(answer, source["text"]) for source in leaders):
+    match = answer_quote_match(question, answer, leaders)
+    if match is not None:
         check["status"] = "model_verbatim"
+        check["match"] = match
     elif selection == "unique":
-        check.update(status="inserted", answer=format_inserted(leaders[0]))
+        check.update(status="inserted", answer=format_inserted(leaders[0], author))
     elif selection == "ambiguous":
-        check.update(status="ambiguous", answer=format_ambiguous(leaders))
+        check.update(status="ambiguous", answer=format_ambiguous(leaders, author))
     else:
-        check.update(status="unavailable", answer=_UNAVAILABLE)
+        check.update(status="unavailable", answer=_UNAVAILABLE if author == "user" else _ASSISTANT_UNAVAILABLE)
     return check

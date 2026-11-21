@@ -5,7 +5,7 @@ import pytest
 
 from local_app.conversation_retrieval import _stem_list
 from local_app.recall_quote_guard import (
-    contains_full_quote, eligible_sources, format_ambiguous, format_inserted,
+    answer_quote_match, best_sentences, contains_full_quote, eligible_sources, format_ambiguous, format_inserted,
     is_assistant_quote_request, is_verbatim_request, quote_features,
     recall_quote_guard, select_quote_sources, truncate_quote,
 )
@@ -36,11 +36,22 @@ def test_non_quote_requests(query):
 
 
 @pytest.mark.parametrize("query", ["ты сказал", "ТЫ МНЕ НАПИСАЛА", "ты ответил", "ты объяснял",
-                                    "ты спрашивал", "ты показывал", "ассистент", "помощник"])
+                                    "ты спрашивал", "ты показывал", "ассистент сказал", "помощник ответил",
+                                    "процитируй дословно слова помощника", "что ты мне ответил",
+                                    "что сказал ассистент", "что сказала ассистент", "ассистент ответила",
+                                    "фразу ассистента", "ответы помощника", "твоей фразы"])
 def test_assistant_requests(query):
     assert is_assistant_quote_request(query)
     check = recall_quote_guard("Дословно " + query, [source("1", "пример")], "ответ")
-    assert check == {"status": "not_applicable", "selected_source_id": None, "candidate_source_ids": ["1"]}
+    assert check["status"] == "unavailable" and check["author"] == "assistant"
+    assert check["candidate_source_ids"] == [] and check["match"] is None
+
+
+@pytest.mark.parametrize("query", ["процитируй дословно, что я сказала помощнику",
+                                    "слова, которые я написала", "ассистент", "помощник",
+                                    "помощнику сказал", "слова помощнику"])
+def test_user_requests_do_not_confuse_assistant_mentions(query):
+    assert not is_assistant_quote_request(query)
 
 
 def test_candidates_are_only_nonempty_self_report_users_in_original_order():
@@ -84,7 +95,8 @@ def test_select_leaders(question, texts, expected, leader_ids):
 def test_selected_correction_skips_even_if_model_quotes(field):
     row = source("1", "маяк", **{field: "2"})
     check = recall_quote_guard("дословно маяк", [row], "маяк")
-    assert check == {"status": "skipped_correction", "selected_source_id": "1", "candidate_source_ids": ["1"]}
+    assert check == {"status": "skipped_correction", "selected_source_id": "1", "candidate_source_ids": ["1"],
+                     "match": None, "author": "user"}
 
 
 def test_ambiguous_correction_does_not_skip_and_ids_cover_all_candidates():
@@ -155,8 +167,125 @@ def test_guard_statuses_and_exact_unavailable_template():
     assert inserted["answer"] == "Вот твоя фраза дословно (запись от 2026-11-10): «маяк»"
     unavailable = recall_quote_guard("дословно корабль", [row], "маяк")
     assert unavailable == {"status": "unavailable", "selected_source_id": None, "candidate_source_ids": ["a"],
+                           "match": None, "author": "user",
                            "answer": "В найденных репликах нет фразы, которую можно привести дословно. "
                                      "Подскажи, когда это было или о чём шла речь?"}
+
+
+def test_best_lighthouse_sentence_and_unmatched_second_sentence():
+    first_sentence, second_sentence, _ = FIRST.split(". ")
+    question_features = quote_features(RECALL)
+    assert len(question_features & quote_features(first_sentence)) == 2
+    assert len(question_features & quote_features(second_sentence)) == 1
+    assert len(question_features & quote_features(SECOND)) == 1
+    assert best_sentences(RECALL, FIRST) == [first_sentence]
+    row = source("first", FIRST)
+    first = recall_quote_guard(RECALL, [row, source("second", SECOND)], "«" + first_sentence + "»")
+    assert (first["status"], first["match"], first["selected_source_id"]) == ("model_verbatim", "sentence", "first")
+    second = recall_quote_guard(RECALL, [row, source("second", SECOND)], second_sentence)
+    assert (second["status"], second["match"]) == ("inserted", None)
+    assert FIRST in second["answer"]
+
+
+def test_sentences_minimum_words_splitting_ties_and_whitespace():
+    text = "Раз два три. Раз   два\nтри четыре! Другие четыре слова тут? Да нет."
+    assert best_sentences("дословно", text) == ["Раз два три четыре", "Другие четыре слова тут"]
+    assert best_sentences("дословно четыре", text) == ["Раз два три четыре", "Другие четыре слова тут"]
+    assert best_sentences("дословно", "Один два три. Да нет!") == []
+
+
+@pytest.mark.parametrize(("answer", "expected"), [
+    ("«Мы делили число на 10»", "sentence"),
+    ("Мы делили число на 10!", "sentence"),
+    ("Мы\nделили  число на 10?", "sentence"),
+    ("Мы делили число на 100", None),
+    ("ПреМы делили число на 10", None),
+    ("Мы делили число на 10_", None),
+    ("Мы делили число на 100. Мы делили число на 10!", "sentence"),
+    ("мы делили число на 10", None),
+])
+def test_sentence_match_requires_word_boundaries_but_not_terminal_punctuation(answer, expected):
+    rows = [source("a", "Мы делили число на 10. Потом я нарисовала дом.")]
+    assert answer_quote_match("дословно 10", answer, rows) == expected
+
+
+def test_full_match_precedes_sentence_match_across_ambiguous_leaders():
+    rows = [source("a", "Мы делили число на 10. Потом я нарисовала дом."),
+            source("b", "Мы делили число на 10.")]
+    check = recall_quote_guard("дословно 10", rows, "Мы делили число на 10.")
+    assert check["status"] == "model_verbatim" and check["match"] == "full"
+    assert check["selected_source_id"] is None
+
+
+def test_sentence_from_any_ambiguous_leader_is_accepted():
+    rows = [source("a", "Мы делили число на 10. Потом я нарисовала дом."),
+            source("b", "Мы умножали число на 10. Потом я нарисовала кота.")]
+    check = recall_quote_guard("дословно 10", rows, "Мы умножали число на 10!")
+    assert check["status"] == "model_verbatim" and check["match"] == "sentence"
+    assert check["selected_source_id"] is None
+
+
+def test_assistant_candidates_and_all_answer_templates():
+    assistant = lambda identifier, text, **extra: source(identifier, text, role="assistant", usage="context_only", **extra)
+    rows = [source("user", "Про маяк я сказала"), assistant("a", "Объяснение про маяк", activity_day="2026-11-10"),
+            source("bad", "Прочее про маяк", role="assistant", usage="self_report")]
+    question = "Процитируй дословно слова помощника про маяк"
+    inserted = recall_quote_guard(question, rows, "пересказ")
+    assert inserted["author"] == "assistant" and inserted["candidate_source_ids"] == ["a"]
+    assert inserted["answer"] == "Вот мой ответ дословно (запись от 2026-11-10): «Объяснение про маяк»"
+    assert recall_quote_guard(question, rows, "Объяснение про маяк")["match"] == "full"
+    assert format_inserted(assistant("a", "ответ"), "assistant") == "Вот мой ответ дословно: «ответ»"
+    ambiguous = recall_quote_guard("Дословно слова помощника", [assistant("a", "Один ответ"),
+                                 assistant("b", "Другой ответ")], "пересказ")
+    assert ambiguous["answer"] == ("Нашлось несколько похожих моих ответов:\n1. «Один ответ»\n"
+                                    "2. «Другой ответ»\nКакой из них ты имеешь в виду?")
+    assert ambiguous["match"] is None and ambiguous["selected_source_id"] is None
+    unavailable = recall_quote_guard(question, rows[:1], "пересказ")
+    assert unavailable["answer"] == ("В найденных репликах нет моего ответа, который можно привести дословно. "
+                                     "Подскажи, когда это было или о чём шла речь?")
+
+
+def test_assistant_shortened_output_and_correction():
+    assistant = source("a", "а" * 1000, role="assistant", usage="context_only", superseded_by="b")
+    check = recall_quote_guard("дословно слова помощника", [assistant], "пересказ")
+    assert check["status"] == "skipped_correction" and check["match"] is None
+    assistant.pop("superseded_by")
+    inserted = recall_quote_guard("дословно слова помощника", [assistant], "пересказ")
+    assert inserted["answer"] == "Вот мой ответ дословно: «" + "а" * 699 + "…»"
+    assert len(inserted["answer"]) <= 900
+    second = source("b", "б" * 1000, role="assistant", usage="context_only", activity_day="2026-11-10")
+    ambiguous = recall_quote_guard("дословно слова помощника", [assistant, second], "пересказ")
+    assert ambiguous["answer"] == ("Нашлось несколько похожих моих ответов:\n1. «" + "а" * 299
+                                    + "…»\n2. (2026-11-10) «" + "б" * 299
+                                    + "…»\nКакой из них ты имеешь в виду?")
+    assert len(ambiguous["answer"]) <= 900
+
+
+def test_social_trace_reports_assistant_sentence_without_replacing_answer():
+    import json
+    from local_app.rag import RagService
+    from local_app.runtime import OllamaRuntime
+    from tests.test_memory_trace import MaterialsStore, TracedSession, prompt_digest, recall_decision, trace_for
+    from tests.test_social_chat import Settings
+
+    row = source("a", FIRST, role="assistant", usage="context_only")
+    retrieval = {"method": "conversation_retrieval", "system_text": json.dumps([row], ensure_ascii=False),
+                 "sources": [row], "source_ids": [], "evidence_ids": [], "diagnostics": {}}
+    context = {"method": "conversation_history", "system_text": "", "recent_messages": []}
+    reply = FIRST.split(". ", 1)[0] + "!"
+    session = TracedSession(recall_decision(), reply)
+    events = []
+    service = RagService(MaterialsStore([]), OllamaRuntime(Settings(), session=session), Settings())
+    result = service.answer([{"role": "user", "content": "Процитируй дословно слова помощника с маяком"}],
+                            conversation_context=context, conversation_retriever=lambda _: retrieval,
+                            trace=trace_for(events))
+    event = next(event for event in events if event["phase"] == "answer_prompt")
+    assert result["choices"][0]["message"]["content"] == reply
+    assert event["quote_check"] == {"status": "model_verbatim", "selected_source_id": "a",
+                                    "candidate_source_ids": ["a"], "match": "sentence", "author": "assistant"}
+    assert len(session.requests) == 2
+    assert event["final_prompt"] == session.requests[-1]["messages"]
+    assert event["final_prompt_sha256"] == prompt_digest(session.requests[-1]["messages"])
 
 
 @pytest.mark.parametrize(("question", "rows", "model_answer", "status"), [
@@ -164,7 +293,7 @@ def test_guard_statuses_and_exact_unavailable_template():
     ("Дословно маяк", [source("a", "маяк 1"), source("b", "маяк 2")], "пересказ", "ambiguous"),
     ("Дословно маяк", [source("a", "мост")], "пересказ", "unavailable"),
     ("Дословно маяк", [source("a", "маяк")], "«маяк»", "model_verbatim"),
-    ("Дословно что ты сказал", [source("a", "маяк")], "пересказ", "not_applicable"),
+    ("Дословно что ты сказал", [source("a", "маяк", role="assistant", usage="context_only")], "пересказ", "inserted"),
     ("Дословно маяк", [source("a", "маяк", corrects_source_id="b")], "пересказ", "skipped_correction"),
     ("Что было с маяком?", [source("a", "маяк")], "пересказ", None),
 ])
@@ -195,6 +324,8 @@ def test_social_service_result_and_trace(question, rows, model_answer, status):
     else:
         assert event["quote_check"]["status"] == status
         assert event["quote_check"]["candidate_source_ids"] == [row["source_id"] for row in rows]
+        assert event["quote_check"]["match"] == ("full" if status == "model_verbatim" else None)
+        assert event["quote_check"]["author"] == ("assistant" if "ты сказал" in question else "user")
     if status in {"inserted", "ambiguous", "unavailable"}:
         reason = "verbatim_quote_" + status
         assert result["answer_routing"] == {"backend": "deterministic_local", "reason": reason,

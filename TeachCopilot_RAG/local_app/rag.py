@@ -1106,7 +1106,7 @@ class RagService:
                 text = quote_check["answer"]
             if quote_check is not None:
                 quote_check = {key: quote_check[key] for key in
-                               ("status", "selected_source_id", "candidate_source_ids")}
+                               ("status", "selected_source_id", "candidate_source_ids", "match", "author")}
         if trace is not None:
             hydrated = (self._conversation_hydrated_quotes(conversation_retrieval)
                         + self._memory_hydrated_quotes(memory_context))
