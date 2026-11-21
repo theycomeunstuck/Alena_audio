@@ -716,6 +716,23 @@ def retrieve_conversation_context(store, runtime, learner_id, actor_id, question
             if signal["top_semantic"] < ABSENCE_PROVISIONAL_TOP1:
                 signal["abstained"], hits = True, []
     text, quotes, selected_hits, selection_diagnostics = _select_quotes(hits[:12], filtered, budget_bytes)
+    correction_reader = getattr(store, "memory_source_correction_refs", None)
+    correction_refs = {}
+    if callable(correction_reader):
+        try:
+            correction_refs = correction_reader(learner_id, [quote["source_id"] for quote in quotes])
+            result["diagnostics"]["correction_refs_status"] = "ok"
+        except DatabaseError:
+            result["diagnostics"]["correction_refs_status"] = "unavailable"
+    else:
+        result["diagnostics"]["correction_refs_status"] = "not_supported"
+    superseded_by = {message["source_id"]: message["superseded_by"]
+                     for message in filtered if message.get("superseded_by")}
+    for quote in quotes:
+        if quote["source_id"] in correction_refs:
+            quote["corrects_source_id"] = correction_refs[quote["source_id"]]
+        if quote["source_id"] in superseded_by:
+            quote["superseded_by"] = superseded_by[quote["source_id"]]
     # Classification is an explicit rebuild operation. Retrieval keeps working
     # while a new global recipe leaves this scope pending or storage is absent.
     if callable(getattr(store, "_connect", None)):
