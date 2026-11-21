@@ -496,6 +496,19 @@ def live(args: argparse.Namespace) -> dict[str, Any]:
     }
 
 
+def write_report_atomically(output_path: Path, rendered: str) -> None:
+    """Audit F-077: --output holds the resumable checkpoint of a possibly
+    hours-long run; the final report used to truncate it in place. Write it
+    through a temp file and replace, like checkpoint()."""
+    temporary = output_path.with_name(output_path.name + ".tmp")
+    try:
+        temporary.write_text(rendered + "\n", encoding="utf-8")
+        temporary.replace(output_path)
+    except BaseException:
+        temporary.unlink(missing_ok=True)
+        raise
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -532,7 +545,7 @@ def main() -> None:
     rendered = json.dumps(report, ensure_ascii=False, indent=2)
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)
-        args.output.write_text(rendered + "\n", encoding="utf-8")
+        write_report_atomically(args.output, rendered)
     rendered_for_stdout = rendered
     reconfigure = getattr(sys.stdout, "reconfigure", None)
     if callable(reconfigure):

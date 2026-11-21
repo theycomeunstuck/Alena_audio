@@ -73,6 +73,17 @@ def normalized(value, aliases):
     return value
 
 
+def should_drop_database(*, created: bool, keep_database: bool, reused: bool, status: str) -> bool:
+    """Audit F-077: a regression run reuses the database the original run
+    retained (--keep-database) and advertised in its report.json; dropping it
+    when the regression failed left that report pointing at a removed database
+    and destroyed the state needed to investigate. A reused database is now
+    dropped only after a regression that did not fail."""
+    if not created or keep_database:
+        return False
+    return not (reused and status == "failed")
+
+
 def require_owned_database(database):
     if not re.fullmatch(re.escape(DATABASE_PREFIX) + r"[0-9a-f]{12}", database):
         raise ValueError("Refusing a database outside the runner's exact namespace")
@@ -724,7 +735,8 @@ def run(args):
         report["status"] = "failed"
         report["fatal_error"] = {"type": type(exc).__name__, "message": str(exc)}
     finally:
-        if created and not args.keep_database:
+        if should_drop_database(created=created, keep_database=args.keep_database,
+                                reused=bool(previous), status=report.get("status", "failed")):
             require_owned_database(database)
             with admin.cursor() as cursor:
                 cursor.execute("SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname=%s AND pid<>pg_backend_pid()", (database,))

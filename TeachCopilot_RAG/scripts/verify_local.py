@@ -17,6 +17,27 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 
+# Audit F-077: a hung test (for example a browser acceptance test whose server
+# never comes up) used to block verification forever. The full suite takes
+# about 15 minutes locally; one hour is a generous finite bound.
+CHECK_TIMEOUT_SECONDS = 3600
+
+
+def run_check(command: list[str], *, env, timeout: float) -> tuple[str, int]:
+    """Run one verification subprocess; a timeout is reported as exit code 124
+    with the partial output, as scripts/verify_memory.py already does."""
+    try:
+        result = subprocess.run(command, cwd=ROOT, env=env, capture_output=True,
+                                text=True, encoding="utf-8", errors="replace", timeout=timeout)
+        return result.stdout + result.stderr, result.returncode
+    except subprocess.TimeoutExpired as exc:
+        output = f"Verification process exceeded its finite timeout of {timeout} s.\n"
+        for value in (exc.stdout, exc.stderr):
+            if value:
+                output += value.decode("utf-8", errors="replace") if isinstance(value, bytes) else value
+        return output, 124
+
+
 def run_checks(include_ui: bool = False) -> dict:
     import psycopg2
     from psycopg2 import sql
@@ -48,14 +69,10 @@ def run_checks(include_ui: bool = False) -> dict:
     report = {"created_at": datetime.now(timezone.utc).isoformat(), "ui_requested": include_ui, "checks": []}
 
     def execute(name: str, command: list[str]) -> None:
-        result = subprocess.run(
-            command, cwd=ROOT, env=env, capture_output=True,
-            text=True, encoding="utf-8", errors="replace",
-        )
+        output, returncode = run_check(command, env=env, timeout=CHECK_TIMEOUT_SECONDS)
         log = report_dir / (name + ".log")
-        output = result.stdout + result.stderr
         log.write_text(output, encoding="utf-8")
-        item = {"name": name, "passed": result.returncode == 0, "exit_code": result.returncode, "log": str(log.relative_to(ROOT))}
+        item = {"name": name, "passed": returncode == 0, "exit_code": returncode, "log": str(log.relative_to(ROOT))}
         if name == "pytest":
             match = re.search(r"(\d+) passed", output)
             item["passed_tests"] = int(match.group(1)) if match else 0
