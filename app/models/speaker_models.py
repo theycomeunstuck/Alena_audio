@@ -7,8 +7,8 @@ class VerifyResponse(BaseModel):
 
 class TrainMicResponse(BaseModel):
     user_id: str = Field(..., description="uuid4 Пользователя")
-    wav_path: str = Field(..., description="Путь к референс-файлу .wav")
-    npy_path: str = Field(..., description="Путь к эмбеддинг-файлу .npy")
+    wav_path: str = Field(..., description="Путь к референс-файлу .wav относительно STORAGE_DIR")
+    npy_path: str = Field(..., description="Путь к эмбеддинг-файлу .npy относительно STORAGE_DIR")
 
 
 class MultiVerifyMatch(BaseModel):

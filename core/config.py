@@ -31,7 +31,7 @@ if True:
     # Отключаем предупреждения Whisper, PyTorch, SpeechBrain
     warnings.filterwarnings("ignore", category=UserWarning, message=".*FP16 is not supported on CPU; using FP32 instead.*", module="whisper")
     warnings.filterwarnings("ignore", category=UserWarning, message=".*Module 'speechbrain.pretrained' was deprecated.*")
-    warnings.filterwarnings("ignore", category=FutureWarning, message=".*weights_only=False.*")
+    # Audit F-066: the torch weights_only=False (pickle loading) FutureWarning stays visible.
     warnings.filterwarnings("ignore", message=".*SwigPy.*", category=DeprecationWarning)
     warnings.filterwarnings("ignore", category=UserWarning, module=r"^speechbrain\.utils\.parameter_transfer$")
     warnings.filterwarnings("ignore", message="TypedStorage is deprecated", category=UserWarning, module="torch._utils")
