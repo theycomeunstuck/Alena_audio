@@ -31,6 +31,10 @@ from pipeline.config import DEFAULT_CHILD_ID, PROFILE_UPDATE_INTERVAL, SPEAKER_M
 
 logger = logging.getLogger(__name__)
 _CHILD_RE = re.compile(r"^\[child_id:([^\]]+)\]\s*", re.IGNORECASE)
+# Audit F-058: inlet strips the prefix before the model sees it, and outlet runs
+# on the same body – so inlet records the child it resolved under this key and
+# outlet reads it first (still re-checked by _prefix_authorized).
+RESOLVED_CHILD_KEY = "teachcopilot_child_id"
 
 
 def _child_id_from_prefix(messages: list) -> str:
@@ -136,6 +140,8 @@ class Filter:
                 messages.insert(0, {"role": "system", "content": system})
 
             body["messages"] = messages
+            if child_id:
+                body[RESOLVED_CHILD_KEY] = child_id
             logger.info("Filter OK: child_id=%s speaker=%s rag=%d",
                        child_id, speaker_type, len(rag))
         except Exception:
@@ -156,7 +162,9 @@ class Filter:
             # a prefix-driven session would update DEFAULT_CHILD_ID or nothing.
             # F-014: an unauthorized prefix child must never receive writes –
             # fall through to the same resolution inlet used.
-            child_id = _child_id_from_prefix(messages)
+            # F-058: inlet already stripped the prefix from this body; prefer the
+            # child it recorded, then a prefix that survived (older clients).
+            child_id = str(body.get(RESOLVED_CHILD_KEY) or "") or _child_id_from_prefix(messages)
             speaker_type = "child"
             owui_user_id = (user or {}).get("id", "")
             if child_id and not _prefix_authorized(owui_user_id, child_id):
