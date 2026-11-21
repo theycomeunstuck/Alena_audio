@@ -546,6 +546,12 @@ class MemoryStoreMixin:
             return _row(cur.fetchone())
 
     def get_learning_session(self, session_id, learner_id=None):
+        # Audit F-074: a malformed id used to reach the uuid cast and surface as
+        # a misleading 502 from the chat endpoint; no such session exists.
+        try:
+            UUID(str(session_id))
+        except (ValueError, TypeError, AttributeError):
+            return None
         with self._connect() as conn, conn.cursor() as cur:
             query = "SELECT * FROM teachcopilot.learning_sessions WHERE id=%s"
             values = [session_id]

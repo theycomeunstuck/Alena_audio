@@ -2060,13 +2060,6 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None, chat_r
                or len(message["content"]) > 12000 for message in clean_messages):
             raise HTTPException(status_code=422, detail="message content must be nonempty text within 12000 characters")
         learning_session_id = payload.get("learning_session_id") or meta.get("learning_session_id")
-        if learning_session_id:
-            # Audit F-074: a malformed id reached PostgreSQL's uuid cast and came
-            # back as a misleading 502 "chat service returned an error".
-            try:
-                UUID(str(learning_session_id))
-            except (ValueError, TypeError, AttributeError) as exc:
-                raise HTTPException(status_code=422, detail="learning_session_id must be a UUID") from exc
         client_message_id = payload.get("client_message_id") or meta.get("client_message_id")
         checkin_id = meta.get("checkin_id")
         if checkin_id is not None:

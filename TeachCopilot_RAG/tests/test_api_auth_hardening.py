@@ -72,15 +72,9 @@ def test_chat_accepts_a_list_at_the_limit():
     assert not (response.status_code == 422 and str(MAX_CHAT_MESSAGES) in str(response.json().get("detail")))
 
 
-@pytest.mark.parametrize("field", ["learning_session_id", "metadata"])
-def test_malformed_learning_session_id_is_a_422_not_a_fake_502(field):
-    store = _FakeApiStore()
-    client, headers = _make_client(store)
-    payload = {"learner_id": "learner-a", "client_message_id": "m-1", "messages": _messages(1)}
-    if field == "metadata":
-        payload["metadata"] = {"learning_session_id": "not-a-uuid"}
-    else:
-        payload["learning_session_id"] = "not-a-uuid"
-    response = client.post("/v1/chat/completions", headers=headers, json=payload)
-    assert response.status_code == 422, response.text
-    assert "learning_session_id" in response.json()["detail"]
+def test_malformed_learning_session_id_is_not_found_instead_of_a_db_error(disposable_store):
+    """The malformed id reached PostgreSQL's uuid cast; the chat endpoint mapped
+    the resulting DataError to a misleading 502. The lookup now answers
+    "no such session", so the endpoint returns its ordinary 404."""
+    assert disposable_store.get_learning_session("not-a-uuid", "learner-a") is None
+    assert disposable_store.get_learning_session("00000000-0000-4000-8000-000000000099") is None
