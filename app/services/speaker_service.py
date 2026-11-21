@@ -16,6 +16,24 @@ from core.config import TRAIN_USER_VOICE_S, EMBEDDINGS_DIR, SAMPLE_RATE, sim_thr
 _ENCODER: Optional[EncoderClassifier] = None
 
 
+def atomic_save_npy(path: Path, array: np.ndarray) -> None:
+    """Audit F-064: write <path> through a temp file in the same directory and
+    os.replace it, so a crash never leaves a torn .npy in the speaker registry.
+    The temp name does not end in .npy, so registry scans never pick it up."""
+    path = Path(path)
+    tmp = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
+    try:
+        with open(tmp, "wb") as fh:
+            np.save(fh, array)
+        os.replace(tmp, path)
+    except BaseException:
+        try:
+            tmp.unlink()
+        except FileNotFoundError:
+            pass
+        raise
+
+
 # --- Audit F-021 / F-021b / F-026 helpers: strict resource ids and per-request temp files ---
 
 # Anything interpolated into a filesystem path (EMBEDDINGS_DIR/<id>.npy,
@@ -153,7 +171,7 @@ class SpeakerService:
         emb = emb.detach().cpu()  # если уже float32 — отлично
         if emb.dtype != torch.float32:
             emb = emb.to(torch.float32)  # привести один раз в torch
-        np.save(out_npy_path, emb.numpy())
+        atomic_save_npy(out_npy_path, emb.numpy())
 
 
         return {"user_id": user_id, "wav_path": str(out_wav_path), "npy_path": str(out_npy_path)}
@@ -187,10 +205,7 @@ class SpeakerService:
         emb = torch.nn.functional.normalize(emb, p=2, dim=-1, eps=1e-12).float() # L2-norm
 
         emb = emb.detach()
-        np.save(
-            out_npy_path,
-            emb.cpu().numpy().astype(np.float32)
-        )
+        atomic_save_npy(out_npy_path, emb.cpu().numpy().astype(np.float32))
 
 
 
