@@ -13,7 +13,8 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field, StrictBool
 
-from local_app.auth import hash_password, hash_session_token, new_session_token, session_expiry, verify_password
+from local_app.auth import (dummy_password_hash, hash_password, hash_session_token, new_session_token,
+                            session_expiry, verify_password)
 
 logger = logging.getLogger("teachcopilot")
 WEB_ROOT = Path(__file__).resolve().parents[1] / "web"
@@ -37,6 +38,10 @@ def _is_generation_capacity(exc: Exception) -> bool:
 # (F-035), so the number of concurrent waiters is bounded; excess requests get
 # an immediate 503 instead of silently queueing behind the cap.
 CHAT_ADMISSION_WAITER_CAP = 40
+# Audit F-074: /v1/chat/completions accepted an unbounded message list (each
+# item up to 12000 characters). The web client sends one message per turn;
+# OpenAI-style clients that resend history stay well under this cap.
+MAX_CHAT_MESSAGES = 200
 _chat_admission_waiters = 0
 _chat_admission_lock = threading.Lock()
 
@@ -1280,8 +1285,11 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None, chat_r
     @app.post("/auth/login")
     def login(request: LoginRequest):
         account = store.get_account(email=request.email.strip().lower())
-        encoded = account.get("password_hash", "") if account else ""
-        if not account or not account.get("active", True) or not verify_password(request.password, encoded):
+        usable = bool(account) and account.get("active", True) and bool(account.get("password_hash"))
+        # Audit F-074: unknown or inactive emails used to skip PBKDF2 and answer
+        # measurably faster. Every attempt now costs exactly one password hash.
+        password_ok = verify_password(request.password, account["password_hash"] if usable else dummy_password_hash())
+        if not usable or not password_ok:
             raise HTTPException(status_code=401, detail="invalid email or password")
         return issue_login_session(account)
 
@@ -2041,6 +2049,8 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None, chat_r
             messages = [{"role": "user", "content": action_text}]
         if not isinstance(messages, list):
             raise HTTPException(status_code=422, detail="messages must be an array")
+        if len(messages) > MAX_CHAT_MESSAGES:
+            raise HTTPException(status_code=422, detail=f"messages must contain at most {MAX_CHAT_MESSAGES} items")
         # Preserve only chat roles and content. Ignore client model, tools, sampling
         # controls, learner identity overrides and other upstream fields.
         clean_messages = [{"role": message.get("role"), "content": message.get("content")} for message in messages if isinstance(message, dict) and message.get("role") in {"user", "assistant"}]
@@ -2050,6 +2060,13 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None, chat_r
                or len(message["content"]) > 12000 for message in clean_messages):
             raise HTTPException(status_code=422, detail="message content must be nonempty text within 12000 characters")
         learning_session_id = payload.get("learning_session_id") or meta.get("learning_session_id")
+        if learning_session_id:
+            # Audit F-074: a malformed id reached PostgreSQL's uuid cast and came
+            # back as a misleading 502 "chat service returned an error".
+            try:
+                UUID(str(learning_session_id))
+            except (ValueError, TypeError, AttributeError) as exc:
+                raise HTTPException(status_code=422, detail="learning_session_id must be a UUID") from exc
         client_message_id = payload.get("client_message_id") or meta.get("client_message_id")
         checkin_id = meta.get("checkin_id")
         if checkin_id is not None:
