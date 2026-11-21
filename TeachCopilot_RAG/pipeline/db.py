@@ -11,6 +11,11 @@ def get_connection():
     return psycopg2.connect(DATABASE_URL, cursor_factory=psycopg2.extras.RealDictCursor)
 
 
+class ProfileUnavailable(RuntimeError):
+    """The profile store could not be read (audit F-059). Distinct from a child
+    that simply has no profile, which is still returned as None."""
+
+
 def get_child_full_profile(child_id: str) -> dict | None:
     sql = """
         SELECT
@@ -47,9 +52,11 @@ def get_child_full_profile(child_id: str) -> dict | None:
                 row = cur.fetchone()
                 logger.debug("Profile loaded for child_id=%s", child_id)
                 return dict(row) if row else None
-    except Exception:
+    except Exception as exc:
+        # Audit F-059: a failure used to become None – indistinguishable from
+        # "no such child" – and personalization disappeared silently.
         logger.exception("DB error for child_id=%s", child_id)
-        return None
+        raise ProfileUnavailable(f"profile store unavailable for child_id={child_id}") from exc
 
 
 def insert_test_child():

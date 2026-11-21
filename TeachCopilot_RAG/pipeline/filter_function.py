@@ -20,7 +20,7 @@ Speaker mode is controlled by TEACHCOPILOT_SPEAKER_MODE:
 """
 import os, re, logging
 from contextlib import closing
-from pipeline.db import get_child_full_profile, get_connection
+from pipeline.db import ProfileUnavailable, get_child_full_profile, get_connection
 from pipeline.rag import search_knowledge
 from pipeline.prompt_builder import build_system_prompt, BASE_SYSTEM_PROMPT
 from pipeline.profile_agent import (
@@ -35,6 +35,9 @@ _CHILD_RE = re.compile(r"^\[child_id:([^\]]+)\]\s*", re.IGNORECASE)
 # on the same body – so inlet records the child it resolved under this key and
 # outlet reads it first (still re-checked by _prefix_authorized).
 RESOLVED_CHILD_KEY = "teachcopilot_child_id"
+# Audit F-059: set to "unavailable" when the profile store could not be read and
+# the answer was built without personalization.
+PROFILE_STATUS_KEY = "teachcopilot_profile_status"
 
 
 def _child_id_from_prefix(messages: list) -> str:
@@ -129,7 +132,15 @@ class Filter:
                 child_id, speaker_type = _resolve_child_id(owui_user_id)
 
             query   = (last_user or {}).get("content", "")
-            profile = get_child_full_profile(child_id) if child_id else None
+            profile = None
+            if child_id:
+                try:
+                    profile = get_child_full_profile(child_id)
+                except ProfileUnavailable:
+                    # F-059: degrade explicitly – base prompt, logged and marked.
+                    logger.error("Profile store unavailable for child_id=%s – answering "
+                                 "without personalization", child_id)
+                    body[PROFILE_STATUS_KEY] = "unavailable"
             rag     = search_knowledge(query) if query else []
             system  = build_system_prompt(BASE_SYSTEM_PROMPT, profile, rag,
                                           speaker_type=speaker_type)
