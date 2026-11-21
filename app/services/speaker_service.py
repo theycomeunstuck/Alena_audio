@@ -124,12 +124,20 @@ class SpeakerService:
 
             emb_p = embed_speechbrain(probe)
             emb_r = embed_speechbrain(ref)
-
+            # audit F-065: embed_speechbrain returns None for an empty/silent
+            # signal – that is a bad recording (400), not a server fault.
+            if emb_p is None:
+                raise ValueError("В образце нет сигнала для сравнения – запишите голос ещё раз")
+            if emb_r is None:
+                raise ValueError("В эталоне нет сигнала для сравнения – выберите другой файл")
 
             sb_score = float(F.cosine_similarity(emb_p.unsqueeze(0), emb_r.unsqueeze(0)).item())
             sb_decision = bool(sb_score >= sim_threshold)  # пример порога
+        except ValueError:
+            # audit F-065: keep client errors as ValueError so the route maps them to 400.
+            raise
         except Exception as e:
-            raise Exception(f"app/service/speaker_service:: verify_files()\n{e}")
+            raise RuntimeError("speaker verification failed") from e
 
         result = {
             "score": sb_score,
