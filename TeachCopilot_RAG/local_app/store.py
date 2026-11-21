@@ -23,10 +23,16 @@ class IndexNotReadyError(RuntimeError):
 class StaleMaterialSnapshotError(RuntimeError):
     """Materials changed after embeddings were calculated for their snapshot."""
 
+CONNECT_TIMEOUT_SECONDS = 5
+
 @contextmanager
 def connect(dsn: str):
-    options = parse_dsn(dsn).get("options", "") + " -c timezone=UTC"
-    conn = psycopg2.connect(dsn, cursor_factory=RealDictCursor, options=options.strip())
+    params = parse_dsn(dsn)
+    options = params.get("options", "") + " -c timezone=UTC"
+    # Audit F-073: fail fast instead of hanging on an unreachable remote DSN
+    # (matching GenerationScheduler); an explicit DSN connect_timeout wins.
+    timeout = {} if "connect_timeout" in params else {"connect_timeout": CONNECT_TIMEOUT_SECONDS}
+    conn = psycopg2.connect(dsn, cursor_factory=RealDictCursor, options=options.strip(), **timeout)
     try:
         yield conn
         conn.commit()

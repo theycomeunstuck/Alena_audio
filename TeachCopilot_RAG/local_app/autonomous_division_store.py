@@ -233,22 +233,30 @@ def _has_corrected_source(cur, learner_id, source_ids):
     return cur.fetchone() is not None
 
 
+def available_actions(state, resume_required=False):
+    """Actions the protocol accepts next for this state."""
+    if state["status"] == "completed":
+        # Audit F-073: transition() rejects "switch" for a completed example, so
+        # the action limit must not override "next" here.
+        return ["next"]
+    if resume_required:
+        actions = ["resume", "switch"]
+    elif state["status"] == "paused":
+        actions = ["resume", "switch"]
+    else:
+        actions = ["answer", "explain", "show_step", "pause", "switch"]
+    if state["actions_used"] >= division.MAX_ACTIONS_PER_EXAMPLE:
+        actions = ["switch"]
+    return actions
+
+
 def public_context(context):
     state = context.get("_state")
     if not context.get("available"):
         return {"learning_protocol": division.VERSION, "available": False,
                 "reason": context.get("reason", "no_saved_autonomous_step")}
     public = division.public_state(state)
-    if context.get("resume_required"):
-        actions = ["resume", "switch"] if state["status"] != "completed" else ["next"]
-    elif state["status"] == "paused":
-        actions = ["resume", "switch"]
-    elif state["status"] == "completed":
-        actions = ["next"]
-    else:
-        actions = ["answer", "explain", "show_step", "pause", "switch"]
-    if state["actions_used"] >= division.MAX_ACTIONS_PER_EXAMPLE:
-        actions = ["switch"]
+    actions = available_actions(state, resume_required=bool(context.get("resume_required")))
     return {"learning_protocol": division.VERSION, "available": True,
             "state": public, "prompt": context["prompt"],
             "resume_required": bool(context.get("resume_required")),
