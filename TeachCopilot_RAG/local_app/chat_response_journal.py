@@ -105,6 +105,14 @@ class ChatResponseJournal:
             connection = sqlite3.connect(self.path.as_uri() + ("?mode=rwc" if write else "?mode=ro"),
                                          uri=True, isolation_level=None, timeout=5)
             connection.row_factory = sqlite3.Row
+            if write:
+                # Audit F-072: the journal holds full child chat payloads. mkdir's
+                # mode is ignored for an existing directory and sqlite3 uses the
+                # umask, so restrict the file and its sidecars explicitly.
+                for private in (self.path, *(self.path.with_name(self.path.name + suffix)
+                                             for suffix in ("-wal", "-shm", "-journal"))):
+                    if private.exists():
+                        os.chmod(private, 0o600)
             connection.execute("PRAGMA foreign_keys=ON")
             if write:
                 connection.execute("PRAGMA synchronous=FULL")

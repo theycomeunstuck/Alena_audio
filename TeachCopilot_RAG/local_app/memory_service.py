@@ -493,8 +493,22 @@ class MemoryWorker:
                 if source.get("session_end_context_omitted"):
                     selection_events.append({"event": "session_end_context_omitted",
                         "source_id": str(source.get("source_id")), **source["session_end_context_omitted"]})
+            tail_sources = sources
+            if update_failure is not None:
+                # Audit F-072: the restored fallback state predates the current
+                # archive. A teacher correction that arrived after it referenced
+                # a turn missing from the restored blocks and failed the whole
+                # job; the stale tail is served from the sources it contains.
+                restored = {str(source_id) for source_id, _ in memory.blocks}
+                tail_sources = [row for row in sources
+                                if str(row.get("source_id") or row.get("turn_id")) in restored]
+                later_corrections = [str(row.get("source_id") or row.get("turn_id")) for row in sources
+                                     if row.get("corrects_source_id") and row not in tail_sources]
+                if later_corrections:
+                    selection_events.append({"event": "fallback_correction_after_version",
+                                             "source_ids": later_corrections})
             selected.text, selected.evidence_ids, dialogue_context = _tail_with_dialogue_context(
-                memory, sources, selection_events=selection_events, session_end_context=session_end_context)
+                memory, tail_sources, selection_events=selection_events, session_end_context=session_end_context)
         if method == "structured_v2":
             context_metadata = {"record_schema_version": 2,
                                 "selection_events": deepcopy(memory.events),
