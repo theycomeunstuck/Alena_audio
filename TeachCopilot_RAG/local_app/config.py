@@ -37,7 +37,10 @@ class Settings:
     ollama_url: str = "http://127.0.0.1:11435"
     chat_model: str = "gemma4:12b"
     embedding_model: str = "bge-m3"
-    context_tokens: int = 8192
+    # 16384 is the documented minimum for the personal-memory chat path: at 8192
+    # the resolver prompt alone leaves no room for prior learner questions
+    # (user decision 2026-11-22). LOCAL_CONTEXT_TOKENS overrides it.
+    context_tokens: int = 16384
     request_timeout: float = 180.0
     max_output_tokens: int = 1024
     session_hours: int = 12
@@ -101,7 +104,7 @@ class Settings:
             ollama_url=os.getenv("OLLAMA_URL", cls.ollama_url),
             chat_model=os.getenv("LOCAL_CHAT_MODEL", cls.chat_model),
             embedding_model=os.getenv("LOCAL_EMBEDDING_MODEL", cls.embedding_model),
-            context_tokens=int(os.getenv("LOCAL_CONTEXT_TOKENS", "8192")),
+            context_tokens=int(os.getenv("LOCAL_CONTEXT_TOKENS", str(cls.context_tokens))),
             request_timeout=float(os.getenv("LOCAL_REQUEST_TIMEOUT", "180")),
             max_output_tokens=int(os.getenv("LOCAL_MAX_OUTPUT_TOKENS", "1024")),
             session_hours=int(os.getenv("LOCAL_SESSION_HOURS", "12")),

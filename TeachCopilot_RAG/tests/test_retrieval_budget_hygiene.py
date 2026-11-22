@@ -27,12 +27,17 @@ import pytest
 
 from local_app.memory_store import MemoryStoreMixin
 from local_app.rag import RagService
+from local_app.config import Settings
 from local_app.runtime import OllamaRuntime
 
 TEACHCOPILOT_RAG = Path(__file__).resolve().parents[1]
 
 ANCHOR_BUDGET = 4000
 CONTEXT_TOKENS = 8192
+# The resolver checks run at the configured default context. The personal-memory
+# resolver needs at least 16384 tokens (user decision 2026-11-22: default 16384);
+# at 8192 its prompt alone left no room for prior learner questions.
+RESOLVER_CONTEXT_TOKENS = Settings.context_tokens
 
 
 # ---------------------------------------------------------------------------
@@ -220,7 +225,7 @@ class _DeadSession:
 class _ResolverSettings:
     ollama_url = "http://127.0.0.1:9"
     request_timeout = 2
-    context_tokens = CONTEXT_TOKENS
+    context_tokens = RESOLVER_CONTEXT_TOKENS
     max_output_tokens = 1024
     chat_model = "stub-chat"
     embedding_model = "stub-embed"
@@ -283,7 +288,7 @@ def test_resolver_reservation_covers_late_system_appends():
     base_system_bytes = _base_resolver_system_bytes()
     mandatory = (base_system_bytes + len(_OWN_SUMMARY.encode("utf-8"))
                  + len(_CURRENT.encode("utf-8")) + len(_APPROVED["text"].encode("utf-8")))
-    remaining = max(0, (CONTEXT_TOKENS - 256) * 2 - mandatory - 2400)
+    remaining = max(0, (RESOLVER_CONTEXT_TOKENS - 256) * 2 - mandatory - 2400)
     assert remaining > 0, "test sizing expects a nonzero admission budget"
 
     per_prior = remaining // 2
@@ -324,3 +329,12 @@ def test_resolver_still_admits_priors_that_fit_the_measured_budget():
     assert len(admitted) == 2, (
         "the reservation must not become so conservative that fitting priors "
         "are all dropped (admitted %d of 2)" % len(admitted))
+
+
+def test_default_context_is_16k_for_the_personal_memory_resolver(monkeypatch):
+    """User decision 2026-11-22: the default context is 16384 – the documented
+    minimum for the personal-memory chat path."""
+    monkeypatch.delenv("LOCAL_CONTEXT_TOKENS", raising=False)
+    monkeypatch.setattr("dotenv.load_dotenv", lambda *args, **kwargs: False)  # ignore a local .local.env
+    assert Settings.context_tokens == 16384
+    assert Settings.from_env().context_tokens == 16384
