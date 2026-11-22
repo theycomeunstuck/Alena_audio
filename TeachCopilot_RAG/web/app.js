@@ -526,6 +526,100 @@
     });
     weekCard.append(archive); root.append(weekCard);
   }
+  function maskAssistantQuotes(text) {
+    // Keep offsets into the original text, including line breaks inside quotes.
+    const parts = [];
+    let depth = 0, start = 0, cursor = 0;
+    for (const match of text.matchAll(/[«»]/g)) {
+      if (match[0] === '«') {
+        if (depth === 0) start = match.index;
+        depth++;
+      } else if (depth && --depth === 0) {
+        const end = match.index + 1;
+        parts.push(text.slice(cursor, start), 'x'.repeat(end - start));
+        cursor = end;
+      }
+    }
+    parts.push(depth ? text.slice(cursor, start) + 'x'.repeat(text.length - start) : text.slice(cursor));
+    return parts.join('');
+  }
+  function appendAssistantInline(parent, text, syntax) {
+    const code = /(?<code>(?<!`)`[^`]+`(?!`))/;
+    const stars = /(?<stars>(?<!\*)\*{1,2}(?!\*))(?=\S).+?(?<=\S)(?<!\*)\k<stars>(?!\*)/;
+    const underscore = /(?<![\p{L}\p{N}_])_(?!_)(?=\S).+?(?<=\S)(?<!_)_(?![\p{L}\p{N}_])/;
+    const inline = new RegExp(`${code.source}|${stars.source}|${underscore.source}`, 'gsu');
+    let cursor = 0;
+    for (const match of syntax.matchAll(inline)) {
+      const end = match.index + match[0].length;
+      if (cursor < match.index) parent.append(text.slice(cursor, match.index));
+      const width = match.groups.stars?.length || 1;
+      const body = text.slice(match.index + width, end - width);
+      if (match.groups.code) parent.append(el('code', '', body));
+      else {
+        const emphasis = el(width === 2 ? 'strong' : 'em');
+        appendAssistantInline(emphasis, body, syntax.slice(match.index + width, end - width));
+        parent.append(emphasis);
+      }
+      cursor = end;
+    }
+    if (cursor < text.length) parent.append(text.slice(cursor));
+  }
+  function renderAssistantReply(text = '') {
+    const root = el('div', 'assistant-markdown');
+    // The quote guard can splice in arbitrary source text. Its archived replies
+    // can be recognized by the headings from local_app/recall_quote_guard.py.
+    const quoteGuardReply = /^(?:Вот (?:твоя фраза|мой ответ) дословно(?: \(запись от \d{4}-\d{2}-\d{2}\))?|Нашлось несколько похожих (?:фраз|моих ответов)):/;
+    if (quoteGuardReply.test(text)) {
+      root.textContent = text;
+      return root;
+    }
+
+    let paragraph = null, list = null;
+    for (const match of maskAssistantQuotes(text).matchAll(/([^\r\n]*)(?:\r\n?|\n|$)/g)) {
+      const line = match[1];
+      if (!line.trim()) {
+        paragraph = list = null;
+        continue;
+      }
+      const heading = /^[ \t]{0,3}#{1,3}[ \t]+/.exec(line);
+      const item = /^[ \t]{0,3}(?:[-*•]|(\d{1,9})[.)])[ \t]+/.exec(line);
+      const prefixLength = (heading || item)?.[0].length || 0;
+      let node;
+      if (heading) {
+        paragraph = list = null;
+        const row = el('p');
+        node = el('strong');
+        row.append(node);
+        root.append(row);
+      } else if (item) {
+        paragraph = null;
+        const tag = item[1] ? 'ol' : 'ul';
+        if (list?.localName !== tag) {
+          list = el(tag);
+          if (item[1]) list.start = Number(item[1]);
+          root.append(list);
+        }
+        node = el('li');
+        list.append(node);
+      } else {
+        list = null;
+        if (paragraph) paragraph.append('\n');
+        else {
+          paragraph = el('p');
+          root.append(paragraph);
+        }
+        node = paragraph;
+      }
+
+      const body = text.slice(match.index + prefixLength, match.index + line.length);
+      const syntax = line.slice(prefixLength).replace(
+        /(?<!`)`[^`]+`(?!`)|\[[^\]]*\]\((?:[^()]|\([^()]*\))*\)/g,
+        literal => literal.startsWith('`') ? '`' + 'x'.repeat(literal.length - 2) + '`' : 'x'.repeat(literal.length)
+      );
+      appendAssistantInline(node, body, syntax);
+    }
+    return root;
+  }
   function ownArchiveCurrent(view) {
     return view && view === ownArchiveViews.get(state.learnerId) && view.token === state.token && view.revision === state.viewRevision && state.account?.role === 'student';
   }
@@ -540,7 +634,9 @@
     view.messages.forEach(message => {
       const row = el('article', `chat-bubble ${message.role === 'user' ? 'user' : 'assistant'}`);
       row.id = `own-source-${encodeURIComponent(String(message.source_id))}`; row.tabIndex = -1;
-      row.append(el('small', 'field-hint', message.role === 'user' ? 'Ты' : 'Помощник'), el('p', 'memory-text', message.content || message.text));
+      const text = message.content || message.text;
+      row.append(el('small', 'field-hint', message.role === 'user' ? 'Ты' : 'Помощник'),
+        message.role === 'assistant' ? renderAssistantReply(text) : el('p', 'memory-text', text));
       if (message.created_at) {
         const time = el('time', 'conversation-message-time', formatDisplayDate(message.created_at, { year:'numeric', hour:'2-digit', minute:'2-digit', second:'2-digit' }));
         time.dateTime = message.created_at; time.title = `${message.created_at} · ${displayTimezone()}`; row.append(time);
@@ -1289,12 +1385,12 @@
     const confirm = el('button', 'button primary wide', 'Подтвердить изменение профиля'); confirm.type = 'button'; confirm.addEventListener('click', () => busy(confirm, async () => { await request(`/lessons/proposals/${encodeURIComponent(data.proposal_id || state.proposal)}/confirm`, { method: 'POST' }); toast('Изменение подтверждено'); box.hidden = true; await selectLearner(state.learnerId); })); box.append(confirm);
   }
   function chatBubble(role, text, tool) {
-    const bubble = el('div', `chat-bubble ${role}`, text);
+    const bubble = el('div', `chat-bubble ${role}`, role === 'assistant' ? undefined : text);
     if (role === 'assistant' && tool?.operation === 'print_output' && tool.status === 'verified' && typeof tool.facts?.stdout === 'string') {
       const stdout = tool.facts.stdout;
       bubble.replaceChildren(el('p', '', 'Проверенный вывод:'), el('pre', 'learning-tool-stdout', stdout));
       bubble.append(el('p', 'field-hint', !stdout ? 'Вывод пустой.' : stdout.endsWith('\n') ? 'В конце есть перевод строки.' : 'В конце нет перевода строки.'));
-    }
+    } else if (role === 'assistant') bubble.append(renderAssistantReply(text));
     return bubble;
   }
   function updateChat(role, text, citations = [], tool = null) {

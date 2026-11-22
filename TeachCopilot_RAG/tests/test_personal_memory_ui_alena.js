@@ -17,7 +17,7 @@ class Element {
   scrollIntoView() {}
 }
 const descendants = node => node && typeof node === 'object' ? [node, ...(node.children || []).flatMap(descendants)] : [];
-const text = node => descendants(node).map(item => item.textContent).join('\n');
+const text = node => typeof node === 'string' ? node : [node.textContent, ...node.children.map(text)].join('\n');
 async function verifyDefault(role, enabled = true) {
   const nodes = {}, state = { token: 'auth' };
   const $ = (selector, root) => {

@@ -25,6 +25,11 @@
 #action-quotient-field { margin-top: 12px; }
 .learning-tool-stdout { white-space: pre; overflow-x: auto; max-width: 100%; background: #fff; color: #16393d; border: 1px solid #c8dfe1; border-radius: 6px; padding: 10px; }
 .chat-bubble { min-width: 0; }
+.assistant-markdown { overflow-wrap: anywhere; }
+.assistant-markdown > * { margin: 0; }
+.assistant-markdown > * + * { margin-top: .45em; }
+.assistant-markdown > :is(ul, ol) { padding-inline-start: 1.65em; }
+.assistant-markdown code { background: var(--cyan); border-radius: 3px; padding: 0 .2em; }
 .guided-division-panel { margin: 0 0 16px; padding-bottom: 14px; border-bottom: 1px solid #c8dfe1; }
 .guided-division-example { font-size: 1.1rem; font-weight: 650; margin: 8px 0; }
 .guided-division-prompt { white-space: pre-wrap; overflow-wrap: anywhere; margin: 8px 0 12px; }
