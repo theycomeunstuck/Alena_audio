@@ -1,5 +1,8 @@
 # pipeline/event_logger.py
-"""Event logging to PostgreSQL for analytics, profile updates, debugging."""
+"""LEGACY (frozen 2026-11-22, F-012) – Open WebUI MVP path.
+It is not used by local_app. Do not extend it. The product is local_app.
+
+Event logging to PostgreSQL for analytics, profile updates, debugging."""
 import json
 import logging
 from contextlib import closing

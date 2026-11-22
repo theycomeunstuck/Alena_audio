@@ -1,5 +1,8 @@
 # pipeline/filter_function.py
 """
+LEGACY (frozen 2026-11-22, F-012) – Open WebUI MVP path.
+It is not used by local_app. Do not extend it. The product is local_app.
+
 TWO USES:
 1. Kept in repo as source of truth.
 2. The Filter CLASS is pasted into Open WebUI -> Workspace -> Functions -> New Function.

@@ -1,8 +1,6 @@
 # 🔌 API & Open WebUI Integration
 
-`server.py` is a small FastAPI app that exposes an **OpenAI-compatible** surface
-plus a couple of helper endpoints. Everything below was verified against a running
-instance with a fake upstream.
+Сейчас `server.py` запускает API `local_app`. Разделы Endpoints, The Open WebUI contract и Quick smoke test описывают прежний прокси, проверенный с имитацией сервиса модели.
 
 Base URL in examples: `http://localhost:8099`.
 
@@ -75,6 +73,8 @@ curl -s localhost:8099/v1/chat/completions -H 'content-type: application/json' -
 
 ## The Open WebUI contract (verified behavior)
 
+> Таблица описывает контракт прежнего прокси. Коды `lmstudio_request_error` и `lmstudio_non_json_response` относятся к прежней интеграции с LM Studio.
+
 | Behavior | Guarantee |
 |----------|-----------|
 | **Model id** | Open WebUI forwards the selected id (`teachcopilot-rag`). If `CHAT_MODEL` is set, the proxy **replaces** it with the real upstream model before calling the LLM. |
@@ -83,26 +83,23 @@ curl -s localhost:8099/v1/chat/completions -H 'content-type: application/json' -
 | **RAG system message** | Injected as the first `system` message; any client-supplied system message is dropped. |
 | **Errors** | Upstream connection failure → `502 lmstudio_request_error`. Upstream non-JSON → `502 lmstudio_non_json_response` with a body snippet. |
 
-### Connecting Open WebUI (mode B — proxy)
+## Connecting Open WebUI
+
+> **Устаревший путь (заморожен 2026-11-22).** Интерфейс продукта работает в [`local_app`](../README.md#personal-memory-alёna), вне Open WebUI. Режим A с Filter Function заморожен (F-012).
+
+### Connecting Open WebUI (mode B – OpenAI-compatible API)
+
+Для ученической учётной записи чат определяет ученика по аккаунту `local_app` и его правам доступа. Для учётной записи преподавателя запрос указывает `learner_id` в теле или в `metadata`, а API проверяет доступ. Связки «пользователь Open WebUI → ученик» в `local_app` нет.
 
 Open WebUI → **Settings → Connections → add an OpenAI connection**:
 
 - **API Base URL:** `http://<host>:8099/v1`
-- **API Key:** any non-empty string (not validated locally)
+- **API Key** – токен сессии учётной записи `local_app` (`access_token` из `POST /auth/login`). `GET /v1/models` и `POST /v1/chat/completions` проверяют `Authorization: Bearer <токен>` через `require_user`. Срок действия сессии ограничен (`expires_in`).
 - **Model:** `teachcopilot-rag`
 
 ### Connecting Open WebUI (mode A — Filter Function)
 
-Alternatively, skip the proxy and paste `pipeline/filter_function.py`'s `Filter`
-class into Open WebUI → Workspace → Functions. `inlet()` personalizes and grounds
-each request; `outlet()` runs the adaptive profile update. Full steps:
-[`../FILTER_INSTALL.md`](../FILTER_INSTALL.md).
-
-> Use **one** mode, not both — otherwise personalization runs twice.  The Filter
-> currently uses only the legacy PostgreSQL child profiles.  To use
-> `learner-data/*.json` and `learner_id`, choose **proxy mode**; adding
-> authenticated Open WebUI user → learner-id mapping to the Filter is the next
-> integration task.
+Архивные шаги установки фильтра приведены в [FILTER_INSTALL.md](../FILTER_INSTALL.md).
 
 ---
 
@@ -114,10 +111,9 @@ The Filter Function resolves its legacy PostgreSQL profile this way:
 2. `user_mappings` table: Open WebUI `user_id` → `child_id` (production).
 3. `DEFAULT_CHILD_ID` (fallback, `child_only` mode).
 
-The proxy's JSON learner integration is separate: it accepts top-level
-`learner_id` (or `metadata.learner_id`) and does not interpret message text as
-an identity.  Put authentication and the user → learner-id mapping in the
-calling application or API gateway before forwarding a request.
+The former proxy's JSON learner integration accepted top-level `learner_id`
+or `metadata.learner_id`. The calling application or API gateway was responsible
+for authentication and mapping users to learners.
 
 ---
 

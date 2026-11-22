@@ -1,5 +1,8 @@
 # scripts/test_pipeline.py
-"""End-to-end integration test for TeachCopilot pipeline (22+ checks)."""
+"""LEGACY (frozen 2026-11-22, F-012) – Open WebUI MVP path.
+It is not used by local_app. Do not extend it. The product is local_app.
+
+End-to-end integration test for TeachCopilot pipeline (22+ checks)."""
 import sys
 import io
 import json

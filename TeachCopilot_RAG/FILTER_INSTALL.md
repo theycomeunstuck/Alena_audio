@@ -1,3 +1,5 @@
+> **Устаревший путь (заморожен 2026-11-22).** Filter Function в Open WebUI больше не поддерживается. Для запуска `local_app` используйте [скрипт запуска](scripts/start_local.ps1) и откройте [веб-интерфейс](http://127.0.0.1:8099/).
+
 # FILTER_INSTALL.md — Установка Filter Function в Open WebUI
 
 ## Шаг 1: Откройте Open WebUI

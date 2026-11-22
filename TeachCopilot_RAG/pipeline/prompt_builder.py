@@ -1,4 +1,8 @@
 # pipeline/prompt_builder.py
+"""LEGACY (frozen 2026-11-22, F-012) – Open WebUI MVP path.
+It is not used by local_app. Do not extend it. The product is local_app.
+"""
+
 import logging
 from pathlib import Path
 from pipeline.config import SPEAKER_MODE

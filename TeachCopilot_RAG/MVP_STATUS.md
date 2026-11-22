@@ -1,3 +1,5 @@
+> **Устаревший путь (заморожен 2026-11-22).** Документ описывает MVP через Open WebUI. Рабочий продукт – [локальное приложение `local_app`](README.md#personal-memory-alёna).
+
 # MVP_STATUS.md — TeachCopilot Pipeline (Phase 2)
 
 ## Что реализовано

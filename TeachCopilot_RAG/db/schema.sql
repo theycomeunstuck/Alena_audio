@@ -1,3 +1,5 @@
+-- LEGACY (frozen 2026-11-22, F-012) – Open WebUI MVP path.
+-- It is not used by local_app. Do not extend it. The product is local_app.
 -- db/schema.sql
 CREATE EXTENSION IF NOT EXISTS vector;
 

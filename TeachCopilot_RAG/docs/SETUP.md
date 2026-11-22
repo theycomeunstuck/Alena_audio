@@ -122,6 +122,8 @@ inlet/outlet, user mappings and the profile-agent gate.
 
 ## 7. Run
 
+> **Устаревший путь (заморожен 2026-11-22).** Инструкции ниже относятся к прежней интеграции с Open WebUI, а Filter Function больше не поддерживается. Для запуска `local_app` используйте [скрипт запуска](../scripts/start_local.ps1) и откройте [веб-интерфейс](http://127.0.0.1:8099/).
+
 **As a standalone OpenAI-compatible proxy:**
 
 ```bash

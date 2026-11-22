@@ -1,4 +1,8 @@
 # pipeline/db.py
+"""LEGACY (frozen 2026-11-22, F-012) – Open WebUI MVP path.
+It is not used by local_app. Do not extend it. The product is local_app.
+"""
+
 import logging
 from contextlib import closing
 import psycopg2, psycopg2.extras

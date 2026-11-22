@@ -1,5 +1,7 @@
 # TeachCopilot – AI Tutor Pipeline
 
+> **Рабочий продукт – [локальное приложение `local_app`](#personal-memory-alёna)** со своим веб-интерфейсом (`scripts/start_local.ps1`, http://127.0.0.1:8099/). Разделы Architecture, Database, Pipeline Modules, Profile Agent и Open WebUI Filter Installation описывают прежний MVP через Open WebUI – этот путь заморожен 2026-11-22 (F-012) и не поддерживается.
+
 Текущий локальный контур: PostgreSQL/pgvector, Ollama и API с аккаунтами. Команды, результаты измерений и границы проверки описаны в [руководстве по локальной БД и RAG](docs/LOCAL_DATABASE_RAG.md). JSON-first и старые pipeline инструкции ниже являются архивом.
 
 AI-powered tutoring system for children aged 7-12. Voice-first architecture:
@@ -433,6 +435,8 @@ events (
 )
 ```
 
+По решению F-070 данные таблицы `events` прежнего MVP хранятся бессрочно.
+
 ### Indexes
 
 - `knowledge_base_embedding_idx` – IVFFlat on `embedding` column (cosine, lists=100)
@@ -621,6 +625,8 @@ Every 5 user messages:
 ```
 
 ### Score Update Rules
+
+> Раздел устарел с 2026-11-15 – оценка ведётся по EMA-зонам в карточках, а агент профиля пишет только advisory-событие и больше не обновляет оценки.
 
 | Rule | Value |
 |---|---|

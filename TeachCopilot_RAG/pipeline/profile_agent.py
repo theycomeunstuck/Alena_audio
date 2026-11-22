@@ -1,5 +1,8 @@
 # pipeline/profile_agent.py
-"""Dynamic child profile updates based on LLM conversation analysis.
+"""LEGACY (frozen 2026-11-22, F-012) – Open WebUI MVP path.
+It is not used by local_app. Do not extend it. The product is local_app.
+
+Dynamic child profile updates based on LLM conversation analysis.
 Calls LM Studio directly (not via Open WebUI) to avoid proxy loops."""
 import json
 import logging
