@@ -123,8 +123,20 @@ def test_daemon_recovers_db_polling_in_same_process(queue_store, tmp_path):
         completed = store.get_memory_job(job["id"])
         assert completed["result"]["calls"] == []
         assert completed["call_started_at"] is None
-        log = (tmp_path / "worker.log").read_text(encoding="utf-8")
-        assert "Database connection unavailable" in log and "Database connection restored" in log
+        # The worker logs recovery after run_once() returns, after the job is marked completed.
+        log_path = tmp_path / "worker.log"
+        deadline = time.monotonic() + 10
+        while True:
+            assert process.poll() is None, "Worker exited instead of recovering DB polling; see worker.log"
+            log = log_path.read_text(encoding="utf-8")
+            if "Database connection unavailable" in log and "Database connection restored" in log:
+                break
+            if time.monotonic() >= deadline:
+                raise AssertionError(
+                    "Worker log did not show both database outage and recovery within 10 seconds. "
+                    f"Last 500 characters of worker.log:\n{log[-500:]}"
+                )
+            time.sleep(0.05)
 
 
 @pytest.mark.parametrize("phase", ["connect", "before_commit", "after_commit"])
