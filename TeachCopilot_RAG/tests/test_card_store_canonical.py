@@ -11,6 +11,7 @@ and an export target.
 import copy
 import json
 import sys
+from datetime import date
 from pathlib import Path
 
 import pytest
@@ -23,6 +24,8 @@ for path in (str(ROOT), str(ROOT / "scripts")):
 
 import export_learner_cards  # noqa: E402
 import update_learner_card  # noqa: E402
+from pipeline.card_updater import CardUpdateProposal, ObservedAttempt, apply_proposal
+from scripts.seed_rich_demo import LIVE_DEMO_TOPICS, _prepare_demo_card, cards_from_fixtures
 
 LEARNER = "artemov-artem"
 
@@ -74,6 +77,35 @@ def test_cli_writes_through_the_database_store_by_default(captured):
 def test_cli_json_seed_mode_is_explicit(captured):
     assert update_learner_card.main(["--learners", LEARNER, "--notes", "итоги", "--apply", "--json-seed"]) == 0
     assert captured["store"] is None
+
+
+@pytest.mark.parametrize(("flags", "with_pairs", "expected"), [
+    ([], False, "Нужно проверить – недостаточно сопоставимых пар наблюдений"),
+    (["--apply"], True, "С поддержкой – в обеих последних задачах помощь привела к успеху"),
+    (["--json-seed"], False, "не вычисляется в режиме --json-seed"),
+])
+def test_cli_displays_model_and_teacher_map_zones(monkeypatch, capsys, flags, with_pairs, expected):
+    learner_id = "demo-nika-04"
+    topic_id = LIVE_DEMO_TOPICS[learner_id]["zpd"]
+    today = date.today()
+    card = next(card for card in cards_from_fixtures() if card["learner_id"] == learner_id)
+    if with_pairs:
+        card = _prepare_demo_card(card, None, today)
+    else:
+        competency = next(item for item in card["learner_model"]["competencies"] if item["topic_id"] == topic_id)
+        competency["last_assessed"] = today.isoformat()
+        competency["history"] = []
+    proposal = CardUpdateProposal(learner_id, observations=(ObservedAttempt(topic_id, "visual", True),))
+    result = apply_proposal(card, proposal, mode="auto_ema", today=today.isoformat())
+    monkeypatch.setattr(update_learner_card, "update_from_notes", lambda *args, **kwargs: [result])
+    monkeypatch.setattr(update_learner_card, "open_card_store", lambda: FakeStore([card]))
+
+    code = update_learner_card.main(["--learners", learner_id, "--notes", "итоги", *flags])
+
+    assert code == 0
+    line = next(line for line in capsys.readouterr().out.splitlines() if f"{topic_id}: mastery" in line)
+    assert "зона: " in line and "по оценке модели" in line
+    assert f"Карта учителя: {expected}" in line
 
 
 def test_export_writes_validated_database_cards(tmp_path):

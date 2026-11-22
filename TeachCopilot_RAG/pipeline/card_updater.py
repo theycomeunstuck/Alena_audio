@@ -117,6 +117,7 @@ class AppliedUpdate:
     changes: tuple[str, ...]
     pending: tuple[str, ...]
     warnings: tuple[str, ...]
+    observation_topics: dict[str, str] = field(default_factory=dict)
 
     def changed(self) -> bool:
         return bool(self.changes)
@@ -485,12 +486,12 @@ def _apply_observations(
     mode: str,
     today: str,
     confirmed_topics: Iterable[str] | None,
-) -> tuple[list[str], list[str]]:
+) -> tuple[list[tuple[str, str]], list[tuple[str, str]]]:
     tools = load_learner_data_tools()
     zpd = tools.zpd
 
-    changes: list[str] = []
-    pending: list[str] = []
+    changes: list[tuple[str, str]] = []
+    pending: list[tuple[str, str]] = []
     confirmed = None if confirmed_topics is None else set(confirmed_topics)
 
     learner_model = _ensure_learner_model(card)
@@ -515,14 +516,14 @@ def _apply_observations(
             confirmed is not None and (CONFIRM_ALL in confirmed or observation.topic_id in confirmed)
         )
         if not write_it:
-            pending.append(f"{summary} — ожидает подтверждения репетитора")
+            pending.append((observation.topic_id, f"{summary} – ожидает подтверждения репетитора"))
             continue
 
         if index is None:
             competencies.append(updated)
         else:
             competencies[index] = updated
-        changes.append(summary)
+        changes.append((observation.topic_id, summary))
 
     return changes, pending
 
@@ -768,9 +769,10 @@ def apply_proposal(
             )
         proposal = _drop_repeated_facts(card, proposal, stamp)
 
-    changes, pending = _apply_observations(
+    observations, pending = _apply_observations(
         updated, proposal, mode=resolved_mode, today=stamp, confirmed_topics=confirmed_topics
     )
+    changes = [summary for _, summary in observations]
     changes += _apply_error_patterns(updated, proposal, stamp)
     changes += _apply_scaffolding(updated, proposal)
 
@@ -828,8 +830,9 @@ def apply_proposal(
         learner_id=proposal.learner_id,
         card=updated,
         changes=tuple(changes),
-        pending=tuple(pending),
+        pending=tuple(summary for _, summary in pending),
         warnings=proposal.warnings,
+        observation_topics={summary: topic_id for topic_id, summary in (*observations, *pending)},
     )
 
 
@@ -990,17 +993,25 @@ def update_from_notes(
     return results
 
 
-def render_update(result: AppliedUpdate, *, applied: bool) -> str:
+def render_update(
+    result: AppliedUpdate, *, applied: bool, teacher_map: Callable[[str], str] | None = None,
+) -> str:
     """Tutor-facing summary of one card update."""
+    def describe(change: str) -> str:
+        topic_id = result.observation_topics.get(change)
+        if teacher_map is not None and topic_id is not None:
+            return f"{change}. Карта учителя: {teacher_map(topic_id)}"
+        return change
+
     header = "ЗАПИСАНО" if applied else "ПРЕДПРОСМОТР (не записано)"
     lines = [f"[{header}] {result.learner_id}"]
     if result.changes:
-        lines.extend(f"  + {change}" for change in result.changes)
+        lines.extend(f"  + {describe(change)}" for change in result.changes)
     else:
         lines.append("  изменений нет")
     if result.pending:
         lines.append("  ожидает подтверждения (--confirm):")
-        lines.extend(f"    ? {item}" for item in result.pending)
+        lines.extend(f"    ? {describe(item)}" for item in result.pending)
     if result.warnings:
         lines.append("  замечания к ответу модели:")
         lines.extend(f"    ! {item}" for item in result.warnings)

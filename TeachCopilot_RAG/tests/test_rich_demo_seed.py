@@ -6,6 +6,8 @@ import os
 import re
 import shutil
 import sys
+from collections import Counter
+from datetime import date, timedelta
 from pathlib import Path
 from uuid import uuid4
 
@@ -13,7 +15,10 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from scripts.seed_rich_demo import FIXTURES, LEARNER_DATA, _validator, cards_from_fixtures, seed_demo, validate_demo_cards
+from scripts.seed_rich_demo import (
+    FIXTURES, LEARNER_DATA, LIVE_DEMO_TOPICS, _prepare_demo_card, _validator,
+    cards_from_fixtures, seed_demo, validate_demo_cards,
+)
 from local_app.auth import verify_password
 from local_app.store import Store
 
@@ -157,6 +162,58 @@ def test_demo_events_and_accounts_are_distinct_and_russian():
         assert card["learner_model"]["ai_usage"]["reflection"]
 
 
+def test_recent_demo_observations_validate_and_fill_all_three_confirmed_zones(monkeypatch):
+    validate, zpd = _validator()
+    catalog = catalog_from_files()
+    today = date(2026, 11, 22)
+    refresh_day = today + timedelta(days=zpd.STALE_AFTER_DAYS)
+
+    class FixedDate(date):
+        @classmethod
+        def today(cls):
+            return cls.fromisoformat(refresh_day.isoformat())
+
+    monkeypatch.setattr(zpd.datetime, "date", FixedDate)
+    for fixture in cards_from_fixtures():
+        learner_id = fixture["learner_id"]
+        card = _prepare_demo_card(fixture, fixture, today)
+        assert not validate(card, catalog, learner_id)
+        rows = zpd.zone_report(card, catalog, today.isoformat())
+        confirmed = {row["confirmed_zone"]: row["topic_id"] for row in rows
+                     if row["evidence_status"] == "confirmed" and row["evidence"]["sufficient"]}
+        assert confirmed == LIVE_DEMO_TOPICS[learner_id]
+        assert Counter(row["confirmed_zone"] for row in rows) == {
+            "mastered": 1, "zpd": 1, "outside": 1, "unknown": len(rows) - 3,
+        }
+        assert _prepare_demo_card(fixture, card, refresh_day - timedelta(days=1)) == card
+        refreshed = _prepare_demo_card(fixture, card, refresh_day)
+        assert refreshed != card
+        for item in refreshed["learner_model"]["competencies"]:
+            if item["topic_id"] in confirmed.values():
+                observations = [entry for entry in item["history"]
+                                if entry["task_id"].startswith("synthetic-demo:")]
+                assert len(observations) == 4
+                assert len({entry["task_id"] for entry in observations}) == 4
+                assert all(entry["date"] == (refresh_day - timedelta(days=1)).isoformat() and "синтетическое" in entry["note"]
+                           for entry in observations)
+
+
+def test_seed_preserves_observations_on_topics_outside_the_demo_pairs():
+    learner_id = "demo-nika-04"
+    fixture = next(card for card in cards_from_fixtures() if card["learner_id"] == learner_id)
+    _, zpd = _validator()
+    topic = "math.g4.fractions.numerator_denominator"
+    today = date.today()
+    edited = zpd.record_observation(fixture, topic_id=topic, support_level="visual", solved=True)
+    seeded = _prepare_demo_card(fixture, edited, today)
+
+    def competency(card):
+        return next(item for item in card["learner_model"]["competencies"] if item["topic_id"] == topic)
+
+    assert competency(seeded) == competency(edited)
+    assert _prepare_demo_card(fixture, seeded, today) == seeded
+
+
 @pytest.mark.skipif(not DSN, reason="set TEACHCOPILOT_TEST_DSN to an expendable local database")
 def test_seed_is_idempotent_preserves_edits_and_assigns_only_demo_roster(store, tmp_path):
     credentials_file = tmp_path / "private" / "rich-demo-credentials.json"
@@ -181,11 +238,23 @@ def test_seed_is_idempotent_preserves_edits_and_assigns_only_demo_roster(store, 
     second = seed_demo(store, FIXTURES, credentials_file)
     assert second["conflicts"] == []
     assert second["cards_created"] == [] and second["student_accounts_created"] == []
+    assert second["cards_evidence_refreshed"] == []
 
     learner_id = "demo-luna-03"
+    seeded = store.get_card(learner_id)
+    fixture = next(card for card in cards_from_fixtures() if card["learner_id"] == learner_id)
+    store.save_card(fixture, str(teacher["id"]), expected_revision=store.get_revision(learner_id))
+    third = seed_demo(store, FIXTURES, credentials_file)
+    assert third["conflicts"] == []
+    assert third["cards_evidence_refreshed"] == [learner_id]
+    assert store.get_card(learner_id) == seeded
+    revision = store.get_revision(learner_id)
+    assert seed_demo(store, FIXTURES, credentials_file)["cards_evidence_refreshed"] == []
+    assert store.get_revision(learner_id) == revision
+
     edited = store.get_card(learner_id)
     edited["profile"]["pace"] = "manually edited demo profile"
-    store.save_card(edited, str(teacher["id"]), expected_revision=1)
-    third = seed_demo(store, FIXTURES, credentials_file)
-    assert third["conflicts"] == [f"learner card was edited: {learner_id}"]
-    assert store.get_card(learner_id)["profile"]["pace"] == "manually edited demo profile"
+    store.save_card(edited, str(teacher["id"]), expected_revision=revision)
+    result = seed_demo(store, FIXTURES, credentials_file)
+    assert result["conflicts"] == [f"learner card was edited: {learner_id}"]
+    assert store.get_card(learner_id) == edited

@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import json
 import os
 import secrets
 import stat
 import sys
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -316,6 +318,47 @@ CONFIRMED_EVIDENCE = {
     },
 }
 
+# A recent, synthetic assessment is added to these topics when seeding PostgreSQL.
+# The static cards retain their historical scenarios for reproducible reports.
+LIVE_DEMO_TOPICS = {
+    "demo-luna-03": {
+        "mastered": "math.g3.numbers.multiplication_table.times_table",
+        "zpd": "math.g3.word_problems.one_step",
+        "outside": "programming.python.output",
+    },
+    "demo-mika-03": {
+        "mastered": "math.g3.geometry.perimeter_polygon",
+        "zpd": "programming.scratch.loops",
+        "outside": "math.g3.numbers.division_with_remainder",
+    },
+    "demo-nika-04": {
+        "mastered": "programming.python.output",
+        "zpd": "math.g4.fractions.comparing_same_denominator",
+        "outside": "programming.python.conditions",
+    },
+    "demo-ilya-04": {
+        "mastered": "math.g4.geometry.angles",
+        "zpd": "programming.python.variables",
+        "outside": "math.g4.word_problems.multi_step",
+    },
+    "demo-rita-04": {
+        "mastered": "programming.scratch.variables",
+        "zpd": "math.g4.fractions.comparing_same_denominator",
+        "outside": "math.g4.geometry.composite_area_perimeter",
+    },
+    "demo-oren-03": {
+        "mastered": "math.g3.numbers.simple_equations",
+        "zpd": "math.g3.numbers.multiplication_table.division_from_table",
+        "outside": "programming.python.variables",
+    },
+}
+LIVE_DEMO_ATTEMPTS = {
+    "mastered": (("hint_question", True), ("independent", True)),
+    "zpd": (("independent", False), ("visual", True)),
+    "outside": (("independent", False), ("joint", False)),
+}
+LIVE_DEMO_DATE_KEY = "demo_map_assessed_on"
+
 
 def build_card(config: dict[str, Any]) -> dict[str, Any]:
     details = RUSSIAN_DETAILS[config["id"]]
@@ -531,6 +574,14 @@ def _validator():
     return validate_card, zpd
 
 
+def _validate_card(card, catalog, validate_card) -> None:
+    learner_id = card["learner_id"]
+    findings = validate_card(card, catalog, f"{learner_id}.json")
+    if findings:
+        details = "; ".join(f"{item.json_path}: {item.message}" for item in findings[:8])
+        raise ValueError(f"demo card has validation findings {learner_id}: {details}")
+
+
 def validate_demo_cards(cards: list[dict[str, Any]], catalog: dict[str, Any]) -> None:
     validate_card, zpd = _validator()
     seen = set()
@@ -541,10 +592,7 @@ def validate_demo_cards(cards: list[dict[str, Any]], catalog: dict[str, Any]) ->
         seen.add(learner_id)
         if not str(card.get("pseudonym", "")).startswith("\u0414\u0415\u041c\u041e \u2013 "):
             raise ValueError(f"demo card lacks a clear fictional label: {learner_id}")
-        findings = validate_card(card, catalog, f"{learner_id}.json")
-        if findings:
-            details = "; ".join(f"{item.json_path}: {item.message}" for item in findings[:8])
-            raise ValueError(f"demo card has validation findings {learner_id}: {details}")
+        _validate_card(card, catalog, validate_card)
         if card["learner_model"]["zpd"] != zpd.derive_zpd(card):
             raise ValueError(f"stored ZPD projection differs from competency evidence: {learner_id}")
         expected = CONFIRMED_EVIDENCE.get(learner_id)
@@ -558,6 +606,71 @@ def validate_demo_cards(cards: list[dict[str, Any]], catalog: dict[str, Any]) ->
                 raise ValueError(f"unexpected confirmed ZPD zone for {learner_id}: {actual['zone']}")
             if expected.get("evidence_status", "confirmed") != actual["evidence_status"]:
                 raise ValueError(f"unexpected evidence status for {learner_id}: {actual['evidence_status']}")
+
+
+def _live_demo_card(fixture: dict[str, Any], assessed_on: date) -> dict[str, Any]:
+    _, zpd = _validator()
+    learner_id = fixture["learner_id"]
+    day = assessed_on.isoformat()
+    card = fixture
+    for zone, topic_id in LIVE_DEMO_TOPICS[learner_id].items():
+        for pair in (1, 2):
+            pair_id = f"synthetic-demo:{learner_id}:{topic_id}:{day}:{pair}"
+            for support, solved in LIVE_DEMO_ATTEMPTS[zone]:
+                card = zpd.record_observation(
+                    card, topic_id=topic_id, support_level=support, solved=solved, observed_on=day,
+                    task_id=f"{pair_id}:{support}", assessment_pair_id=pair_id, difficulty="medium",
+                    notes="ДЕМО – синтетическое наблюдение для карты понимания.",
+                )
+    card["learner_model"]["engagement"][LIVE_DEMO_DATE_KEY] = day
+    return card
+
+
+def _prepare_demo_card(fixture: dict[str, Any], existing: dict[str, Any] | None, today: date) -> dict[str, Any]:
+    # Keep the day of the live demo available for new lesson notes in the CLI.
+    new_assessment = today - timedelta(days=1)
+    if existing is None:
+        return _live_demo_card(fixture, new_assessment)
+
+    learner_id = fixture["learner_id"]
+    conflict = f"learner card was edited: {learner_id}"
+    if any(existing.get(key) != fixture.get(key) for key in ("pseudonym", "grade", "profile")):
+        raise ValueError(conflict)
+    topics = set(LIVE_DEMO_TOPICS[learner_id].values())
+    fixture_topics = {item["topic_id"]: item for item in fixture["learner_model"]["competencies"]
+                      if item["topic_id"] in topics}
+    competencies = existing["learner_model"]["competencies"]
+    existing_topics = [item for item in competencies if item["topic_id"] in topics]
+    actual = {item["topic_id"]: item for item in existing_topics}
+    if len(existing_topics) != len(topics):
+        raise ValueError(conflict)
+    marker = existing["learner_model"].get("engagement", {}).get(LIVE_DEMO_DATE_KEY)
+    if marker is None:
+        if actual != fixture_topics:
+            raise ValueError(conflict)
+        return _live_demo_card(existing, new_assessment)
+    try:
+        assessed_on = date.fromisoformat(marker)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(conflict) from exc
+    if assessed_on > today:
+        raise ValueError(conflict)
+    _, zpd = _validator()
+    if (today - assessed_on).days <= zpd.STALE_AFTER_DAYS:
+        return existing
+
+    # Refresh only the original demo competencies plus their unchanged seed evidence.
+    # Other lesson history and product observations stay in the live card.
+    seeded = _live_demo_card(fixture, assessed_on)
+    expected = {item["topic_id"]: item for item in seeded["learner_model"]["competencies"]
+                if item["topic_id"] in topics}
+    if actual != expected:
+        raise ValueError(conflict)
+    base = copy.deepcopy(existing)
+    base["learner_model"]["competencies"] = [
+        fixture_topics.get(item["topic_id"], item) for item in base["learner_model"]["competencies"]
+    ]
+    return _live_demo_card(base, new_assessment)
 
 
 def _load_credentials(path: Path, emails: dict[str, str]) -> dict[str, Any]:
@@ -604,6 +717,8 @@ def seed_demo(store: Store, fixture_dir: Path = FIXTURES, credentials_file: Path
 
     existing_teacher = store.get_account(email=teacher_email)
     existing_students = {item["id"]: store.get_account(email=item["email"]) for item in ROSTER}
+    # Read revisions before the cards so a concurrent update cannot be overwritten.
+    revisions = {card["learner_id"]: store.get_revision(card["learner_id"]) for card in cards}
     existing_cards = {card["learner_id"]: store.get_card(card["learner_id"]) for card in cards}
     if not credentials_file.exists() and (existing_teacher or any(existing_students.values())):
         return {"created": [], "existing": [], "conflicts": ["demo account exists but the private credential file is missing"]}
@@ -612,13 +727,28 @@ def seed_demo(store: Store, fixture_dir: Path = FIXTURES, credentials_file: Path
     teacher_secret = credentials["teacher"]["password"]
     student_secrets = {item["learner_id"]: item["password"] for item in credentials["students"]}
     conflicts = []
+    today = date.today()
+    validate_card, _ = _validator()
+    prepared_cards = []
+    for fixture in cards:
+        learner_id = fixture["learner_id"]
+        existing = existing_cards[learner_id]
+        if (revisions[learner_id] is None) != (existing is None):
+            conflicts.append(f"learner card changed while preparing the demo seed: {learner_id}")
+            continue
+        try:
+            card = _prepare_demo_card(fixture, existing, today)
+        except ValueError as exc:
+            conflicts.append(str(exc))
+            continue
+        if card != existing:
+            _validate_card(card, catalog, validate_card)
+        prepared_cards.append(card)
+
     if existing_teacher:
         if existing_teacher["role"] != "teacher" or not existing_teacher["active"] or not verify_password(teacher_secret, existing_teacher["password_hash"]):
             conflicts.append("demo teacher account has a different role, is inactive, or does not match the credential file")
-    for learner, card in zip(ROSTER, cards):
-        live_card = existing_cards[card["learner_id"]]
-        if live_card is not None and live_card != card:
-            conflicts.append(f"learner card was edited: {card['learner_id']}")
+    for learner in ROSTER:
         account = existing_students[learner["id"]]
         if account:
             if account["role"] != "student" or not account["active"] or not verify_password(student_secrets[learner["id"]], account["password_hash"]):
@@ -642,9 +772,15 @@ def seed_demo(store: Store, fixture_dir: Path = FIXTURES, credentials_file: Path
     if not credentials_file.exists():
         _write_credentials(credentials_file, credentials)
     teacher = existing_teacher or store.create_account(teacher_email, "DEMO \u2013 Fictional Teacher", hash_password(teacher_secret), "teacher", {"synthetic_demo": True})
+    refreshed = [
+        card for card in prepared_cards
+        if existing_cards[card["learner_id"]] is not None and card != existing_cards[card["learner_id"]]
+    ]
+    if refreshed:
+        store.save_cards(refreshed, teacher["id"], expected_revisions=revisions)
     created_cards = []
     existing_learners = []
-    for card in cards:
+    for card in prepared_cards:
         learner_id = card["learner_id"]
         if existing_cards[learner_id] is None:
             store.create_assigned_learner(card, teacher["id"])
@@ -666,6 +802,7 @@ def seed_demo(store: Store, fixture_dir: Path = FIXTURES, credentials_file: Path
         "teacher_created": existing_teacher is None,
         "cards_created": created_cards,
         "cards_already_present": existing_learners,
+        "cards_evidence_refreshed": [card["learner_id"] for card in refreshed],
         "student_accounts_created": created_students,
         "student_accounts_already_present": [item["id"] for item in ROSTER if existing_students[item["id"]]],
         "credentials_file": str(credentials_file),

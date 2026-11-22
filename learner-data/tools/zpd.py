@@ -946,12 +946,12 @@ def explain_update(before: dict | None, after: dict) -> str:
     new_mastery = _unit_number(after.get("mastery"))
     # Three decimals: a "joint help" success moves mastery by ~0.005, and a diff
     # line reading "0.24 → 0.24" would look like nothing happened.
-    old_text = "—" if old_mastery is None else f"{old_mastery:.3f}"
-    new_text = "—" if new_mastery is None else f"{new_mastery:.3f}"
+    old_text = "–" if old_mastery is None else f"{old_mastery:.3f}"
+    new_text = "–" if new_mastery is None else f"{new_mastery:.3f}"
     verdict = classify(after)
     return (
         f"{after.get('topic_id')}: mastery {old_text} → {new_text}, "
-        f"зона: {verdict.label_ru()}"
+        f"зона: {verdict.label_ru()} по оценке модели"
     )
 
 

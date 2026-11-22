@@ -359,6 +359,7 @@ def test_dashboard_authorizes_ownership_and_redacts_student_progress():
     assert response.status_code == 200
     dashboard = response.json()
     assert dashboard["profile"]["goal"]["topic"] == "Деление на однозначное и двузначное число"
+    assert dashboard["zpd"]["topics"][0]["progress"] == "Продолжаем наблюдать"
     assert dashboard["history"]["observations"][0]["outcome"] == "Выполнено с опорой"
     assert "private teacher note" not in response.text
     assert "mastery" not in response.text and "confidence" not in response.text
@@ -371,6 +372,10 @@ def test_dashboard_authorizes_ownership_and_redacts_student_progress():
     assert teacher_view.status_code == 200
     assert teacher_view.json()["profile"]["legal_name"] == "Private A"
     assert teacher_view.json()["history"]["observations"][0]["notes"] == "private teacher note"
+    topic = teacher_view.json()["zpd"]["topics"][0]
+    assert topic["planning_zone"] == "zpd"
+    assert topic["confirmed_zone"] == "unknown"
+    assert topic["evidence"]["sufficient"] is False
 
 
 def test_observations_are_explicit_revision_guarded_and_teacher_only():

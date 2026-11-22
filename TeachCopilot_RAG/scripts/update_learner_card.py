@@ -46,10 +46,16 @@ from pipeline.card_updater import (  # noqa: E402
     update_from_notes,
 )
 from pipeline.config import MASTERY_MODE, MASTERY_MODES, ROSTER_BATCH_SIZE  # noqa: E402
-from pipeline.learner_context import LearnerContextError, load_group  # noqa: E402
+from pipeline.learner_context import LearnerContextError, load_group, load_learner_data_tools  # noqa: E402
 from pipeline.llm_json import LlmError  # noqa: E402
 
 CLI_ACTOR_ID = "cli:update_learner_card"
+TEACHER_ZONE_TITLES = {
+    "mastered": "Самостоятельно",
+    "zpd": "С поддержкой",
+    "outside": "Пока не получилось с совместной помощью",
+    "unknown": "Нужно проверить",
+}
 
 
 def open_card_store():
@@ -67,6 +73,16 @@ def _read_notes(args: argparse.Namespace) -> str:
     if sys.stdin is not None and not sys.stdin.isatty():
         return sys.stdin.read()
     raise CardUpdateError("нет текста заметок: передайте --notes, --notes-file или подайте текст на stdin")
+
+
+def _teacher_map_notes(card: dict) -> dict[str, str]:
+    zpd = load_learner_data_tools().zpd
+    return {
+        row["topic_id"]: (
+            f"{TEACHER_ZONE_TITLES[row['confirmed_zone']]} – {row['confirmed_reason']}"
+        )
+        for row in zpd.zone_report(card)
+    }
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -152,6 +168,20 @@ def main(argv: list[str] | None = None) -> int:
             store=store,
             actor_id=CLI_ACTOR_ID,
         )
+        for result in results:
+            applied = args.apply and result.changed()
+            if args.json_seed:
+                teacher_map = {}
+                missing_topic = "не вычисляется в режиме --json-seed"
+            else:
+                # The preview's EMA is hypothetical. The map shows the saved card.
+                card = result.card if applied else store.get_card(result.learner_id)
+                teacher_map = _teacher_map_notes(card or {})
+                missing_topic = "тема пока отсутствует на карте"
+            print(render_update(
+                result, applied=applied, teacher_map=lambda topic: teacher_map.get(topic, missing_topic),
+            ))
+            print()
     except PostgreSQLError:
         print("Не удалось обратиться к PostgreSQL. Проверьте доступность БД, "
               "настройки подключения (DATABASE_URL) и применение миграций.", file=sys.stderr)
@@ -166,10 +196,6 @@ def main(argv: list[str] | None = None) -> int:
     if not results:
         print("Модель не нашла в заметках ничего, что можно записать в карточки.")
         return 0
-
-    for result in results:
-        print(render_update(result, applied=args.apply and result.changed()))
-        print()
 
     if not args.apply:
         print("Ничего не записано. Повторите с --apply, чтобы сохранить изменения.")
