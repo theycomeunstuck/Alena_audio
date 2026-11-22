@@ -1,7 +1,8 @@
 # tests/test_deep_asr_rest.py
 import os, pytest, io
 import numpy as np
-import torch, torchaudio
+import soundfile as sf
+import torch
 
 from pathlib import Path
 from fastapi.testclient import TestClient
@@ -14,8 +15,9 @@ client = TestClient(app)
 
 
 def wav_bytes_from_tensor(x: torch.Tensor, sr: int) -> bytes:
+    # F-020: written with soundfile, like the product IO (no torchcodec needed).
     buf = io.BytesIO()
-    torchaudio.save(buf, x, sr, format="wav")
+    sf.write(buf, x.detach().cpu().numpy().T, sr, subtype="PCM_16", format="WAV")
     return buf.getvalue()
 
 @pytest.mark.deep
@@ -28,10 +30,7 @@ def test_transcribe_real_model_minimal():
     sample_path = Path(__file__).resolve().parent / "samples" / "ru_sample.wav"
     assert sample_path.exists(), "Положи файл с речью в tests/samples/ru_sample.wav"
 
-    wav, sr = torchaudio.load(str(sample_path))  # [C, N]
-    buf = io.BytesIO()
-    torchaudio.save(buf, wav, sr, format="wav")
-    files = {"file": ("ru_sample.wav", buf.getvalue(), "audio/wav")}
+    files = {"file": ("ru_sample.wav", sample_path.read_bytes(), "audio/wav")}
 
     r = client.post("/audio/transcribe", files=files, params={"language": "ru"})
     assert r.status_code == 200, r.text

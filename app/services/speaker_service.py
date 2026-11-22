@@ -6,7 +6,7 @@ import torch.nn.functional as F
 import os, re, tempfile, uuid
 from pathlib import Path
 from speechbrain.inference.speaker import EncoderClassifier
-from app.services.audio_utils import load_and_resample
+from app.services.audio_utils import load_and_resample, save_wav_pcm16
 from app.services.embeddings_utils import embed_speechbrain, get_encoder
 from core.audio_capture import record_audio
 from core.audio_enhancement import Audio_Enhancement
@@ -179,9 +179,8 @@ class SpeakerService:
         audio = Audio_Enhancement(audio).noise_suppression() # Tensor. Noise suppresion + rms_normalize; cpu
 
         try:
-            torchaudio.save(str(out_wav_path), src=audio.unsqueeze(0),  # [1,T]
-                            sample_rate=SAMPLE_RATE, format="wav",
-                            encoding="PCM_S", bits_per_sample=16)  # стандартный 16-бит PCM
+            # F-020: 16-bit PCM WAV through soundfile (torchaudio.save needs torchcodec).
+            save_wav_pcm16(out_wav_path, audio, SAMPLE_RATE)
         except Exception as e:
             print(e); raise
 
@@ -215,9 +214,8 @@ class SpeakerService:
         audio = Audio_Enhancement(audio).noise_suppression() #noise suppresion + rms_normalize; cpu
 
         try:
-            torchaudio.save(str(out_wav_path), src=audio.unsqueeze(0),  # [1,T]
-                            sample_rate=SAMPLE_RATE, format="wav",
-                            encoding="PCM_S", bits_per_sample=16)  # стандартный 16-бит PCM
+            # F-020: 16-bit PCM WAV through soundfile (torchaudio.save needs torchcodec).
+            save_wav_pcm16(out_wav_path, audio, SAMPLE_RATE)
         except Exception as e:
             raise e
 

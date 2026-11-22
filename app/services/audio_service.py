@@ -5,7 +5,7 @@ from typing import Optional, Dict, Any, List
 import numpy as np
 import torch, torchaudio
 
-from app.services.audio_utils import load_and_resample, ensure_pcm16_mono_16k
+from app.services.audio_utils import load_and_resample, ensure_pcm16_mono_16k, save_wav_pcm16
 
 from core.audio_enhancement import Audio_Enhancement
 from core.config import SAMPLE_RATE, ASR_LANGUAGE, ASR_WINDOW_SEC, ASR_EMIT_SEC, asr_model
@@ -25,17 +25,9 @@ class AudioService:
         enh = Audio_Enhancement(audio)
         enhanced = np.asarray(enh.noise_suppression(), dtype=np.float32).squeeze()
 
-        # 3) сохраняем 2D Tensor [C,N], PCM16 WAV
-        wav = torch.from_numpy(enhanced).reshape(1, -1)
+        # 3) сохраняем моно PCM16 WAV (F-020: через soundfile, без torchcodec)
         out_path = self.storage_dir / f"{input_wav.stem}_enhanced.wav"
-        torchaudio.save(
-            str(out_path),
-            wav,
-            SAMPLE_RATE,
-            format="wav",
-            encoding="PCM_S",
-            bits_per_sample=16,
-        )
+        save_wav_pcm16(out_path, enhanced, SAMPLE_RATE)
         return out_path
 
 

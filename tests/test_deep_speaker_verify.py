@@ -1,6 +1,7 @@
 # tests/test_deep_speaker_verify.py
 import os, io, pytest
-import torch, torchaudio
+import soundfile as sf
+import torch
 import numpy as np
 
 from fastapi.testclient import TestClient
@@ -13,8 +14,9 @@ client = TestClient(app)
 pytestmark = pytest.mark.deep
 
 def wav_bytes_from_tensor(x: torch.Tensor, sr: int) -> bytes:
+    # F-020: written with soundfile, like the product IO (no torchcodec needed).
     buf = io.BytesIO()
-    torchaudio.save(buf, x, sr, format="wav")
+    sf.write(buf, x.detach().cpu().numpy().T, sr, subtype="PCM_16", format="WAV")
     return buf.getvalue()
 
 def test_speaker_verify_real():

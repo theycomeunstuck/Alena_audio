@@ -1,10 +1,29 @@
 # app/services/audio_utils.py
 import numpy as np
+import soundfile as sf
 import torch, torchaudio
 import io
 from typing import Union
 from pathlib import Path
 from core.config import SAMPLE_RATE
+
+
+# F-020, user decision 2026-11-22 (option B): torchaudio 2.9+ reads and writes
+# audio only through torchcodec + FFmpeg, which the requirements do not ship.
+# File IO goes through soundfile (libsndfile: WAV/FLAC/OGG/MP3); torchaudio is
+# kept for resampling only.
+def _read_audio(source) -> tuple[torch.Tensor, int]:
+    """Read a file path or a file-like object as a float32 [C,N] tensor."""
+    data, sr = sf.read(source, dtype="float32", always_2d=True)  # [N,C]
+    return torch.from_numpy(np.ascontiguousarray(data.T)), int(sr)
+
+
+def save_wav_pcm16(path: Union[str, Path], audio, sample_rate: int) -> None:
+    """Write mono audio (1D or [1,N], tensor or array) as 16-bit PCM WAV."""
+    if isinstance(audio, torch.Tensor):
+        audio = audio.detach().cpu().numpy()
+    samples = np.asarray(audio, dtype=np.float32).reshape(-1)
+    sf.write(str(path), np.clip(samples, -1.0, 1.0), int(sample_rate), subtype="PCM_16", format="WAV")
 
 
 
@@ -26,17 +45,16 @@ def load_and_resample(src: Union[str, Path, bytes, np.ndarray], *, target_sr: in
     """
     Загружает аудио и приводит к: mono, target_sr, float32 ∈ [-1..1].
     Поддерживает:
-      - str | Path : путь к файлу (WAV/MP3/FLAC — что умеет torchaudio)
+      - str | Path : путь к файлу (WAV/FLAC/OGG/MP3 — что умеет soundfile/libsndfile)
       - bytes      : байты файла (контейнерный формат, не «сырой» PCM)
       - np.ndarray : 1D/2D массив float32/float64, интерпретируется как моно/стерео @ target_sr
     Возврат: 1D np.float32 длиной N_target.
     """
     # 1) загрузка источника
     if isinstance(src, (str, Path)):
-        wav, sr = torchaudio.load(str(src))  # [C,N], dtype float32/float64
+        wav, sr = _read_audio(str(src))            # [C,N] float32
     elif isinstance(src, (bytes, bytearray, memoryview)):
-        buf = io.BytesIO(src)
-        wav, sr = torchaudio.load(buf)       # [C,N]
+        wav, sr = _read_audio(io.BytesIO(bytes(src)))  # [C,N] float32
     elif isinstance(src, np.ndarray):
         # считаем, что это уже «числа» @ target_sr
         arr = np.asarray(src)

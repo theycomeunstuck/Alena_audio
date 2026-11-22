@@ -79,3 +79,25 @@ def test_speechbrain_pin_imports_with_the_pinned_torchaudio():
                 f"{name}: speechbrain {speechbrain} imports torchaudio.list_audio_backends, "
                 f"which torchaudio {torchaudio} no longer provides"
             )
+
+
+def test_product_audio_io_does_not_need_torchcodec():
+    """F-020, user decision 2026-11-22 (option B): torchaudio 2.9+ reads and
+    writes audio only through torchcodec + FFmpeg, which the requirements do
+    not ship, so every upload/enhance/train path failed on a clean install.
+    Product IO goes through soundfile; torchaudio keeps only resampling."""
+    import re
+    offenders = []
+    for folder in ("app", "core"):
+        for path in (ROOT / folder).rglob("*.py"):
+            text = path.read_text(encoding="utf-8")
+            if re.search(r"torchaudio\.(load|save|info)\(", text):
+                offenders.append(str(path.relative_to(ROOT)))
+    assert not offenders, offenders
+
+
+def test_mp3_and_wav_samples_load_without_torchcodec():
+    from app.services.audio_utils import load_and_resample
+    for name in ("ru_sample.wav", "ru_sample.mp3"):
+        audio = load_and_resample(ROOT / "tests" / "samples" / name)
+        assert audio.ndim == 1 and audio.size > 16000, name

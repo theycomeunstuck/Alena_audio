@@ -1,6 +1,6 @@
 # tests/test_audio_utils.py
 import numpy as np
-import torchaudio
+import soundfile as sf
 import torch
 
 from app.services.audio_utils import load_and_resample
@@ -18,7 +18,8 @@ def test_load_and_resample_stereo_to_mono(tmp_path):
     stereo = torch.stack([left, right], dim=0)  # [2, N]
 
     in_wav = tmp_path / "stereo.wav"
-    torchaudio.save(str(in_wav), stereo, sr_in, format="wav")
+    # F-020: fixtures are written with soundfile, like the product IO.
+    sf.write(str(in_wav), stereo.T.numpy(), sr_in, subtype="FLOAT")
 
     y = load_and_resample(str(in_wav), target_sr=SAMPLE_RATE)
 
@@ -38,7 +39,7 @@ def test_load_and_resample_down_and_up(tmp_path):
         t = torch.linspace(0, 0.2, int(sr_in * 0.2), dtype=torch.float32)[:-1]
         sig = 0.5 * torch.sin(2 * np.pi * 220.0 * t)
         in_wav = tmp_path / f"in_{sr_in}.wav"
-        torchaudio.save(str(in_wav), sig.unsqueeze(0), sr_in, format="wav")
+        sf.write(str(in_wav), sig.numpy(), sr_in, subtype="FLOAT")
 
         y = load_and_resample(str(in_wav), target_sr=SAMPLE_RATE)
         assert y.ndim == 1
