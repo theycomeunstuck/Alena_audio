@@ -340,3 +340,72 @@ def test_social_service_result_and_trace(question, rows, model_answer, status):
         assert result["choices"][0]["message"]["content"] == model_answer
         assert result["answer_routing"] == {"backend": "local", "reason": "personal_memory_recall"}
         assert not {"answer_validation", "_local_diagnostics", "usage_scope"} & result.keys()
+
+
+CIRCLE_QUESTION = "Процитируй дословно, что я писала про круг на 8 частей."
+CIRCLE_PHRASE = "опять эти дроби. круг на 8 частей, 3 закрашены. я не поняла, что сверху"
+
+
+def test_repeated_request_quotes_the_original_phrase_not_the_earlier_request():
+    phrase = source("phrase", CIRCLE_PHRASE, activity_day="2026-11-22")
+    earlier_request = source("request", CIRCLE_QUESTION, activity_day="2026-11-22")
+    # The earlier request shares every feature with the new question, the phrase fewer: the pre-fix pick.
+    assert len(quote_features(CIRCLE_QUESTION) & quote_features(CIRCLE_QUESTION)) > len(
+        quote_features(CIRCLE_QUESTION) & quote_features(CIRCLE_PHRASE))
+    for rows in ([phrase, earlier_request], [earlier_request, phrase]):
+        check = recall_quote_guard(CIRCLE_QUESTION, rows, "пересказ")
+        assert check["status"] == "inserted" and check["selected_source_id"] == "phrase"
+        assert check["candidate_source_ids"] == ["phrase"]
+        assert check["answer"] == f"Вот твоя фраза дословно (запись от 2026-11-22): «{CIRCLE_PHRASE}»"
+        assert recall_quote_guard(CIRCLE_QUESTION, rows, CIRCLE_PHRASE)["match"] == "full"
+
+
+def test_current_question_among_the_sources_is_never_a_candidate():
+    phrase = source("phrase", CIRCLE_PHRASE)
+    current = source("current", CIRCLE_QUESTION)
+    check = recall_quote_guard(CIRCLE_QUESTION, [current, phrase], "пересказ")
+    assert check["candidate_source_ids"] == ["phrase"] and check["selected_source_id"] == "phrase"
+
+
+def test_only_earlier_requests_present_is_unavailable_not_the_request():
+    rows = [source("request", CIRCLE_QUESTION), source("other", "Покажи дословно мою запись про круг")]
+    assert eligible_sources(rows) == []
+    check = recall_quote_guard(CIRCLE_QUESTION, rows, "пересказ")
+    assert check == {"status": "unavailable", "selected_source_id": None, "candidate_source_ids": [],
+                     "match": None, "author": "user",
+                     "answer": "В найденных репликах нет фразы, которую можно привести дословно. "
+                               "Подскажи, когда это было или о чём шла речь?"}
+
+
+GUARD_REPLIES = [
+    format_inserted(source("x", "Объяснение про маяк"), "assistant"),
+    format_inserted(source("x", "Объяснение про маяк", activity_day="2026-11-22"), "user"),
+    format_ambiguous([source("a", "Один ответ про маяк"), source("b", "Другой ответ про маяк")], "user"),
+    format_ambiguous([source("a", "Один ответ про маяк"), source("b", "Другой ответ про маяк")], "assistant"),
+    recall_quote_guard("дословно корабль", [source("a", "маяк")], "x")["answer"],
+    recall_quote_guard("дословно слова помощника", [], "x")["answer"],
+]
+
+
+@pytest.mark.parametrize("reply", GUARD_REPLIES, ids=[
+    "inserted-assistant", "inserted-user", "ambiguous-user", "ambiguous-assistant",
+    "unavailable-user", "unavailable-assistant"])
+def test_assistant_quote_ignores_earlier_guard_replies_and_returns_the_real_answer(reply):
+    assistant = lambda identifier, text, **extra: source(identifier, text, role="assistant",
+                                                         usage="context_only", **extra)
+    real = assistant("real", "Объяснение про маяк: 1200 разделить на 10 будет 120.", activity_day="2026-11-10")
+    question = "Процитируй дословно, что ты мне сказал про маяк"
+    guard = assistant("guard", reply, activity_day="2026-11-22")
+    for rows in ([real, guard], [guard, real]):
+        check = recall_quote_guard(question, rows, "пересказ")
+        assert check["author"] == "assistant" and check["candidate_source_ids"] == ["real"]
+        assert check["status"] == "inserted" and check["selected_source_id"] == "real"
+        assert check["answer"] == f"Вот мой ответ дословно (запись от 2026-11-10): «{real['text']}»"
+    only_guard = recall_quote_guard(question, [guard], "пересказ")
+    assert only_guard["status"] == "unavailable" and only_guard["candidate_source_ids"] == []
+
+
+def test_guard_reply_wording_inside_a_real_answer_stays_quotable():
+    real = source("r", "Давай разберём маяк. Вот мой ответ дословно не нужен.", role="assistant",
+                  usage="context_only")
+    assert eligible_sources([real], "assistant") == [real]

@@ -25,6 +25,12 @@ _UNAVAILABLE = ("В найденных репликах нет фразы, ко�
                 "Подскажи, когда это было или о чём шла речь?")
 _ASSISTANT_UNAVAILABLE = ("В найденных репликах нет моего ответа, который можно привести дословно. "
                           "Подскажи, когда это было или о чём шла речь?")
+_INSERTED_HEADINGS = {"user": "Вот твоя фраза дословно", "assistant": "Вот мой ответ дословно"}
+_AMBIGUOUS_HEADINGS = {"user": "Нашлось несколько похожих фраз:",
+                       "assistant": "Нашлось несколько похожих моих ответов:"}
+# Replies this guard produced itself are stored as assistant messages; they are not earlier answers to quote.
+_GUARD_REPLY_PREFIXES = (*_INSERTED_HEADINGS.values(), *_AMBIGUOUS_HEADINGS.values(),
+                         _UNAVAILABLE, _ASSISTANT_UNAVAILABLE)
 
 
 def _normalized_question(text: str) -> str:
@@ -57,7 +63,15 @@ def eligible_sources(sources: Sequence[Mapping[str, Any]],
     usage = "self_report" if author == "user" else "context_only"
     return [source for source in sources if isinstance(source, Mapping)
             and source.get("role") == author and source.get("usage") == usage
-            and isinstance(source.get("text"), str) and source["text"].strip()]
+            and isinstance(source.get("text"), str) and source["text"].strip()
+            and not _is_quote_machinery(source["text"], author)]
+
+
+def _is_quote_machinery(text: str, author: Literal["user", "assistant"]) -> bool:
+    """A verbatim request or a guard reply is not quotable content."""
+    if author == "user":
+        return is_verbatim_request(text)
+    return text.lstrip().startswith(_GUARD_REPLY_PREFIXES)
 
 
 def select_quote_sources(question: str, sources: Sequence[Mapping[str, Any]]) -> tuple[str, list[Mapping[str, Any]]]:
@@ -134,13 +148,12 @@ def _activity_day(value: Any) -> str | None:
 def format_inserted(source: Mapping[str, Any], author: Literal["user", "assistant"] = "user") -> str:
     day = _activity_day(source.get("activity_day"))
     date_text = f" (запись от {day})" if day else ""
-    heading = "Вот твоя фраза дословно" if author == "user" else "Вот мой ответ дословно"
+    heading = _INSERTED_HEADINGS[author]
     return f"{heading}{date_text}: «{truncate_quote(source['text'], 700)}»"
 
 
 def format_ambiguous(sources: Sequence[Mapping[str, Any]], author: Literal["user", "assistant"] = "user") -> str:
-    lines = ["Нашлось несколько похожих фраз:" if author == "user"
-             else "Нашлось несколько похожих моих ответов:"]
+    lines = [_AMBIGUOUS_HEADINGS[author]]
     for index, source in enumerate(sources[:2], 1):
         day = _activity_day(source.get("activity_day"))
         date_text = f"({day}) " if day else ""

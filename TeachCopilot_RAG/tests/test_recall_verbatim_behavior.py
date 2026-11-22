@@ -152,6 +152,32 @@ def test_only_user_self_report_rows_are_candidates():
     quote_check(prompt, "inserted", "src-first", ["src-first"])
 
 
+def test_repeated_request_still_quotes_the_original_phrase_not_the_stored_request():
+    """The first request became a stored student message; it is a request, not quotable content."""
+    stored_request = source("src-request", RECALL, day="2026-11-22")
+    result, prompt, session = run([stored_request, FIRST_SOURCE], PARAPHRASE)
+    assert content(result) == f"Вот твоя фраза дословно (запись от {DAY_FIRST}): «{FIRST}»"
+    assert_replaced(result, prompt, session, reason="verbatim_quote_inserted", validation="replaced",
+                    selected="src-first", candidates=["src-first"], rejected=PARAPHRASE)
+    quote_check(prompt, "inserted", "src-first", ["src-first"])
+
+
+def test_only_the_stored_request_is_unavailable():
+    result, prompt, session = run([source("src-request", RECALL, day="2026-11-22")], PARAPHRASE)
+    assert content(result) == UNAVAILABLE
+    assert_replaced(result, prompt, session, reason="verbatim_quote_unavailable",
+                    validation="clarification", selected=None, candidates=[], rejected=PARAPHRASE)
+    quote_check(prompt, "unavailable", None, [])
+
+
+def test_earlier_guard_reply_is_not_quoted_as_the_assistant_answer():
+    earlier_guard_reply = assistant_source("src-guard", f"Вот мой ответ дословно: «{ASSISTANT_TEXT}»",
+                                           day="2026-11-22")
+    result, prompt, session = run([earlier_guard_reply, assistant_source("src-asst")], PARAPHRASE, ASK_ASSISTANT)
+    assert content(result) == f"Вот мой ответ дословно (запись от {DAY_FIRST}): «{ASSISTANT_TEXT}»"
+    quote_check(prompt, "inserted", "src-asst", ["src-asst"], author="assistant")
+
+
 @pytest.mark.parametrize("question", [
     "Процитируй дословно мою первую фразу.",
     "Процитируй дословно, как я делила на 10.",
