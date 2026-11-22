@@ -1,5 +1,13 @@
 #!/usr/bin/env python3
-"""Итоги урока текстом → обновление JSON-карточек учеников (LLM + правила ЗБР).
+"""Обновление карточек учеников по итогам урока (LLM + правила ЗБР).
+
+Карточки читаются из PostgreSQL (``teachcopilot.learners``) – источника истины.
+``--apply`` сохраняет изменения в БД. Без него команда показывает разбор,
+чтобы репетитор мог проверить изменения перед записью.
+
+``--json-seed`` переключает чтение и запись на файлы начальных данных
+``learner-data/learners/*.json``. Для CLI-отчётов по актуальным карточкам
+выгрузите их из БД через ``scripts/export_learner_cards.py``.
 
     # предпросмотр, ничего не пишется
     python scripts/update_learner_card.py --learners zvezdin-artem --notes-file lesson.txt
@@ -7,7 +15,7 @@
     # одна заметка на всю группу
     python scripts/update_learner_card.py --learners zvezdin-artem,belka-06 --notes-file lesson.txt
 
-    # записать
+    # записать в БД
     python scripts/update_learner_card.py --learners zvezdin-artem --notes-file lesson.txt --apply
 
     # режим «модель предлагает, репетитор подтверждает»
@@ -16,9 +24,6 @@
 
     # что уйдёт в модель, без её вызова
     python scripts/update_learner_card.py --learners zvezdin-artem --notes-file lesson.txt --prompt-only
-
-Без ``--apply`` команда только показывает разбор. Это намеренно: карточка — это
-педагогические данные о ребёнке, и репетитор читает диф до записи.
 """
 from __future__ import annotations
 
@@ -44,6 +49,15 @@ from pipeline.config import MASTERY_MODE, MASTERY_MODES, ROSTER_BATCH_SIZE  # no
 from pipeline.learner_context import LearnerContextError, load_group  # noqa: E402
 from pipeline.llm_json import LlmError  # noqa: E402
 
+CLI_ACTOR_ID = "cli:update_learner_card"
+
+
+def open_card_store():
+    from local_app.config import Settings
+    from local_app.store import Store
+
+    return Store(Settings.from_env().database_url)
+
 
 def _read_notes(args: argparse.Namespace) -> str:
     if args.notes:
@@ -62,14 +76,21 @@ def main(argv: list[str] | None = None) -> int:
     # думающей модели, не найден материал) должны быть видны репетитору.
     logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
 
-    parser = argparse.ArgumentParser(description="Обновить карточки учеников по итогам урока.")
+    parser = argparse.ArgumentParser(
+        description="Обновить карточки учеников по итогам урока.",
+        epilog="Для CLI-отчётов выгрузите актуальные карточки через scripts/export_learner_cards.py.",
+    )
     parser.add_argument("--learners", help="learner_id через запятую")
     parser.add_argument("--group", help="состав группы из learner-data/groups, например detektivy-3")
     parser.add_argument("--notes", help="текст заметок прямо в аргументе")
     parser.add_argument("--notes-file", type=Path, help="файл с заметками об уроке")
-    parser.add_argument("--apply", action="store_true", help="записать изменения в файлы карточек")
+    parser.add_argument("--apply", action="store_true",
+                        help="записать изменения в PostgreSQL (источник истины), "
+                             "а с --json-seed – в файлы начальных данных")
+    parser.add_argument("--json-seed", action="store_true",
+                        help="работать с файлами начальных данных learner-data/learners")
     parser.add_argument("--mode", choices=MASTERY_MODES, default=MASTERY_MODE,
-                        help="auto_ema — считать сразу; tutor_confirmed — только подтверждённые темы")
+                        help="auto_ema – считать сразу, tutor_confirmed – только подтверждённые темы")
     parser.add_argument("--confirm", default="",
                         help="topic_id через запятую, которые репетитор подтверждает (для tutor_confirmed); "
                              "значение all подтверждает всё")
@@ -84,7 +105,7 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         if args.group:
-            learner_ids = load_group(args.group)
+            learner_ids = load_group(args.group, require_cards=args.json_seed)
         else:
             learner_ids = [item.strip() for item in (args.learners or "").split(",") if item.strip()]
     except LearnerContextError as exc:
@@ -100,9 +121,12 @@ def main(argv: list[str] | None = None) -> int:
         print(str(exc), file=sys.stderr)
         return 2
 
+    from psycopg2 import Error as PostgreSQLError
+
     try:
+        store = None if args.json_seed else open_card_store()
         if args.prompt_only:
-            roster_text, _cards, _catalog = build_roster(learner_ids)
+            roster_text, _cards, _catalog = build_roster(learner_ids, store=store)
             print("=" * 70)
             print("SYSTEM PROMPT (prompts/card_update_prompt.txt)")
             print("=" * 70)
@@ -125,7 +149,13 @@ def main(argv: list[str] | None = None) -> int:
             force=args.force,
             batch_size=args.batch,
             decide=ask_tutor if args.interactive else None,
+            store=store,
+            actor_id=CLI_ACTOR_ID,
         )
+    except PostgreSQLError:
+        print("Не удалось обратиться к PostgreSQL. Проверьте доступность БД, "
+              "настройки подключения (DATABASE_URL) и применение миграций.", file=sys.stderr)
+        return 1
     except (CardUpdateError, LearnerContextError) as exc:
         print(f"Обновление не выполнено: {exc}", file=sys.stderr)
         return 1

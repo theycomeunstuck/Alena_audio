@@ -109,12 +109,15 @@ def list_group_ids() -> list[str]:
     return sorted(path.stem for path in groups_dir.glob("*.json") if not path.name.startswith("_"))
 
 
-def load_group(group_id: str) -> list[str]:
+def load_group(group_id: str, *, require_cards: bool = True) -> list[str]:
     """Вернуть состав группы.
 
     Урок идёт с группой, а не со списком идентификаторов, набранных руками.
     Проверяется здесь же: если в составе есть кто-то, чьей карточки нет, лучше
     узнать об этом до вызова модели, а не в середине прогона.
+
+    ``require_cards=False`` пропускает проверку JSON-карточек: в режиме БД
+    (F-071) карточки берутся из PostgreSQL, а не из learner-data/learners.
     """
     tools = _load_learner_data_tools()
     if not isinstance(group_id, str) or not tools.learner_id_re.fullmatch(group_id):
@@ -133,6 +136,11 @@ def load_group(group_id: str) -> list[str]:
     learner_ids = group.get("learner_ids") if isinstance(group, dict) else None
     if not isinstance(learner_ids, list) or not learner_ids:
         raise LearnerContextError(f"в группе «{group_id}» не указан состав (learner_ids)")
+
+    if not require_cards:
+        if any(not isinstance(item, str) or not tools.learner_id_re.fullmatch(item) for item in learner_ids):
+            raise LearnerContextError(f"в группе «{group_id}» есть некорректный learner_id")
+        return list(dict.fromkeys(learner_ids))
 
     known_learners = set(list_learner_ids())
     missing = [item for item in learner_ids if item not in known_learners]

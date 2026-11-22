@@ -18,6 +18,23 @@
 Такое разделение намеренное: подробности о ребёнке не должны автоматически
 попадать в каждый запрос к модели.
 
+## Где хранятся карточки
+
+PostgreSQL (`teachcopilot.learners`) – единственный источник истины для карточек.
+Файлы `learners/*.json` служат начальными данными для `scripts/manage_local.py import`.
+Импорт добавляет отсутствующих учеников и не перезаписывает существующие карточки.
+Вносите изменения через приложение или `scripts/update_learner_card.py --apply`.
+Флаг `--json-seed` переключает эту команду на файлы начальных данных.
+
+Чтобы инструменты `learner-data` читали актуальные карточки, выгрузите их через
+`scripts/export_learner_cards.py` и укажите `--learners-dir .local/learner-export/learners`.
+Выполните обе команды из `TeachCopilot_RAG`.
+
+```bash
+uv run --locked python scripts/export_learner_cards.py
+python ../learner-data/tools/progress_report.py ivanov-ivan --learners-dir .local/learner-export/learners
+```
+
 ## Что лежит в папке
 
 ```
@@ -74,7 +91,7 @@ python learner-data/tools/build_context.py ivanov-ivan --format json
 
 ## С чего начать
 
-Выберите один из заполненных профилей и создайте новый файл по его образцу.
+Для подготовки начальных данных выберите заполненный профиль и создайте новый файл по его образцу.
 Пошаговая инструкция, готовые варианты для 3 и 4 класса и пример результата
 находятся в [EXAMPLES.md](EXAMPLES.md).
 
