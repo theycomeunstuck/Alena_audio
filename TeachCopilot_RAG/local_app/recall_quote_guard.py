@@ -42,6 +42,13 @@ def is_assistant_quote_request(question: str) -> bool:
 
 
 def quote_features(text: str) -> set[str]:
+    # Known limitation (user decision 2026-11-22: keep as is for now): features
+    # are 5-letter prefixes from _stem_list, so a short form and its inflections
+    # do not meet ("маяк" -> "маяк", "маяком" -> "маяко"). 4-letter prefixes were
+    # tried and changed two pinned selection outcomes in the guard tests.
+    # TODO: if pilot data shows missed quotes, switch to a lemmatizer such as
+    # pymorphy3 (new dependency; re-pin tests/test_recall_quote_guard.py and
+    # tests/test_recall_verbatim_behavior.py deliberately).
     return (set(_stem_list(text)) - _STOP_STEMS) | set(re.findall(r"\d+", text))
 
 
