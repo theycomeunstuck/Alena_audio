@@ -867,12 +867,14 @@ def record_observation(
     assessment_pair_id: str | None = None,
     difficulty: str | None = None,
     notes: str | None = None,
+    today: datetime.date | None = None,
 ) -> dict:
     """Append one explicit observation and return a validated-shape card copy.
 
     ``support_level`` is one of the existing hint rungs. Outcome is independent
     from support, so a failed unaided attempt differs from failure after help.
     This helper never accepts model-proposed mastery or zone labels.
+    ``today`` supplies the caller's calendar day for defaulting and validation.
     """
     if not isinstance(card, dict):
         raise ZpdPolicyError("card must be an object")
@@ -882,12 +884,13 @@ def record_observation(
         raise ZpdPolicyError(f"unknown support_level: {support_level!r}")
     if type(solved) is not bool:
         raise ZpdPolicyError("solved must be a boolean")
-    date = observed_on or datetime.date.today().isoformat()
+    today = today if today is not None else datetime.date.today()
+    date = observed_on or today.isoformat()
     try:
         parsed_date = datetime.date.fromisoformat(date)
     except (TypeError, ValueError) as exc:
         raise ZpdPolicyError("observed_on must be an ISO date") from exc
-    if parsed_date > datetime.date.today():
+    if parsed_date > today:
         raise ZpdPolicyError("observed_on cannot be in the future")
     if task_id is not None and (not isinstance(task_id, str) or not task_id.strip() or len(task_id) > 200):
         raise ZpdPolicyError("task_id must contain 1 to 200 characters")

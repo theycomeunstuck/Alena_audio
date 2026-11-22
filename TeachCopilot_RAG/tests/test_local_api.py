@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import sys
+from datetime import date, datetime, timezone
 from pathlib import Path
+from types import SimpleNamespace
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -405,7 +407,25 @@ def test_observations_are_explicit_revision_guarded_and_teacher_only():
     assert conflict.status_code == 409
 
 
-def test_observation_keeps_unsolved_and_support_rung_as_separate_evidence():
+@pytest.fixture
+def observation_clock(monkeypatch):
+    from pipeline.learner_context import load_learner_data_tools
+
+    # At this instant it is November 22 in UTC+5 and November 23 in Tomsk.
+    fixed_now = datetime(2026, 11, 22, 17, 30, tzinfo=timezone.utc)
+    local_day = api_module.learner_local_day
+
+    class MachineDate(date):
+        @classmethod
+        def today(cls):
+            return cls(2026, 11, 22)
+
+    monkeypatch.setattr(MemoryStore, "get_learner_learning_timezone", lambda *_: "Asia/Tomsk", raising=False)
+    monkeypatch.setattr(api_module, "learner_local_day", lambda store, learner_id: local_day(store, learner_id, now=fixed_now))
+    monkeypatch.setattr(load_learner_data_tools().zpd, "datetime", SimpleNamespace(date=MachineDate))
+
+
+def test_observation_keeps_unsolved_and_support_rung_as_separate_evidence(observation_clock):
     client, store, _ = make_client()
     teacher = token(client, "teacher@example.org")
     response = client.post("/learners/learner-a/observations", headers=auth(teacher), json={
@@ -416,9 +436,33 @@ def test_observation_keeps_unsolved_and_support_rung_as_separate_evidence():
         "support_level": "joint",
     })
     assert response.status_code == 200, response.text
+    assert response.json()["observation"]["observed_on"] == "2026-11-23"
     evidence = store.cards["learner-a"]["learner_model"]["competencies"][0]["history"][-1]
+    assert evidence["date"] == "2026-11-23"
     assert evidence["solved"] is False
     assert evidence["support_level"] == "joint"
+
+
+def test_observation_rejects_explicit_date_after_learner_day(observation_clock):
+    client, store, _ = make_client()
+    teacher = token(client, "teacher@example.org")
+    payload = {
+        "expected_revision": 1,
+        "topic_id": "math.g4.numbers.division_by_1_2_digit",
+        "task_id": "division-task-03",
+        "solved": True,
+        "support_level": "independent",
+        "observed_on": "2026-11-24",
+    }
+    response = client.post("/learners/learner-a/observations", headers=auth(teacher), json=payload)
+    assert response.status_code == 422, response.text
+    assert response.json()["detail"] == "observed_on cannot be in the future"
+    assert store.get_revision("learner-a") == 1
+
+    payload["observed_on"] = "2026-11-23"
+    response = client.post("/learners/learner-a/observations", headers=auth(teacher), json=payload)
+    assert response.status_code == 200, response.text
+    assert response.json()["observation"]["observed_on"] == "2026-11-23"
 
 
 def test_new_learner_creation_requires_fullcard_and_assigns_only_new_card(monkeypatch):

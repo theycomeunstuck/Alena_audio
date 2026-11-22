@@ -1767,7 +1767,8 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None, chat_r
         zpd = tools.load_learner_data_tools().zpd
         if not callable(getattr(zpd, "record_observation", None)):
             raise HTTPException(status_code=503, detail="evidence-aware ZPD recording is unavailable")
-        observed_on = (request.observed_on or learner_local_day(store, learner_id)).isoformat()
+        today = learner_local_day(store, learner_id)
+        observed_on = (request.observed_on or today).isoformat()
         try:
             updated = zpd.record_observation(
                 card,
@@ -1779,6 +1780,7 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None, chat_r
                 assessment_pair_id=(request.assessment_pair_id or request.task_id).strip(),
                 difficulty=request.difficulty,
                 notes=request.notes.strip() if request.notes else None,
+                today=today,
             )
             journal_note = (
                 f"Наблюдение по задаче {request.task_id.strip()}: "
