@@ -98,6 +98,31 @@ def _role(account: dict) -> str:
     return str(account.get("role", ""))
 
 
+def _diagnostic_quote_check(question: str, context: dict) -> dict:
+    from local_app.recall_quote_guard import quote_source_selection, truncate_quote
+
+    # Use only the approved excerpts the diagnostics already show. Adapt their
+    # roles and IDs to the conversation source format expected by the guard.
+    sources = [
+        {**source, "role": "user", "usage": "self_report"}
+        for source in context.get("sources", []) if source["role"] == "student"
+    ]
+    sources.extend({**source, "source_id": f"context:before:{source['source_id']}"}
+                   for source in context.get("dialogue_context", []))
+    sources.extend({**source, "source_id": f"context:after:{source['source_id']}"}
+                   for source in context.get("session_end_context", []))
+    result = quote_source_selection(question, sources)
+    if result is None:
+        return {"status": "not_requested"}
+    author, candidates, status, leaders = result
+    return {
+        "status": status, "author": author,
+        "selected_source_id": leaders[0]["source_id"] if status == "unique" else None,
+        "candidates": [{"source_id": row["source_id"], "text": truncate_quote(row["text"], 180)}
+                       for row in candidates],
+    }
+
+
 def _topic_title(topic_id: str | None, catalog: dict) -> str:
     entry = catalog.get(topic_id, {}) if topic_id else {}
     return (entry.get("title_ru") or entry.get("title") or {
@@ -805,6 +830,7 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None, chat_r
         topic, approved = approved_memory_topic(canonical, learner_id)
         if approved is None:
             return {"learner_id": learner_id, "status": "not_approved",
+                    "quote_check": _diagnostic_quote_check(text, {}),
                     "hint": "Персональная память не подтверждена. Подготовьте и подтвердите версию памяти, затем повторите диагностику."}
         from local_app.personal_graph_memory import PersonalGraphSelectionBudgetExceeded
         from local_app.personal_memory import (PersonalMemoryStale, select_ranked_source_context)
@@ -843,6 +869,7 @@ def create_app(settings=None, store=None, runtime=None, rag_service=None, chat_r
                 "channels": diagnostics.get("channels", {}),
                 "graph_channel": diagnostics.get("graph_channel"),
                 "selection_warnings": context.get("selection_warnings", []),
+                "quote_check": _diagnostic_quote_check(text, context),
                 "context": context}
 
     @app.get('/learners/{learner_id}/learning-sessions/current')

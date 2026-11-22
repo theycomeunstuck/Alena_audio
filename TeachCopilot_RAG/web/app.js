@@ -1215,8 +1215,41 @@
     card.append(table);
     root.append(card);
   }
+  function renderDiagnosticsQuoteCheck(check) {
+    const card = el('article', 'memory-summary-card');
+    card.append(el('h3', '', 'Проверка дословной цитаты'));
+    if (check.status === 'not_requested') {
+      card.append(el('p', 'review-note', 'Это не просьба о дословной цитате'));
+      return card;
+    }
+    const outcomes = {
+      unique: 'Одна реплика лучше всего совпала с запросом.',
+      ambiguous: 'Несколько похожих реплик совпали с запросом одинаково хорошо.',
+      unavailable: 'Нет подходящей реплики среди результатов пробного поиска.',
+    };
+    const author = check.author === 'assistant' ? 'помощник' : 'ученик';
+    card.append(el('p', 'memory-summary-meta', `Автор цитаты – ${author}.`));
+    card.append(el('p', 'review-note', outcomes[check.status]));
+    const candidates = check.candidates || [];
+    const selected = candidates.find(row => row.source_id === check.selected_source_id);
+    const excerpt = row => `${row.source_id} · ${row.text}`;
+    if (selected) {
+      card.append(el('h4', '', 'Выбранная реплика'));
+      card.append(el('blockquote', 'memory-text', excerpt(selected)));
+    }
+    card.append(el('h4', '', 'Кандидаты'));
+    if (candidates.length) {
+      const list = el('ul');
+      candidates.forEach(row => list.append(el('li', '', excerpt(row))));
+      card.append(list);
+    } else {
+      card.append(el('p', 'review-note', 'Среди найденных реплик нет кандидатов нужного автора.'));
+    }
+    return card;
+  }
   function renderDiagnosticsRetrieval(data) {
     const root = $('#memory-diagnostics-results'); root.replaceChildren();
+    if (data.quote_check) root.append(renderDiagnosticsQuoteCheck(data.quote_check));
     if (data.status === 'not_approved') {
       root.append(el('p', 'review-note', data.hint || 'Персональная память не подтверждена – поиск для ученика остаётся выключенным.'));
       return;
@@ -2047,7 +2080,7 @@
   $('#memory-diagnostics-form').addEventListener('submit', event => {
     event.preventDefault();
     busy($('#run-memory-diagnostics'), async () => {
-      const learnerId = state.learnerId;
+      const learnerId = state.learnerId, token = state.token, revision = state.viewRevision;
       if (!learnerId || state.account?.role !== 'teacher') throw new Error('Сначала выберите ученика.');
       const query = $('#diagnostics-query').value.trim();
       if (!query) throw new Error('Введите пробный вопрос.');
@@ -2056,7 +2089,9 @@
       const budget = $('#diagnostics-budget').value.trim();
       if (budget) params.set('budget', budget);
       const data = await request(`/learners/${encodeURIComponent(learnerId)}/memory/diagnostics/retrieval?${params}`);
-      renderDiagnosticsRetrieval(data);
+      if (token === state.token && revision === state.viewRevision && learnerId === state.learnerId && state.account?.role === 'teacher') {
+        renderDiagnosticsRetrieval(data);
+      }
     });
   });
   $('#own-conversation-history').addEventListener('toggle', () => { if ($('#own-conversation-history').open) loadOwnConversationHistory(); });

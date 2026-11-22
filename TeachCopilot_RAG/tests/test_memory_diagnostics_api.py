@@ -47,15 +47,19 @@ class DiagnosticsProvider(PersonalMemoryProvider):
         return FakeModel()
 
 
-def _lesson(store):
+def _lesson(store, *, second_message=None):
     session = store.create_learning_session(LEARNER, "student", TOPIC)
     store.reserve_chat_message(session["id"], session["learner_id"], "turn-1", SOURCE_TEXT,
                                session["actor_id"])
     store.complete_chat_message(session["id"], "turn-1", {"answer": "Попробуй сравнить числители."})
+    if second_message is not None:
+        store.reserve_chat_message(session["id"], session["learner_id"], "turn-2", second_message,
+                                   session["actor_id"])
+        store.complete_chat_message(session["id"], "turn-2", {"answer": "Теперь проверь знаменатель."})
     store.complete_learning_session(session["id"], LEARNER, "student")
 
 
-def _approve_personal_memory(store):
+def _approve_personal_memory(store, *, include_all=False):
     """Save and approve a valid personal_memory version without any model calls."""
     snapshot = store.get_learner_memory(LEARNER, None)
     sources = snapshot["sources"]
@@ -69,7 +73,7 @@ def _approve_personal_memory(store):
              "retrieval_mode": "hybrid", "model_identities": FakeModel.model_identities,
              "selection_recipe_fingerprint": "c" * 64,
              "selection_version": PERSONAL_MEMORY_SELECTION_VERSION}
-    evidence = source_ids[:1]
+    evidence = source_ids if include_all else source_ids[:1]
     context = {"method": "personal_memory", "topic_id": TOPIC, "text": sources[0]["text"],
                "evidence_ids": evidence,
                "sources": [{"source_id": row["source_id"], "role": row["author_role"],
@@ -134,6 +138,7 @@ def test_teacher_index_reports_flags_and_readonly_registry_status(diagnostics_cl
                             headers=case.headers["teacher"], params={"q": SOURCE_TEXT})
     assert empty.status_code == 200 and empty.json()["status"] == "not_approved"
     assert empty.json()["hint"]
+    assert empty.json()["quote_check"] == {"status": "not_requested"}
 
 
 def test_student_and_foreign_requests_are_forbidden(diagnostics_client):
@@ -141,7 +146,7 @@ def test_student_and_foreign_requests_are_forbidden(diagnostics_client):
     for path in (f"/learners/{LEARNER}/memory/diagnostics/index",
                  f"/learners/{LEARNER}/memory/diagnostics/retrieval"):
         assert case.client.get(path, headers=case.headers["student"],
-                               params={"q": SOURCE_TEXT}).status_code == 403
+                               params={"q": "процитируй дословно про дроби"}).status_code == 403
     assert case.client.get(f"/learners/{LEARNER}/memory/diagnostics/index").status_code == 401
 
 
@@ -177,6 +182,7 @@ def test_retrieval_with_approved_version_returns_channels_and_graph_reason(diagn
     assert context["text"] and SOURCE_TEXT in context["text"]
     assert context["retrieval_diagnostics"]["graph_channel"]["reason"] == graph["reason"]
     assert context["selection_budget"]["limit"] == 10000
+    assert data["quote_check"] == {"status": "not_requested"}
 
     # graph_hybrid is accepted and stays on the same unified path with a reason.
     hybrid = case.client.get(f"/learners/{LEARNER}/memory/diagnostics/retrieval",
@@ -186,15 +192,50 @@ def test_retrieval_with_approved_version_returns_channels_and_graph_reason(diagn
     assert isinstance(hybrid.json()["graph_channel"]["reason"], str)
 
 
+@pytest.mark.parametrize(("question", "author", "status", "expected_text"), [
+    ("процитируй дословно про дроби с одинаковым знаменателем и числителем на рисунке",
+     "user", "unique", SOURCE_TEXT),
+    ("процитируй дословно про одинаковый знаменатель", "user", "ambiguous", None),
+    ("процитируй дословно про динозавра", "user", "unavailable", None),
+    ("процитируй дословно, что помощник сказал про числители",
+     "assistant", "unique", "Попробуй сравнить числители."),
+])
+def test_quote_selection_uses_only_the_diagnostic_context(diagnostics_client, question, author, status, expected_text):
+    case = diagnostics_client
+    _lesson(case.store, second_message="Мы увидели одинаковый знаменатель.")
+    _approve_personal_memory(case.store, include_all=True)
+    response = case.client.get(f"/learners/{LEARNER}/memory/diagnostics/retrieval",
+                               headers=case.headers["teacher"], params={"q": question})
+    assert response.status_code == 200, response.text
+    data = response.json()
+    check = data["quote_check"]
+    assert (check["author"], check["status"]) == (author, status)
+    context = data["context"]
+    if author == "user":
+        scope = {row["source_id"]: row["text"] for row in context["sources"] if row["role"] == "student"}
+    else:
+        scope = {f"context:{position}:{row['source_id']}": row["text"]
+                 for position, key in (("before", "dialogue_context"), ("after", "session_end_context"))
+                 for row in context[key]}
+    candidates = {row["source_id"]: row["text"] for row in check["candidates"]}
+    assert candidates == scope and candidates
+    if expected_text is None:
+        assert check["selected_source_id"] is None
+    else:
+        assert candidates[check["selected_source_id"]] == expected_text
+
+
 def test_retrieval_without_approved_memory_stays_conservative(diagnostics_client):
     case = diagnostics_client
     _lesson(case.store)
     response = case.client.get(f"/learners/{LEARNER}/memory/diagnostics/retrieval",
-                               headers=case.headers["teacher"], params={"q": SOURCE_TEXT})
+                               headers=case.headers["teacher"], params={"q": "процитируй дословно про дроби"})
     assert response.status_code == 200, response.text
     data = response.json()
     assert data["status"] == "not_approved" and data["hint"]
     assert "context" not in data and "channels" not in data
+    assert data["quote_check"] == {"status": "unavailable", "author": "user",
+                                   "selected_source_id": None, "candidates": []}
 
 
 def test_retrieval_honors_explicit_smaller_and_larger_budgets(diagnostics_client):

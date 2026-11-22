@@ -162,15 +162,24 @@ def format_ambiguous(sources: Sequence[Mapping[str, Any]], author: Literal["user
     return "\n".join([*lines, question])
 
 
-def recall_quote_guard(question: str, sources: Sequence[Mapping[str, Any]], answer: str) -> dict[str, Any] | None:
+def quote_source_selection(question: str, sources: Sequence[Mapping[str, Any]]):
+    """Return the author, eligible sources and leaders before checking an answer."""
     if not is_verbatim_request(question):
         return None
     author = "assistant" if is_assistant_quote_request(question) else "user"
     candidates = eligible_sources(sources, author)
+    selection, leaders = select_quote_sources(question, candidates)
+    return author, candidates, selection, leaders
+
+
+def recall_quote_guard(question: str, sources: Sequence[Mapping[str, Any]], answer: str) -> dict[str, Any] | None:
+    result = quote_source_selection(question, sources)
+    if result is None:
+        return None
+    author, candidates, selection, leaders = result
     candidate_ids = [str(source["source_id"]) for source in candidates if source.get("source_id") is not None]
     check: dict[str, Any] = {"status": "unavailable", "selected_source_id": None,
                              "candidate_source_ids": candidate_ids, "match": None, "author": author}
-    selection, leaders = select_quote_sources(question, candidates)
     if selection == "unique":
         source = leaders[0]
         source_id = source.get("source_id")
